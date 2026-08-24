@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -66,7 +67,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
   Future<void> _handleRunMatrixCheck() async {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ برجاء اختيار ملف الشحنة أولاً لإجراء الفحص المتقاطع.')),
+        SnackBar(content: Text(context.l10n.customsApprovalSelectFileForMatrixWarning)),
       );
       return;
     }
@@ -78,14 +79,14 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
       setState(() => _matrixResult = res);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✅ تم الانتهاء من الفحص المتقاطع الآلي: ${res.overallCompliance}'),
+          content: Text(context.l10n.customsApprovalMatrixCheckCompleted(res.overallCompliance)),
           backgroundColor: res.overallCompliance == 'Fully Compliant' ? AppTheme.emerald : AppTheme.orange,
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ فشل إجراء الفحص: $e'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.customsApprovalMatrixCheckFailed(e.toString())), backgroundColor: AppTheme.crimson),
       );
     } finally {
       if (mounted) {
@@ -97,7 +98,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
   Future<void> _handleAutoGenerate() async {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ برجاء اختيار ملف الشحنة أولاً.')),
+        SnackBar(content: Text(context.l10n.customsApprovalSelectFileWarning)),
       );
       return;
     }
@@ -106,12 +107,12 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
       await ref.read(docsCustomsApprovalProvider.notifier).autoGenerateChecklist(_selectedImportFileId!);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ تم توليد قائمة مستندات الاعتماد القياسية بنجاح.'), backgroundColor: AppTheme.emerald),
+        SnackBar(content: Text(context.l10n.customsApprovalStandardListGeneratedSuccess), backgroundColor: AppTheme.emerald),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ خطأ أثناء التوليد: $e'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.customsApprovalGenerateFailed(e.toString())), backgroundColor: AppTheme.crimson),
       );
     }
   }
@@ -133,7 +134,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
   void _showRaiseTicketDialog([CustomsDocumentApprovalModel? item]) {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ برجاء اختيار ملف الشحنة لربط التذكرة.')),
+        SnackBar(content: Text(context.l10n.customsApprovalSelectFileForTicketWarning)),
       );
       return;
     }
@@ -176,8 +177,8 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                     width: 320,
                     child: SearchableDropdownField<int>(
                       value: _selectedImportFileId,
-                      labelText: 'ملف الشحنة المستوردة (Import File)',
-                      searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
+                      labelText: context.l10n.customsApprovalImportFileLabel,
+                      searchHintText: context.l10n.customsApprovalSearchFileHint,
                       items: importFiles.map((f) {
                         final code = f.customFileNumber ?? f.importFileCode;
                         return SearchableDropdownItem(
@@ -205,7 +206,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                     icon: _isRunningMatrixCheck
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Icon(Icons.auto_awesome),
-                    label: const Text('فحص متقاطع ذكي (AI Matrix Audit)'),
+                    label: Text(context.l10n.customsApprovalRunAiMatrixButton),
                   ),
                   const SizedBox(width: 8),
                   OutlinedButton.icon(
@@ -215,7 +216,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                     ),
                     onPressed: _handleAutoGenerate,
                     icon: const Icon(Icons.playlist_add_check),
-                    label: const Text('توليد القائمة القياسية'),
+                    label: Text(context.l10n.customsApprovalAutoGenerateStandardListButton),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton.icon(
@@ -226,7 +227,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                     ),
                     onPressed: () => _showRaiseTicketDialog(),
                     icon: const Icon(Icons.report_problem_outlined),
-                    label: const Text('تذكرة استدراك للمورد'),
+                    label: Text(context.l10n.customsApprovalRaiseTicketButton),
                   ),
                   const SizedBox(width: 16),
                   const VerticalDivider(width: 1, thickness: 1),
@@ -237,12 +238,12 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                     underline: const SizedBox.shrink(),
                     icon: const Icon(Icons.filter_list, size: 18, color: AppTheme.charcoal),
                     borderRadius: BorderRadius.circular(8),
-                    items: const [
-                      DropdownMenuItem(value: 'All', child: Text('الكل (All)')),
-                      DropdownMenuItem(value: 'Pending', child: Text('قيد المراجعة (Pending)')),
-                      DropdownMenuItem(value: 'Approved', child: Text('معتمد (Approved)')),
-                      DropdownMenuItem(value: 'Rejected', child: Text('مرفوض (Rejected)')),
-                      DropdownMenuItem(value: 'Discrepancy', child: Text('يوجد فروق (Discrepancy)')),
+                    items: [
+                      DropdownMenuItem(value: 'All', child: Text(context.l10n.customsApprovalFilterAll)),
+                      DropdownMenuItem(value: 'Pending', child: Text(context.l10n.customsApprovalFilterPending)),
+                      DropdownMenuItem(value: 'Approved', child: Text(context.l10n.customsApprovalFilterApproved)),
+                      DropdownMenuItem(value: 'Rejected', child: Text(context.l10n.customsApprovalFilterRejected)),
+                      DropdownMenuItem(value: 'Discrepancy', child: Text(context.l10n.customsApprovalFilterDiscrepancy)),
                     ],
                     onChanged: (val) {
                       if (val == null) return;
@@ -265,7 +266,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
               children: [
                 ChoiceChip(
                   avatar: Icon(Icons.verified_user, size: 16, color: _activeViewIndex == 0 ? Colors.white : AppTheme.cobalt),
-                  label: const Text('مصفوفة الاعتماد الثنائي والفحص المتقاطع', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  label: Text(context.l10n.customsApprovalTabDualSignoff, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   selected: _activeViewIndex == 0,
                   selectedColor: AppTheme.cobalt,
                   labelStyle: TextStyle(color: _activeViewIndex == 0 ? Colors.white : AppTheme.charcoal),
@@ -276,7 +277,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                 const SizedBox(width: 8),
                 ChoiceChip(
                   avatar: Icon(Icons.inventory_2_outlined, size: 16, color: _activeViewIndex == 1 ? Colors.white : AppTheme.emerald),
-                  label: const Text('الأرشيف المركزي وملخص إخطارات التعديل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  label: Text(context.l10n.customsApprovalTabCentralArchive, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   selected: _activeViewIndex == 1,
                   selectedColor: AppTheme.emerald,
                   labelStyle: TextStyle(color: _activeViewIndex == 1 ? Colors.white : AppTheme.charcoal),
@@ -322,7 +323,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'نتيجة المطابقة المتقاطعة: ${_matrixResult!.overallCompliance} (${_matrixResult!.passedChecks}/${_matrixResult!.totalChecks} مطابق)',
+                        context.l10n.customsApprovalMatrixComplianceResult(_matrixResult!.overallCompliance, _matrixResult!.passedChecks, _matrixResult!.totalChecks),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: _matrixResult!.overallCompliance == 'Fully Compliant'
@@ -332,14 +333,14 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                       ),
                       if (_matrixResult!.recommendations.isNotEmpty)
                         Text(
-                          'توصيات الجمارك: ${_matrixResult!.recommendations.join(' | ')}',
+                          context.l10n.customsApprovalMatrixRecommendations(_matrixResult!.recommendations.join(' | ')),
                           style: const TextStyle(fontSize: 11, color: Colors.black87),
                         ),
                     ],
                   ),
                 ),
                 Text(
-                  'تذاكر مفتوحة: ${_matrixResult!.openTicketsCount}',
+                  context.l10n.customsApprovalMatrixOpenTicketsCount(_matrixResult!.openTicketsCount),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                 ),
               ],
@@ -376,17 +377,17 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                             children: [
                               const Icon(Icons.verified_user, color: AppTheme.cobalt),
                               const SizedBox(width: 8),
-                              const Expanded(
+                              Expanded(
                                 child: Text(
-                                  'مصفوفة اعتماد المستندات الجمركية (Dual-Tier Sign-off)',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  context.l10n.customsApprovalDualTierHeader,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.refresh, size: 20),
                                 onPressed: _refresh,
-                                tooltip: 'تحديث',
+                                tooltip: context.l10n.refresh,
                               ),
                             ],
                           ),
@@ -394,11 +395,11 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                           Expanded(
                             child: approvalsState.when(
                               loading: () => const Center(child: CircularProgressIndicator()),
-                              error: (e, _) => Center(child: Text('خطأ: $e', style: const TextStyle(color: Colors.red))),
+                              error: (e, _) => Center(child: Text(context.l10n.customsApprovalError(e.toString()), style: const TextStyle(color: Colors.red))),
                               data: (approvals) {
                                 if (approvals.isEmpty) {
-                                  return const Center(
-                                    child: Text('لا توجد مستندات مسجلة. اضغط "توليد القائمة القياسية" للبدء.'),
+                                  return Center(
+                                    child: Text(context.l10n.customsApprovalNoDocuments),
                                   );
                                 }
                                 return ListView.separated(
@@ -434,16 +435,16 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                             children: [
                               const Icon(Icons.confirmation_number_outlined, color: AppTheme.orange),
                               const SizedBox(width: 8),
-                              const Expanded(
+                              Expanded(
                                 child: Text(
-                                  'سجل تذاكر الاستدراك والاستفسارات',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  context.l10n.customsApprovalTicketsHeader,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               TextButton.icon(
                                 icon: const Icon(Icons.add, size: 16),
-                                label: const Text('تذكرة جديدة'),
+                                label: Text(context.l10n.customsApprovalNewTicketButton),
                                 onPressed: () => _showRaiseTicketDialog(),
                               ),
                             ],
@@ -452,11 +453,11 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                           Expanded(
                             child: ticketsState.when(
                               loading: () => const Center(child: CircularProgressIndicator()),
-                              error: (e, _) => Center(child: Text('خطأ: $e', style: const TextStyle(color: Colors.red))),
+                              error: (e, _) => Center(child: Text(context.l10n.customsApprovalError(e.toString()), style: const TextStyle(color: Colors.red))),
                               data: (tickets) {
                                 if (tickets.isEmpty) {
-                                  return const Center(
-                                    child: Text('لا توجد تذاكر استدراك مفتوحة. كافة المستندات متطابقة.'),
+                                  return Center(
+                                    child: Text(context.l10n.customsApprovalNoTickets),
                                   );
                                 }
                                 return ListView.separated(
@@ -513,7 +514,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
               if (item.documentReferenceNo != null)
                 Flexible(
                   child: Text(
-                    'رقم: ${item.documentReferenceNo}',
+                    context.l10n.customsApprovalDocRef(item.documentReferenceNo!),
                     style: const TextStyle(fontSize: 12, color: Colors.black54),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -563,7 +564,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'المراجعة التجارية: ${item.commercialStatus}',
+                        context.l10n.customsApprovalCommercialReviewStatus(item.commercialStatus),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -600,7 +601,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'اعتماد المخلص الجمركي: ${item.customsStatus}',
+                        context.l10n.customsApprovalBrokerReviewStatus(item.customsStatus),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -671,7 +672,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
-                  'المتوقع: ${ticket.expectedValue ?? "-"} ➔ الوارد بالمسودة: ${ticket.foundValue ?? "-"}',
+                  context.l10n.customsApprovalTicketExpectedVsFound(ticket.expectedValue ?? "-", ticket.foundValue ?? "-"),
                   style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
                 ),
               ),
@@ -681,7 +682,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                 child: TextButton.icon(
                   style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                   icon: const Icon(Icons.check_circle_outline, size: 14),
-                  label: const Text('تسجيل رد المورد / إغلاق التذكرة', style: TextStyle(fontSize: 11)),
+                  label: Text(context.l10n.customsApprovalResolveTicketButton, style: const TextStyle(fontSize: 11)),
                   onPressed: () => _showResolveTicketDialog(ticket),
                 ),
               ),
@@ -721,7 +722,7 @@ class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
       return AlertDialog(
-        title: Text('المراجعة التجارية: ${widget.item.documentType}'),
+        title: Text(context.l10n.customsApprovalCommercialDialogTitle(widget.item.documentType)),
         content: Form(
           key: _formKey,
           child: SizedBox(
@@ -731,18 +732,18 @@ class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
               children: [
                 TextFormField(
                   controller: _nameCtrl,
-                  decoration: const InputDecoration(labelText: 'اسم المراجع التجاري *', border: OutlineInputBorder()),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'الحقل إلزامي' : null,
+                  decoration: InputDecoration(labelText: context.l10n.customsApprovalCommercialReviewerLabel, border: const OutlineInputBorder()),
+                  validator: (v) => v == null || v.trim().isEmpty ? context.l10n.customsApprovalRequiredField : null,
                 ),
                 const SizedBox(height: 12),
                 SearchableDropdownField<String>(
                   value: _selectedStatus,
-                  labelText: 'قرار المراجعة *',
-                  searchHintText: 'اختر القرار...',
-                  items: const [
-                    SearchableDropdownItem(value: 'Approved', label: 'Approved (معتمد تجارياً)'),
-                    SearchableDropdownItem(value: 'Under Review', label: 'Under Review (قيد المراجعة)'),
-                    SearchableDropdownItem(value: 'Rejected', label: 'Rejected (مرفوض لوجود أخطاء)'),
+                  labelText: context.l10n.customsApprovalCommercialDecisionLabel,
+                  searchHintText: context.l10n.customsApprovalSelectDecisionHint,
+                  items: [
+                    SearchableDropdownItem(value: 'Approved', label: context.l10n.customsApprovalDecisionCommercialApproved),
+                    SearchableDropdownItem(value: 'Under Review', label: context.l10n.customsApprovalDecisionCommercialUnderReview),
+                    SearchableDropdownItem(value: 'Rejected', label: context.l10n.customsApprovalDecisionCommercialRejected),
                   ],
                   onChanged: (val) {
                     if (val != null) setState(() => _selectedStatus = val);
@@ -752,14 +753,14 @@ class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
                 TextFormField(
                   controller: _notesCtrl,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'ملاحظات المراجعة التجارية', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: context.l10n.customsApprovalCommercialNotesLabel, border: const OutlineInputBorder()),
                 ),
               ],
             ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
             onPressed: _isSubmitting
@@ -779,14 +780,14 @@ class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('خطأ: $e'), backgroundColor: AppTheme.crimson),
+                          SnackBar(content: Text(context.l10n.customsApprovalError(e.toString())), backgroundColor: AppTheme.crimson),
                         );
                       }
                     } finally {
                       setState(() => _isSubmitting = false);
                     }
                   },
-            child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : const Text('حفظ الاعتماد'),
+            child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : Text(context.l10n.customsApprovalSaveApprovalButton),
           ),
         ],
       );
@@ -825,7 +826,7 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
       return AlertDialog(
-        title: Text('اعتماد المخلص الجمركي: ${widget.item.documentType}'),
+        title: Text(context.l10n.customsApprovalBrokerDialogTitle(widget.item.documentType)),
         content: Form(
           key: _formKey,
           child: SizedBox(
@@ -835,24 +836,24 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
               children: [
                 TextFormField(
                   controller: _brokerCtrl,
-                  decoration: const InputDecoration(labelText: 'مكتب / شركة التخليص الجمركي *', border: OutlineInputBorder()),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'الحقل إلزامي' : null,
+                  decoration: InputDecoration(labelText: context.l10n.customsApprovalBrokerOfficeLabel, border: const OutlineInputBorder()),
+                  validator: (v) => v == null || v.trim().isEmpty ? context.l10n.customsApprovalRequiredField : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _reviewerCtrl,
-                  decoration: const InputDecoration(labelText: 'اسم المراجع القانوني / المخلص *', border: OutlineInputBorder()),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'الحقل إلزامي' : null,
+                  decoration: InputDecoration(labelText: context.l10n.customsApprovalBrokerReviewerNameLabel, border: const OutlineInputBorder()),
+                  validator: (v) => v == null || v.trim().isEmpty ? context.l10n.customsApprovalRequiredField : null,
                 ),
                 const SizedBox(height: 12),
                 SearchableDropdownField<String>(
                   value: _selectedStatus,
-                  labelText: 'قرار المطابقة الجمركية *',
-                  searchHintText: 'اختر القرار...',
-                  items: const [
-                    SearchableDropdownItem(value: 'Approved', label: 'Approved (معتمد للإفراج الجمركي)'),
-                    SearchableDropdownItem(value: 'Conditionally Approved', label: 'Conditionally Approved (معتمد بشرط)'),
-                    SearchableDropdownItem(value: 'Rejected', label: 'Rejected (مرفوض جمركياً)'),
+                  labelText: context.l10n.customsApprovalBrokerDecisionLabel,
+                  searchHintText: context.l10n.customsApprovalSelectDecisionHint,
+                  items: [
+                    SearchableDropdownItem(value: 'Approved', label: context.l10n.customsApprovalDecisionBrokerApproved),
+                    SearchableDropdownItem(value: 'Conditionally Approved', label: context.l10n.customsApprovalDecisionBrokerConditionallyApproved),
+                    SearchableDropdownItem(value: 'Rejected', label: context.l10n.customsApprovalDecisionBrokerRejected),
                   ],
                   onChanged: (val) {
                     if (val != null) setState(() => _selectedStatus = val);
@@ -862,14 +863,14 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
                 TextFormField(
                   controller: _notesCtrl,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'ملاحظات وتعهدات التخليص', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: context.l10n.customsApprovalBrokerNotesLabel, border: const OutlineInputBorder()),
                 ),
               ],
             ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
             onPressed: _isSubmitting
@@ -890,14 +891,14 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('خطأ: $e'), backgroundColor: AppTheme.crimson),
+                          SnackBar(content: Text(context.l10n.customsApprovalError(e.toString())), backgroundColor: AppTheme.crimson),
                         );
                       }
                     } finally {
                       setState(() => _isSubmitting = false);
                     }
                   },
-            child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : const Text('اعتماد رسمي وختم'),
+            child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : Text(context.l10n.customsApprovalBrokerSaveStampButton),
           ),
         ],
       );
@@ -939,7 +940,7 @@ class _RaiseTicketDialogState extends State<_RaiseTicketDialog> {
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
       return AlertDialog(
-        title: const Text('إصدار تذكرة استدراك وتعديل للمورد (Rectification Ticket)'),
+        title: Text(context.l10n.customsApprovalRaiseTicketDialogTitle),
         content: Form(
           key: _formKey,
           child: SizedBox(
@@ -950,16 +951,16 @@ class _RaiseTicketDialogState extends State<_RaiseTicketDialog> {
                 children: [
                   SearchableDropdownField<String>(
                     value: _issueCategory,
-                    labelText: 'تصنيف الخطأ / التناقض *',
-                    searchHintText: 'اختر التصنيف...',
-                    items: const [
-                      SearchableDropdownItem(value: 'HS Code Mismatch', label: 'HS Code Mismatch (عدم تطابق بند التعريفة)'),
-                      SearchableDropdownItem(value: 'Weight Discrepancy', label: 'Weight Discrepancy (اختلاف في الأوزان)'),
-                      SearchableDropdownItem(value: 'CBM Discrepancy', label: 'CBM Discrepancy (اختلاف الحجم التكعيبي)'),
-                      SearchableDropdownItem(value: 'Value Mismatch', label: 'Value/Currency Mismatch (اختلاف القيمة/العملة)'),
-                      SearchableDropdownItem(value: 'Missing ACID', label: 'Missing ACID (غياب رقم الـ ACID)'),
-                      SearchableDropdownItem(value: 'Incoterm Conflict', label: 'Incoterm Conflict (تعارض شرط الشحن)'),
-                      SearchableDropdownItem(value: 'Other', label: 'Other (أخرى)'),
+                    labelText: context.l10n.customsApprovalIssueCategoryLabel,
+                    searchHintText: context.l10n.customsApprovalSelectCategoryHint,
+                    items: [
+                      SearchableDropdownItem(value: 'HS Code Mismatch', label: context.l10n.customsApprovalCatHsMismatch),
+                      SearchableDropdownItem(value: 'Weight Discrepancy', label: context.l10n.customsApprovalCatWeightDiscrepancy),
+                      SearchableDropdownItem(value: 'CBM Discrepancy', label: context.l10n.customsApprovalCatCbmDiscrepancy),
+                      SearchableDropdownItem(value: 'Value Mismatch', label: context.l10n.customsApprovalCatValueMismatch),
+                      SearchableDropdownItem(value: 'Missing ACID', label: context.l10n.customsApprovalCatMissingAcid),
+                      SearchableDropdownItem(value: 'Incoterm Conflict', label: context.l10n.customsApprovalCatIncotermConflict),
+                      SearchableDropdownItem(value: 'Other', label: context.l10n.customsApprovalCatOther),
                     ],
                     onChanged: (val) {
                       if (val != null) setState(() => _issueCategory = val);
@@ -968,12 +969,12 @@ class _RaiseTicketDialogState extends State<_RaiseTicketDialog> {
                   const SizedBox(height: 12),
                   SearchableDropdownField<String>(
                     value: _severity,
-                    labelText: 'درجة الخطورة *',
-                    searchHintText: 'اختر درجة الخطورة...',
-                    items: const [
-                      SearchableDropdownItem(value: 'Critical', label: 'Critical (حرج - يمنع الشحن والإفراج)'),
-                      SearchableDropdownItem(value: 'Major', label: 'Major (رئيسي - يتطلب تعديل المسودة)'),
-                      SearchableDropdownItem(value: 'Minor', label: 'Minor (بسيط - للتنبيه)'),
+                    labelText: context.l10n.customsApprovalSeverityLabel,
+                    searchHintText: context.l10n.customsApprovalSelectSeverityHint,
+                    items: [
+                      SearchableDropdownItem(value: 'Critical', label: context.l10n.customsApprovalSevCritical),
+                      SearchableDropdownItem(value: 'Major', label: context.l10n.customsApprovalSevMajor),
+                      SearchableDropdownItem(value: 'Minor', label: context.l10n.customsApprovalSevMinor),
                     ],
                     onChanged: (val) {
                       if (val != null) setState(() => _severity = val);
@@ -983,8 +984,8 @@ class _RaiseTicketDialogState extends State<_RaiseTicketDialog> {
                   TextFormField(
                     controller: _descCtrl,
                     maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'وصف الخطأ والتناقض بالتفصيل *', border: OutlineInputBorder()),
-                    validator: (v) => v == null || v.trim().length < 5 ? 'الوصف يجب أن يكون 5 أحرف على الأقل' : null,
+                    decoration: InputDecoration(labelText: context.l10n.customsApprovalIssueDescLabel, border: const OutlineInputBorder()),
+                    validator: (v) => v == null || v.trim().length < 5 ? context.l10n.customsApprovalIssueDescMinLength : null,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -992,14 +993,14 @@ class _RaiseTicketDialogState extends State<_RaiseTicketDialog> {
                       Expanded(
                         child: TextFormField(
                           controller: _expectedCtrl,
-                          decoration: const InputDecoration(labelText: 'القيمة الصحيحة المطلوبة', border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: context.l10n.customsApprovalExpectedValueLabel, border: const OutlineInputBorder()),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: TextFormField(
                           controller: _foundCtrl,
-                          decoration: const InputDecoration(labelText: 'القيمة الخاطئة بالمسودة', border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: context.l10n.customsApprovalFoundValueLabel, border: const OutlineInputBorder()),
                         ),
                       ),
                     ],
@@ -1007,7 +1008,7 @@ class _RaiseTicketDialogState extends State<_RaiseTicketDialog> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _actionCtrl,
-                    decoration: const InputDecoration(labelText: 'الإجراء المطلوب من المورد تنفيذه', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: context.l10n.customsApprovalSupplierActionLabel, border: const OutlineInputBorder()),
                   ),
                 ],
               ),
@@ -1015,7 +1016,7 @@ class _RaiseTicketDialogState extends State<_RaiseTicketDialog> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange, foregroundColor: Colors.white),
             onPressed: _isSubmitting
@@ -1038,14 +1039,14 @@ class _RaiseTicketDialogState extends State<_RaiseTicketDialog> {
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('خطأ: $e'), backgroundColor: AppTheme.crimson),
+                          SnackBar(content: Text(context.l10n.customsApprovalError(e.toString())), backgroundColor: AppTheme.crimson),
                         );
                       }
                     } finally {
                       setState(() => _isSubmitting = false);
                     }
                   },
-            child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : const Text('إصدار التذكرة'),
+            child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : Text(context.l10n.customsApprovalCreateTicketSubmitButton),
           ),
         ],
       );
@@ -1082,7 +1083,7 @@ class _ResolveTicketDialogState extends State<_ResolveTicketDialog> {
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
       return AlertDialog(
-        title: Text('إغلاق تذكرة الاستدراك: ${widget.ticket.ticketCode}'),
+        title: Text(context.l10n.customsApprovalResolveTicketDialogTitle(widget.ticket.ticketCode)),
         content: Form(
           key: _formKey,
           child: SizedBox(
@@ -1093,24 +1094,24 @@ class _ResolveTicketDialogState extends State<_ResolveTicketDialog> {
                 TextFormField(
                   controller: _responseCtrl,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'رد وتعديل المورد *', border: OutlineInputBorder()),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'الحقل إلزامي' : null,
+                  decoration: InputDecoration(labelText: context.l10n.customsApprovalSupplierResponseLabel, border: const OutlineInputBorder()),
+                  validator: (v) => v == null || v.trim().isEmpty ? context.l10n.customsApprovalRequiredField : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _resolverCtrl,
-                  decoration: const InputDecoration(labelText: 'اسم المراجع القائم بالإغلاق *', border: OutlineInputBorder()),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'الحقل إلزامي' : null,
+                  decoration: InputDecoration(labelText: context.l10n.customsApprovalResolverNameLabel, border: const OutlineInputBorder()),
+                  validator: (v) => v == null || v.trim().isEmpty ? context.l10n.customsApprovalRequiredField : null,
                 ),
                 const SizedBox(height: 12),
                 SearchableDropdownField<String>(
                   value: _newStatus,
-                  labelText: 'الحالة النهائية *',
-                  searchHintText: 'اختر الحالة...',
-                  items: const [
-                    SearchableDropdownItem(value: 'Resolved', label: 'Resolved (تم تصحيح المسودة)'),
-                    SearchableDropdownItem(value: 'Waived', label: 'Waived (تم التنازل مع تعهد)'),
-                    SearchableDropdownItem(value: 'Closed', label: 'Closed (مغلقة)'),
+                  labelText: context.l10n.customsApprovalFinalStatusLabel,
+                  searchHintText: context.l10n.customsApprovalSelectStatusHint,
+                  items: [
+                    SearchableDropdownItem(value: 'Resolved', label: context.l10n.customsApprovalStatusResolved),
+                    SearchableDropdownItem(value: 'Waived', label: context.l10n.customsApprovalStatusWaived),
+                    SearchableDropdownItem(value: 'Closed', label: context.l10n.customsApprovalStatusClosed),
                   ],
                   onChanged: (val) {
                     if (val != null) setState(() => _newStatus = val);
@@ -1121,7 +1122,7 @@ class _ResolveTicketDialogState extends State<_ResolveTicketDialog> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
             onPressed: _isSubmitting
@@ -1143,14 +1144,14 @@ class _ResolveTicketDialogState extends State<_ResolveTicketDialog> {
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('خطأ: $e'), backgroundColor: AppTheme.crimson),
+                          SnackBar(content: Text(context.l10n.customsApprovalError(e.toString())), backgroundColor: AppTheme.crimson),
                         );
                       }
                     } finally {
                       setState(() => _isSubmitting = false);
                     }
                   },
-            child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : const Text('تأكيد الإغلاق'),
+            child: _isSubmitting ? const CircularProgressIndicator(color: Colors.white) : Text(context.l10n.customsApprovalConfirmResolveTicketButton),
           ),
         ],
       );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
@@ -27,8 +28,8 @@ class CustomsDeclaration46Screen extends ConsumerStatefulWidget {
 
 class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration46Screen> {
   // Active Vertical Sub-Tab:
-  // 0: 🏛️ قيد الإقرار الجمركي المبدئي (Initial Declaration 46 Registration)
-  // 1: 📋 سجل الشهادات الجمركية 46 (Declaration 46 Registry & Tracking)
+  // 0: Initial Declaration 46 Registration
+  // 1: Declaration 46 Registry & Tracking
   int _selectedSubTab = 0;
   int? _selectedImportFileId;
 
@@ -48,8 +49,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   // Compliance & HS Code Tariff States
   List<CustomsTariffModel> _matchedTariffs = [];
   bool _hasExemption = false;
-  String? _applicableExemption;
-  List<String> _exemptionConditions = [];
+  double _appliedDutyRate = 5.0;
   List<Map<String, dynamic>> _regulatoryApprovals = [];
 
   String _searchQuery = '';
@@ -108,9 +108,8 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       setState(() {
         _matchedTariffs = [];
         _regulatoryApprovals = [];
-        _exemptionConditions = [];
-        _applicableExemption = null;
         _hasExemption = false;
+        _appliedDutyRate = 5.0;
       });
       return;
     }
@@ -194,6 +193,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
 
     final primaryTariff = _matchedTariffs.isNotEmpty ? _matchedTariffs.first : null;
     final dutyRate = primaryTariff != null ? primaryTariff.customsDutyRate : 5.0;
+    _appliedDutyRate = dutyRate;
     final vatRate = primaryTariff != null ? primaryTariff.vatRate : 14.0;
     final devRate = primaryTariff != null ? primaryTariff.developmentFeeRate : 0.0;
     final serviceRate = primaryTariff != null ? primaryTariff.customsServiceFeeRate : 1.0;
@@ -229,33 +229,17 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
     final bool isEuropeanOrExempt = dutyRate == 0.0 || (file.portOfLoading != null && (file.portOfLoading!.contains('IT') || file.portOfLoading!.contains('FR') || file.portOfLoading!.contains('DE') || file.portOfLoading!.contains('ES')));
     _hasExemption = isEuropeanOrExempt;
 
-    if (_hasExemption) {
-      _applicableExemption = 'اتفاقية الشراكة المصرية الأوروبية (EUR.1) — إعفاء جمركي 0% لضريبة الوارد';
-      _exemptionConditions = [
-        'تقديم شهادة المنشأ الأوروبية (EUR.1 / COO) الأصلية المعتمدة ومستوفاة للأختام الرسمية.',
-        'إثبات الشحن المباشر (Direct Transport) من دولة المنشأ بالاتحاد الأوروبي إلى الموانئ المصرية.',
-        'إدراج رقم ACID وقيد المصنع المعتمد بالفاتورة التجارية وبوليصة الشحن.',
-      ];
-    } else {
-      _applicableExemption = 'خاضع للتعريفة الجمركية العامة (MFN Standard Tariff) — ضريبة الوارد ${dutyRate.toStringAsFixed(1)}%';
-      _exemptionConditions = [
-        'تقديم شهادة المنشأ الرسمية الموثقة من الغرفة التجارية لدولة المصدر.',
-        'سداد الرسوم والضرائب الجمركية المقررة عبر إذن سداد منظومة نافذة.',
-      ];
-    }
-
     // 6. Regulatory Approvals & Inspections Board
     _regulatoryApprovals = [];
     for (var t in _matchedTariffs) {
-      final authority = t.regulatoryAuthority ?? 'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)';
       _regulatoryApprovals.add({
         'hs_code': t.hsCode,
         'description': t.hsDescription,
-        'authority': authority,
+        'authority': t.regulatoryAuthority,
         'requires_inspection': t.requiresInspection,
         'requires_coo': t.requiresCoo,
         'requires_acid': t.requiresAcid,
-        'note': t.priorApprovalNote ?? 'مطلوب العرض الفني وسحب عينات مطابقة للمواصفات القياسية المصرية',
+        'note': t.priorApprovalNote,
         'status': 'APPROVED',
       });
     }
@@ -263,12 +247,12 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
     if (_regulatoryApprovals.isEmpty) {
       _regulatoryApprovals.add({
         'hs_code': fileHsCodes.first,
-        'description': 'بند البضائع والمنتجات المستوردة',
-        'authority': 'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)',
+        'description': null,
+        'authority': null,
         'requires_inspection': true,
         'requires_coo': true,
         'requires_acid': true,
-        'note': 'فحص ظاهري ومطابقة مستندية قبل الإفراج الجمركي',
+        'note': null,
         'status': 'APPROVED',
       });
     }
@@ -286,6 +270,8 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+
     final tabs = [
       const VerticalNavTabItem(
         icon: Icons.assignment_outlined,
@@ -313,20 +299,35 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       headerActions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: 'تحديث البيانات (Refresh)',
+          tooltip: l.customsDeclRefreshTooltip,
           onPressed: _refreshData,
         ),
       ],
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: _selectedSubTab == 0 ? _buildInitialDeclarationView() : _buildDeclarationRegistryView(),
+        child: _selectedSubTab == 0 ? _buildInitialDeclarationView(l) : _buildDeclarationRegistryView(l),
       ),
     );
   }
 
   // --- SUB-VIEW 0: INITIAL DECLARATION FORM ---
-  Widget _buildInitialDeclarationView() {
+  Widget _buildInitialDeclarationView(AppLocalizations l) {
     final importFiles = ref.watch(importFilesProvider).value ?? [];
+
+    final String exemptionTitle = _hasExemption
+        ? l.customsDeclEur1ExemptionTitle
+        : l.customsDeclMfnExemptionTitle(_appliedDutyRate.toStringAsFixed(1));
+
+    final List<String> exemptionConditions = _hasExemption
+        ? [
+            l.customsDeclEur1Condition1,
+            l.customsDeclEur1Condition2,
+            l.customsDeclEur1Condition3,
+          ]
+        : [
+            l.customsDeclMfnCondition1,
+            l.customsDeclMfnCondition2,
+          ];
 
     return Form(
       key: _declarationFormKey,
@@ -348,7 +349,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'مسودة إقرار 46 ك.م الجاهزة للربط مع نافذة. يتم سحب رقم ACID المعتمد، ورقم نموذج 4 البنكي الموثق، وبيانات بوليصة الشحن تلقائياً لحساب الوعاء الضريبي والضرائب المقدرة طبقاً لجدول التعريفة الجمركية والاتفاقيات التفضيلية.',
+                    l.customsDeclInfoBanner,
                     style: TextStyle(color: Colors.indigo.shade900, fontSize: 13, height: 1.4),
                   ),
                 ),
@@ -365,8 +366,8 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: SearchableDropdownField<int>(
-              labelText: 'اختر ملف الشحنة لقيد شهادة 46 (Select Import File)',
-              hintText: 'ابحث برقم الملف أو اسم المورد...',
+              labelText: l.customsDeclSelectFileLabel,
+              hintText: l.customsDeclSearchFileHint,
               value: _selectedImportFileId,
               isRequired: true,
               items: importFiles.map((f) => SearchableDropdownItem<int>(
@@ -389,9 +390,9 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'بيانات الإقرار الجمركي وأرقام القيد المعتمدة (Declaration 46 Attributes):',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                Text(
+                  l.customsDeclAttributesHeader,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
                 const Divider(height: 24),
                 Row(
@@ -401,22 +402,22 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                       child: TextFormField(
                         controller: _declaration46NoCtrl,
                         style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo),
-                        decoration: const InputDecoration(
-                          labelText: 'رقم الإقرار / الشهادة الجمركية (46 ك.م) *',
-                          prefixIcon: Icon(Icons.pin, color: Colors.indigo),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.customsDeclDeclarationNoLabel,
+                          prefixIcon: const Icon(Icons.pin, color: Colors.indigo),
+                          border: const OutlineInputBorder(),
                         ),
-                        validator: (val) => val == null || val.trim().isEmpty ? 'مطلوب' : null,
+                        validator: (val) => val == null || val.trim().isEmpty ? l.poRecRequired : null,
                       ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: TextFormField(
                         controller: _submissionDateCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'تاريخ القيد المبدئي *',
-                          prefixIcon: Icon(Icons.calendar_today),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.customsDeclSubmissionDateLabel,
+                          prefixIcon: const Icon(Icons.calendar_today),
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
@@ -428,10 +429,10 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                     Expanded(
                       child: TextFormField(
                         controller: _acidNumberCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'رقم القيد المسبق (ACID)',
-                          prefixIcon: Icon(Icons.qr_code),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.customsDeclAcidNumberLabel,
+                          prefixIcon: const Icon(Icons.qr_code),
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
@@ -439,10 +440,10 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                     Expanded(
                       child: TextFormField(
                         controller: _form4NumberCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'رقم نموذج 4 البنكي المعتمد',
-                          prefixIcon: Icon(Icons.account_balance),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.customsDeclForm4NumberLabel,
+                          prefixIcon: const Icon(Icons.account_balance),
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
@@ -450,10 +451,10 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                     Expanded(
                       child: TextFormField(
                         controller: _blNumberCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'رقم بوليصة الشحن (B/L)',
-                          prefixIcon: Icon(Icons.assignment),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.customsDeclBlNumberLabel,
+                          prefixIcon: const Icon(Icons.assignment),
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
@@ -461,9 +462,9 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                 ),
                 const SizedBox(height: 24),
 
-                const Text(
-                  'الوعاء الضريبي والرسوم المقدرة (Customs Base & Estimated Duties - EGP):',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.indigo),
+                Text(
+                  l.customsDeclDutiesHeader,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.indigo),
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -472,10 +473,10 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                       child: TextFormField(
                         controller: _customsValueEgpCtrl,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'القيمة الجمركية CIF (جنيه)',
-                          prefixIcon: Icon(Icons.monetization_on),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.customsDeclCifValueLabel,
+                          prefixIcon: const Icon(Icons.monetization_on),
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
@@ -484,9 +485,9 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                       child: TextFormField(
                         controller: _importDutyEgpCtrl,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'ضريبة الوارد المقدرة (جنيه)',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.customsDeclImportDutyLabel,
+                          border: const OutlineInputBorder(),
                         ),
                         onChanged: (_) => _calculateTotalDuties(),
                       ),
@@ -496,9 +497,9 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                       child: TextFormField(
                         controller: _vatEgpCtrl,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'ضريبة القيمة المضافة VAT (جنيه)',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.customsDeclVatLabel,
+                          border: const OutlineInputBorder(),
                         ),
                         onChanged: (_) => _calculateTotalDuties(),
                       ),
@@ -509,9 +510,9 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                         controller: _totalDutyAndTaxesCtrl,
                         readOnly: true,
                         style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson),
-                        decoration: const InputDecoration(
-                          labelText: 'إجمالي الضرائب والرسوم المقدرة',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.customsDeclTotalDutiesLabel,
+                          border: const OutlineInputBorder(),
                           filled: true,
                         ),
                       ),
@@ -524,7 +525,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
           const SizedBox(height: 20),
 
           // Exemption & Trade Agreement Card
-          if (_applicableExemption != null) ...[
+          if (_selectedImportFileId != null) ...[
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -541,7 +542,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'الموقف الجمركي وتطبيق الإعفاءات التفضيلية (HS Code Exemption & Trade Agreement):',
+                          l.customsDeclExemptionHeader,
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: _hasExemption ? Colors.green.shade900 : Colors.blueGrey.shade900),
                         ),
                       ),
@@ -561,7 +562,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            _applicableExemption!,
+                            exemptionTitle,
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _hasExemption ? Colors.green.shade900 : Colors.blueGrey.shade900),
                           ),
                         ),
@@ -570,11 +571,11 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '📌 الشروط والضوابط الإلزامية للاستفادة من الإعفاء الجمركي:',
+                    l.customsDeclExemptionConditionsHeader,
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: _hasExemption ? Colors.green.shade900 : Colors.blueGrey.shade800),
                   ),
                   const SizedBox(height: 6),
-                  ..._exemptionConditions.map((cond) => Padding(
+                  ...exemptionConditions.map((cond) => Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -603,14 +604,14 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.policy_outlined, color: AppTheme.cobalt, size: 22),
-                      SizedBox(width: 10),
+                      const Icon(Icons.policy_outlined, color: AppTheme.cobalt, size: 22),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'العروض والموافقات المطلوبة والاشتراطات الرقابية (Regulatory Approvals & Inspections):',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          l.customsDeclRegulatoryHeader,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -620,19 +621,26 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                      columns: const [
-                        DataColumn(label: Text('بند التعريفة (HS Code)', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('جهة العرض الرقابي (Authority)', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('فحص مسبق', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('شهادة المنشأ', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('الاشتراطات والملاحظات الرقابية', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('حالة الموافقة', style: TextStyle(fontWeight: FontWeight.bold))),
+                      columns: [
+                        DataColumn(label: Text(l.customsDeclColHsCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsDeclColAuthority, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsDeclColInspection, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsDeclColCoo, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsDeclColRequirements, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsDeclColApprovalStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
                       ],
                       rows: _regulatoryApprovals.map((appr) {
+                        final String authorityText = (appr['authority'] != null && appr['authority'].toString().trim().isNotEmpty)
+                            ? appr['authority'].toString()
+                            : l.customsDeclDefaultAuthority;
+                        final String noteText = (appr['note'] != null && appr['note'].toString().trim().isNotEmpty)
+                            ? appr['note'].toString()
+                            : (appr['requires_inspection'] == true ? l.customsDeclDefaultNote : l.customsDeclVisualInspectionNote);
+
                         return DataRow(
                           cells: [
                             DataCell(Text(appr['hs_code'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontFamily: 'monospace'))),
-                            DataCell(Text(appr['authority'] ?? '-', style: const TextStyle(fontWeight: FontWeight.w600))),
+                            DataCell(Text(authorityText, style: const TextStyle(fontWeight: FontWeight.w600))),
                             DataCell(Icon(
                               appr['requires_inspection'] == true ? Icons.check_circle : Icons.remove_circle_outline,
                               color: appr['requires_inspection'] == true ? Colors.amber.shade800 : Colors.grey,
@@ -643,7 +651,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                               color: appr['requires_coo'] == true ? Colors.green : Colors.grey,
                               size: 18,
                             )),
-                            DataCell(Text(appr['note'] ?? '-', style: const TextStyle(fontSize: 12))),
+                            DataCell(Text(noteText, style: const TextStyle(fontSize: 12))),
                             DataCell(
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -652,7 +660,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(color: Colors.green.shade300),
                                 ),
-                                child: const Text('مستوفى ومعتمد', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
+                                child: Text(l.customsDeclStatusFulfilled, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
                               ),
                             ),
                           ],
@@ -674,12 +682,12 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            onPressed: _isSavingDeclaration ? null : _saveDeclaration46,
+            onPressed: _isSavingDeclaration ? null : () => _saveDeclaration46(l),
             icon: _isSavingDeclaration
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.save),
             label: Text(
-              _isSavingDeclaration ? 'جارٍ الحفظ...' : 'حفظ وقيد الإقرار الجمركي المبدئي',
+              _isSavingDeclaration ? l.customsDeclSavingProgress : l.customsDeclSaveButton,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ),
@@ -689,7 +697,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   }
 
   // --- SUB-VIEW 1: REGISTRY VIEW ---
-  Widget _buildDeclarationRegistryView() {
+  Widget _buildDeclarationRegistryView(AppLocalizations l) {
     final importFiles = ref.watch(importFilesProvider).value ?? [];
 
     final filtered = importFiles.where((f) {
@@ -706,7 +714,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
             Expanded(
               child: TextField(
                 decoration: InputDecoration(
-                  hintText: 'بحث في سجل الإقرارات الجمركية وشهادات 46...',
+                  hintText: l.customsDeclRegistrySearchHint,
                   prefixIcon: const Icon(Icons.search),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   filled: true,
@@ -725,7 +733,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
               ),
               onPressed: () => setState(() => _selectedSubTab = 0),
               icon: const Icon(Icons.add),
-              label: const Text('قيد إقرار جديد'),
+              label: Text(l.customsDeclRegisterNewButton),
             ),
           ],
         ),
@@ -740,12 +748,12 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
           ),
           child: DataTable(
             headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-            columns: const [
-              DataColumn(label: Text('رقم الإقرار (46 ك.م)', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('رقم الملف', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('المورد الأجنبي', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('تاريخ القيد', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('حالة الإقرار', style: TextStyle(fontWeight: FontWeight.bold))),
+            columns: [
+              DataColumn(label: Text(l.customsDeclColDeclarationNo, style: const TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text(l.customsDeclColFileNumber, style: const TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text(l.customsDeclColSupplier, style: const TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text(l.customsDeclColRegistrationDate, style: const TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text(l.customsDeclColDeclarationStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
             ],
             rows: filtered.map((f) {
               return DataRow(
@@ -762,7 +770,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: Colors.blue.shade300),
                       ),
-                      child: const Text('مقيد مبدئياً على نافذة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                      child: Text(l.customsDeclStatusRegisteredNafeza, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
                     ),
                   ),
                 ],
@@ -774,11 +782,11 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
     );
   }
 
-  Future<void> _saveDeclaration46() async {
+  Future<void> _saveDeclaration46(AppLocalizations l) async {
     if (!_declarationFormKey.currentState!.validate()) return;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(l.customsDeclSelectFileWarning), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -788,7 +796,7 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
     if (mounted) {
       setState(() => _isSavingDeclaration = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم قيد وحفظ مسودة الإقرار الجمركي (46 ك.م) بنجاح'), backgroundColor: AppTheme.emerald),
+        SnackBar(content: Text(l.customsDeclSaveSuccess), backgroundColor: AppTheme.emerald),
       );
       setState(() => _selectedSubTab = 1);
     }

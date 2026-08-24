@@ -1277,6 +1277,59 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poRecQtyDiff => 'فارق كمية';
   @override String get poRecOk => 'مطابق';
   @override String get poRecUnassignedHsCode => 'بدون بند جمركي';
+
+  // ── Screen 23: Customs Declaration 46 ──────────────────────────────────────
+  @override String get customsDeclStageTitle => 'الإقرار الجمركي المبدئي وشهادة 46 ك.م';
+  @override String get customsDeclTabInitialForm => 'قيد الإقرار الجمركي المبدئي';
+  @override String get customsDeclTabRegistry => 'سجل شهادات 46 ومتابعتها';
+  @override String get customsDeclRefreshTooltip => 'تحديث البيانات';
+  @override String get customsDeclInfoBanner => 'مسودة إقرار 46 ك.م الجاهزة للربط مع نافذة. يتم سحب رقم ACID المعتمد، ورقم نموذج 4 البنكي الموثق، وبيانات بوليصة الشحن تلقائياً لحساب الوعاء الضريبي والضرائب المقدرة طبقاً لجدول التعريفة الجمركية والاتفاقيات التفضيلية.';
+  @override String get customsDeclSelectFileLabel => 'ملف الشحنة لقيد شهادة 46 *';
+  @override String get customsDeclSearchFileHint => 'ابحث برقم الملف أو اسم المورد...';
+  @override String get customsDeclAttributesHeader => 'بيانات الإقرار الجمركي وأرقام القيد المعتمدة:';
+  @override String get customsDeclDeclarationNoLabel => 'رقم الإقرار والشهادة الجمركية (46 ك.م) *';
+  @override String get customsDeclSubmissionDateLabel => 'تاريخ القيد المبدئي *';
+  @override String get customsDeclAcidNumberLabel => 'رقم القيد المسبق (ACID)';
+  @override String get customsDeclForm4NumberLabel => 'رقم نموذج 4 البنكي المعتمد';
+  @override String get customsDeclBlNumberLabel => 'رقم بوليصة الشحن (B/L)';
+  @override String get customsDeclDutiesHeader => 'الوعاء الضريبي والرسوم المقدرة (بالجنيه المصري):';
+  @override String get customsDeclCifValueLabel => 'القيمة الجمركية CIF (جنيه)';
+  @override String get customsDeclImportDutyLabel => 'ضريبة الوارد المقدرة (جنيه)';
+  @override String get customsDeclVatLabel => 'ضريبة القيمة المضافة VAT (جنيه)';
+  @override String get customsDeclTotalDutiesLabel => 'إجمالي الضرائب والرسوم المقدرة';
+  @override String get customsDeclExemptionHeader => 'الموقف الجمركي وتطبيق الإعفاءات التفضيلية:';
+  @override String get customsDeclExemptionConditionsHeader => '📌 الشروط والضوابط الإلزامية للاستفادة من الإعفاء الجمركي:';
+  @override String get customsDeclEur1ExemptionTitle => 'اتفاقية الشراكة المصرية الأوروبية (EUR.1) — إعفاء جمركي 0% لضريبة الوارد';
+  @override String get customsDeclEur1Condition1 => 'تقديم شهادة المنشأ الأوروبية (EUR.1 / COO) الأصلية المعتمدة ومستوفاة للأختام الرسمية.';
+  @override String get customsDeclEur1Condition2 => 'إثبات الشحن المباشر (Direct Transport) من دولة المنشأ بالاتحاد الأوروبي إلى الموانئ المصرية.';
+  @override String get customsDeclEur1Condition3 => 'إدراج رقم ACID وقيد المصنع المعتمد بالفاتورة التجارية وبوليصة الشحن.';
+  @override String customsDeclMfnExemptionTitle(String rate) => 'خاضع للتعريفة الجمركية العامة (MFN Standard Tariff) — ضريبة الوارد $rate%';
+  @override String get customsDeclMfnCondition1 => 'تقديم شهادة المنشأ الرسمية الموثقة من الغرفة التجارية لدولة المصدر.';
+  @override String get customsDeclMfnCondition2 => 'سداد الرسوم والضرائب الجمركية المقررة عبر إذن سداد منظومة نافذة.';
+  @override String get customsDeclRegulatoryHeader => 'العروض والموافقات المطلوبة والاشتراطات الرقابية:';
+  @override String get customsDeclColHsCode => 'بند التعريفة (HS Code)';
+  @override String get customsDeclColAuthority => 'جهة العرض الرقابي';
+  @override String get customsDeclColInspection => 'فحص مسبق';
+  @override String get customsDeclColCoo => 'شهادة المنشأ';
+  @override String get customsDeclColRequirements => 'الاشتراطات والملاحظات الرقابية';
+  @override String get customsDeclColApprovalStatus => 'حالة الموافقة';
+  @override String get customsDeclStatusFulfilled => 'مستوفى ومعتمد';
+  @override String get customsDeclDefaultAuthority => 'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)';
+  @override String get customsDeclDefaultNote => 'مطلوب العرض الفني وسحب عينات مطابقة للمواصفات القياسية المصرية';
+  @override String get customsDeclDefaultItemDesc => 'بند البضائع والمنتجات المستوردة';
+  @override String get customsDeclVisualInspectionNote => 'فحص ظاهري ومطابقة مستندية قبل الإفراج الجمركي';
+  @override String get customsDeclSaveButton => 'حفظ وقيد الإقرار الجمركي المبدئي';
+  @override String get customsDeclSavingProgress => 'جارٍ الحفظ...';
+  @override String get customsDeclSelectFileWarning => 'يرجى اختيار ملف الشحنة أولاً';
+  @override String get customsDeclSaveSuccess => 'تم قيد وحفظ مسودة الإقرار الجمركي (46 ك.م) بنجاح';
+  @override String get customsDeclRegistrySearchHint => 'بحث في سجل الإقرارات الجمركية وشهادات 46...';
+  @override String get customsDeclRegisterNewButton => 'قيد إقرار جديد';
+  @override String get customsDeclColDeclarationNo => 'رقم الإقرار (46 ك.م)';
+  @override String get customsDeclColFileNumber => 'رقم الملف';
+  @override String get customsDeclColSupplier => 'المورد الأجنبي';
+  @override String get customsDeclColRegistrationDate => 'تاريخ القيد';
+  @override String get customsDeclColDeclarationStatus => 'حالة الإقرار';
+  @override String get customsDeclStatusRegisteredNafeza => 'مقيد مبدئياً على نافذة';
 }
 
 

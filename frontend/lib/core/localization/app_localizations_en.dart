@@ -1277,6 +1277,59 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get poRecQtyDiff => 'Qty Diff';
   @override String get poRecOk => 'Match';
   @override String get poRecUnassignedHsCode => 'Unassigned HS';
+
+  // ── Screen 23: Customs Declaration 46 ──────────────────────────────────────
+  @override String get customsDeclStageTitle => 'Initial Customs Declaration 46 Registration';
+  @override String get customsDeclTabInitialForm => 'Initial Declaration 46 Form';
+  @override String get customsDeclTabRegistry => 'Declaration 46 Registry';
+  @override String get customsDeclRefreshTooltip => 'Refresh Data';
+  @override String get customsDeclInfoBanner => 'Draft Customs Declaration 46 ready for Nafeza integration. Automatically fetches approved ACID, verified Bank Form 4, and B/L data to calculate the tax base and estimated customs duties according to the tariff schedule and preferential agreements.';
+  @override String get customsDeclSelectFileLabel => 'Import File for Declaration 46 *';
+  @override String get customsDeclSearchFileHint => 'Search by file number or supplier name...';
+  @override String get customsDeclAttributesHeader => 'Customs Declaration 46 Attributes & Reference Numbers:';
+  @override String get customsDeclDeclarationNoLabel => 'Declaration 46 Reference Number *';
+  @override String get customsDeclSubmissionDateLabel => 'Initial Registration Date *';
+  @override String get customsDeclAcidNumberLabel => 'Advance Cargo Info (ACID) No.';
+  @override String get customsDeclForm4NumberLabel => 'Bank Form 4 Number';
+  @override String get customsDeclBlNumberLabel => 'Bill of Lading (B/L) No.';
+  @override String get customsDeclDutiesHeader => 'Customs Tax Base & Estimated Duties (EGP):';
+  @override String get customsDeclCifValueLabel => 'CIF Customs Value (EGP)';
+  @override String get customsDeclImportDutyLabel => 'Estimated Import Duty (EGP)';
+  @override String get customsDeclVatLabel => 'VAT Amount (EGP)';
+  @override String get customsDeclTotalDutiesLabel => 'Total Estimated Duties & Taxes';
+  @override String get customsDeclExemptionHeader => 'Customs Position & Preferential Tariff Exemption:';
+  @override String get customsDeclExemptionConditionsHeader => '📌 Mandatory Regulatory Conditions for Tariff Exemption:';
+  @override String get customsDeclEur1ExemptionTitle => 'EU-Egypt Association Agreement (EUR.1) — 0% Import Duty Exemption';
+  @override String get customsDeclEur1Condition1 => 'Submit certified original EUR.1 / COO certificate with official authority stamps.';
+  @override String get customsDeclEur1Condition2 => 'Proof of Direct Transport from the EU country of origin to Egyptian ports.';
+  @override String get customsDeclEur1Condition3 => 'Include ACID number and registered manufacturer code on the commercial invoice and B/L.';
+  @override String customsDeclMfnExemptionTitle(String rate) => 'Subject to Standard MFN Customs Tariff — Import Duty $rate%';
+  @override String get customsDeclMfnCondition1 => 'Submit official certificate of origin authenticated by the exporter country chamber of commerce.';
+  @override String get customsDeclMfnCondition2 => 'Pay scheduled customs duties and taxes through Nafeza payment voucher.';
+  @override String get customsDeclRegulatoryHeader => 'Required Regulatory Approvals & Inspections:';
+  @override String get customsDeclColHsCode => 'HS Code';
+  @override String get customsDeclColAuthority => 'Regulatory Authority';
+  @override String get customsDeclColInspection => 'Prior Inspection';
+  @override String get customsDeclColCoo => 'COO Certificate';
+  @override String get customsDeclColRequirements => 'Regulatory Conditions & Notes';
+  @override String get customsDeclColApprovalStatus => 'Approval Status';
+  @override String get customsDeclStatusFulfilled => 'Fulfilled & Approved';
+  @override String get customsDeclDefaultAuthority => 'General Organization for Export & Import Control (GOEIC)';
+  @override String get customsDeclDefaultNote => 'Technical presentation and inspection sampling required per Egyptian standards';
+  @override String get customsDeclDefaultItemDesc => 'Imported Cargo & Merchandise Item';
+  @override String get customsDeclVisualInspectionNote => 'Visual inspection and documentary compliance prior to customs release';
+  @override String get customsDeclSaveButton => 'Save & Register Declaration 46';
+  @override String get customsDeclSavingProgress => 'Saving...';
+  @override String get customsDeclSelectFileWarning => 'Please select an import file first';
+  @override String get customsDeclSaveSuccess => 'Customs Declaration 46 registered and saved successfully';
+  @override String get customsDeclRegistrySearchHint => 'Search Declaration 46 registry...';
+  @override String get customsDeclRegisterNewButton => 'Register New Declaration';
+  @override String get customsDeclColDeclarationNo => 'Declaration 46 No.';
+  @override String get customsDeclColFileNumber => 'File No.';
+  @override String get customsDeclColSupplier => 'Foreign Supplier';
+  @override String get customsDeclColRegistrationDate => 'Registration Date';
+  @override String get customsDeclColDeclarationStatus => 'Declaration Status';
+  @override String get customsDeclStatusRegisteredNafeza => 'Initially Registered on Nafeza';
 }
 
 

@@ -1283,6 +1283,59 @@ abstract class AppLocalizations {
   String get poRecQtyDiff;
   String get poRecOk;
   String get poRecUnassignedHsCode;
+
+  // ── Screen 23: Customs Declaration 46 ──────────────────────────────────────
+  String get customsDeclStageTitle;
+  String get customsDeclTabInitialForm;
+  String get customsDeclTabRegistry;
+  String get customsDeclRefreshTooltip;
+  String get customsDeclInfoBanner;
+  String get customsDeclSelectFileLabel;
+  String get customsDeclSearchFileHint;
+  String get customsDeclAttributesHeader;
+  String get customsDeclDeclarationNoLabel;
+  String get customsDeclSubmissionDateLabel;
+  String get customsDeclAcidNumberLabel;
+  String get customsDeclForm4NumberLabel;
+  String get customsDeclBlNumberLabel;
+  String get customsDeclDutiesHeader;
+  String get customsDeclCifValueLabel;
+  String get customsDeclImportDutyLabel;
+  String get customsDeclVatLabel;
+  String get customsDeclTotalDutiesLabel;
+  String get customsDeclExemptionHeader;
+  String get customsDeclExemptionConditionsHeader;
+  String get customsDeclEur1ExemptionTitle;
+  String get customsDeclEur1Condition1;
+  String get customsDeclEur1Condition2;
+  String get customsDeclEur1Condition3;
+  String customsDeclMfnExemptionTitle(String rate);
+  String get customsDeclMfnCondition1;
+  String get customsDeclMfnCondition2;
+  String get customsDeclRegulatoryHeader;
+  String get customsDeclColHsCode;
+  String get customsDeclColAuthority;
+  String get customsDeclColInspection;
+  String get customsDeclColCoo;
+  String get customsDeclColRequirements;
+  String get customsDeclColApprovalStatus;
+  String get customsDeclStatusFulfilled;
+  String get customsDeclDefaultAuthority;
+  String get customsDeclDefaultNote;
+  String get customsDeclDefaultItemDesc;
+  String get customsDeclVisualInspectionNote;
+  String get customsDeclSaveButton;
+  String get customsDeclSavingProgress;
+  String get customsDeclSelectFileWarning;
+  String get customsDeclSaveSuccess;
+  String get customsDeclRegistrySearchHint;
+  String get customsDeclRegisterNewButton;
+  String get customsDeclColDeclarationNo;
+  String get customsDeclColFileNumber;
+  String get customsDeclColSupplier;
+  String get customsDeclColRegistrationDate;
+  String get customsDeclColDeclarationStatus;
+  String get customsDeclStatusRegisteredNafeza;
 }
 
 

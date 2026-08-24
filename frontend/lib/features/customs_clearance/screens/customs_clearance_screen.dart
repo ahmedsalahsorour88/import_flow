@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
@@ -33,30 +34,30 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   final List<Map<String, dynamic>> _drawnSamples = [
     {
       'sample_id': 'SMP-2026-001',
-      'authority': 'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)',
+      'authority': 'GOEIC Lab',
       'drawing_date': '2026-08-20',
       'receipt_no': 'REC-GOEIC-9921',
-      'test_type': 'مطابقة المواصفات القياسية والفيزيائية',
+      'test_type': 'Physical & Quality Specs Analysis',
       'status': 'PASSED',
-      'notes': 'العينات مطابقة للمواصفة القياسية المصرية ES:1234',
+      'notes': 'Standard ES:1234 compliance approved',
     },
     {
       'sample_id': 'SMP-2026-002',
-      'authority': 'الهيئة القومية لسلامة الغذاء (NFSA)',
+      'authority': 'NFSA Central Lab',
       'drawing_date': '2026-08-21',
       'receipt_no': 'REC-NFSA-8834',
-      'test_type': 'فحص ميكروبيولوجي ومعادن ثقيلة',
+      'test_type': 'Microbiology & Heavy Metals Test',
       'status': 'PENDING',
-      'notes': 'قيد الفحص المعملي المركزي - مهلة 48 ساعة',
+      'notes': 'Central lab testing in progress (48h SLA)',
     },
     {
       'sample_id': 'SMP-2026-003',
-      'authority': 'مصلحة الكيمياء والأشعة',
+      'authority': 'Chemical & Radiation Authority',
       'drawing_date': '2026-08-22',
       'receipt_no': 'REC-CHEM-5512',
-      'test_type': 'فحص المكونات الكيميائية ونسبة النقاء',
+      'test_type': 'Purity & Chemical Compound Analysis',
       'status': 'PASSED',
-      'notes': 'تقرير رقم 5512: النتيجة إيجابية ومطابقة تماماً',
+      'notes': 'Report #5512: Verified 100% compliant',
     },
   ];
 
@@ -65,25 +66,25 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       'protocol_no': 'DMG-ALX-2026-001',
       'declaration_no': '46-ALX-IMP-2026-001',
       'container_no': 'MSCU9812450',
-      'damage_type': 'كسر وبلل بكرتونة العبوة الخارجية',
-      'damaged_qty': '12 كرتونة',
+      'damage_type': 'Carton breakage & water damage',
+      'damaged_qty': '12 Cartons',
       'estimated_loss_egp': 14500.0,
-      'responsible_party': 'الناقل البحري (Shipping Line)',
+      'responsible_party': 'Shipping Line Carrier',
       'insurance_claim_status': 'CLAIM_SUBMITTED',
       'date': '2026-08-22',
-      'notes': 'تم تحرير محضر مشترك بحضور مندوب التوكيل الملاحي وخبير المعاينة',
+      'notes': 'Joint inspection protocol signed by shipping agent and cargo surveyor',
     },
     {
       'protocol_no': 'SHT-ALX-2026-002',
       'declaration_no': '46-ALX-IMP-2026-002',
       'container_no': 'MEDU4412998',
-      'damage_type': 'عجز بالوزن عند فتح الحاوية (Shortage)',
-      'damaged_qty': 'عجز 45 كجم',
+      'damage_type': 'Weight shortage inside container',
+      'damaged_qty': '45 kg short',
       'estimated_loss_egp': 8200.0,
-      'responsible_party': 'الشاحن الأجنبي (Supplier)',
+      'responsible_party': 'Foreign Supplier',
       'insurance_claim_status': 'APPROVED',
       'date': '2026-08-21',
-      'notes': 'تم تسوية الفارق بخصم القيمة من الرصيد الدائن للمورد',
+      'notes': 'Variance settled by deduction from supplier credit ledger',
     },
   ];
 
@@ -140,21 +141,21 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     );
   }
 
-  void _showAddSampleDialog() {
+  void _showAddSampleDialog(AppLocalizations l) {
     final formKey = GlobalKey<FormState>();
-    final authCtrl = TextEditingController(text: 'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)');
+    final authCtrl = TextEditingController(text: l.customsDeclDefaultAuthority);
     final receiptCtrl = TextEditingController(text: 'REC-LAB-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}');
-    final testTypeCtrl = TextEditingController(text: 'مطابقة المواصفات القياسية وسحب عينات');
+    final testTypeCtrl = TextEditingController(text: l.customsDeclDefaultNote);
     final notesCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.science, color: AppTheme.cobalt),
-            SizedBox(width: 8),
-            Text('تسجيل سحب عينة معملية جديدة'),
+            const Icon(Icons.science, color: AppTheme.cobalt),
+            const SizedBox(width: 8),
+            Text(l.customsClearanceAddSampleDialogTitle),
           ],
         ),
         content: SizedBox(
@@ -166,31 +167,31 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
               children: [
                 TextFormField(
                   controller: authCtrl,
-                  decoration: const InputDecoration(labelText: 'الجهة الرقابية / المعمل *', border: OutlineInputBorder()),
-                  validator: (v) => v == null || v.isEmpty ? 'مطلوب' : null,
+                  decoration: InputDecoration(labelText: l.customsClearanceSampleAuthLabel, border: const OutlineInputBorder()),
+                  validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: receiptCtrl,
-                  decoration: const InputDecoration(labelText: 'رقم إيصال السحب *', border: OutlineInputBorder()),
-                  validator: (v) => v == null || v.isEmpty ? 'مطلوب' : null,
+                  decoration: InputDecoration(labelText: l.customsClearanceSampleReceiptLabel, border: const OutlineInputBorder()),
+                  validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: testTypeCtrl,
-                  decoration: const InputDecoration(labelText: 'نوع التحليل المطلوب *', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: l.customsClearanceSampleTestTypeLabel, border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: notesCtrl,
-                  decoration: const InputDecoration(labelText: 'ملاحظات الكشاف والمعمل', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: l.customsClearanceSampleNotesLabel, border: const OutlineInputBorder()),
                 ),
               ],
             ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
             onPressed: () {
@@ -203,40 +204,40 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                     'receipt_no': receiptCtrl.text.trim(),
                     'test_type': testTypeCtrl.text.trim(),
                     'status': 'PENDING',
-                    'notes': notesCtrl.text.trim().isNotEmpty ? notesCtrl.text.trim() : 'قيد الفحص المعملي',
+                    'notes': notesCtrl.text.trim().isNotEmpty ? notesCtrl.text.trim() : '-',
                   });
                 });
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('تم تسجيل سحب العينة المعملية بنجاح'), backgroundColor: AppTheme.emerald),
+                  SnackBar(content: Text(l.customsClearanceSampleSaveSuccess), backgroundColor: AppTheme.emerald),
                 );
               }
             },
-            child: const Text('حفظ العينة', style: TextStyle(color: Colors.white)),
+            child: Text(l.customsClearanceSampleSaveButton, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
-  void _showAddDamageDialog() {
+  void _showAddDamageDialog(AppLocalizations l) {
     final formKey = GlobalKey<FormState>();
     final declCtrl = TextEditingController(text: '46-ALX-IMP-2026-');
     final containerCtrl = TextEditingController();
-    final damageTypeCtrl = TextEditingController(text: 'كسر وبلل بالطرود');
-    final damagedQtyCtrl = TextEditingController(text: '1 طرد');
+    final damageTypeCtrl = TextEditingController();
+    final damagedQtyCtrl = TextEditingController(text: '1');
     final lossCtrl = TextEditingController(text: '5000');
-    final partyCtrl = TextEditingController(text: 'الناقل البحري (Shipping Line)');
+    final partyCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.report_problem, color: AppTheme.crimson),
-            SizedBox(width: 8),
-            Text('تحرير محضر تلف / فاقد جمركي ومعاينة مشتركة'),
+            const Icon(Icons.report_problem, color: AppTheme.crimson),
+            const SizedBox(width: 8),
+            Text(l.customsClearanceAddDamageDialogTitle),
           ],
         ),
         content: SizedBox(
@@ -251,16 +252,16 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                     Expanded(
                       child: TextFormField(
                         controller: declCtrl,
-                        decoration: const InputDecoration(labelText: 'رقم الإقرار (46 ك.م) *', border: OutlineInputBorder()),
-                        validator: (v) => v == null || v.isEmpty ? 'مطلوب' : null,
+                        decoration: InputDecoration(labelText: l.customsClearanceDamageDeclLabel, border: const OutlineInputBorder()),
+                        validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextFormField(
                         controller: containerCtrl,
-                        decoration: const InputDecoration(labelText: 'رقم الحاوية *', border: OutlineInputBorder()),
-                        validator: (v) => v == null || v.isEmpty ? 'مطلوب' : null,
+                        decoration: InputDecoration(labelText: l.customsClearanceDamageContainerLabel, border: const OutlineInputBorder()),
+                        validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
                       ),
                     ),
                   ],
@@ -271,14 +272,14 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                     Expanded(
                       child: TextFormField(
                         controller: damageTypeCtrl,
-                        decoration: const InputDecoration(labelText: 'طبيعة الضرر / التلف *', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.customsClearanceDamageTypeLabel, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextFormField(
                         controller: damagedQtyCtrl,
-                        decoration: const InputDecoration(labelText: 'الكمية التالفة *', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.customsClearanceDamagedQtyLabel, border: const OutlineInputBorder()),
                       ),
                     ),
                   ],
@@ -290,14 +291,14 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                       child: TextFormField(
                         controller: lossCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'الخسارة المقدرة (جنيه) *', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.customsClearanceDamageLossLabel, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextFormField(
                         controller: partyCtrl,
-                        decoration: const InputDecoration(labelText: 'الجهة المسؤولة عن الضرر *', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.customsClearanceDamagePartyLabel, border: const OutlineInputBorder()),
                       ),
                     ),
                   ],
@@ -305,14 +306,14 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: notesCtrl,
-                  decoration: const InputDecoration(labelText: 'تفاصيل المحضر المشترك والمعاينة', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: l.customsClearanceDamageNotesLabel, border: const OutlineInputBorder()),
                 ),
               ],
             ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
             onPressed: () {
@@ -333,11 +334,11 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                 });
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('تم تحرير وحفظ محضر المعاينة المشتركة بنجاح'), backgroundColor: AppTheme.emerald),
+                  SnackBar(content: Text(l.customsClearanceDamageSaveSuccess), backgroundColor: AppTheme.emerald),
                 );
               }
             },
-            child: const Text('حفظ المحضر', style: TextStyle(color: Colors.white)),
+            child: Text(l.customsClearanceDamageSaveButton, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -346,6 +347,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final clearanceAsync = ref.watch(customsClearanceProvider);
 
     return VerticalStageScaffold(
@@ -381,20 +383,20 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       body: clearanceAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
-          child: Text('خطأ في جلب بيانات التخليص الجمركي: $err', style: const TextStyle(color: Colors.red)),
+          child: Text(l.customsClearanceErrorFetch(err.toString()), style: const TextStyle(color: Colors.red)),
         ),
         data: (records) {
           switch (_selectedTab) {
             case 0:
-              return _buildClearanceFollowUpView(records);
+              return _buildClearanceFollowUpView(records, l);
             case 1:
-              return _buildDrawingSamplesAndShortageView(records);
+              return _buildDrawingSamplesAndShortageView(records, l);
             case 2:
-              return _buildDiscrepancyAndDamageView(records);
+              return _buildDiscrepancyAndDamageView(records, l);
             case 3:
-              return _buildFinalDutyPaymentView(records);
+              return _buildFinalDutyPaymentView(records, l);
             default:
-              return _buildClearanceFollowUpView(records);
+              return _buildClearanceFollowUpView(records, l);
           }
         },
       ),
@@ -402,9 +404,9 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   }
 
   // ===========================================================================
-  // SUB-VIEW 0: CUSTOMS CLEARANCE FOLLOW-UP (متابعة الكشف والتثمين)
+  // SUB-VIEW 0: CUSTOMS CLEARANCE FOLLOW-UP
   // ===========================================================================
-  Widget _buildClearanceFollowUpView(List<CustomsClearanceModel> records) {
+  Widget _buildClearanceFollowUpView(List<CustomsClearanceModel> records, AppLocalizations l) {
     final filtered = records.where((r) {
       if (_selectedStatusFilter != 'All' && r.status != _selectedStatusFilter) return false;
       if (_searchController.text.trim().isEmpty) return true;
@@ -426,13 +428,13 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             child: Row(
               children: [
                 SizedBox(
-                  width: 250,
+                  width: 280,
                   child: TextField(
                     controller: _searchController,
-                    decoration: const InputDecoration(
-                      hintText: 'بحث بكود التخليص، رقم 46 ك.م، إذن التسليم...',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: l.customsClearanceSearchHint,
+                      prefixIcon: const Icon(Icons.search),
+                      border: const OutlineInputBorder(),
                       isDense: true,
                     ),
                     onChanged: (_) => setState(() {}),
@@ -442,12 +444,12 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                 DropdownButton<String>(
                   value: _selectedStatusFilter,
                   underline: const SizedBox(),
-                  items: const [
-                    DropdownMenuItem(value: 'All', child: Text('جميع الحالات')),
-                    DropdownMenuItem(value: 'Inspection In Progress', child: Text('قيد المعاينة والفحص')),
-                    DropdownMenuItem(value: 'Duty Requested', child: Text('مطلوب سداد الجمارك')),
-                    DropdownMenuItem(value: 'Duty Paid', child: Text('تم سداد الرسوم')),
-                    DropdownMenuItem(value: 'Final Release Granted', child: Text('تم الإفراج النهائي')),
+                  items: [
+                    DropdownMenuItem(value: 'All', child: Text(l.customsClearanceFilterAll)),
+                    DropdownMenuItem(value: 'Inspection In Progress', child: Text(l.customsClearanceFilterInspection)),
+                    DropdownMenuItem(value: 'Duty Requested', child: Text(l.customsClearanceFilterDutyRequested)),
+                    DropdownMenuItem(value: 'Duty Paid', child: Text(l.customsClearanceFilterDutyPaid)),
+                    DropdownMenuItem(value: 'Final Release Granted', child: Text(l.customsClearanceFilterFinalRelease)),
                   ],
                   onChanged: (val) {
                     if (val != null) setState(() => _selectedStatusFilter = val);
@@ -460,13 +462,13 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                     foregroundColor: Colors.white,
                   ),
                   icon: const Icon(Icons.add, size: 16),
-                  label: const Text('تسجيل معاملة تخليص'),
+                  label: Text(l.customsClearanceNewRecordButton),
                   onPressed: () => _showAddEditDialog(),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.refresh, color: AppTheme.cobalt),
-                  tooltip: 'تحديث البيانات',
+                  tooltip: l.customsDeclRefreshTooltip,
                   onPressed: _refreshData,
                 ),
               ],
@@ -478,13 +480,13 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         // List of Cards
         Expanded(
           child: filtered.isEmpty
-              ? const Center(child: Text('لا توجد سجلات تخليص جمركي مطابقة للبحث حالياً.'))
+              ? Center(child: Text(l.customsClearanceEmptyRecords))
               : ListView.builder(
                   padding: const EdgeInsets.all(12),
                   itemCount: filtered.length,
                   itemBuilder: (context, index) {
                     final record = filtered[index];
-                    return _buildClearanceCard(record);
+                    return _buildClearanceCard(record, l);
                   },
                 ),
         ),
@@ -493,9 +495,9 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   }
 
   // ===========================================================================
-  // SUB-VIEW 1: DRAWING SAMPLES & SHORTAGE TRACKING (سحب العينات وعجز البضائع)
+  // SUB-VIEW 1: DRAWING SAMPLES & SHORTAGE TRACKING
   // ===========================================================================
-  Widget _buildDrawingSamplesAndShortageView(List<CustomsClearanceModel> records) {
+  Widget _buildDrawingSamplesAndShortageView(List<CustomsClearanceModel> records, AppLocalizations l) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -513,18 +515,18 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
               children: [
                 const Icon(Icons.science, color: AppTheme.cobalt, size: 28),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'منظومة سحب العينات وتتبع الفحص المعملي وتحديد عجز البضائع (Drawing Samples & Shortage)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                        l.customsClearanceSamplesBannerTitle,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        'توثيق إيصالات المعامل الرقابية (GOEIC, NFSA, Chemistry, Radiation) ومتابعة المهلة القانونية لنتائج التحليل ومطابقة الأوزان والطرود الفعلية.',
-                        style: TextStyle(fontSize: 12, color: Colors.black87),
+                        l.customsClearanceSamplesBannerDesc,
+                        style: const TextStyle(fontSize: 12, color: Colors.black87),
                       ),
                     ],
                   ),
@@ -532,8 +534,8 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
                   icon: const Icon(Icons.add, size: 16),
-                  label: const Text('تسجيل سحب عينة'),
-                  onPressed: _showAddSampleDialog,
+                  label: Text(l.customsClearanceAddSampleButton),
+                  onPressed: () => _showAddSampleDialog(l),
                 ),
               ],
             ),
@@ -549,11 +551,17 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.biotech, color: AppTheme.cobalt, size: 20),
-                      SizedBox(width: 8),
-                      Expanded(child: Text('سجل العينات المسحوبة للفحص والتحليل المعملي (Laboratory Drawn Samples)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                      const Icon(Icons.biotech, color: AppTheme.cobalt, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l.customsClearanceSamplesTableTitle,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                   const Divider(height: 20),
@@ -561,14 +569,14 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                      columns: const [
-                        DataColumn(label: Text('كود العينة', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('الجهة الرقابية / المعمل', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('تاريخ السحب', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('رقم الإيصال', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('نوع الفحص والتحليل', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('نتيجة الفحص', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('ملاحظات', style: TextStyle(fontWeight: FontWeight.bold))),
+                      columns: [
+                        DataColumn(label: Text(l.customsClearanceColSampleCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColAuthority, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColDrawingDate, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColReceiptNo, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColTestType, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColTestResult, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColNotes, style: const TextStyle(fontWeight: FontWeight.bold))),
                       ],
                       rows: _drawnSamples.map((s) {
                         final isPassed = s['status'] == 'PASSED';
@@ -587,7 +595,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                                 border: Border.all(color: (isPassed ? Colors.green : Colors.orange).shade300),
                               ),
                               child: Text(
-                                isPassed ? 'مطابقة للمواصفات ✅' : 'قيد الفحص المعملي ⏳',
+                                isPassed ? '✅ ${l.customsClearanceSamplePassed}' : '⏳ ${l.customsClearanceSamplePending}',
                                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isPassed ? Colors.green.shade900 : Colors.orange.shade900),
                               ),
                             ),
@@ -607,9 +615,9 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   }
 
   // ===========================================================================
-  // SUB-VIEW 2: DISCREPANCY & DAMAGE REGISTRY (إثبات الفاقد والتلف الجمركي)
+  // SUB-VIEW 2: DISCREPANCY & DAMAGE REGISTRY
   // ===========================================================================
-  Widget _buildDiscrepancyAndDamageView(List<CustomsClearanceModel> records) {
+  Widget _buildDiscrepancyAndDamageView(List<CustomsClearanceModel> records, AppLocalizations l) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -627,18 +635,18 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
               children: [
                 const Icon(Icons.report_problem, color: AppTheme.crimson, size: 28),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'سجل إثبات الفاقد والتلف الجمركي ومحاضر المعاينة المشتركة (Discrepancy & Damage Protocols)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                        l.customsClearanceDamageBannerTitle,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        'توثيق محاضر كسر الحاويات والبلل والنقص مع مندوب التوكيل الملاحي والجمارك والتأمين البحري لتحصيل التعويضات.',
-                        style: TextStyle(fontSize: 12, color: Colors.black87),
+                        l.customsClearanceDamageBannerDesc,
+                        style: const TextStyle(fontSize: 12, color: Colors.black87),
                       ),
                     ],
                   ),
@@ -646,8 +654,8 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
                   icon: const Icon(Icons.add, size: 16),
-                  label: const Text('تحرير محضر مشترك'),
-                  onPressed: _showAddDamageDialog,
+                  label: Text(l.customsClearanceAddDamageButton),
+                  onPressed: () => _showAddDamageDialog(l),
                 ),
               ],
             ),
@@ -663,11 +671,17 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.inventory_2_outlined, color: AppTheme.crimson, size: 20),
-                      SizedBox(width: 8),
-                      Expanded(child: Text('محاضر المعاينة المشتركة والمطالبات التأمينية (Joint Inspection Protocols)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                      const Icon(Icons.inventory_2_outlined, color: AppTheme.crimson, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l.customsClearanceDamageTableTitle,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                   const Divider(height: 20),
@@ -675,16 +689,16 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                      columns: const [
-                        DataColumn(label: Text('رقم المحضر', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('الإقرار الجمركي (46 ك.م)', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('رقم الحاوية', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('طبيعة الضرر / التلف', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('الكمية التالفة', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('الخسارة المقدرة (جنيه)', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('الجهة المتسببة', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('حالة المطالبة', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('التاريخ', style: TextStyle(fontWeight: FontWeight.bold))),
+                      columns: [
+                        DataColumn(label: Text(l.customsClearanceColProtocolNo, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColDeclarationNo, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColContainerNo, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColDamageType, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColDamagedQty, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColEstimatedLoss, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColResponsibleParty, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColClaimStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.customsClearanceColDate, style: const TextStyle(fontWeight: FontWeight.bold))),
                       ],
                       rows: _discrepancyProtocols.map((p) {
                         return DataRow(cells: [
@@ -704,7 +718,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                                 border: Border.all(color: Colors.blue.shade300),
                               ),
                               child: Text(
-                                p['insurance_claim_status'] == 'APPROVED' ? 'معتمدة للتعويض ✅' : 'مقدمة لشركة التأمين 📋',
+                                p['insurance_claim_status'] == 'APPROVED' ? '✅ ${l.customsClearanceClaimApproved}' : '📋 ${l.customsClearanceClaimSubmitted}',
                                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
                               ),
                             ),
@@ -724,9 +738,9 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   }
 
   // ===========================================================================
-  // SUB-VIEW 3: FINAL CUSTOMS PAYMENT & RELEASE (سداد الرسوم والإفراج النهائي)
+  // SUB-VIEW 3: FINAL CUSTOMS PAYMENT & RELEASE
   // ===========================================================================
-  Widget _buildFinalDutyPaymentView(List<CustomsClearanceModel> records) {
+  Widget _buildFinalDutyPaymentView(List<CustomsClearanceModel> records, AppLocalizations l) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -739,22 +753,22 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: Colors.green.shade200),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.receipt_long, color: AppTheme.emerald, size: 28),
-                SizedBox(width: 12),
+                const Icon(Icons.receipt_long, color: AppTheme.emerald, size: 28),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'منظومة سداد الرسوم والضرائب الجمركية وإذن الإفراج النهائي (Final Duty Payment & Gate Pass)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                        l.customsClearancePaymentBannerTitle,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        'مطابقة إذن سداد نافذة وتوثيق إيصالات السداد البنكي وحفظ الفروق المالية واعتماد إذن الإفراج وتصريح خروج البوابة.',
-                        style: TextStyle(fontSize: 12, color: Colors.black87),
+                        l.customsClearancePaymentBannerDesc,
+                        style: const TextStyle(fontSize: 12, color: Colors.black87),
                       ),
                     ],
                   ),
@@ -773,33 +787,39 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.payments_outlined, color: AppTheme.emerald, size: 20),
-                      SizedBox(width: 8),
-                      Expanded(child: Text('سجل أذون سداد نافذة المعتمدة ومطابقة الرسوم (Nafeza Duty Assessment & Ledger)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                      const Icon(Icons.payments_outlined, color: AppTheme.emerald, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l.customsClearanceDutyLedgerTableTitle,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                   const Divider(height: 20),
                   if (records.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Center(child: Text('لا توجد مطالبات سداد مسجلة حالياً.')),
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Center(child: Text(l.customsClearanceEmptyDutyLedger)),
                     )
                   else
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
                         headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                        columns: const [
-                          DataColumn(label: Text('كود التخليص', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الإقرار (46 ك.م)', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الجمرك المختص', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الرسوم الفعلية (نافذة)', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الرسوم التقديرية', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الفارق (Variance)', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('حالة السداد', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('إجراءات السداد والإفراج', style: TextStyle(fontWeight: FontWeight.bold))),
+                        columns: [
+                          DataColumn(label: Text(l.customsClearanceColClearanceCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(l.customsClearanceColDecl46, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(l.customsClearanceColCustomsOffice, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(l.customsClearanceColActualDuty, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(l.customsClearanceColEstimatedDuty, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(l.customsClearanceColDutyVariance, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(l.customsClearanceColPaymentStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(l.customsClearanceColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: records.map((r) {
                           final isPaid = r.paymentStatus == 'Paid & Verified';
@@ -819,7 +839,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                                   border: Border.all(color: (isPaid ? Colors.green : Colors.orange).shade300),
                                 ),
                                 child: Text(
-                                  isPaid ? 'تم السداد والتحقق ✅' : 'مطلوب السداد ⚠️',
+                                  isPaid ? '✅ ${l.customsClearanceStatusPaid}' : '⚠️ ${l.customsClearanceStatusPendingPayment}',
                                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isPaid ? Colors.green.shade900 : Colors.orange.shade900),
                                 ),
                               ),
@@ -835,7 +855,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     ),
                                     icon: Icon(isPaid ? Icons.verified : Icons.payment, size: 14),
-                                    label: Text(isPaid ? 'تفاصيل السداد' : 'سداد ومطابقة', style: const TextStyle(fontSize: 11)),
+                                    label: Text(isPaid ? l.customsClearanceBtnPaymentDetails : l.customsClearanceBtnPayReconcile, style: const TextStyle(fontSize: 11)),
                                     onPressed: () => _showDutyPaymentDialog(r),
                                   ),
                                   const SizedBox(width: 6),
@@ -845,7 +865,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     ),
                                     icon: const Icon(Icons.assignment_turned_in, size: 14),
-                                    label: const Text('الإفراج النهائي', style: TextStyle(fontSize: 11)),
+                                    label: Text(l.customsClearanceBtnFinalRelease, style: const TextStyle(fontSize: 11)),
                                     onPressed: () => _showFinalReleaseDialog(r),
                                   ),
                                 ],
@@ -864,13 +884,31 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     );
   }
 
-  Widget _buildClearanceCard(CustomsClearanceModel record) {
+  Widget _buildClearanceCard(CustomsClearanceModel record, AppLocalizations l) {
     Color statusColor = Colors.blueGrey;
-    if (record.status == 'Final Release Granted') statusColor = AppTheme.emerald;
-    if (record.status == 'Duty Paid') statusColor = AppTheme.cobalt;
-    if (record.status == 'Duty Requested') statusColor = AppTheme.orange;
+    String statusLabel = record.status;
+    if (record.status == 'Final Release Granted') {
+      statusColor = AppTheme.emerald;
+      statusLabel = l.customsClearanceFilterFinalRelease;
+    } else if (record.status == 'Duty Paid') {
+      statusColor = AppTheme.cobalt;
+      statusLabel = l.customsClearanceFilterDutyPaid;
+    } else if (record.status == 'Duty Requested') {
+      statusColor = AppTheme.orange;
+      statusLabel = l.customsClearanceFilterDutyRequested;
+    } else if (record.status == 'Inspection In Progress') {
+      statusLabel = l.customsClearanceFilterInspection;
+    }
 
     final isGreenChannel = record.channelType.toLowerCase().contains('green');
+    String channelLabel = record.channelType;
+    if (record.channelType.toLowerCase().contains('red')) {
+      channelLabel = l.customsClearanceChannelRed;
+    } else if (record.channelType.toLowerCase().contains('green')) {
+      channelLabel = l.customsClearanceChannelGreen;
+    } else if (record.channelType.toLowerCase().contains('yellow')) {
+      channelLabel = l.customsClearanceChannelYellow;
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -914,16 +952,16 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                             Icon(isGreenChannel ? Icons.check_circle_outline : Icons.flag_rounded, size: 14, color: isGreenChannel ? AppTheme.emerald : AppTheme.crimson),
                             const SizedBox(width: 4),
                             Text(
-                              record.channelType,
+                              channelLabel,
                               style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isGreenChannel ? AppTheme.emerald : AppTheme.crimson),
                             ),
                           ],
                         ),
                       ),
                       if (record.declaration46No != null && record.declaration46No!.isNotEmpty)
-                        Text('46 ك.م: ${record.declaration46No}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
+                        Text('${l.customsClearanceDeclaration46Label}: ${record.declaration46No}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
                       if (record.deliveryOrderNumber != null && record.deliveryOrderNumber!.isNotEmpty)
-                        Text('إذن التسليم: ${record.deliveryOrderNumber}', style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
+                        Text('${l.customsClearanceDeliveryOrderLabel}: ${record.deliveryOrderNumber}', style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
                     ],
                   ),
                 ),
@@ -931,7 +969,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(color: statusColor.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
                   child: Text(
-                    record.status,
+                    statusLabel,
                     style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
@@ -944,11 +982,11 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('🏢 الجمرك / المركز: ${record.customsOfficeName}', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+                      Text('🏢 ${l.customsClearanceOfficeLabel}: ${record.customsOfficeName}', style: const TextStyle(fontSize: 12, color: Colors.black87)),
                       const SizedBox(height: 4),
-                      Text('ملف الشحنة المرجعي: IMP-${record.importFileId}', style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
+                      Text('${l.customsClearanceFileRefLabel}: IMP-${record.importFileId}', style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
                       if (record.freeDaysAllowed > 0)
-                        Text('⏱️ فترة السماح بالميناء: ${record.freeDaysAllowed} يوم', style: const TextStyle(fontSize: 11.5, color: Colors.indigo, fontWeight: FontWeight.bold)),
+                        Text('⏱️ ${l.customsClearanceFreeDaysLabel(record.freeDaysAllowed)}', style: const TextStyle(fontSize: 11.5, color: Colors.indigo, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -956,14 +994,14 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('💰 إجمالي الرسوم: ${(record.actualDutyTotal > 0 ? record.actualDutyTotal : record.totalDutyPayable).toStringAsFixed(2)} EGP', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                      Text('💰 ${l.customsClearanceTotalDutiesCard}: ${(record.actualDutyTotal > 0 ? record.actualDutyTotal : record.totalDutyPayable).toStringAsFixed(2)} EGP', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                       const SizedBox(height: 4),
                       if (record.estimatedDutyTotal > 0)
                         Text(
-                          '⚖️ التقديري: ${record.estimatedDutyTotal.toStringAsFixed(2)} ج.م (الفارق: ${record.dutyVarianceAmount >= 0 ? "+" : ""}${record.dutyVarianceAmount.toStringAsFixed(2)} ج.م [${record.dutyVariancePercentage}%])',
+                          '⚖️ ${l.customsClearanceEstimatedDutiesCard(record.estimatedDutyTotal.toStringAsFixed(2), "${record.dutyVarianceAmount >= 0 ? '+' : ''}${record.dutyVarianceAmount.toStringAsFixed(2)}", record.dutyVariancePercentage.toString())}',
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: record.dutyVarianceAmount.abs() > 500 ? AppTheme.orange : Colors.black54),
                         ),
-                      Text('حالة السداد: ${record.paymentStatus}', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: record.paymentStatus == 'Paid & Verified' ? AppTheme.emerald : Colors.red)),
+                      Text('${l.customsClearancePaymentStatusLabel}: ${record.paymentStatus == "Paid & Verified" ? l.customsClearanceStatusPaid : l.customsClearanceStatusPendingPayment}', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: record.paymentStatus == 'Paid & Verified' ? AppTheme.emerald : Colors.red)),
                     ],
                   ),
                 ),
@@ -972,17 +1010,17 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit_outlined, color: AppTheme.cobalt, size: 20),
-                      tooltip: 'تعديل المعاملة',
+                      tooltip: l.customsClearanceEditTooltip,
                       onPressed: () => _showAddEditDialog(record),
                     ),
                     IconButton(
                       icon: const Icon(Icons.payments_outlined, color: AppTheme.emerald, size: 20),
-                      tooltip: 'سداد ومطابقة الجمارك من نافذة',
+                      tooltip: l.customsClearancePayTooltip,
                       onPressed: () => _showDutyPaymentDialog(record),
                     ),
                     IconButton(
                       icon: const Icon(Icons.assignment_turned_in_outlined, color: Colors.indigo, size: 20),
-                      tooltip: 'إصدار الإفراج النهائي',
+                      tooltip: l.customsClearanceReleaseTooltip,
                       onPressed: () => _showFinalReleaseDialog(record),
                     ),
                   ],
@@ -1040,7 +1078,7 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
     }
   }
 
-  void _applyExtractedNafezaData(Map<String, dynamic> ext) {
+  void _applyExtractedNafezaData(Map<String, dynamic> ext, AppLocalizations l) {
     setState(() {
       if (ext['declaration_no'] != null && ext['declaration_no'].toString().isNotEmpty) {
         _decl46Ctrl.text = ext['declaration_no'].toString();
@@ -1069,24 +1107,25 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('⚡ تم استخلاص وتعبئة بيانات إقرار نافذة والرسوم بنجاح!'), backgroundColor: AppTheme.emerald),
+      SnackBar(content: Text(l.customsClearanceExtractNafezaSuccess), backgroundColor: AppTheme.emerald),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final importFiles = ref.watch(importFilesProvider).value ?? [];
 
     return AlertDialog(
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(widget.recordToEdit == null ? 'تسجيل معاملة تخليص جمركي وميناء جديدة' : 'تعديل بيانات التخليص الجمركي (${widget.recordToEdit!.clearanceCode})'),
+          Text(widget.recordToEdit == null ? l.customsClearanceNewDialogTitle : l.customsClearanceEditDialogTitle(widget.recordToEdit!.clearanceCode)),
           SmartUploadButton(
             module: SmartUploadModule.customsClearance,
             compact: true,
-            label: '⚡ استخلاص من نافذة',
-            onDataExtracted: (res) => _applyExtractedNafezaData(res.extractedFields),
+            label: l.customsClearanceExtractNafezaBtn,
+            onDataExtracted: (res) => _applyExtractedNafezaData(res.extractedFields, l),
           ),
         ],
       ),
@@ -1100,8 +1139,8 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
               children: [
                 SearchableDropdownField<int>(
                   value: _selectedImportFileId,
-                  labelText: 'ملف الشحنة الاستيرادية المرتكز عليه *',
-                  searchHintText: 'ابحث برقم الملف أو كود الشحنة...',
+                  labelText: l.customsClearanceImportFileLabel,
+                  searchHintText: l.customsClearanceImportFileSearchHint,
                   items: importFiles
                       .map((f) => SearchableDropdownItem<int>(
                             value: f.importFileId,
@@ -1110,7 +1149,7 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                           ))
                       .toList(),
                   onChanged: (val) => setState(() => _selectedImportFileId = val),
-                  validator: (val) => val == null ? 'يرجى اختيار ملف الشحنة' : null,
+                  validator: (val) => val == null ? l.customsClearanceSelectFileValidator : null,
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -1118,14 +1157,14 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                     Expanded(
                       child: TextFormField(
                         controller: _decl46Ctrl,
-                        decoration: const InputDecoration(labelText: 'رقم الإقرار الجمركي (46 ك.م)', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.customsClearanceDecl46Label, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextFormField(
                         controller: _doNumberCtrl,
-                        decoration: const InputDecoration(labelText: 'رقم إذن التسليم (D/O Number)', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.customsClearanceDoNumberLabel, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1133,7 +1172,7 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                       child: TextFormField(
                         controller: _freeDaysCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'أيام السماح (Free Days)', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.customsClearanceFreeDaysInputLabel, border: const OutlineInputBorder()),
                       ),
                     ),
                   ],
@@ -1144,19 +1183,19 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                     Expanded(
                       child: TextFormField(
                         controller: _officeCtrl,
-                        decoration: const InputDecoration(labelText: 'اسم الجمرك والدائرة الجمركية *', border: OutlineInputBorder()),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال اسم الجمرك' : null,
+                        decoration: InputDecoration(labelText: l.customsClearanceOfficeInputLabel, border: const OutlineInputBorder()),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? l.customsClearanceOfficeValidator : null,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: _channelType,
-                        decoration: const InputDecoration(labelText: 'المسار الجمركي *', border: OutlineInputBorder()),
-                        items: const [
-                          DropdownMenuItem(value: 'Red Channel', child: Text('🔴 مسار أحمر (معاينة وعينات)')),
-                          DropdownMenuItem(value: 'Green Channel', child: Text('🟢 مسار أخضر (إفراج مستندي)')),
-                          DropdownMenuItem(value: 'Yellow Channel', child: Text('🟡 مسار أصفر (مراجعة مستندية)')),
+                        decoration: InputDecoration(labelText: l.customsClearanceChannelLabel, border: const OutlineInputBorder()),
+                        items: [
+                          DropdownMenuItem(value: 'Red Channel', child: Text('🔴 ${l.customsClearanceChannelRed}')),
+                          DropdownMenuItem(value: 'Green Channel', child: Text('🟢 ${l.customsClearanceChannelGreen}')),
+                          DropdownMenuItem(value: 'Yellow Channel', child: Text('🟡 ${l.customsClearanceChannelYellow}')),
                         ],
                         onChanged: (val) {
                           if (val != null) setState(() => _channelType = val);
@@ -1166,9 +1205,9 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                   ],
                 ),
                 const SizedBox(height: 14),
-                const Align(
+                Align(
                   alignment: Alignment.centerRight,
-                  child: Text('مطالبة الرسوم والضرائب الجمركية (Duty Breakdown EGP):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                  child: Text(l.customsClearanceDutyBreakdownHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -1177,7 +1216,7 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                       child: TextFormField(
                         controller: _dutyCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'ضريبة الوارد', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.customsClearanceImportDutyInput, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1185,7 +1224,7 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                       child: TextFormField(
                         controller: _vatCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'القيمة المضافة (VAT)', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.customsClearanceVatInput, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1193,7 +1232,7 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                       child: TextFormField(
                         controller: _scheduleTaxCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'ضريبة الجدول', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.customsClearanceScheduleTaxInput, border: const OutlineInputBorder()),
                       ),
                     ),
                   ],
@@ -1205,7 +1244,7 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                       child: TextFormField(
                         controller: _whtCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'أ.ت.ص (WHT 1%)', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.customsClearanceWhtInput, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1213,7 +1252,7 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                       child: TextFormField(
                         controller: _labFeesCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'رسوم معملية وخدمات', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.customsClearanceLabFeesInput, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1221,7 +1260,7 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                       child: TextFormField(
                         controller: _estimatedDutyCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'التقديري من النظام', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.customsClearanceEstimatedDutyInput, border: const OutlineInputBorder()),
                       ),
                     ),
                   ],
@@ -1232,7 +1271,7 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
           onPressed: _isLoading
@@ -1270,17 +1309,17 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                     await ref.read(customsClearanceProvider.notifier).createRecord(payload);
                     navigator.pop();
                     messenger.showSnackBar(
-                      const SnackBar(content: Text('✔ تم حفظ معاملة التخليص بنجاح'), backgroundColor: AppTheme.emerald),
+                      SnackBar(content: Text(l.customsClearanceSaveRecordSuccess), backgroundColor: AppTheme.emerald),
                     );
                   } catch (e) {
                     messenger.showSnackBar(
-                      SnackBar(content: Text('خطأ أثناء الحفظ: $e'), backgroundColor: AppTheme.crimson),
+                      SnackBar(content: Text(l.customsClearanceSaveRecordError(e.toString())), backgroundColor: AppTheme.crimson),
                     );
                   } finally {
                     if (mounted) setState(() => _isLoading = false);
                   }
                 },
-          child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('حفظ المعاملة', style: TextStyle(color: Colors.white)),
+          child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text(l.customsClearanceSaveRecordBtn, style: const TextStyle(color: Colors.white)),
         ),
       ],
     );
@@ -1319,6 +1358,7 @@ class _DutyPaymentDialogState extends ConsumerState<_DutyPaymentDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final est = widget.record.estimatedDutyTotal;
     final act = double.tryParse(_actualPaidCtrl.text) ?? widget.record.totalDutyPayable;
     final diff = act - est;
@@ -1328,11 +1368,11 @@ class _DutyPaymentDialogState extends ConsumerState<_DutyPaymentDialog> {
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('سداد ومطابقة رسوم الجمارك (${widget.record.clearanceCode})'),
+          Text(l.customsClearanceDutyPaymentDialogTitle(widget.record.clearanceCode)),
           SmartUploadButton(
             module: SmartUploadModule.customsClearance,
             compact: true,
-            label: 'استخلاص إيصال السداد',
+            label: l.customsClearanceExtractReceiptBtn,
             onDataExtracted: (res) => _applyExtractedPayment(res.extractedFields),
           ),
         ],
@@ -1357,15 +1397,15 @@ class _DutyPaymentDialogState extends ConsumerState<_DutyPaymentDialog> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('الرسوم التقديرية (Estimator): ${est.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.w600)),
-                        Text('المطلوب بطلب سداد نافذة: ${act.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                        Text(l.customsClearanceEstimatorDutyBoxLabel(est.toStringAsFixed(2)), style: const TextStyle(fontWeight: FontWeight.w600)),
+                        Text(l.customsClearanceNafezaDutyBoxLabel(act.toStringAsFixed(2)), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                       ],
                     ),
                     const Divider(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('فارق التباين الضريبي (Variance):', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(l.customsClearanceVarianceBoxLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
                         Text(
                           '${diff >= 0 ? "+" : ""}${diff.toStringAsFixed(2)} EGP ($diffPercent%)',
                           style: TextStyle(
@@ -1382,28 +1422,28 @@ class _DutyPaymentDialogState extends ConsumerState<_DutyPaymentDialog> {
               TextFormField(
                 controller: _actualPaidCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'إجمالي المبلغ الفعلي المسدد (EGP) *', border: OutlineInputBorder()),
-                validator: (v) => v == null || v.isEmpty ? 'مطلوب' : null,
+                decoration: InputDecoration(labelText: l.customsClearanceActualPaidInput, border: const OutlineInputBorder()),
+                validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _receiptCtrl,
-                decoration: const InputDecoration(labelText: 'رقم إيصال السداد البنكي / التحويل *', border: OutlineInputBorder()),
-                validator: (v) => v == null || v.isEmpty ? 'مطلوب' : null,
+                decoration: InputDecoration(labelText: l.customsClearanceBankReceiptInput, border: const OutlineInputBorder()),
+                validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _varianceReasonCtrl,
                 maxLines: 2,
-                decoration: const InputDecoration(labelText: 'أسباب الفارق إن وجدت (تسويات معملية، بنود جديدة...)', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: l.customsClearanceVarianceReasonInput, border: const OutlineInputBorder()),
               ),
             ],
           ),
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
           onPressed: _isLoading
@@ -1424,17 +1464,17 @@ class _DutyPaymentDialogState extends ConsumerState<_DutyPaymentDialog> {
                         );
                     navigator.pop();
                     messenger.showSnackBar(
-                      const SnackBar(content: Text('✔ تم توثيق سداد الرسوم الجمركية ومطابقة نافذة بنجاح'), backgroundColor: AppTheme.emerald),
+                      SnackBar(content: Text(l.customsClearancePaymentSuccess), backgroundColor: AppTheme.emerald),
                     );
                   } catch (e) {
                     messenger.showSnackBar(
-                      SnackBar(content: Text('خطأ أثناء توثيق السداد: $e'), backgroundColor: AppTheme.crimson),
+                      SnackBar(content: Text(l.customsClearancePaymentError(e.toString())), backgroundColor: AppTheme.crimson),
                     );
                   } finally {
                     if (mounted) setState(() => _isLoading = false);
                   }
                 },
-          child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('تأكيد السداد والترحيل', style: TextStyle(color: Colors.white)),
+          child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text(l.customsClearanceConfirmPaymentBtn, style: const TextStyle(color: Colors.white)),
         ),
       ],
     );
@@ -1461,12 +1501,14 @@ class _FinalReleaseDialogState extends ConsumerState<_FinalReleaseDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+
     return AlertDialog(
-      title: const Row(
+      title: Row(
         children: [
-          Icon(Icons.verified_user, color: Colors.indigo),
-          SizedBox(width: 8),
-          Text('إصدار تصريح الإفراج الجمركي النهائي'),
+          const Icon(Icons.verified_user, color: Colors.indigo),
+          const SizedBox(width: 8),
+          Text(l.customsClearanceFinalReleaseDialogTitle),
         ],
       ),
       content: SizedBox(
@@ -1475,17 +1517,17 @@ class _FinalReleaseDialogState extends ConsumerState<_FinalReleaseDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('سيتم تغيير حالة المعاملة إلى (Final Release Granted) وجاهزية خروج الحاويات من الميناء.'),
+            Text(l.customsClearanceFinalReleaseDialogDesc),
             const SizedBox(height: 14),
             TextFormField(
               controller: _releaseNoCtrl,
-              decoration: const InputDecoration(labelText: 'رقم تصريح الإفراج الجمركي / البوابة *', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: l.customsClearanceReleasePermitInput, border: const OutlineInputBorder()),
             ),
           ],
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
           onPressed: _isLoading
@@ -1503,17 +1545,17 @@ class _FinalReleaseDialogState extends ConsumerState<_FinalReleaseDialog> {
                         );
                     navigator.pop();
                     messenger.showSnackBar(
-                      const SnackBar(content: Text('✔ تم منح الإفراج الجمركي النهائي بنجاح!'), backgroundColor: AppTheme.emerald),
+                      SnackBar(content: Text(l.customsClearanceReleaseSuccess), backgroundColor: AppTheme.emerald),
                     );
                   } catch (e) {
                     messenger.showSnackBar(
-                      SnackBar(content: Text('خطأ أثناء منح الإفراج: $e'), backgroundColor: AppTheme.crimson),
+                      SnackBar(content: Text(l.customsClearanceReleaseError(e.toString())), backgroundColor: AppTheme.crimson),
                     );
                   } finally {
                     if (mounted) setState(() => _isLoading = false);
                   }
                 },
-          child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('اعتماد الإفراج النهائي', style: TextStyle(color: Colors.white)),
+          child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text(l.customsClearanceConfirmReleaseBtn, style: const TextStyle(color: Colors.white)),
         ),
       ],
     );

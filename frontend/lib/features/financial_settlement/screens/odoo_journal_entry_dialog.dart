@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/financial_settlement_model.dart';
 import '../providers/financial_settlement_provider.dart';
@@ -66,7 +67,7 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'جارٍ التصدير: $filename\nالرابط المباشر: $downloadUrl',
+                context.l10n.odooJournalExportingSnack(filename, downloadUrl),
                 style: const TextStyle(fontSize: 12),
               ),
             ),
@@ -87,14 +88,14 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
         height: 750,
         padding: const EdgeInsets.all(24),
         child: _isLoading
-            ? const Center(
+            ? Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(color: AppTheme.cobalt),
-                    SizedBox(height: 16),
-                    Text('جارٍ إعداد وتوليد قيد اليومية المزدوج المتوازن لـ Odoo / ERP...',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const CircularProgressIndicator(color: AppTheme.cobalt),
+                    const SizedBox(height: 16),
+                    Text(context.l10n.odooJournalLoading,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
               )
@@ -105,13 +106,13 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
                       children: [
                         const Icon(Icons.error_outline, size: 48, color: AppTheme.crimson),
                         const SizedBox(height: 12),
-                        Text('خطأ أثناء جلب القيد: $_errorMessage',
+                        Text(context.l10n.odooJournalFetchError(_errorMessage!),
                             style: const TextStyle(color: AppTheme.crimson)),
                         const SizedBox(height: 16),
                         ElevatedButton.icon(
                           onPressed: _loadJournal,
                           icon: const Icon(Icons.refresh),
-                          label: const Text('إعادة المحاولة'),
+                          label: Text(context.l10n.retry),
                         ),
                       ],
                     ),
@@ -143,12 +144,12 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'قيد اليومية المحاسبي المزدوج وتصدير Odoo ERP (${entry.settlementCode})',
+                  context.l10n.odooJournalTitle(entry.settlementCode),
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'ملف الاستيراد: ${entry.importFileCode} | المرجع: ${entry.reference}',
+                  context.l10n.odooJournalSubtitle(entry.importFileCode, entry.reference),
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
@@ -177,8 +178,8 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
                   const SizedBox(width: 6),
                   Text(
                     entry.isBalanced
-                        ? '🟢 قيد متوازن 100% (Debit = Credit)'
-                        : '🔴 غير متوازن (فارق: ${entry.difference.toStringAsFixed(2)} ج.م)',
+                        ? context.l10n.odooJournalBalanced
+                        : context.l10n.odooJournalUnbalanced(entry.difference.toStringAsFixed(2)),
                     style: TextStyle(
                       color: entry.isBalanced ? AppTheme.emerald : AppTheme.crimson,
                       fontWeight: FontWeight.bold,
@@ -208,15 +209,15 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
           ),
           child: Row(
             children: [
-              _buildMetaItem('الشركة المستوردة', entry.companyName, Icons.business),
+              _buildMetaItem(context.l10n.odooJournalMetaImporter, entry.companyName, Icons.business),
               _buildMetaDivider(),
-              _buildMetaItem('المورد الأجنبي', entry.supplierName, Icons.flight_takeoff),
+              _buildMetaItem(context.l10n.odooJournalMetaSupplier, entry.supplierName, Icons.flight_takeoff),
               _buildMetaDivider(),
-              _buildMetaItem('المشروع / الحساب التحليلي', entry.projectName ?? 'N/A', Icons.account_tree),
+              _buildMetaItem(context.l10n.odooJournalMetaProject, entry.projectName ?? 'N/A', Icons.account_tree),
               _buildMetaDivider(),
-              _buildMetaItem('تاريخ القيد', entry.entryDate, Icons.calendar_today),
+              _buildMetaItem(context.l10n.odooJournalMetaDate, entry.entryDate, Icons.calendar_today),
               _buildMetaDivider(),
-              _buildMetaItem('إجمالي المدين / الدائن', '${entry.totalDebit.toStringAsFixed(2)} ج.م', Icons.account_balance_wallet, isHighlight: true),
+              _buildMetaItem(context.l10n.odooJournalMetaTotalDebitCredit, '${entry.totalDebit.toStringAsFixed(2)} ج.م', Icons.account_balance_wallet, isHighlight: true),
             ],
           ),
         ),
@@ -224,9 +225,9 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
         const SizedBox(height: 16),
 
         // Table Header Label
-        const Text(
-          'تفاصيل بنود القيد المحاسبي المزدوج (Double-Entry General Ledger Lines):',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+        Text(
+          context.l10n.odooJournalLinesSectionHeader,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
         ),
         const SizedBox(height: 8),
 
@@ -248,15 +249,15 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
                     dataRowMinHeight: 38,
                     dataRowMaxHeight: 46,
                     headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.08)),
-                    columns: const [
-                      DataColumn(label: Text('رقم الحساب', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('اسم الحساب الدفتري', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('الطرف / الشريك (Partner)', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('بيان وشرح القيد (Label)', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('مدين Debit (ج.م)', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('دائن Credit (ج.م)', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('العملة الأجنبية', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('تصنيف التكلفة', style: TextStyle(fontWeight: FontWeight.bold))),
+                    columns: [
+                      DataColumn(label: Text(context.l10n.odooJournalColAccountCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text(context.l10n.odooJournalColAccountName, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text(context.l10n.odooJournalColPartner, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text(context.l10n.odooJournalColLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text(context.l10n.odooJournalColDebit, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text(context.l10n.odooJournalColCredit, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text(context.l10n.odooJournalColForeignCurrency, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text(context.l10n.odooJournalColCostCategory, style: const TextStyle(fontWeight: FontWeight.bold))),
                     ],
                     rows: entry.lines.map((l) {
                       final isDebit = l.debit > 0;
@@ -333,9 +334,9 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               icon: const Icon(Icons.file_download, color: Colors.white),
-              label: const Text(
-                '📥 تحميل شيت Odoo CSV الجاهز للاستيراد المباشر',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
+              label: Text(
+                context.l10n.odooJournalExportCsvBtn,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
               ),
               onPressed: () => _triggerDownload('export-odoo-csv', 'odoo_landed_cost_${entry.settlementId}.csv'),
             ),
@@ -350,9 +351,9 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               icon: const Icon(Icons.table_view, color: Colors.white),
-              label: const Text(
-                '📊 تحميل كشف Excel المحاسبي التفصيلي (Bilingual)',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
+              label: Text(
+                context.l10n.odooJournalExportExcelBtn,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
               ),
               onPressed: () => _triggerDownload('export-odoo-excel', 'accounting_landed_cost_voucher_${entry.settlementId}.xlsx'),
             ),
@@ -365,7 +366,7 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 side: BorderSide(color: Colors.grey.shade400),
               ),
-              child: const Text('إغلاق', style: TextStyle(color: AppTheme.charcoal)),
+              child: Text(context.l10n.close, style: const TextStyle(color: AppTheme.charcoal)),
             ),
           ],
         ),

@@ -55,7 +55,7 @@
 - [x] Screen 8: Financial Approvals (`FinancialApprovalScreen`, `saved_budgets_registry_tab.dart`, `swift_reconciliation_screen.dart`, export dialogs) — **Reviewed & Fixed**
 - [x] Screen 11: ACID Operations (`NafezaAcidScreen` / `nafeza_acid_screen.dart`) — **Reviewed & Fixed**
 - [x] Screen 16: Bank Form 4 (`BankForm4Screen` / `bank_form4_screen.dart`) — **Reviewed & Fixed**
-- [ ] Screen 18: Draft B/L Review (`DraftBlReviewScreen`)
+- [x] Screen 18: Draft B/L Review (`DraftBLReviewTab` / `draft_bl_review_tab.dart` & `VisualDraftBLSheet` / `visual_draft_bl_sheet.dart`) — **Reviewed & Fixed**
 - [ ] Screen 19: Draft COO / EUR.1 (`DraftCooScreen`)
 - [ ] Screen 20: Customs Docs Approval (`CustomsApprovalScreen`)
 - [ ] Screen 21: PO & Packing Reconciliation (`PoReconciliationScreen`)
@@ -93,8 +93,8 @@
 
 ---
 
-**Last Screen Fully Fixed:** `Screen 16: Bank Form 4 (bank_form4_screen.dart)`  
-**Next Screen to Review:** `Screen 18: Draft B/L Review (DraftBlReviewScreen)`
+**Last Screen Fully Fixed:** `Screen 18: Draft B/L Review (draft_bl_review_tab.dart & visual_draft_bl_sheet.dart)`  
+**Next Screen to Review:** `Screen 19: Draft COO / EUR.1 (DraftCooScreen)`
 
 
 

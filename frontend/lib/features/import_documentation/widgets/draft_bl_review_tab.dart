@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -460,15 +461,15 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             physics: const BouncingScrollPhysics(),
             child: Row(
               children: [
-                _buildStageButton(0, '1. ورقة المراجعة والتدقيق (Review Sheet & Checklist)', Icons.fact_check),
+                _buildStageButton(0, context.l10n.draftBlStage0ReviewSheet, Icons.fact_check),
                 const SizedBox(width: 8),
-                _buildStageButton(1, '2. تقرير التعديلات وخطاب الخط الملاحي (Revision Report)', Icons.assignment_late),
+                _buildStageButton(1, context.l10n.draftBlStage1RevisionReport, Icons.assignment_late),
                 const SizedBox(width: 8),
-                _buildStageButton(2, '3. إدارة النسخ v1 / v2 / v3 (Version Branching)', Icons.history),
+                _buildStageButton(2, context.l10n.draftBlStage2VersionBranching, Icons.history),
                 const SizedBox(width: 8),
-                _buildStageButton(3, '4. الاعتماد الثنائي (Dual Approval Workspace)', Icons.verified_user),
+                _buildStageButton(3, context.l10n.draftBlStage3DualApproval, Icons.verified_user),
                 const SizedBox(width: 8),
-                _buildStageButton(4, '5. السجل النهائي المعتمد (Final Certified B/L)', Icons.inventory_2),
+                _buildStageButton(4, context.l10n.draftBlStage4FinalRegistry, Icons.inventory_2),
               ],
             ),
           ),
@@ -554,13 +555,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.description, color: AppTheme.cobalt, size: 26),
-                        SizedBox(width: 10),
+                        const Icon(Icons.description, color: AppTheme.cobalt, size: 26),
+                        const SizedBox(width: 10),
                         Text(
-                          'ورقة مراجعة واعتماد مسودة بوليصة الشحن (Draft B/L Document Review Sheet)',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          context.l10n.draftBlReviewSheetTitle,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -587,7 +588,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               }
                             },
                             icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 15),
-                            label: const Text('تنزيل PDF', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                            label: Text(context.l10n.draftBlDownloadPdfButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.crimson,
                               foregroundColor: Colors.white,
@@ -617,7 +618,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               }
                             },
                             icon: const Icon(Icons.table_chart, color: Colors.white, size: 15),
-                            label: const Text('تنزيل Excel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                            label: Text(context.l10n.draftBlDownloadExcelButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.emerald,
                               foregroundColor: Colors.white,
@@ -642,8 +643,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 const SizedBox(width: 6),
                                 Text(
                                   _comparisonResult!.hasBlockingMismatch
-                                      ? 'يوجد ${_comparisonResult!.openDiscrepanciesCount} اختلافات غير مطابقة'
-                                      : 'مطابقة تامة 100% جاهزة للاعتماد',
+                                      ? context.l10n.draftBlMismatchesFound(_comparisonResult!.openDiscrepanciesCount)
+                                      : context.l10n.draftBlPerfectMatchReady,
                                   style: TextStyle(
                                     color: _comparisonResult!.hasBlockingMismatch ? Colors.red.shade900 : Colors.green.shade900,
                                     fontWeight: FontWeight.bold,
@@ -659,7 +660,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'يقوم النظام تلقائياً باستدعاء كافة البيانات المرجعية للشحنة من الحجز الملاحي وبيان العبوة المعتمد، ومقارنتها مباشرة بمسودة الخط الملاحي.',
+                  context.l10n.draftBlReviewSheetSub,
                   style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
                 ),
                 const Divider(height: 24),
@@ -669,7 +670,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       flex: 4,
                       child: SearchableDropdownField<int>(
                         value: _selectedImportFileId,
-                        labelText: 'ملف الشحنة الاستيرادي *',
+                        labelText: context.l10n.draftBlSelectImportFileLabel,
                         searchHintText: 'ابحث برقم الملف أو كود الشحنة...',
                         items: importFiles
                             .map((f) => SearchableDropdownItem<int>(
@@ -718,7 +719,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       icon: _isLoading
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                           : const Icon(Icons.sync, color: Colors.white),
-                      label: const Text('تحديث ومقارنة البيانات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.draftBlRefreshAndCompare, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       onPressed: _isLoading ? null : () => _runComparison(silent: false),
                     ),
                   ],
@@ -742,13 +743,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   children: [
                     const Icon(Icons.document_scanner, color: AppTheme.cobalt, size: 22),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('📥 استخراج ذكي من ملفات ومسودات البوليصة (PDF / Word / Excel / Text)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          SizedBox(height: 2),
-                          Text('ارفع ملف المسودة مباشرة من الخط الملاحي أو الصق نص المسودة للاستخراج والمطابقة الآلية الفورية', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(context.l10n.draftBlSmartExtractorTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          const SizedBox(height: 2),
+                          Text(context.l10n.draftBlSmartExtractorSub, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                         ],
                       ),
                     ),
@@ -780,7 +781,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                           : const Icon(Icons.upload_file, size: 20),
                       label: Text(
-                        _isUploadingFile ? 'جاري قراءة واستخراج بيانات الملف...' : '📁 رفع واستخراج ملف المسودة (PDF / Word / Excel)',
+                        _isUploadingFile ? context.l10n.draftBlExtractingFileProgress : context.l10n.draftBlUploadAndExtractButton,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       onPressed: _isUploadingFile ? null : _pickAndExtractFile,
@@ -801,14 +802,14 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'تم استخراج: $_uploadedFileName (${((_uploadedFileSize ?? 0) / 1024).toStringAsFixed(1)} KB)',
+                                  context.l10n.draftBlFileExtractedSuccess(_uploadedFileName!, ((_uploadedFileSize ?? 0) / 1024).toStringAsFixed(1)),
                                   style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.bold, fontSize: 12),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.refresh, size: 18, color: Colors.green),
-                                tooltip: 'إعادة رفع ملف آخر',
+                                tooltip: context.l10n.draftBlReuploadTooltip,
                                 onPressed: _pickAndExtractFile,
                               ),
                             ],
@@ -831,9 +832,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       children: [
                         const Icon(Icons.confirmation_number_outlined, color: AppTheme.cobalt, size: 22),
                         const SizedBox(width: 10),
-                        const Text(
-                          'رقم البوليصة المستخرج (Extracted B/L No.):',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                        Text(
+                          context.l10n.draftBlExtractedBlNumberLabel,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                         ),
                         const SizedBox(width: 12),
                         Container(
@@ -855,12 +856,12 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 onTap: () {
                                   Clipboard.setData(ClipboardData(text: _draftBlNumberCtrl.text));
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('✔ تم نسخ رقم البوليصة (${_draftBlNumberCtrl.text}) إلى الحافظة')),
+                                    SnackBar(content: Text(context.l10n.draftBlCopiedBlNumberSnackbar(_draftBlNumberCtrl.text))),
                                   );
                                 },
-                                child: const Tooltip(
-                                  message: 'نسخ رقم البوليصة',
-                                  child: Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
+                                child: Tooltip(
+                                  message: context.l10n.draftBlCopyBlNumberTooltip,
+                                  child: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
                                 ),
                               ),
                             ],
@@ -870,20 +871,20 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         TextButton.icon(
                           style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                           icon: const Icon(Icons.edit, size: 14, color: AppTheme.charcoal),
-                          label: const Text('تعديل', style: TextStyle(fontSize: 12, color: AppTheme.charcoal)),
+                          label: Text(context.l10n.edit, style: const TextStyle(fontSize: 12, color: AppTheme.charcoal)),
                           onPressed: () {
                             showDialog(
                               context: context,
                               builder: (dCtx) {
                                 final editCtrl = TextEditingController(text: _draftBlNumberCtrl.text);
                                 return AlertDialog(
-                                  title: const Text('تعديل رقم بوليصة الشحن (B/L Number)'),
+                                  title: Text(context.l10n.draftBlEditBlNumberTitle),
                                   content: TextField(
                                     controller: editCtrl,
-                                    decoration: const InputDecoration(labelText: 'رقم البوليصة', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: context.l10n.draftBlRegistryColBlNumber, border: const OutlineInputBorder()),
                                   ),
                                   actions: [
-                                    TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('إلغاء')),
+                                    TextButton(onPressed: () => Navigator.pop(dCtx), child: Text(context.l10n.cancel)),
                                     ElevatedButton(
                                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                                       onPressed: () {
@@ -892,7 +893,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                         });
                                         Navigator.pop(dCtx);
                                       },
-                                      child: const Text('حفظ', style: TextStyle(color: Colors.white)),
+                                      child: Text(context.l10n.save, style: const TextStyle(color: Colors.white)),
                                     ),
                                   ],
                                 );
@@ -924,12 +925,12 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '⚠️ تنبيه أمان رقابي: المستند المستخرج يحتوي على حقول حرجة غير مكتملة أو تحتاج تأكيد يدوي',
+                                context.l10n.draftBlSafetyAlertTitle,
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                _safetyWarning ?? 'يرجى مراجعة وتأكيد الحقول الحرجة بالجدول أدناه لتفادي المقارنة أو الاعتماد بناءً على بيانات غير مكتملة.',
+                                _safetyWarning ?? context.l10n.draftBlSafetyAlertSub,
                                 style: TextStyle(fontSize: 12, color: Colors.brown.shade900),
                               ),
                               const SizedBox(height: 8),
@@ -961,13 +962,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.green.shade400),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(Icons.verified, color: Colors.green, size: 18),
-                        SizedBox(width: 8),
+                        const Icon(Icons.verified, color: Colors.green, size: 18),
+                        const SizedBox(width: 8),
                         Text(
-                          '✅ تم الاستخراج الذكي الشامل واكتمال كافة الحقول الحرجة بنسبة 100%.',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green),
+                          context.l10n.draftBlSmartExtractionComplete,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green),
                         ),
                       ],
                     ),
@@ -979,17 +980,17 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 ExpansionTile(
                   tilePadding: EdgeInsets.zero,
                   childrenPadding: const EdgeInsets.only(top: 8),
-                  title: const Text(
-                    'أو الصق نص المسودة يدوياً (Paste Raw Text / Email Content):',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                  title: Text(
+                    context.l10n.draftBlPasteRawTextTitle,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
                   ),
                   children: [
                     TextFormField(
                       controller: _rawTextCtrl,
                       maxLines: 4,
-                      decoration: const InputDecoration(
-                        hintText: 'الصق هنا النص المنسوخ من مسودة البوليصة أو الإيميل...',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        hintText: context.l10n.draftBlPasteRawTextHint,
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -1002,7 +1003,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                         ),
                         icon: const Icon(Icons.flash_on, size: 16),
-                        label: const Text('⚡ استخراج ومطابقة ذكية من النص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        label: Text(context.l10n.draftBlExtractFromTextButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         onPressed: () => _runComparison(silent: false),
                       ),
                     ),
@@ -1020,8 +1021,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             systemData: sys,
             draftData: sys,
             isReferenceOnly: true,
-            title: '1. ملخص الشحنة المرجعي كشكل بوليصة شحن (System Reference B/L Sheet)',
-            subtitle: 'البيانات المرجعية المسجلة داخل النظام من ماستر داتا المورد والمستورد وبيان العبوة والحجز الملاحي ومعايير نافذة (ACID)',
+            title: context.l10n.draftBlReferenceVisualSheetTitle,
+            subtitle: context.l10n.draftBlReferenceVisualSheetSub,
             onRefresh: () => _runComparison(silent: true),
           ),
           Align(
@@ -1031,7 +1032,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
               child: TextButton.icon(
                 onPressed: () => setState(() => _showReferenceAsVisualBL = false),
                 icon: const Icon(Icons.grid_view, size: 16, color: AppTheme.cobalt),
-                label: const Text('التبديل إلى عرض البطاقات التفصيلية (Grid View)', style: TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
+                label: Text(context.l10n.draftBlSwitchToGridView, style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
               ),
             ),
           ),
@@ -1047,13 +1048,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.hub, color: AppTheme.cobalt, size: 22),
-                          SizedBox(width: 8),
+                          const Icon(Icons.hub, color: AppTheme.cobalt, size: 22),
+                          const SizedBox(width: 8),
                           Text(
-                            '1. ملخص الشحنة المرجعي التلقائي (Auto Generated Shipment Summary)',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                            context.l10n.draftBlAutoSummaryTitle,
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -1066,7 +1067,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
                             icon: const Icon(Icons.description, size: 16),
-                            label: const Text('عرض كشكل بوليصة رسمية (Visual B/L)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text(context.l10n.draftBlSwitchToVisualBl, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             onPressed: () => setState(() => _showReferenceAsVisualBL = true),
                           ),
                           const SizedBox(width: 8),
@@ -1077,7 +1078,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
                             icon: const Icon(Icons.print, size: 16),
-                            label: const Text('طباعة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text(context.l10n.draftBlPrintButton, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             onPressed: () => DraftBLExportService.printDraftBL(
                               systemData: sys,
                               draftData: sys,
@@ -1092,7 +1093,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
                             icon: const Icon(Icons.picture_as_pdf, size: 16),
-                            label: const Text('PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text(context.l10n.draftBlDownloadPdfButton, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             onPressed: () => DraftBLExportService.exportDraftBLToPdf(
                               systemData: sys,
                               draftData: sys,
@@ -1107,7 +1108,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
                             icon: const Icon(Icons.table_chart, size: 16),
-                            label: const Text('Excel', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text(context.l10n.draftBlDownloadExcelButton, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             onPressed: () => DraftBLExportService.exportDraftBLToExcel(
                               systemData: sys,
                               draftData: sys,
@@ -1119,7 +1120,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'البيانات المرجعية المسجلة داخل النظام من ماستر داتا المورد والمستورد والحجز الملاحي وبيان العبوة المعتمد.',
+                    context.l10n.draftBlAutoSummarySub,
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                   ),
                   const Divider(height: 20),
@@ -1127,21 +1128,21 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     spacing: 12,
                     runSpacing: 12,
                     children: [
-                      _buildSummaryBox('المصدر / الشاحن (Shipper)', sys['shipper'] ?? 'غير محدد', Icons.business, Colors.indigo, flex: 2),
-                      _buildSummaryBox('المستورد (Consignee)', sys['consignee'] ?? 'غير محدد', Icons.account_balance, Colors.blue, flex: 2),
-                      _buildSummaryBox('جهة الإخطار (Notify Party)', sys['notify_party'] ?? 'SAME AS CONSIGNEE', Icons.notifications_active, Colors.cyan, flex: 2),
-                      _buildSummaryBox('الباخرة والرحلة (Vessel/Voyage)', '${sys['vessel_name'] ?? 'N/A'} - ${sys['voyage_number'] ?? 'N/A'}', Icons.directions_boat, Colors.teal),
-                      _buildSummaryBox('الموانئ (POL / POD)', '${sys['pol'] ?? 'N/A'} ➔ ${sys['pod'] ?? 'N/A'}', Icons.anchor, Colors.purple),
-                      _buildSummaryBox('شروط النولون (Freight Terms)', sys['freight_terms'] ?? 'Freight Prepaid', Icons.payment, Colors.orange),
-                      _buildSummaryBox('رقم الحجز (Booking No)', sys['booking_no'] ?? 'N/A', Icons.confirmation_number, Colors.brown),
-                      _buildSummaryBox('رقم القيد الجمركي (ACID No)', sys['acid_number'] ?? 'N/A', Icons.security, Colors.red, isCritical: true),
-                      _buildSummaryBox('البطاقة الضريبية للمستورد', sys['importer_tax_id'] ?? 'N/A', Icons.badge, Colors.red, isCritical: true),
-                      _buildSummaryBox('رقم تسجيل المصدر (Shipper Reg)', sys['shipper_reg_id'] ?? 'N/A', Icons.pin, Colors.red, isCritical: true),
-                      _buildSummaryBox('الحاويات والرصاص (Containers)', sys['container_summary'] ?? 'N/A', Icons.inventory, Colors.teal, flex: 2),
-                      _buildSummaryBox('الوزن القائم (Gross Weight)', '${sys['total_gross_weight_kg'] ?? 0.0} كجم', Icons.scale, Colors.green),
-                      _buildSummaryBox('الوزن الصافي (Net Weight)', '${sys['total_net_weight_kg'] ?? 0.0} كجم', Icons.fitness_center, Colors.indigo),
-                      _buildSummaryBox('الحجم الإجمالي (Measurement CBM)', '${sys['cbm'] ?? 0.0} م³', Icons.view_in_ar, Colors.orange),
-                      _buildSummaryBox('عدد ونوع الطرود', '${sys['qty_pkg'] ?? 0} طرد (${sys['goods_description'] ?? 'Goods'})', Icons.category, Colors.deepPurple, flex: 2),
+                      _buildSummaryBox(context.l10n.draftBlSummaryShipper, sys['shipper'] ?? 'غير محدد', Icons.business, Colors.indigo, flex: 2),
+                      _buildSummaryBox(context.l10n.draftBlSummaryConsignee, sys['consignee'] ?? 'غير محدد', Icons.account_balance, Colors.blue, flex: 2),
+                      _buildSummaryBox(context.l10n.draftBlSummaryNotifyParty, sys['notify_party'] ?? 'SAME AS CONSIGNEE', Icons.notifications_active, Colors.cyan, flex: 2),
+                      _buildSummaryBox(context.l10n.draftBlSummaryVesselVoyage, '${sys['vessel_name'] ?? 'N/A'} - ${sys['voyage_number'] ?? 'N/A'}', Icons.directions_boat, Colors.teal),
+                      _buildSummaryBox(context.l10n.draftBlSummaryPorts, '${sys['pol'] ?? 'N/A'} ➔ ${sys['pod'] ?? 'N/A'}', Icons.anchor, Colors.purple),
+                      _buildSummaryBox(context.l10n.draftBlSummaryFreightTerms, sys['freight_terms'] ?? 'Freight Prepaid', Icons.payment, Colors.orange),
+                      _buildSummaryBox(context.l10n.draftBlSummaryBookingNo, sys['booking_no'] ?? 'N/A', Icons.confirmation_number, Colors.brown),
+                      _buildSummaryBox(context.l10n.draftBlSummaryAcidNo, sys['acid_number'] ?? 'N/A', Icons.security, Colors.red, isCritical: true),
+                      _buildSummaryBox(context.l10n.draftBlSummaryImporterTaxId, sys['importer_tax_id'] ?? 'N/A', Icons.badge, Colors.red, isCritical: true),
+                      _buildSummaryBox(context.l10n.draftBlSummaryShipperReg, sys['shipper_reg_id'] ?? 'N/A', Icons.pin, Colors.red, isCritical: true),
+                      _buildSummaryBox(context.l10n.draftBlSummaryContainers, sys['container_summary'] ?? 'N/A', Icons.inventory, Colors.teal, flex: 2),
+                      _buildSummaryBox(context.l10n.draftBlSummaryGrossWeight, '${sys['total_gross_weight_kg'] ?? 0.0} kg', Icons.scale, Colors.green),
+                      _buildSummaryBox(context.l10n.draftBlSummaryNetWeight, '${sys['total_net_weight_kg'] ?? 0.0} kg', Icons.fitness_center, Colors.indigo),
+                      _buildSummaryBox(context.l10n.draftBlSummaryCbm, '${sys['cbm'] ?? 0.0} CBM', Icons.view_in_ar, Colors.orange),
+                      _buildSummaryBox(context.l10n.draftBlSummaryPackages, '${sys['qty_pkg'] ?? 0} (${sys['goods_description'] ?? 'Goods'})', Icons.category, Colors.deepPurple, flex: 2),
                     ],
                   ),
                 ],
@@ -1163,13 +1164,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.checklist_rtl, color: AppTheme.cobalt, size: 24),
-                        SizedBox(width: 8),
+                        const Icon(Icons.checklist_rtl, color: AppTheme.cobalt, size: 24),
+                        const SizedBox(width: 8),
                         Text(
-                          '2. قائمة التدقيق والمطابقة الشاملة (Review Checklist)',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          context.l10n.draftBlChecklistSectionTitle,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -1178,14 +1179,14 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
                           icon: const Icon(Icons.save, color: Colors.white, size: 18),
-                          label: const Text('حفظ جلسة المراجعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          label: Text(context.l10n.draftBlSaveSessionButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                           onPressed: _saveReview,
                         ),
                         const SizedBox(width: 10),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade800, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
                           icon: const Icon(Icons.assignment_late, color: Colors.white, size: 18),
-                          label: const Text('تقرير التعديلات للخط الملاحي ➔', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          label: Text(context.l10n.draftBlRevisionReportCarrierButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                           onPressed: () => setState(() => _activeStep = 1),
                         ),
                       ],
@@ -1194,15 +1195,15 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'جدول المطابقة المباشر لكل حقل بين بيانات النظام وقيم المسودة مع تحديد الحالة (Correct / Incorrect / N/A) وتحديد الإجراء والجهة المسؤولة.',
+                  context.l10n.draftBlChecklistSectionSub,
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                 ),
                 const Divider(height: 20),
                 if (checklist.isEmpty)
-                  const Center(
+                  Center(
                     child: Padding(
-                      padding: EdgeInsets.all(40),
-                      child: Text('يرجى اختيار ملف الشحنة لبدء المطابقة الآلية', style: TextStyle(color: Colors.grey)),
+                      padding: const EdgeInsets.all(40),
+                      child: Text(context.l10n.draftBlSelectFileToStartChecklist, style: const TextStyle(color: Colors.grey)),
                     ),
                   )
                 else
@@ -1213,14 +1214,14 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       dataRowMinHeight: 52,
                       dataRowMaxHeight: 70,
                       headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                      columns: const [
-                        DataColumn(label: Text('الحقل (Field Name)', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('البيانات بالنظام (System Value)', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('قيمة المسودة (Draft Value)', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('الحالة (Status)', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('الإجراء والتصحيح المطلوب', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('الجهة المسؤولة', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('السبب والملاحظات', style: TextStyle(fontWeight: FontWeight.bold))),
+                      columns: [
+                        DataColumn(label: Text(context.l10n.draftBlChecklistColField, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.draftBlChecklistColSystemValue, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.draftBlChecklistColDraftValue, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.draftBlChecklistColStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.draftBlChecklistColRequiredAction, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.draftBlChecklistColResponsibleParty, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.draftBlChecklistColReasonNotes, style: const TextStyle(fontWeight: FontWeight.bold))),
                       ],
                       rows: checklist.asMap().entries.map((entry) {
                         int idx = entry.key;
@@ -1238,13 +1239,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             DataCell(
                               SizedBox(
                                 width: 170,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(itm.fieldLabelAr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                    Text(itm.fieldLabelEn, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700)),
-                                  ],
+                                child: Text(
+                                  Localizations.localeOf(context).languageCode == 'ar' ? itm.fieldLabelAr : itm.fieldLabelEn,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                                 ),
                               ),
                             ),
@@ -1272,7 +1269,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                         initialValue: itm.draftValue?.toString() ?? '',
                                         decoration: InputDecoration(
                                           isDense: true,
-                                          hintText: 'أدخل قيمة المسودة...',
+                                          hintText: context.l10n.draftBlEnterDraftValueHint,
                                           hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                           border: OutlineInputBorder(
@@ -1299,7 +1296,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                     const SizedBox(width: 4),
                                     IconButton(
                                       icon: const Icon(Icons.content_copy, size: 14, color: AppTheme.cobalt),
-                                      tooltip: 'نسخ قيمة النظام للمسودة وتأكيد المطابقة',
+                                      tooltip: context.l10n.draftBlCopySystemValueTooltip,
                                       visualDensity: VisualDensity.compact,
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
@@ -1322,10 +1319,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 value: itm.status,
                                 isDense: true,
                                 underline: const SizedBox.shrink(),
-                                items: const [
-                                  DropdownMenuItem(value: 'Correct', child: Text('✅ مطابق (Correct)', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12))),
-                                  DropdownMenuItem(value: 'Incorrect', child: Text('❌ غير مطابق (Incorrect)', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12))),
-                                  DropdownMenuItem(value: 'N/A', child: Text('⚪ غير مطلوب (N/A)', style: TextStyle(color: Colors.grey, fontSize: 12))),
+                                items: [
+                                  DropdownMenuItem(value: 'Correct', child: Text('✅ ${context.l10n.draftBlStatusCorrect}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12))),
+                                  DropdownMenuItem(value: 'Incorrect', child: Text('❌ ${context.l10n.draftBlStatusIncorrect}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12))),
+                                  DropdownMenuItem(value: 'N/A', child: Text('⚪ ${context.l10n.draftBlStatusNA}', style: const TextStyle(color: Colors.grey, fontSize: 12))),
                                 ],
                                 onChanged: (v) {
                                   if (v != null) _updateChecklistRow(idx, status: v);
@@ -1340,7 +1337,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                   initialValue: itm.requiredCorrection ?? '',
                                   decoration: InputDecoration(
                                     isDense: true,
-                                    hintText: isCorrect ? 'مطابق' : 'اكتب التصحيح المطلوب...',
+                                    hintText: isCorrect ? context.l10n.draftBlMatchedHint : context.l10n.draftBlEnterCorrectionHint,
                                     hintStyle: TextStyle(fontSize: 11, color: isCorrect ? Colors.green : Colors.grey),
                                     contentPadding: const EdgeInsets.all(6),
                                     border: const OutlineInputBorder(),
@@ -1358,11 +1355,11 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                   value: itm.responsibleParty ?? 'Shipping Provider',
                                   isDense: true,
                                   decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(6), border: OutlineInputBorder()),
-                                  items: const [
-                                    DropdownMenuItem(value: 'Shipping Provider', child: Text('الخط الملاحي', style: TextStyle(fontSize: 11.5))),
-                                    DropdownMenuItem(value: 'Supplier', child: Text('المورد الأجنبي', style: TextStyle(fontSize: 11.5))),
-                                    DropdownMenuItem(value: 'Importer', child: Text('المستورد', style: TextStyle(fontSize: 11.5))),
-                                    DropdownMenuItem(value: 'Customs Broker', child: Text('المخلص الجمركي', style: TextStyle(fontSize: 11.5))),
+                                  items: [
+                                    DropdownMenuItem(value: 'Shipping Provider', child: Text(context.l10n.draftBlPartyShippingLine, style: const TextStyle(fontSize: 11.5))),
+                                    DropdownMenuItem(value: 'Supplier', child: Text(context.l10n.draftBlPartySupplier, style: const TextStyle(fontSize: 11.5))),
+                                    DropdownMenuItem(value: 'Importer', child: Text(context.l10n.draftBlPartyImporter, style: const TextStyle(fontSize: 11.5))),
+                                    DropdownMenuItem(value: 'Customs Broker', child: Text(context.l10n.draftBlPartyCustomsBroker, style: const TextStyle(fontSize: 11.5))),
                                   ],
                                   onChanged: (v) {
                                     if (v != null) _updateChecklistRow(idx, respParty: v);
@@ -1376,11 +1373,11 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 width: 160,
                                 child: TextFormField(
                                   initialValue: itm.reason ?? '',
-                                  decoration: const InputDecoration(
+                                  decoration: InputDecoration(
                                     isDense: true,
-                                    hintText: 'السبب / الملاحظات...',
-                                    contentPadding: EdgeInsets.all(6),
-                                    border: OutlineInputBorder(),
+                                    hintText: context.l10n.draftBlEnterReasonHint,
+                                    contentPadding: const EdgeInsets.all(6),
+                                    border: const OutlineInputBorder(),
                                   ),
                                   style: const TextStyle(fontSize: 11.5),
                                   onChanged: (v) => _updateChecklistRow(idx, reason: v),
@@ -1405,8 +1402,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             draftData: _comparisonResult!.draftData,
             draftBlNumber: _draftBlNumberCtrl.text.isNotEmpty ? _draftBlNumberCtrl.text : null,
             bookingNumber: _bookingNoCtrl.text.isNotEmpty ? _bookingNoCtrl.text : null,
-            title: '5. شكل بوليصة مسودة الخط الملاحي المستخرجة (Extracted Draft B/L Sheet)',
-            subtitle: 'مطابقة حية وتأكيد لصحة بيانات بوليصة الشحن مع متطلبات نافذة (ACID)',
+            title: context.l10n.draftBlExtractedVisualSheetTitle,
+            subtitle: context.l10n.draftBlExtractedVisualSheetSub,
           ),
         ],
       ],
@@ -1474,7 +1471,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 Expanded(
                   child: SearchableDropdownField<int>(
                     value: _selectedImportFileId,
-                    labelText: 'ملف الشحنة المربوط *',
+                    labelText: context.l10n.draftBlSelectImportFileLabel,
                     searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
                     items: importFiles
                         .map((f) => SearchableDropdownItem<int>(
@@ -1505,12 +1502,12 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   children: [
                     const Icon(Icons.folder_off, size: 48, color: Colors.orange),
                     const SizedBox(height: 12),
-                    const Text('⚠️ يرجى اختيار وتحديد ملف الشحنة أولاً لعرض تقرير التعديلات وخطاب الخط الملاحي', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    Text(context.l10n.draftBlSelectFileToViewRevision, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      label: const Text('العودة لاختيار الملف', style: TextStyle(color: Colors.white)),
+                      label: Text(context.l10n.draftBlBackToSelectFile, style: const TextStyle(color: Colors.white)),
                       onPressed: () => setState(() => _activeStep = 0),
                     ),
                   ],
@@ -1530,49 +1527,49 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.assignment_late, color: Colors.orange, size: 24),
-                          SizedBox(width: 8),
-                          Text('تقرير التعديلات المطلوبة (Revision Report)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const Icon(Icons.assignment_late, color: Colors.orange, size: 24),
+                          const SizedBox(width: 8),
+                          Text(context.l10n.draftBlRevisionReportTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ],
                       ),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                         icon: const Icon(Icons.history, color: Colors.white, size: 16),
-                        label: const Text('المتابعة لسجل النسخ (Stage 3)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        label: Text(context.l10n.draftBlProceedToVersionHistory, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         onPressed: () => setState(() => _activeStep = 2),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  const Text('يضم هذا التقرير فقط البنود غير المطابقة المطلوب تعديلها من الخط الملاحي أو المورد.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  Text(context.l10n.draftBlRevisionReportSub, style: const TextStyle(color: Colors.grey, fontSize: 13)),
                   const Divider(height: 20),
                   if (incorrectItems.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.green)),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.check_circle, color: Colors.green),
-                          SizedBox(width: 10),
-                          Text('رائع! لا توجد أي تعديلات مطلوبة. كافة بنود المسودة مطابقة تماماً للمنظومة.', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                          const Icon(Icons.check_circle, color: Colors.green),
+                          const SizedBox(width: 10),
+                          Text(context.l10n.draftBlNoAmendmentsNeeded, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     )
                   else
                     DataTable(
-                      columns: const [
-                        DataColumn(label: Text('البند (Item)')),
-                        DataColumn(label: Text('الإجراء والتصحيح المطلوب (Required Action)')),
-                        DataColumn(label: Text('الجهة المسؤولة (Responsible)')),
-                        DataColumn(label: Text('السبب (Reason)')),
+                      columns: [
+                        DataColumn(label: Text(context.l10n.draftBlRevisionColItem)),
+                        DataColumn(label: Text(context.l10n.draftBlRevisionColRequiredAction)),
+                        DataColumn(label: Text(context.l10n.draftBlRevisionColResponsible)),
+                        DataColumn(label: Text(context.l10n.draftBlRevisionColReason)),
                       ],
                       rows: incorrectItems.map((itm) {
                         return DataRow(cells: [
-                          DataCell(Text(itm.fieldLabelEn, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataCell(Text(Localizations.localeOf(context).languageCode == 'ar' ? itm.fieldLabelAr : itm.fieldLabelEn, style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataCell(Text(itm.requiredCorrection ?? 'Update to match system value (${itm.systemValue})', style: const TextStyle(color: Colors.red))),
-                          DataCell(Text(itm.responsibleParty ?? 'Shipping Provider')),
+                          DataCell(Text(itm.responsibleParty == 'Shipping Provider' ? context.l10n.draftBlPartyShippingLine : itm.responsibleParty == 'Supplier' ? context.l10n.draftBlPartySupplier : itm.responsibleParty == 'Importer' ? context.l10n.draftBlPartyImporter : context.l10n.draftBlPartyCustomsBroker)),
                           DataCell(Text(itm.reason ?? 'Mismatch with system master record')),
                         ]);
                       }).toList(),
@@ -1595,21 +1592,21 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.mail, color: AppTheme.cobalt, size: 24),
-                          SizedBox(width: 8),
-                          Text('خطاب طلب التعديل الرسمي للخط الملاحي (Carrier Correction Request Letter)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                          const Icon(Icons.mail, color: AppTheme.cobalt, size: 24),
+                          const SizedBox(width: 8),
+                          Text(context.l10n.draftBlCarrierRequestLetterTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                         ],
                       ),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
                         icon: const Icon(Icons.copy, color: Colors.white, size: 16),
-                        label: const Text('نسخ الخطاب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        label: Text(context.l10n.draftBlCopyLetterButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: letter));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('✔ تم نسخ خطاب التعديل إلى الحافظة بنجاح'), backgroundColor: Colors.green),
+                            SnackBar(content: Text(context.l10n.draftBlLetterCopiedSnackbar), backgroundColor: Colors.green),
                           );
                         },
                       ),
@@ -1651,7 +1648,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 Expanded(
                   child: SearchableDropdownField<int>(
                     value: _selectedImportFileId,
-                    labelText: 'ملف الشحنة المربوط *',
+                    labelText: context.l10n.draftBlSelectImportFileLabel,
                     searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
                     items: importFiles
                         .map((f) => SearchableDropdownItem<int>(
@@ -1682,12 +1679,12 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   children: [
                     const Icon(Icons.folder_off, size: 48, color: Colors.orange),
                     const SizedBox(height: 12),
-                    const Text('⚠️ يرجى اختيار وتحديد ملف الشحنة أولاً لعرض إدارة النسخ والتعديلات', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    Text(context.l10n.draftBlSelectFileToViewVersions, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      label: const Text('العودة لاختيار الملف', style: TextStyle(color: Colors.white)),
+                      label: Text(context.l10n.draftBlBackToSelectFile, style: const TextStyle(color: Colors.white)),
                       onPressed: () => setState(() => _activeStep = 0),
                     ),
                   ],
@@ -1707,25 +1704,25 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.alt_route, color: AppTheme.cobalt, size: 24),
-                          SizedBox(width: 8),
-                          Text('إدارة النسخ والإصدارات (Version Branching & Locking)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const Icon(Icons.alt_route, color: AppTheme.cobalt, size: 24),
+                          const SizedBox(width: 8),
+                          Text(context.l10n.draftBlVersionBranchingTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ],
                       ),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                         icon: const Icon(Icons.verified_user, color: Colors.white, size: 16),
-                        label: const Text('المتابعة للاعتماد الثنائي (Stage 4)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        label: Text(context.l10n.draftBlProceedToDualApproval, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         onPressed: () => setState(() => _activeStep = 3),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'عند استلام مسودة معدلة جديدة (v2, v3)، يقوم النظام بقفل البنود المطابقة سابقاً (Locked)، وإعادة فتح البنود ذات الملاحظات فقط للتأكد من تعديلها.',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  Text(
+                    context.l10n.draftBlVersionBranchingSub,
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
                   ),
                   const Divider(height: 24),
                   Container(
@@ -1737,7 +1734,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'النسخة الحالية النشطة: ${_activeSession?.version ?? 'v1'} (${_activeSession?.stage ?? 'Stage 1: Review'}) | البنود المقفلة: ${_comparisonResult?.checklist.where((c) => c.isLocked).length ?? 0}',
+                            context.l10n.draftBlActiveVersionBanner(_activeSession?.version ?? 'v1', _activeSession?.stage ?? 'Stage 1: Review', _comparisonResult?.checklist.where((c) => c.isLocked).length ?? 0),
                             style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                           ),
                         ),
@@ -1773,7 +1770,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 Expanded(
                   child: SearchableDropdownField<int>(
                     value: _selectedImportFileId,
-                    labelText: 'ملف الشحنة المربوط *',
+                    labelText: context.l10n.draftBlSelectImportFileLabel,
                     searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
                     items: importFiles
                         .map((f) => SearchableDropdownItem<int>(
@@ -1804,12 +1801,12 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   children: [
                     const Icon(Icons.folder_off, size: 48, color: Colors.orange),
                     const SizedBox(height: 12),
-                    const Text('⚠️ يرجى اختيار وتحديد ملف الشحنة أولاً لإتمام الاعتماد الثنائي للبوليصة', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    Text(context.l10n.draftBlSelectFileToCompleteApproval, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      label: const Text('العودة لاختيار الملف', style: TextStyle(color: Colors.white)),
+                      label: Text(context.l10n.draftBlBackToSelectFile, style: const TextStyle(color: Colors.white)),
                       onPressed: () => setState(() => _activeStep = 0),
                     ),
                   ],
@@ -1831,7 +1828,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('🚨 حظر الاعتماد التام (Approval Blocked): توجد اختلافات حرجة تمنع اعتماد البوليصة', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                        Text(context.l10n.draftBlApprovalBlockedTitle, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
                         const SizedBox(height: 4),
                         Text(reasons.join(' | '), style: TextStyle(fontSize: 12, color: Colors.red.shade900)),
                       ],
@@ -1857,10 +1854,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           children: [
                             const Icon(Icons.person, color: AppTheme.cobalt),
                             const SizedBox(width: 8),
-                            const Text('1. اعتماد مسؤول الاستيراد (Importer Approval)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                            Text(context.l10n.draftBlImporterApprovalTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                             const Spacer(),
                             Text(
-                              _activeSession?.importerApprovalStatus ?? 'Pending',
+                              _activeSession?.importerApprovalStatus == 'Approved' ? context.l10n.approved : context.l10n.pending,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: _activeSession?.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange,
@@ -1871,13 +1868,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         const Divider(height: 20),
                         TextFormField(
                           controller: _importerApproverCtrl,
-                          decoration: const InputDecoration(labelText: 'اسم مسؤول الاستيراد / المعتمِد *', border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: context.l10n.draftBlImporterApproverNameLabel, border: const OutlineInputBorder()),
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _importerNotesCtrl,
                           maxLines: 2,
-                          decoration: const InputDecoration(labelText: 'ملاحظات وتوجيهات الاستيراد', border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: context.l10n.draftBlImporterNotesLabel, border: const OutlineInputBorder()),
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -1886,7 +1883,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               child: ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 12)),
                                 icon: const Icon(Icons.check, color: Colors.white),
-                                label: const Text('اعتماد وموافقة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                label: Text(context.l10n.draftBlApproveAndAcceptButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                 onPressed: (hasBlocking || _isLoading) ? null : () => _submitApproval('importer', 'Approved'),
                               ),
                             ),
@@ -1894,7 +1891,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(vertical: 12)),
                               icon: const Icon(Icons.close),
-                              label: const Text('رفض المسودة'),
+                              label: Text(context.l10n.draftBlRejectDraftButton),
                               onPressed: _isLoading ? null : () => _submitApproval('importer', 'Rejected'),
                             ),
                           ],
@@ -1920,10 +1917,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           children: [
                             const Icon(Icons.gavel, color: Colors.teal),
                             const SizedBox(width: 8),
-                            const Text('2. اعتماد المخلص الجمركي (Broker Approval)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                            Text(context.l10n.draftBlBrokerApprovalTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                             const Spacer(),
                             Text(
-                              _activeSession?.brokerApprovalStatus ?? 'Pending',
+                              _activeSession?.brokerApprovalStatus == 'Approved' ? context.l10n.approved : context.l10n.pending,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: _activeSession?.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange,
@@ -1934,13 +1931,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         const Divider(height: 20),
                         TextFormField(
                           controller: _brokerApproverCtrl,
-                          decoration: const InputDecoration(labelText: 'اسم المخلص الجمركي المعتمد *', border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: context.l10n.draftBlBrokerApproverNameLabel, border: const OutlineInputBorder()),
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _brokerNotesCtrl,
                           maxLines: 2,
-                          decoration: const InputDecoration(labelText: 'ملاحظات التخليص ومطابقة نافذة', border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: context.l10n.draftBlBrokerNotesLabel, border: const OutlineInputBorder()),
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -1949,7 +1946,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               child: ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, padding: const EdgeInsets.symmetric(vertical: 12)),
                                 icon: const Icon(Icons.check, color: Colors.white),
-                                label: const Text('اعتماد جمركي وموافقة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                label: Text(context.l10n.draftBlBrokerApproveButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                 onPressed: (hasBlocking || _isLoading) ? null : () => _submitApproval('broker', 'Approved'),
                               ),
                             ),
@@ -1957,7 +1954,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(vertical: 12)),
                               icon: const Icon(Icons.close),
-                              label: const Text('رفض المسودة'),
+                              label: Text(context.l10n.draftBlRejectDraftButton),
                               onPressed: _isLoading ? null : () => _submitApproval('broker', 'Rejected'),
                             ),
                           ],
@@ -1999,11 +1996,11 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.verified, color: Colors.green, size: 24),
-                    SizedBox(width: 8),
-                    Text('سجل مسودات البوليصة المعتمدة نهائياً (Final Certified Registry)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Icon(Icons.verified, color: Colors.green, size: 24),
+                    const SizedBox(width: 8),
+                    Text(context.l10n.draftBlFinalRegistryTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 ElevatedButton.icon(
@@ -2013,7 +2010,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   ),
                   icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('تحديث السجل', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: Text(context.l10n.draftBlRefreshRegistry, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   onPressed: () {
                     ref.invalidate(draftBLReviewsProvider);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -2024,7 +2021,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
               ],
             ),
             const SizedBox(height: 6),
-            const Text('النسخ المعتمدة هنا أصبحت غير قابلة للتعديل وتعتبر الوثيقة الحاكمة لإصدار البوليصة الأصلية والإفراج الجمركي.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+            Text(context.l10n.draftBlFinalRegistrySub, style: const TextStyle(color: Colors.grey, fontSize: 13)),
             const Divider(height: 24),
 
             // Search Bar for B/L Number
@@ -2042,8 +2039,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
-                      decoration: const InputDecoration(
-                        hintText: 'ابحث برقم البوليصة (B/L Number)، رقم الجلسة، الخط الملاحي، أو المرحلة...',
+                      decoration: InputDecoration(
+                        hintText: context.l10n.draftBlSearchRegistryHint,
                         border: InputBorder.none,
                         isDense: true,
                       ),
@@ -2070,12 +2067,12 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
                       const SizedBox(height: 10),
                       Text(
-                        _registrySearchQuery.isNotEmpty ? 'لا توجد نتائج مطابقة لبحثك' : 'لا توجد جلسات مراجعة مسجلة حتى الآن',
+                        _registrySearchQuery.isNotEmpty ? context.l10n.draftBlNoRegistriesFound : context.l10n.draftBlNoRegistriesYet,
                         style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _registrySearchQuery.isNotEmpty ? 'جرّب البحث برقم بوليصة آخر' : 'قم باستخراج واعتماد مسودة بوليصة جديدة من التاب الأول',
+                        _registrySearchQuery.isNotEmpty ? context.l10n.draftBlTryDifferentSearch : context.l10n.draftBlExtractNewDraftHint,
                         style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                       ),
                     ],
@@ -2088,16 +2085,16 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 child: DataTable(
                   columnSpacing: 22,
                   headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                  columns: const [
-                    DataColumn(label: Text('رقم الجلسة', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('رقم البوليصة (B/L No.)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                    DataColumn(label: Text('الخط الملاحي', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('السفينة / الرحلة', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('المرحلة (Stage)', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('اعتماد المستورد', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('اعتماد المخلص', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('الإجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
+                  columns: [
+                    DataColumn(label: Text(context.l10n.draftBlRegistryColSessionId, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(context.l10n.draftBlRegistryColBlNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                    DataColumn(label: Text(context.l10n.draftBlRegistryColShippingLine, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(context.l10n.draftBlRegistryColVesselVoyage, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(context.l10n.draftBlRegistryColStage, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(context.l10n.draftBlRegistryColImporterApproval, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(context.l10n.draftBlRegistryColBrokerApproval, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(context.l10n.draftBlRegistryColStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(context.l10n.draftBlRegistryColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                   ],
                   rows: filteredReviews.map((r) {
                     final blNumber = (r.draftExtractedData?['draft_bl_number'] ??
@@ -2140,9 +2137,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                   ),
                                 ),
                                 const SizedBox(width: 6),
-                                const Tooltip(
-                                  message: 'نسخ رقم البوليصة',
-                                  child: Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
+                                Tooltip(
+                                  message: context.l10n.draftBlCopyBlNumberTooltip,
+                                  child: const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
                                 ),
                               ],
                             ),
@@ -2160,8 +2157,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         ),
                         child: Text(r.stage, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
                       )),
-                      DataCell(Text(r.importerApprovalStatus, style: TextStyle(color: r.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold))),
-                      DataCell(Text(r.brokerApprovalStatus, style: TextStyle(color: r.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold))),
+                      DataCell(Text(r.importerApprovalStatus == 'Approved' ? context.l10n.approved : r.importerApprovalStatus, style: TextStyle(color: r.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold))),
+                      DataCell(Text(r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus, style: TextStyle(color: r.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold))),
                       DataCell(Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
@@ -2170,7 +2167,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           border: Border.all(color: r.status == 'Final Approved' || r.status == 'Approved' ? Colors.green.shade300 : Colors.blue.shade300),
                         ),
                         child: Text(
-                          r.status,
+                          r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 11,
@@ -2183,7 +2180,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Tooltip(
-                              message: 'معاينة البوليصة',
+                              message: context.l10n.draftBlViewBlTooltip,
                               child: IconButton(
                                 icon: const Icon(Icons.visibility, size: 18, color: AppTheme.cobalt),
                                 onPressed: () {
@@ -2200,7 +2197,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               ),
                             ),
                             Tooltip(
-                              message: 'طباعة البوليصة',
+                              message: context.l10n.draftBlPrintBlTooltip,
                               child: IconButton(
                                 icon: const Icon(Icons.print, size: 18, color: AppTheme.charcoal),
                                 onPressed: () async {
@@ -2225,7 +2222,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               ),
                             ),
                             Tooltip(
-                              message: 'تنزيل PDF',
+                              message: context.l10n.draftBlDownloadPdfTooltip,
                               child: IconButton(
                                 icon: const Icon(Icons.picture_as_pdf, size: 18, color: AppTheme.crimson),
                                 onPressed: () async {

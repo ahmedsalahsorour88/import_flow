@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../services/draft_bl_export_service.dart';
 
@@ -82,14 +83,14 @@ class VisualDraftBLSheet extends StatelessWidget {
                           children: [
                             Text(
                               title ?? (isReferenceOnly
-                                  ? 'ملخص الشحنة المرجعي كشكل بوليصة (System Reference B/L Sheet)'
-                                  : 'معاينة شكل مسودة البوليصة المعتمدة (Draft Bill of Lading Sheet)'),
+                                  ? context.l10n.draftBlReferenceVisualSheetTitle
+                                  : context.l10n.draftBlExtractedVisualSheetTitle),
                               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                             ),
                             Text(
                               subtitle ?? (isReferenceOnly
-                                  ? 'عرض بيانات الشحنة المسجلة بالنظام من ماستر داتا المورد والمستورد ومعايير نافذة (ACID) بهيئة بوليصة رسمية'
-                                  : 'عرض رسمي مطابق لنموذج الخط الملاحي والبيانات المستخرجة ومعايير نافذة (ACID)'),
+                                  ? context.l10n.draftBlReferenceVisualSheetSub
+                                  : context.l10n.draftBlExtractedVisualSheetSub),
                               style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
                             ),
                           ],
@@ -106,7 +107,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                       OutlinedButton.icon(
                         onPressed: onRefresh,
                         icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
-                        label: const Text('تحديث', style: TextStyle(fontSize: 12, color: AppTheme.cobalt)),
+                        label: Text(context.l10n.refresh, style: const TextStyle(fontSize: 12, color: AppTheme.cobalt)),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           side: const BorderSide(color: AppTheme.cobalt),
@@ -134,7 +135,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                         }
                       },
                       icon: const Icon(Icons.print, color: Colors.white, size: 16),
-                      label: const Text('طباعة البوليصة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      label: Text(context.l10n.draftBlPrintButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.cobalt,
                         foregroundColor: Colors.white,
@@ -168,7 +169,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                         }
                       },
                       icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 16),
-                      label: const Text('تنزيل PDF', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      label: Text(context.l10n.draftBlDownloadPdfButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.crimson,
                         foregroundColor: Colors.white,
@@ -199,7 +200,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                         }
                       },
                       icon: const Icon(Icons.table_chart, color: Colors.white, size: 16),
-                      label: const Text('تنزيل Excel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      label: Text(context.l10n.draftBlDownloadExcelButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.emerald,
                         foregroundColor: Colors.white,

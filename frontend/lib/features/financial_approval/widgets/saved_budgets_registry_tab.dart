@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -42,6 +43,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
   }
 
   Widget _buildHistoryRegistryTab(List<ImportBudgetModel> budgetsList) {
+    final l = context.l10n;
     final totalBudgets = budgetsList.length;
     final approvedBudgets = budgetsList.where((b) => b.isActive && (b.budgetStatus.toLowerCase().contains('approved'))).length;
     final pendingBudgets = budgetsList.where((b) => b.isActive && (b.budgetStatus.toLowerCase().contains('pending') || b.budgetStatus.toLowerCase().contains('draft'))).length;
@@ -77,28 +79,28 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
             children: [
               _histStatCard(
                 icon: Icons.account_balance_wallet_outlined,
-                label: 'إجمالي الميزانيات',
+                label: l.totalBudgetsMetric,
                 value: '$totalBudgets',
                 color: AppTheme.cobalt,
               ),
               const SizedBox(width: 10),
               _histStatCard(
                 icon: Icons.verified_rounded,
-                label: 'ميزانيات معتمدة',
+                label: l.approvedBudgetsMetric,
                 value: '$approvedBudgets',
                 color: AppTheme.emerald,
               ),
               const SizedBox(width: 10),
               _histStatCard(
                 icon: Icons.hourglass_top_rounded,
-                label: 'قيد المراجعة / مسودة',
+                label: l.pendingBudgetsMetric,
                 value: '$pendingBudgets',
                 color: Colors.orange.shade300,
               ),
               const SizedBox(width: 10),
               _histStatCard(
                 icon: Icons.monetization_on_outlined,
-                label: 'إجمالي القيمة التقديرية',
+                label: l.totalValueEgpMetric,
                 value: totalValueEgp > 1000000
                     ? '${(totalValueEgp / 1000000).toStringAsFixed(2)}M EGP'
                     : '${totalValueEgp.toStringAsFixed(0)} EGP',
@@ -113,7 +115,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                label: Text(l.refresh, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 onPressed: () {
                   ref.read(importBudgetsProvider.notifier).fetchImportBudgets();
                   ref.read(importFilesProvider.notifier).fetchImportFiles();
@@ -127,7 +129,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
                 icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
-                label: const Text('اعتماد ميزانية جديدة ➕', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                label: Text(l.importBudgetSetupTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                 onPressed: widget.onSwitchToForm,
               ),
             ],
@@ -149,7 +151,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                     controller: _searchController,
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
-                      hintText: 'البحث بكود الميزانية أو العنوان أو كود الشحنة...',
+                      hintText: l.searchBudgetsHint,
                       hintStyle: const TextStyle(fontSize: 12),
                       prefixIcon: const Icon(Icons.search_rounded, size: 18),
                       suffixIcon: _searchController.text.isNotEmpty
@@ -168,11 +170,11 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
               const SizedBox(width: 12),
 
               // Filter Chips
-              _buildFilterChip('الكل (${budgetsList.where((b) => b.isActive).length})', 'ALL'),
+              _buildFilterChip('${l.allStatuses} (${budgetsList.where((b) => b.isActive).length})', 'ALL'),
               const SizedBox(width: 6),
-              _buildFilterChip('معتمدة ($approvedBudgets)', 'Approved'),
+              _buildFilterChip('${l.approvedBudgetsMetric} ($approvedBudgets)', 'Approved'),
               const SizedBox(width: 6),
-              _buildFilterChip('قيد المراجعة ($pendingBudgets)', 'Pending'),
+              _buildFilterChip('${l.pendingBudgetsMetric} ($pendingBudgets)', 'Pending'),
 
               const Spacer(),
 
@@ -184,12 +186,12 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
                 icon: const Icon(Icons.table_chart_outlined, size: 16, color: Colors.green),
-                label: const Text('تصدير السجل EXCEL', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                label: Text(l.exportExcel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 onPressed: () async {
                   final path = await FinancialExportService.exportBudgetsListToExcel(context: context, list: filtered);
                   if (path != null && mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('✅ تم تصدير سجل الميزانيات إلى Excel بنجاح: $path'), backgroundColor: Colors.green),
+                      SnackBar(content: Text('✅ $path'), backgroundColor: Colors.green),
                     );
                   }
                 },
@@ -318,7 +320,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                 Row(
                   children: [
                     _buildCostBox(
-                      title: 'فاتورة البضاعة (Invoice)',
+                      title: context.l10n.estimatedInvoiceValue,
                       foreignVal: '${budget.invoiceAmountForeign.toStringAsFixed(2)} ${budget.invoiceCurrency}',
                       egpVal: '${budget.invoiceAmountEgp.toStringAsFixed(2)} EGP',
                       icon: Icons.inventory_2_outlined,
@@ -326,7 +328,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                     ),
                     const SizedBox(width: 10),
                     _buildCostBox(
-                      title: 'النولون والشحن (Freight)',
+                      title: context.l10n.estimatedFreightCost,
                       foreignVal: '${budget.freightCostForeign.toStringAsFixed(2)} ${budget.freightCurrency}',
                       egpVal: '${budget.freightCostEgp.toStringAsFixed(2)} EGP',
                       icon: Icons.directions_boat_outlined,
@@ -334,16 +336,16 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                     ),
                     const SizedBox(width: 10),
                     _buildCostBox(
-                      title: 'الجمارك والضرائب و VAT',
-                      foreignVal: 'مصلحة الجمارك',
+                      title: context.l10n.customsAndVatEstimate,
+                      foreignVal: 'Customs',
                       egpVal: '${budget.customsDutiesEgp.toStringAsFixed(2)} EGP',
                       icon: Icons.account_balance_outlined,
                       color: Colors.purple.shade700,
                     ),
                     const SizedBox(width: 10),
                     _buildCostBox(
-                      title: 'التخليص والنقل الداخلي',
-                      foreignVal: 'الناقل والمستخلص',
+                      title: context.l10n.clearanceAndTransportEstimate,
+                      foreignVal: context.l10n.customsBrokerLabel,
                       egpVal: '${budget.clearanceInlandEgp.toStringAsFixed(2)} EGP',
                       icon: Icons.local_shipping_outlined,
                       color: Colors.teal.shade700,
@@ -367,9 +369,9 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                         children: [
                           const Icon(Icons.monetization_on, color: AppTheme.emerald, size: 20),
                           const SizedBox(width: 8),
-                          const Text(
-                            'إجمالي الميزانية الاستيرادية الكلية المعتمدة (Total Approved Budget):',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                          Text(
+                            '${context.l10n.totalBudgetEgp}:',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                           ),
                           const SizedBox(width: 12),
                           Text(
@@ -380,11 +382,11 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                       ),
                       Row(
                         children: [
-                          Text('سعر الصرف المعتمد: ', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                          Text('${context.l10n.exchangeRateCol}: ', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
                           Text('${budget.exchangeRate.toStringAsFixed(2)} EGP', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
                           if (budget.approvedBy != null) ...[
                             const SizedBox(width: 16),
-                            Text('معتمد من: ', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                            Text('Approved by: ', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
                             Text(budget.approvedBy!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
                           ],
                         ],

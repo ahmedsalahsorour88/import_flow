@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
@@ -372,8 +373,8 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                             children: [
                               const Icon(Icons.auto_awesome, color: Colors.purple, size: 18),
                               const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text('استخراج ذكي وتعبئة تلقائية من نص السويفت (MT103):', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple)),
+                              Expanded(
+                                child: Text('${context.l10n.swiftExtractorTitle}:', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple)),
                               ),
                               TextButton.icon(
                                 style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
@@ -762,7 +763,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                         children: [
                           const Icon(Icons.tag, color: AppTheme.cobalt, size: 18),
                           const SizedBox(width: 6),
-                          const Text('رقم السويفت (SWIFT Reference No):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text('${context.l10n.swiftCodeLabel}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           const SizedBox(width: 8),
                           Text(pay.swiftReferenceNo ?? 'غير مسجل', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 14)),
                         ],

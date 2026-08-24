@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/row_actions_pill.dart';
@@ -1001,20 +1002,20 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Colors.blue.shade50.withOpacity(0.5), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.blue.shade200)),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('بيانات البنك المستفيد (Beneficiary Bank Details):', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                        const SizedBox(height: 4),
-                        Text('اسم البنك: ${pay.bankName ?? "-"}'),
-                        Text('كود السويفت (SWIFT): ${pay.swiftCode ?? "-"}'),
-                        Text('رقم الحساب / IBAN: ${pay.ibanAccountNo ?? "-"}'),
-                      ],
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Colors.blue.shade50.withOpacity(0.5), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.blue.shade200)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${context.l10n.beneficiaryBankDetails}:', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                          const SizedBox(height: 4),
+                          Text('${context.l10n.bankNameLabel}: ${pay.bankName ?? "-"}'),
+                          Text('${context.l10n.swiftCodeLabel}: ${pay.swiftCode ?? "-"}'),
+                          Text('${context.l10n.ibanAccountLabel}: ${pay.ibanAccountNo ?? "-"}'),
+                        ],
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 16),
 
                   // ── EXPORT & SHARING ACTION TOOLBAR ────────────────────────
@@ -1477,7 +1478,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   await ref.read(importBudgetsProvider.notifier).approveImportBudget(bgt.budgetId);
                   nav.pop();
                 },
-                child: const Text('اعتماد الميزانية رسمياً (Approve Budget)', style: TextStyle(color: Colors.white)),
+                child: Text(context.l10n.approveAndCertifyBudget, style: const TextStyle(color: Colors.white)),
               ),
             ],
           ],
@@ -1497,7 +1498,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
           children: [
             Icon(Icons.chat, color: Color(0xFF25D366)),
             SizedBox(width: 8),
-            Text('إرسال اعتماد الميزانية عبر واتساب (WhatsApp)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text('WhatsApp', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -1651,6 +1652,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final suppliersState = ref.watch(suppliersProvider);
     final paymentsState = ref.watch(paymentRequestsProvider);
     final budgetsState = ref.watch(importBudgetsProvider);
@@ -1706,14 +1708,14 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       ),
       const VerticalNavTabItem(
         icon: Icons.auto_awesome,
-        titleEn: 'SWIFT MT103 Parser & Reconciliation',
-        titleAr: '⚡ استخراج ومطابقة السويفت (MT103)',
+        titleEn: 'SWIFT MT103 Reconciliation',
+        titleAr: 'استخراج ومطابقة السويفت (MT103)',
       ),
     ];
 
     return VerticalStageScaffold(
       stageCode: '',
-      titleEn: 'Financial Approvals & Import Budget Management',
+      titleEn: 'Financial Approvals & Budget Management',
       titleAr: 'الموافقات المالية وإدارة الميزانية',
       headerIcon: Icons.account_balance_wallet_outlined,
       headerColor: AppTheme.orange,
@@ -1768,13 +1770,13 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'وضع التعديل النشط: تعديل بيانات طلب السداد المالي ($_editingPaymentCode)',
+                                      '${l.activeEditModeBanner}: $_editingPaymentCode',
                                       style: TextStyle(fontWeight: FontWeight.bold, color: Colors.brown.shade900),
                                     ),
                                   ),
                                   TextButton.icon(
                                     icon: const Icon(Icons.close, size: 16, color: Colors.red),
-                                    label: const Text('إلغاء التعديل', style: TextStyle(color: Colors.red)),
+                                    label: Text(l.cancelEdit, style: const TextStyle(color: Colors.red)),
                                     onPressed: () {
                                       setState(() {
                                         _editingPaymentId = null;
@@ -1796,8 +1798,8 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                             children: [
                               Text(
                                 _editingPaymentId != null
-                                    ? 'تعديل بيانات طلب السداد الحالي ($_editingPaymentCode)'
-                                    : 'إصدار طلب سداد / تحويل مالي للمورد (Create Payment Request)',
+                                    ? '${l.editPaymentRequestTitle} ($_editingPaymentCode)'
+                                    : l.createPaymentRequestTitle,
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                               ),
                               if (_isLoadingPayPrefill) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
@@ -1815,12 +1817,12 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 flex: 2,
                                 child: SearchableDropdownField<int?>(
                                   value: _paySelectedImportFileId,
-                                  labelText: 'Import File (ملف الشحنة الاستيرادية) *',
-                                  searchHintText: 'ابحث عن ملف الشحنة...',
+                                  labelText: '${l.importFile} *',
+                                  searchHintText: l.search,
                                   items: [
-                                    const SearchableDropdownItem<int?>(
+                                    SearchableDropdownItem<int?>(
                                       value: null,
-                                      label: '-- None / غير مرتبط بملف شحنة --',
+                                      label: '-- ${l.notLinked} --',
                                     ),
                                     ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
                                           value: f.importFileId,
@@ -1836,8 +1838,8 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 flex: 3,
                                 child: TextFormField(
                                   controller: _payTitleController,
-                                  decoration: const InputDecoration(labelText: 'عنوان طلب السداد (INCOTERM + اسم الملف) *', border: OutlineInputBorder()),
-                                  validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال العنوان' : null,
+                                  decoration: InputDecoration(labelText: '${l.paymentTitleLabel} *', border: const OutlineInputBorder()),
+                                  validator: (v) => (v == null || v.trim().isEmpty) ? l.requiredField : null,
                                 ),
                               ),
                             ],
@@ -1849,8 +1851,8 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 flex: 2,
                                 child: SearchableDropdownField<int?>(
                                   value: _selectedSupplierId,
-                                  labelText: 'اختر المورد من Master Data',
-                                  searchHintText: 'ابحث عن المورد...',
+                                  labelText: l.selectSupplierFromMasterData,
+                                  searchHintText: l.search,
                                   items: suppliersList
                                       .map((s) => SearchableDropdownItem<int?>(
                                             value: s.supplierId,
@@ -1881,8 +1883,8 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 flex: 2,
                                 child: TextFormField(
                                   controller: _supplierNameController,
-                                  decoration: const InputDecoration(labelText: 'اسم المورد المستفيد *', border: OutlineInputBorder()),
-                                  validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال اسم المورد' : null,
+                                  decoration: InputDecoration(labelText: '${l.beneficiarySupplierLabel} *', border: const OutlineInputBorder()),
+                                  validator: (v) => (v == null || v.trim().isEmpty) ? l.requiredField : null,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -1891,7 +1893,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 child: TextFormField(
                                   initialValue: _paymentType,
                                   key: ValueKey('pay_type_$_paymentType'),
-                                  decoration: const InputDecoration(labelText: 'نوع طريقة السداد من شروط الدفع *', border: OutlineInputBorder()),
+                                  decoration: InputDecoration(labelText: '${l.paymentTypeLabel} *', border: const OutlineInputBorder()),
                                   onChanged: (v) => _paymentType = v,
                                 ),
                               ),
@@ -1904,16 +1906,16 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 child: TextFormField(
                                   controller: _amountController,
                                   keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(labelText: 'المبلغ المطلوب بالعملة *', border: OutlineInputBorder()),
-                                  validator: (v) => (v == null || double.tryParse(v) == null || double.parse(v) <= 0) ? 'أدخل مبلغاً صحيحاً' : null,
+                                  decoration: InputDecoration(labelText: '${l.requestedAmountLabel} *', border: const OutlineInputBorder()),
+                                  validator: (v) => (v == null || double.tryParse(v) == null || double.parse(v) <= 0) ? l.requiredField : null,
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: SearchableDropdownField<String>(
                                   value: _currencyCode,
-                                  labelText: 'العملة *',
-                                  searchHintText: 'ابحث عن العملة...',
+                                  labelText: '${l.currencyCol} *',
+                                  searchHintText: l.search,
                                   items: () {
                                     final curList = ref.watch(currenciesProvider).value ?? [];
                                     final list = curList.isNotEmpty
@@ -1922,13 +1924,13 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                               label: '${c.currencyCode} - ${c.currencyName}',
                                             )).toList()
                                         : [
-                                            const SearchableDropdownItem(value: 'USD', label: 'USD - دولار أمريكي'),
-                                            const SearchableDropdownItem(value: 'EUR', label: 'EUR - يورو أوروبي'),
-                                            const SearchableDropdownItem(value: 'EGP', label: 'EGP - جنيه مصري'),
-                                            const SearchableDropdownItem(value: 'GBP', label: 'GBP - جنيه إسترليني'),
-                                            const SearchableDropdownItem(value: 'CNY', label: 'CNY - يوان صيني'),
-                                            const SearchableDropdownItem(value: 'SAR', label: 'SAR - ريال سعودي'),
-                                            const SearchableDropdownItem(value: 'AED', label: 'AED - درهم إماراتي'),
+                                            const SearchableDropdownItem(value: 'USD', label: 'USD'),
+                                            const SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                                            const SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                                            const SearchableDropdownItem(value: 'GBP', label: 'GBP'),
+                                            const SearchableDropdownItem(value: 'CNY', label: 'CNY'),
+                                            const SearchableDropdownItem(value: 'SAR', label: 'SAR'),
+                                            const SearchableDropdownItem(value: 'AED', label: 'AED'),
                                           ];
                                     if (!list.any((i) => i.value == _currencyCode)) {
                                       list.add(SearchableDropdownItem(value: _currencyCode, label: _currencyCode));
@@ -1951,7 +1953,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 child: TextFormField(
                                   controller: _exchangeRateController,
                                   keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(labelText: 'سعر الصرف المتوقع (EGP) *', border: OutlineInputBorder()),
+                                  decoration: InputDecoration(labelText: '${l.exchangeRateCol} (EGP) *', border: const OutlineInputBorder()),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -1967,7 +1969,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                     if (d != null) setState(() => _requestDate = d);
                                   },
                                   child: InputDecorator(
-                                    decoration: const InputDecoration(labelText: 'تاريخ تقديم الطلب *', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: '${l.requestDateLabel} *', border: const OutlineInputBorder()),
                                     child: Text(_requestDate.toString().substring(0, 10)),
                                   ),
                                 ),
@@ -1985,7 +1987,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                     if (d != null) setState(() => _dueDate = d);
                                   },
                                   child: InputDecorator(
-                                    decoration: const InputDecoration(labelText: 'تاريخ الاستحقاق المطلوب *', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: '${l.dueDateLabel} *', border: const OutlineInputBorder()),
                                     child: Text(_dueDate.toString().substring(0, 10)),
                                   ),
                                 ),
@@ -2005,28 +2007,28 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('بيانات التحويل البنكي للمورد الأجنبي (Beneficiary Supplier Bank Details):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                                Text('${l.beneficiaryBankDetails}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
                                 const SizedBox(height: 8),
                                 Row(
                                   children: [
                                     Expanded(
                                       child: TextFormField(
                                         controller: _bankNameController,
-                                        decoration: const InputDecoration(labelText: 'اسم بنك المورد (Bank Name)', border: OutlineInputBorder()),
+                                        decoration: InputDecoration(labelText: l.bankNameLabel, border: const OutlineInputBorder()),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: TextFormField(
                                         controller: _swiftCodeController,
-                                        decoration: const InputDecoration(labelText: 'كود السويفت (SWIFT Code)', border: OutlineInputBorder()),
+                                        decoration: InputDecoration(labelText: l.swiftCodeLabel, border: const OutlineInputBorder()),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: TextFormField(
                                         controller: _ibanController,
-                                        decoration: const InputDecoration(labelText: 'رقم الحساب / IBAN', border: OutlineInputBorder()),
+                                        decoration: InputDecoration(labelText: l.ibanAccountLabel, border: const OutlineInputBorder()),
                                       ),
                                     ),
                                   ],
@@ -2038,7 +2040,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
                           // Linked Purchase Orders Table for Payment Request
                           if (_payPrefillData != null && _payPrefillData!.linkedPos.isNotEmpty) ...[
-                            const Text('🛒 قائمة أوامر الشراء المرتبطة بطلب السداد (Linked Purchase Orders):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                            Text('${l.linkedPurchaseOrdersTitle}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
                             const SizedBox(height: 8),
                             Table(
                               border: TableBorder.all(color: Colors.grey.shade300),
@@ -2051,15 +2053,15 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 5: FlexColumnWidth(1.2),
                               },
                               children: [
-                                const TableRow(
-                                  decoration: BoxDecoration(color: AppTheme.charcoal),
+                                TableRow(
+                                  decoration: const BoxDecoration(color: AppTheme.charcoal),
                                   children: [
-                                    Padding(padding: EdgeInsets.all(8), child: Text('رقم أمر الشراء (PO #)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                                    Padding(padding: EdgeInsets.all(8), child: Text('اسم المشروع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                                    Padding(padding: EdgeInsets.all(8), child: Text('طريقة وشروط السداد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                                    Padding(padding: EdgeInsets.all(8), child: Text('العملة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                                    Padding(padding: EdgeInsets.all(8), child: Text('قيمة الفاتورة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                                    Padding(padding: EdgeInsets.all(8), child: Text('الحالة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                                    Padding(padding: const EdgeInsets.all(8), child: Text(l.poNumberCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                                    Padding(padding: const EdgeInsets.all(8), child: Text(l.projectNameCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                                    Padding(padding: const EdgeInsets.all(8), child: Text(l.paymentTypeLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                                    Padding(padding: const EdgeInsets.all(8), child: Text(l.currencyCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                                    Padding(padding: const EdgeInsets.all(8), child: Text(l.invoiceAmount, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                                    Padding(padding: const EdgeInsets.all(8), child: Text(l.statusCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                                   ],
                                 ),
                                 ..._payPrefillData!.linkedPos.map((po) {
@@ -2088,7 +2090,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
                           TextFormField(
                             controller: _payNotesController,
-                            decoration: const InputDecoration(labelText: 'ملاحظات طلب السداد الإدارية', border: OutlineInputBorder()),
+                            decoration: InputDecoration(labelText: l.paymentNotesLabel, border: const OutlineInputBorder()),
                           ),
                           const SizedBox(height: 20),
                           Row(
@@ -2117,7 +2119,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                     });
                                   },
                                   icon: const Icon(Icons.close, size: 16, color: Colors.grey),
-                                  label: const Text('إلغاء التعديل وبدء طلب جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  label: Text(l.cancelEdit, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                 )
                               else
                                 const SizedBox.shrink(),
@@ -2131,7 +2133,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                     : Icon(_editingPaymentId != null ? Icons.save : Icons.send, color: Colors.white),
                                 label: Text(
-                                  _editingPaymentId != null ? 'حفظ تعديلات طلب السداد' : 'إصدار طلب السداد للإدارة المالية',
+                                  _editingPaymentId != null ? l.savePaymentChangesButton : l.issuePaymentRequestButton,
                                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                                 ),
                               ),
@@ -2165,7 +2167,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('اعتماد ميزانية ملف الاستيراد الشاملة (Import Budget Approval Setup)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                              Text(l.importBudgetSetupTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
                               if (_isLoadingBgtPrefill) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
                             ],
                           ),
@@ -2177,12 +2179,12 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 flex: 2,
                                 child: SearchableDropdownField<int?>(
                                   value: _bgtSelectedImportFileId,
-                                  labelText: 'Import File (ملف الشحنة الاستيرادية) *',
-                                  searchHintText: 'ابحث عن ملف الشحنة...',
+                                  labelText: '${l.importFile} *',
+                                  searchHintText: l.search,
                                   items: [
-                                    const SearchableDropdownItem<int?>(
+                                    SearchableDropdownItem<int?>(
                                       value: null,
-                                      label: '-- None / غير مرتبط بملف شحنة --',
+                                      label: '-- ${l.notLinked} --',
                                     ),
                                     ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
                                           value: f.importFileId,
@@ -2198,8 +2200,8 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 flex: 3,
                                 child: TextFormField(
                                   controller: _bgtTitleController,
-                                  decoration: const InputDecoration(labelText: 'عنوان الميزانية الاستيرادية *', border: OutlineInputBorder()),
-                                  validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال العنوان' : null,
+                                  decoration: InputDecoration(labelText: '${l.budgetTitleLabel} *', border: const OutlineInputBorder()),
+                                  validator: (v) => (v == null || v.trim().isEmpty) ? l.requiredField : null,
                                 ),
                               ),
                             ],
@@ -2216,7 +2218,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 child: TextFormField(
                                   controller: _invoiceForeignController,
                                   keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(labelText: 'قيمة الفاتورة المبدئية ($_bgtInvoiceCurrency FOB/CIF)', border: const OutlineInputBorder()),
+                                  decoration: InputDecoration(labelText: '${l.estimatedInvoiceValue} ($_bgtInvoiceCurrency)', border: const OutlineInputBorder()),
                                   onChanged: (v) {
                                     final f = double.tryParse(v) ?? 0;
                                     final r = double.tryParse(_bgtExchangeRateController.text) ?? 50;
@@ -2230,7 +2232,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 child: TextFormField(
                                   controller: _freightForeignController,
                                   keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(labelText: 'تكلفة النولون المقدرة ($_bgtFreightCurrency Freight)', border: const OutlineInputBorder()),
+                                  decoration: InputDecoration(labelText: '${l.estimatedFreightCost} ($_bgtFreightCurrency)', border: const OutlineInputBorder()),
                                   onChanged: (v) {
                                     final f = double.tryParse(v) ?? 0;
                                     final r = double.tryParse(_bgtExchangeRateController.text) ?? 50;
@@ -2244,7 +2246,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 child: TextFormField(
                                   controller: _customsEgpController,
                                   keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(labelText: 'الضرائب والجمارك والـ VAT (EGP)', border: OutlineInputBorder()),
+                                  decoration: InputDecoration(labelText: '${l.customsAndVatEstimate} (EGP)', border: const OutlineInputBorder()),
                                   onChanged: (_) => setState(() {}),
                                 ),
                               ),
@@ -2253,7 +2255,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 child: TextFormField(
                                   controller: _clearanceEgpController,
                                   keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(labelText: 'أتعاب التخليص والنقل (EGP)', border: OutlineInputBorder()),
+                                  decoration: InputDecoration(labelText: '${l.clearanceAndTransportEstimate} (EGP)', border: const OutlineInputBorder()),
                                   onChanged: (_) => setState(() {}),
                                 ),
                               ),
@@ -2263,7 +2265,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
                           TextFormField(
                             controller: _bgtNotesController,
-                            decoration: const InputDecoration(labelText: 'ملاحظات وتوجيهات اعتماد الميزانية', border: OutlineInputBorder()),
+                            decoration: InputDecoration(labelText: l.budgetApprovalNotes, border: const OutlineInputBorder()),
                           ),
                           const SizedBox(height: 20),
 
@@ -2285,7 +2287,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                       ref.read(importFilesProvider.notifier).fetchImportFiles();
                                     },
                                     icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
-                                    label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    label: Text(l.refresh, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                   ),
                                   const SizedBox(width: 8),
 
@@ -2305,7 +2307,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                       });
                                     },
                                     icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
-                                    label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    label: Text(l.reset, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                   ),
                                   const SizedBox(width: 8),
 
@@ -2321,7 +2323,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                     onPressed: _isSavingBudget ? null : _saveImportBudget,
                                     icon: const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
                                     label: Text(
-                                      _editingBudgetId != null ? 'حفظ تعديلات الميزانية 💾' : 'حفظ مؤقت ومتابعة لاحقة 💾',
+                                      _editingBudgetId != null ? l.saveBudgetChanges : l.saveDraft,
                                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                                     ),
                                   ),
@@ -2333,7 +2335,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                     onPressed: _isSavingBudget ? null : _saveImportBudget,
                                     icon: _isSavingBudget ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.verified, color: Colors.white),
                                     label: Text(
-                                      _editingBudgetId != null ? 'حفظ واعتماد التعديلات ✅' : 'التصديق واعتماد الميزانية ✅',
+                                      _editingBudgetId != null ? l.saveBudgetChanges : l.approveAndCertifyBudget,
                                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                                     ),
                                   ),
@@ -2343,7 +2345,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 children: [
                                   OutlinedButton.icon(
                                     icon: const Icon(Icons.table_chart, color: Colors.green),
-                                    label: const Text('تصدير EXCEL'),
+                                    label: Text(l.exportExcel),
                                     onPressed: () async {
                                       final bgt = _lastSavedBudget ?? _buildTempBudgetModel();
                                       final messenger = ScaffoldMessenger.of(context);
@@ -2354,7 +2356,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                       );
                                       if (path != null && mounted) {
                                         messenger.showSnackBar(
-                                          SnackBar(content: Text('✅ تم تصدير ملف Excel بنجاح: $path'), backgroundColor: Colors.green),
+                                          SnackBar(content: Text('✅ $path'), backgroundColor: Colors.green),
                                         );
                                       }
                                     },
@@ -2363,7 +2365,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                   ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                                     icon: const Icon(Icons.print, color: Colors.white),
-                                    label: const Text('طباعة / حفظ PDF', style: TextStyle(color: Colors.white)),
+                                    label: Text(l.print, style: const TextStyle(color: Colors.white)),
                                     onPressed: () {
                                       final bgt = _lastSavedBudget ?? _buildTempBudgetModel();
                                       FinancialExportService.printOrSaveBudgetPdf(
@@ -2414,7 +2416,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
                     return MasterDataToolbarWidget(
                       moduleEndpoint: 'financial-approval',
-                      title: 'سجل العمليات والتحويلات المالية للموردين (${filtered.length})',
+                      title: '${l.paymentRequestsLogTitle} (${filtered.length})',
                       onExportExcel: () => FinancialExportService.exportPaymentRequestsListToExcel(context: context, list: filtered),
                       onRefreshNeeded: () => ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests(),
                     );
@@ -2427,11 +2429,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   children: [
                     Expanded(
                       child: TextField(
-                        decoration: const InputDecoration(
-                          hintText: 'البحث بكود الطلب أو اسم المورد أو رقم الملف أو العنوان...',
-                          prefixIcon: Icon(Icons.search),
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: InputDecoration(
+                          hintText: l.searchPaymentsHint,
+                          prefixIcon: const Icon(Icons.search),
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         ),
                         onChanged: (v) => setState(() => _searchQuery = v),
                       ),
@@ -2441,14 +2443,14 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                       width: 220,
                       child: SearchableDropdownField<String>(
                         value: _statusFilter,
-                        labelText: 'تصفية حسب الحالة',
-                        searchHintText: 'ابحث عن الحالة...',
-                        items: const [
-                          SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
-                          SearchableDropdownItem(value: 'Draft', label: 'Draft - مسودة طلب'),
-                          SearchableDropdownItem(value: 'Approved', label: 'Approved - معتمد'),
-                          SearchableDropdownItem(value: 'Paid', label: 'Paid - تم التحويل'),
-                          SearchableDropdownItem(value: 'Reconciled', label: 'Reconciled - مطابق بالسويفت'),
+                        labelText: l.filterByStatus,
+                        searchHintText: l.search,
+                        items: [
+                          SearchableDropdownItem(value: 'All', label: l.allStatuses),
+                          SearchableDropdownItem(value: 'Draft', label: l.draftStatus),
+                          SearchableDropdownItem(value: 'Approved', label: l.approvedBudgetsMetric),
+                          SearchableDropdownItem(value: 'Paid', label: l.paidStatus),
+                          SearchableDropdownItem(value: 'Reconciled', label: l.reconciledStatus),
                         ],
                         onChanged: (v) {
                           if (v != null) setState(() => _statusFilter = v);
@@ -2484,10 +2486,10 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(color: Colors.grey.shade300),
                           ),
-                          child: const Center(
+                          child: Center(
                             child: Text(
-                              'لا توجد طلبات سداد مالي مطابقة لخيارات البحث والتصفية.',
-                              style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.bold),
+                              l.noMatchingPayments,
+                              style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.bold),
                             ),
                           ),
                         );
@@ -2518,25 +2520,25 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                   child: DataTable(
                                     headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
                                     headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                                    columns: const [
+                                    columns: [
                                       DataColumn(
                                         label: Row(
                                           children: [
-                                            Icon(Icons.bolt, color: Colors.amber, size: 18),
-                                            SizedBox(width: 6),
-                                            Text('العمليات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                            const Icon(Icons.bolt, color: Colors.amber, size: 18),
+                                            const SizedBox(width: 6),
+                                            Text(l.actionsCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                           ],
                                         ),
                                       ),
-                                      DataColumn(label: Text('كود الطلب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('ملف الشحنة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('المورد المستفيد والعنوان', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('البنك / السويفت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('طريقة السداد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('المبلغ المطلوب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('المعادل (EGP)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('تاريخ الطلب / الاستحقاق', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('الحالة العامة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.paymentCodeCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.importFile, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.beneficiarySupplierLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.bankSwiftCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.paymentTypeLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.requestedAmountLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.equivalentEgpCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.requestDueDateCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.statusCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                                     ],
                                     rows: filtered.asMap().entries.map((entry) {
                                       final index = entry.key;
@@ -2731,6 +2733,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
     final grandTotalEgp = invEgp + frtEgp + custEgp + clrEgp;
 
+    final l = context.l10n;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -2741,20 +2744,20 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 20),
-              SizedBox(width: 8),
+              const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 20),
+              const SizedBox(width: 8),
               Text(
-                'تقرير توزيع بنود الميزانية حسب العملات (Multi-Currency Budget Allocation):',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                l.consolidatedBudgetSummary,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
               ),
             ],
           ),
           const SizedBox(height: 12),
 
           // Group 1: Foreign Currency Table
-          const Text('1. بنود التكلفة بالعملة الأجنبية (Foreign Currency Costs):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
+          Text('1. ${l.estimatedInvoiceValue} & ${l.estimatedFreightCost}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
           const SizedBox(height: 6),
           Table(
             border: TableBorder.all(color: Colors.grey.shade300),
@@ -2765,18 +2768,18 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
               3: FlexColumnWidth(1.5),
             },
             children: [
-              const TableRow(
-                decoration: BoxDecoration(color: AppTheme.cobalt),
+              TableRow(
+                decoration: const BoxDecoration(color: AppTheme.cobalt),
                 children: [
-                  Padding(padding: EdgeInsets.all(6), child: Text('البند المالي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                  Padding(padding: EdgeInsets.all(6), child: Text('المبلغ بالعملة الأجنبية', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                  Padding(padding: EdgeInsets.all(6), child: Text('العملة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                  Padding(padding: EdgeInsets.all(6), child: Text('المعادل بالجنيه (EGP)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.categoryCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.requestedAmountLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.currencyCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.equivalentEgpCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
                 ],
               ),
               TableRow(
                 children: [
-                  const Padding(padding: EdgeInsets.all(6), child: Text('قيمة الفاتورة المبدئية (FOB Invoice)', style: TextStyle(fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.estimatedInvoiceValue, style: const TextStyle(fontSize: 12))),
                   Padding(padding: const EdgeInsets.all(6), child: Text(invForeign.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                   Padding(padding: const EdgeInsets.all(6), child: Text(invCurr, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
                   Padding(padding: const EdgeInsets.all(6), child: Text('${invEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12))),
@@ -2784,7 +2787,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
               ),
               TableRow(
                 children: [
-                  const Padding(padding: EdgeInsets.all(6), child: Text('تكلفة النولون والشحن المقدرة (Freight)', style: TextStyle(fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.estimatedFreightCost, style: const TextStyle(fontSize: 12))),
                   Padding(padding: const EdgeInsets.all(6), child: Text(frtForeign.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                   Padding(padding: const EdgeInsets.all(6), child: Text(frtCurr, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
                   Padding(padding: const EdgeInsets.all(6), child: Text('${frtEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12))),
@@ -2793,7 +2796,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
               TableRow(
                 decoration: BoxDecoration(color: Colors.grey.shade100),
                 children: [
-                  const Padding(padding: EdgeInsets.all(6), child: Text('إجمالي بنود العملة الأجنبية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.totalExpenses, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                   Padding(
                     padding: const EdgeInsets.all(6),
                     child: Text(
@@ -2806,7 +2809,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   Padding(
                     padding: const EdgeInsets.all(6),
                     child: Text(
-                      invCurr.toUpperCase() == frtCurr.toUpperCase() ? invCurr : 'متعدد (Multi)',
+                      invCurr.toUpperCase() == frtCurr.toUpperCase() ? invCurr : '-',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                     ),
                   ),
@@ -2824,7 +2827,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
           const SizedBox(height: 14),
 
           // Group 2: Local EGP Table
-          const Text('2. بنود التكلفة بالعملة المحلية (Local Currency Costs):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.orange)),
+          Text('2. ${l.clearanceAndTransportEstimate}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.orange)),
           const SizedBox(height: 6),
           Table(
             border: TableBorder.all(color: Colors.grey.shade300),
@@ -2834,32 +2837,32 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
               2: FlexColumnWidth(1.5),
             },
             children: [
-              const TableRow(
-                decoration: BoxDecoration(color: AppTheme.orange),
+              TableRow(
+                decoration: const BoxDecoration(color: AppTheme.orange),
                 children: [
-                  Padding(padding: EdgeInsets.all(6), child: Text('البند المالي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                  Padding(padding: EdgeInsets.all(6), child: Text('جهة التحصيل / المرجع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                  Padding(padding: EdgeInsets.all(6), child: Text('القيمة المعتمدة (EGP)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.categoryCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.responsiblePartyLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.equivalentEgpCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
                 ],
               ),
               TableRow(
                 children: [
-                  const Padding(padding: EdgeInsets.all(6), child: Text('الضرائب والرسوم الجمركية و VAT (نافذة)', style: TextStyle(fontSize: 12))),
-                  const Padding(padding: EdgeInsets.all(6), child: Text('مصلحة الجمارك المصرية', style: TextStyle(fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.customsAndVatEstimate, style: const TextStyle(fontSize: 12))),
+                  const Padding(padding: EdgeInsets.all(6), child: Text('Customs', style: TextStyle(fontSize: 12))),
                   Padding(padding: const EdgeInsets.all(6), child: Text('${custEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple, fontSize: 12))),
                 ],
               ),
               TableRow(
                 children: [
-                  const Padding(padding: EdgeInsets.all(6), child: Text('أتعاب التخليص الجمركي والنقل الداخلي', style: TextStyle(fontSize: 12))),
-                  const Padding(padding: EdgeInsets.all(6), child: Text('المستخلص الجمركي والناقل', style: TextStyle(fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.clearanceAndTransportEstimate, style: const TextStyle(fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.customsBrokerLabel, style: const TextStyle(fontSize: 12))),
                   Padding(padding: const EdgeInsets.all(6), child: Text('${clrEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal, fontSize: 12))),
                 ],
               ),
               TableRow(
                 decoration: BoxDecoration(color: Colors.grey.shade100),
                 children: [
-                  const Padding(padding: EdgeInsets.all(6), child: Text('إجمالي بنود العملة المحلية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(l.totalExpenses, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                   const Padding(padding: EdgeInsets.all(6), child: Text('-', style: TextStyle(fontSize: 12))),
                   Padding(padding: const EdgeInsets.all(6), child: Text('${(custEgp + clrEgp).toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12))),
                 ],
@@ -2879,9 +2882,9 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'إجمالي الميزانية الاستيرادية الكلية المعتمدة (Total Approved Budget):',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                Text(
+                  '${l.totalBudgetEgp}:',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                 ),
                 Text(
                   '${grandTotalEgp.toStringAsFixed(2)} EGP',
@@ -2896,6 +2899,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   }
 
   Widget _buildPaySwiftExtractorWidget() {
+    final l = context.l10n;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -2930,42 +2934,27 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
               spacing: 8,
               runSpacing: 6,
               children: [
-                const Row(
+                Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
-                    SizedBox(width: 6),
-                    Icon(Icons.bolt, color: Colors.white, size: 18),
-                    SizedBox(width: 8),
+                    const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.bolt, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
                     Text(
-                      'محرك الاستخراج الذكي والمطابقة الفورية لبيانات السويفت (Smart AI SWIFT MT103 Extractor) ⚡',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      l.swiftExtractorTitle,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ],
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextButton.icon(
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        backgroundColor: Colors.white.withOpacity(0.18),
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      ),
-                      icon: const Icon(Icons.description, size: 14, color: Colors.white),
-                      label: const Text('تحميل نموذج سويفت تجريبي 📄', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      onPressed: () {
-                        _paySwiftRawTextController.text = kSampleSwiftMT103;
-                        _autoFillFromSwiftText(kSampleSwiftMT103);
-                      },
-                    ),
-                    const SizedBox(width: 6),
                     IconButton(
                       icon: Icon(_isPaySwiftExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.white),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
-                      tooltip: _isPaySwiftExpanded ? 'طي الأداة' : 'توسيع الأداة',
+                      tooltip: _isPaySwiftExpanded ? l.collapseSidebar : l.actionsCol,
                       onPressed: () => setState(() => _isPaySwiftExpanded = !_isPaySwiftExpanded),
                     ),
                   ],
@@ -2992,8 +2981,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                             minLines: 4,
                             style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4),
                             decoration: InputDecoration(
-                              hintText:
-                                  '(صورة / Word / Excel / PDF / ...) الصق نص رسالة السويفت البنكي (MT103) أو ارفع ملف المستند\nمثال: {1:F01ARAIECXXXXX...} :20/TRANSACTION REFERENCE NUMBER : FT/26228/KZ70Q\n:32A/Value Date, CCY, Amount : 260818USD43704,00\n:59/Beneficiary Customer : SUZHOU YUHENG TEXTILE CO., LTD',
+                              hintText: l.swiftPasteText,
                               hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                               contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 40),
@@ -3018,12 +3006,12 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                       color: Colors.grey.shade200,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.paste, size: 12, color: Colors.black87),
-                                        SizedBox(width: 4),
-                                        Text('لصق', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                        const Icon(Icons.paste, size: 12, color: Colors.black87),
+                                        const SizedBox(width: 4),
+                                        Text(l.swiftPasteText, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                                       ],
                                     ),
                                   ),
@@ -3040,12 +3028,12 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                       color: Colors.grey.shade100,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.clear, size: 12, color: Colors.black54),
-                                        SizedBox(width: 4),
-                                        Text('تفريغ', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                                        const Icon(Icons.clear, size: 12, color: Colors.black54),
+                                        const SizedBox(width: 4),
+                                        Text(l.reset, style: const TextStyle(fontSize: 11, color: Colors.black54)),
                                       ],
                                     ),
                                   ),
@@ -3067,7 +3055,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             icon: const Icon(Icons.upload_file, size: 16, color: Colors.white),
-                            label: const Text('رفع واستخراج من ملف\n(Word / Excel / PDF / صورة)', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text(l.swiftUploadDocument, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             onPressed: _isPaySwiftExtracting ? null : _autoFillFromSwiftFile,
                           ),
                           const SizedBox(height: 8),
@@ -3081,14 +3069,14 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                             icon: _isPaySwiftExtracting
                                 ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                 : const Icon(Icons.bolt, size: 16, color: Colors.amber),
-                            label: const Text('استخراج وتعبئة الحقول ⚡', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text(l.swiftExecuteReconciliation, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             onPressed: _isPaySwiftExtracting
                                 ? null
                                 : () {
                                     final txt = _paySwiftRawTextController.text.trim();
                                     if (txt.isEmpty) {
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('⚠️ يرجى لصق نص رسالة السويفت أولاً أو رفع ملف'), backgroundColor: AppTheme.orange),
+                                        SnackBar(content: Text('⚠️ ${l.swiftPasteText}'), backgroundColor: AppTheme.orange),
                                       );
                                       return;
                                     }
@@ -3139,11 +3127,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                               spacing: 12,
                               runSpacing: 4,
                               children: [
-                                Text('المبلغ: ${_payExtractedSwiftSummary!['amount']} ${_payExtractedSwiftSummary!['currency']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87)),
-                                Text('المستفيد: ${_payExtractedSwiftSummary!['beneficiary_name'] ?? "غير محدد"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87)),
-                                Text('المرجع: ${_payExtractedSwiftSummary!['transaction_reference'] ?? "غير محدد"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87)),
-                                Text('سويفت: ${_payExtractedSwiftSummary!['beneficiary_bank_swift'] ?? "غير محدد"}', style: const TextStyle(fontSize: 11, color: Colors.black87)),
-                                Text('الحساب: ${_payExtractedSwiftSummary!['beneficiary_account_or_iban'] ?? "غير محدد"}', style: const TextStyle(fontSize: 11, color: Colors.black87)),
+                                Text('${l.requestedAmountLabel}: ${_payExtractedSwiftSummary!['amount']} ${_payExtractedSwiftSummary!['currency']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87)),
+                                Text('${l.beneficiarySupplierLabel}: ${_payExtractedSwiftSummary!['beneficiary_name'] ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87)),
+                                Text('${l.paymentCodeCol}: ${_payExtractedSwiftSummary!['transaction_reference'] ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87)),
+                                Text('${l.swiftCodeLabel}: ${_payExtractedSwiftSummary!['beneficiary_bank_swift'] ?? "-"}', style: const TextStyle(fontSize: 11, color: Colors.black87)),
+                                Text('${l.ibanAccountLabel}: ${_payExtractedSwiftSummary!['beneficiary_account_or_iban'] ?? "-"}', style: const TextStyle(fontSize: 11, color: Colors.black87)),
                               ],
                             ),
                           ),

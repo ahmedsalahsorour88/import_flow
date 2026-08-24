@@ -62,7 +62,7 @@
 - [x] Screen 23: Customs Declaration 46 (`CustomsDeclaration46Screen` in `customs_declaration46_screen.dart`) — **Reviewed & Fixed**
 - [x] Screen 24: Customs Clearance Management (`CustomsClearanceScreen` in `customs_clearance_screen.dart`) — **Reviewed & Fixed**
 - [x] Screen 25: Freight Booking (`FreightBookingScreen` in `freight_booking_screen.dart` and dialogs `_FreightBookingFormDialog`, `_FreightBookingViewDialog`, `_FreightBookingPrintDialog`) — **Reviewed & Fixed**
-- [ ] Screen 26: Freight Allocations (`FreightAllocationsScreen`)
+- [x] Screen 26: Freight Allocations & Cargo Shipping (VGM) (`CargoShippingScreen` in `cargo_shipping_screen.dart`, initialSubTab: 0) — **Reviewed & Fixed**
 - [ ] Screen 27: Clearance Follow-up (`ClearanceFollowupScreen`)
 - [ ] Screen 28: Warehouse Receiving GRN (`WarehouseReceivingScreen`)
 - [ ] Screen 29: Landed Cost Settlement (`LandedCostSettlementScreen`)
@@ -82,7 +82,7 @@
 - [ ] Screen 49: Freight Quotations Comparison (`FreightQuotationsScreen`)
 - [ ] Screen 50: Landed Cost Comparison (`LandedCostComparisonScreen`)
 - [ ] Screen 51: Central Docs Hub (`CentralDocsHubScreen`)
-- [ ] Screen 52: Cargo Shipping Tracking (`CargoShippingScreen`)
+- [x] Screen 52: Cargo Shipping Tracking (48h SLA) (`CargoShippingScreen` in `cargo_shipping_screen.dart`, initialSubTab: 1) — **Reviewed & Fixed**
 - [ ] Screen 53: Draft Inspection COC (`DraftInspectionScreen`)
 - [ ] Screen 54: CargoX Blockchain Hub (`CargoXScreen`)
 - [ ] Screen 55: Clearance Quotations Extractor (`CustomsClearanceQuotationsScreen`)
@@ -93,8 +93,8 @@
 
 ---
 
-**Last Screen Fully Fixed:** `Screen 25: Freight Booking (FreightBookingScreen in freight_booking_screen.dart)`  
-**Next Screen to Review:** `Screen 26: Freight Allocations (FreightAllocationsScreen / freight_allocations_screen.dart)`
+**Last Screen Fully Fixed:** `Screen 26 & 52: Cargo Shipping Tracking & Container Allocation (CargoShippingScreen in cargo_shipping_screen.dart)`  
+**Next Screen to Review:** `Screen 27: Clearance Follow-up (ClearanceFollowupScreen / clearance_followup_screen.dart)`
 
 
 

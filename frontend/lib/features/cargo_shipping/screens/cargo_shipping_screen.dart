@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/utils/import_file_po_linker.dart';
@@ -52,7 +53,6 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   List<ContainerLoadingModel> _containers = [];
   LclLoadingTrackingModel? _lclTracking;
 
-  @override
   @override
   void initState() {
     super.initState();
@@ -169,7 +169,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     if (showSnack && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('📂 تم استدعاء البيانات وتحديثات المراحل المحفوظة للشحنة (${rec.importFileCode ?? rec.cargoShippingCode}) بنجاح!'),
+          content: Text(context.l10n.cargoShippingLoadSuccessSnack(rec.importFileCode ?? rec.cargoShippingCode)),
           backgroundColor: AppTheme.cobalt,
         ),
       );
@@ -254,8 +254,8 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   // ===========================================================================
   // DATE & TIME PICKER HELPERS
   // ===========================================================================
-  String _formatDisplayDateTime(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return 'انقر لتسجيل التاريخ والوقت 📅';
+  String _formatDisplayDateTime(String? raw, BuildContext ctx) {
+    if (raw == null || raw.trim().isEmpty) return ctx.l10n.cargoShippingClickToSetDateTime;
     final dt = DateTime.tryParse(raw);
     if (dt == null) return raw;
     final datePart = "${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}";
@@ -263,12 +263,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       return datePart;
     }
     final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
-    final ampm = dt.hour >= 12 ? 'م' : 'ص';
+    final ampm = dt.hour >= 12 ? (Localizations.localeOf(ctx).languageCode == 'ar' ? 'م' : 'PM') : (Localizations.localeOf(ctx).languageCode == 'ar' ? 'ص' : 'AM');
     final minute = dt.minute.toString().padLeft(2, '0');
     return "$datePart | $hour:$minute $ampm";
   }
 
-  Future<String?> _pickDateTime(BuildContext context, {String? initialIso, DateTime? minDate, String title = 'اختر التاريخ والوقت'}) async {
+  Future<String?> _pickDateTime(BuildContext context, {String? initialIso, DateTime? minDate, String? title}) async {
     final now = DateTime.now();
     final initDt = (initialIso != null && initialIso.isNotEmpty) ? (DateTime.tryParse(initialIso) ?? now) : now;
     final effectiveInit = (minDate != null && initDt.isBefore(minDate)) ? minDate : initDt;
@@ -278,9 +278,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       initialDate: effectiveInit,
       firstDate: minDate ?? DateTime(2020),
       lastDate: DateTime(2035),
-      helpText: title,
-      cancelText: 'إلغاء',
-      confirmText: 'متابعة لاختيار الساعة',
+      helpText: title ?? context.l10n.cargoShippingPickMilestone1,
+      cancelText: context.l10n.cancel,
+      confirmText: context.l10n.confirm,
     );
     if (pickedDate == null) return null;
 
@@ -289,9 +289,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     final pickedTime = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(effectiveInit),
-      helpText: 'اختر التوقيت (الساعة والدقيقة)',
-      cancelText: 'إلغاء',
-      confirmText: 'تأكيد وحفظ التوقيت',
+      helpText: title ?? context.l10n.cargoShippingPickMilestone1,
+      cancelText: context.l10n.cancel,
+      confirmText: context.l10n.confirm,
     );
     if (pickedTime == null) return null;
 
@@ -306,8 +306,8 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     if (minDate != null && finalDt.isBefore(minDate)) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ لا يمكن اختيار تاريخ ووقت يسبق توقيت المرحلة السابقة في التسلسل الزمني!'),
+          SnackBar(
+            content: Text(context.l10n.cargoShippingDateSequenceError),
             backgroundColor: Colors.red,
           ),
         );
@@ -328,8 +328,8 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     if (_selectedImportFileId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ يرجى اختيار ملف الشحنة الاستيرادية المربوط أولاً في الخطوة 1 قبل حفظ تحديثات الحاوية.'),
+          SnackBar(
+            content: Text(context.l10n.cargoShippingSelectFileFirstForContainer),
             backgroundColor: Colors.orange,
           ),
         );
@@ -370,7 +370,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('💾 تم حفظ وتحديث مرحلة الحاوية (${c.containerNo}) بنجاح! الحالة: ${c.arabicStatusLabel}'),
+              content: Text(context.l10n.cargoShippingSaveContainerMilestoneSuccess(c.containerNo, c.getLocalizedStatus(context.l10n))),
               backgroundColor: AppTheme.emerald,
             ),
           );
@@ -381,10 +381,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           await _submitForm(isDraftProgressive: true);
         } else if (mounted) {
           final cleanMsg = e is DioException
-              ? (e.response?.data?['detail'] ?? e.message ?? 'خطأ في الاتصال بالخادم')
+              ? (e.response?.data?['detail'] ?? e.message ?? 'Server error')
               : e.toString().replaceAll('Exception:', '').trim();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('❌ تعذر الحفظ المؤقت للمرحلة: $cleanMsg'), backgroundColor: Colors.red),
+            SnackBar(content: Text(context.l10n.cargoShippingQuickSaveError(cleanMsg)), backgroundColor: Colors.red),
           );
         }
       } finally {
@@ -401,8 +401,8 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     if (_selectedImportFileId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ يرجى اختيار ملف الشحنة الاستيرادية المربوط أولاً في الخطوة 1 قبل حفظ تحديثات LCL.'),
+          SnackBar(
+            content: Text(context.l10n.cargoShippingSelectFileFirstForLcl),
             backgroundColor: Colors.orange,
           ),
         );
@@ -434,7 +434,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('💾 تم حفظ وتحديث مرحلة تجميع الـ LCL بنجاح! الحالة: ${_lclTracking!.arabicStatusLabel}'),
+              content: Text(context.l10n.cargoShippingSaveLclMilestoneSuccess(_lclTracking!.getLocalizedStatus(context.l10n))),
               backgroundColor: AppTheme.emerald,
             ),
           );
@@ -445,10 +445,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           await _submitForm(isDraftProgressive: true);
         } else if (mounted) {
           final cleanMsg = e is DioException
-              ? (e.response?.data?['detail'] ?? e.message ?? 'خطأ في الاتصال بالخادم')
+              ? (e.response?.data?['detail'] ?? e.message ?? 'Server error')
               : e.toString().replaceAll('Exception:', '').trim();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('❌ تعذر حفظ مرحلة الـ LCL: $cleanMsg'), backgroundColor: Colors.red),
+            SnackBar(content: Text(context.l10n.cargoShippingLclSaveError(cleanMsg)), backgroundColor: Colors.red),
           );
         }
       } finally {
@@ -503,8 +503,8 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('⚡ تم استيفاء دورة التحميل ودخول الميناء لجميع الحاويات بنجاح!'),
+      SnackBar(
+        content: Text(context.l10n.cargoShippingAutoCompleteSuccess),
         backgroundColor: AppTheme.emerald,
       ),
     );
@@ -513,14 +513,14 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   Future<void> _submitForm({bool isDraftProgressive = false}) async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى التأكد من تعبئة جميع الحقول المطلوبة.'), backgroundColor: Colors.red),
+        SnackBar(content: Text(context.l10n.cargoShippingFillRequiredFields), backgroundColor: Colors.red),
       );
       return;
     }
 
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة الاستيرادية المربوط أولاً.'), backgroundColor: Colors.orange),
+        SnackBar(content: Text(context.l10n.cargoShippingSelectLinkedFilePrompt), backgroundColor: Colors.orange),
       );
       return;
     }
@@ -566,15 +566,15 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
         if (isDraftProgressive) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('💾 تم الحفظ المؤقت بنجاح (Draft)! تم الاحتفاظ بالبيانات ويمكنك استكمال المراحل في أي وقت.'),
+            SnackBar(
+              content: Text(context.l10n.cargoShippingDraftSaveSuccess),
               backgroundColor: AppTheme.emerald,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✅ تم حفظ وتحديث دراسة ومتابعة ملف الاستيراد (${_editingRecordCode ?? ""}) بنجاح!'),
+              content: Text(context.l10n.cargoShippingStudySaveSuccess(_editingRecordCode ?? "")),
               backgroundColor: AppTheme.emerald,
             ),
           );
@@ -588,18 +588,18 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
-                SizedBox(width: 8),
-                Text('تنبيه عدم التكرار / تعارض الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                const SizedBox(width: 8),
+                Text(context.l10n.cargoShippingDuplicateWarningTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ],
             ),
             content: Text(errorMsg, style: const TextStyle(fontSize: 13, height: 1.5)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('إغلاق'),
+                child: Text(context.l10n.close),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
@@ -607,7 +607,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   Navigator.pop(ctx);
                   _mainTabController.animateTo(1);
                 },
-                child: const Text('الانتقال لسجل المتابعة المحفوظ', style: TextStyle(color: Colors.white)),
+                child: Text(context.l10n.cargoShippingGoToSavedRegistry, style: const TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -650,13 +650,13 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       headerActions: [
         SmartUploadButton(
           module: SmartUploadModule.cargoShipping,
-          label: 'رفع واستخراج B/L (PDF / Word / Excel)',
+          label: context.l10n.cargoShippingUploadBlLabel,
           onDataExtracted: (result) {
             final fields = result.extractedFields;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'تم استخراج بيانات شحنة B/L بنجاح (${fields['bl_number'] ?? 'بدون رقم B/L'})',
+                  context.l10n.cargoShippingUploadBlSuccess(fields['bl_number'] ?? 'N/A'),
                 ),
                 backgroundColor: AppTheme.emerald,
                 duration: const Duration(seconds: 5),
@@ -667,7 +667,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: 'إعادة تحميل حية',
+          tooltip: context.l10n.liveReload,
           onPressed: _refreshAllData,
         ),
       ],
@@ -737,7 +737,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'ملف الاستيراد المربوط: [${curFile.importFileCode}] ${curFile.companyName} | المورد: ${curFile.supplierName}${curFile.acidNumber != null ? " | ACID: ${curFile.acidNumber}" : ""}${_editingRecordCode != null ? " (كود الشحنة: $_editingRecordCode)" : ""}',
+                        '${context.l10n.cargoShippingLinkedFileBannerPrefix} [${curFile.importFileCode}] ${curFile.companyName} | ${context.l10n.cargoShippingSupplierLabel} ${curFile.supplierName}${curFile.acidNumber != null ? " | ACID: ${curFile.acidNumber}" : ""}${_editingRecordCode != null ? " (${context.l10n.cargoShippingCodeLabel} $_editingRecordCode)" : ""}',
                         style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 13),
                       ),
                     ),
@@ -745,7 +745,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       TextButton.icon(
                         onPressed: _resetForm,
                         icon: const Icon(Icons.close, size: 16, color: Colors.red),
-                        label: const Text('إلغاء والبدء من جديد', style: TextStyle(color: Colors.red, fontSize: 12)),
+                        label: Text(context.l10n.cargoShippingCancelStartNew, style: const TextStyle(color: Colors.red, fontSize: 12)),
                       ),
                   ],
                 ),
@@ -762,8 +762,8 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               ),
               child: Row(
                 children: [
-                  _buildStepperButton(0, '1. تخصيص الحاويات والـ VGM', Icons.inventory_2_outlined),
-                  _buildStepperButton(1, '2. متابعة تحميل وتوريد الحاويات (48h SLA)', Icons.timelapse_outlined),
+                  _buildStepperButton(0, context.l10n.cargoShippingStep1Title, Icons.inventory_2_outlined),
+                  _buildStepperButton(1, context.l10n.cargoShippingStep2Title, Icons.timelapse_outlined),
                 ],
               ),
             ),
@@ -846,33 +846,33 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               Expanded(
                 flex: 3,
                 child: SearchableDropdownField<int?>(
-                  labelText: 'ملف الشحنة الاستيرادية المربوط (Import File) *',
-                  hintText: 'اختر ملف الشحنة...',
+                  labelText: context.l10n.cargoShippingImportFileLabel,
+                  hintText: context.l10n.cargoShippingImportFileHint,
                   value: _selectedImportFileId,
                   items: [
-                    const SearchableDropdownItem<int?>(value: null, label: '-- اختر ملف الشحنة --'),
+                    SearchableDropdownItem<int?>(value: null, label: context.l10n.cargoShippingImportFileDefault),
                     ...importFiles.map((f) {
                       final hasExisting = existingRecords.any((r) => r.importFileId == f.importFileId && r.isActive);
                       return SearchableDropdownItem<int?>(
                         value: f.importFileId,
-                        label: '[${f.importFileCode}] ${f.companyName} | ACID: ${f.acidNumber ?? "لم يصدر"}${hasExisting ? " (مسجل سابقاً)" : ""}',
+                        label: '[${f.importFileCode}] ${f.companyName} | ACID: ${f.acidNumber ?? "N/A"}${hasExisting ? " ${context.l10n.cargoShippingPreviouslyRegistered}" : ""}',
                         subtitle: f.supplierName,
                       );
                     }),
                   ],
                   onChanged: (val) => _onImportFileSelected(val),
-                  validator: (v) => v == null ? 'يرجى اختيار ملف الشحنة' : null,
+                  validator: (v) => v == null ? context.l10n.cargoShippingSelectFileValidator : null,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 flex: 2,
                 child: SearchableDropdownField<String>(
-                  labelText: 'نوع الشحنة (Shipment Type) *',
+                  labelText: context.l10n.cargoShippingShipmentTypeLabel,
                   value: _shipmentType,
-                  items: const [
-                    SearchableDropdownItem(value: 'FCL', label: 'FCL (حاوية كاملة - Full Container)'),
-                    SearchableDropdownItem(value: 'LCL', label: 'LCL (تجميع بضائع - CFS Consolidation)'),
+                  items: [
+                    SearchableDropdownItem(value: 'FCL', label: context.l10n.cargoShippingFclLabel),
+                    SearchableDropdownItem(value: 'LCL', label: context.l10n.cargoShippingLclLabel),
                   ],
                   onChanged: (val) => setState(() => _shipmentType = val ?? 'FCL'),
                 ),
@@ -898,7 +898,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     const Icon(Icons.inventory_2, color: Colors.purple, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'حمولة الملف المجمعة من قوائم التعبئة: ${totalCargoCbm.toStringAsFixed(2)} m³ | ${totalCargoWeightKg.toStringAsFixed(0)} kg',
+                      context.l10n.cargoShippingAggregatedCargoMetrics(totalCargoCbm.toStringAsFixed(2), totalCargoWeightKg.toStringAsFixed(0)),
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple),
                     ),
                   ],
@@ -906,16 +906,16 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Text('نوع التحميل والتخزين (Cargo Stacking):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text(context.l10n.cargoShippingCargoStackingLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     const SizedBox(width: 8),
                     ChoiceChip(
-                      label: const Text('قابل للرص (Stackable)'),
+                      label: Text(context.l10n.cargoShippingStackable),
                       selected: _isStackable,
                       onSelected: (val) => setState(() => _isStackable = val),
                     ),
                     const SizedBox(width: 6),
                     ChoiceChip(
-                      label: const Text('غير قابل للرص (Non-Stackable)'),
+                      label: Text(context.l10n.cargoShippingNonStackable),
                       selected: !_isStackable,
                       onSelected: (val) => setState(() => _isStackable = !val),
                     ),
@@ -930,7 +930,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     border: Border.all(color: Colors.green.shade400),
                   ),
                   child: Text(
-                    'اقتراح الحاوية التلقائي: ${activeContainerRec.requiredContainersCount} x ${activeContainerRec.recommendedContainerCode} (استغلال المساحة: ${activeContainerRec.spaceUtilizationPercent.toStringAsFixed(1)}% | استغلال الوزن: ${activeContainerRec.payloadUtilizationPercent.toStringAsFixed(1)}%)',
+                    context.l10n.cargoShippingAutoRecommendation(
+                      activeContainerRec.requiredContainersCount,
+                      activeContainerRec.recommendedContainerCode,
+                      activeContainerRec.spaceUtilizationPercent.toStringAsFixed(1),
+                      activeContainerRec.payloadUtilizationPercent.toStringAsFixed(1),
+                    ),
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade900),
                   ),
                 ),
@@ -943,7 +948,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           if (_shipmentType == 'FCL') ...[
             Row(
               children: [
-                const Text('بيانات الحاويات المخصصة وأرقام السيل والـ VGM:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(context.l10n.cargoShippingContainersHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const Spacer(),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
@@ -969,7 +974,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     });
                   },
                   icon: const Icon(Icons.add, color: Colors.white, size: 18),
-                  label: const Text('إضافة نوع حاوية جديد', style: TextStyle(color: Colors.white)),
+                  label: Text(context.l10n.cargoShippingAddContainerType, style: const TextStyle(color: Colors.white)),
                 ),
               ],
             ),
@@ -998,14 +1003,14 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('بيانات مخزن تجميع الشحنة (CFS Consolidation Warehouse):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                  Text(context.l10n.cargoShippingCfsHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
                   const SizedBox(height: 10),
                   TextFormField(
                     controller: _cfsWarehouseCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'اسم وموقع مخزن التجميع (CFS Warehouse)',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.warehouse, color: AppTheme.cobalt),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.cargoShippingCfsWarehouseLabel,
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.warehouse, color: AppTheme.cobalt),
                     ),
                   ),
                 ],
@@ -1035,7 +1040,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                 flex: 2,
                 child: SearchableDropdownField<String>(
                   value: item.containerType,
-                  labelText: 'نوع الحاوية',
+                  labelText: context.l10n.cargoShippingContainerType,
                   items: const [
                     SearchableDropdownItem(value: '20GP', label: '20GP Standard'),
                     SearchableDropdownItem(value: '40GP', label: '40GP Standard'),
@@ -1077,7 +1082,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                 child: TextFormField(
                   initialValue: item.quantity.toString(),
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'العدد (Qty)', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: context.l10n.cargoShippingQty, border: const OutlineInputBorder()),
                   onChanged: (val) {
                     final q = int.tryParse(val) ?? 1;
                     setState(() {
@@ -1119,7 +1124,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                 child: TextFormField(
                   initialValue: item.grossWeightKg.toStringAsFixed(0),
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'إجمالي VGM (Kg)', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: context.l10n.cargoShippingVgmWeight, border: const OutlineInputBorder()),
                   onChanged: (val) {
                     final w = double.tryParse(val) ?? 0.0;
                     setState(() {
@@ -1158,7 +1163,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           const SizedBox(height: 10),
 
           // Per-Unit Container No & Seal No Fields
-          const Text('تفاصيل أرقام الحاويات والسيل لكل وحدة:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+          Text(context.l10n.cargoShippingUnitDetailsHeader, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
           const SizedBox(height: 6),
           ...List.generate(qty, (unitIdx) {
             final units = item.individualUnits;
@@ -1169,11 +1174,11 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(
                 children: [
-                  Text('حاوية #${unitIdx + 1}: ', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text(context.l10n.cargoShippingUnitPrefix(unitIdx + 1), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   Expanded(
                     child: TextFormField(
                       initialValue: curCNo,
-                      decoration: const InputDecoration(labelText: 'رقم الحاوية (Container No)', isDense: true, border: OutlineInputBorder()),
+                      decoration: InputDecoration(labelText: context.l10n.cargoShippingContainerNo, isDense: true, border: const OutlineInputBorder()),
                       onChanged: (cVal) {
                         final updatedUnits = List<Map<String, String>>.from(item.individualUnits);
                         while (updatedUnits.length <= unitIdx) {
@@ -1206,7 +1211,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   Expanded(
                     child: TextFormField(
                       initialValue: curSNo,
-                      decoration: const InputDecoration(labelText: 'رقم السيل / القفل (Seal No)', isDense: true, border: OutlineInputBorder()),
+                      decoration: InputDecoration(labelText: context.l10n.cargoShippingSealNo, isDense: true, border: const OutlineInputBorder()),
                       onChanged: (sVal) {
                         final updatedUnits = List<Map<String, String>>.from(item.individualUnits);
                         while (updatedUnits.length <= unitIdx) {
@@ -1243,6 +1248,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       ),
     );
   }
+
 
   // ================= STEP 2: CONTAINER LOADING FOLLOW-UP & 48H SLA TRACKING =================
   Widget _buildStep2ContainerLoadingTracking(List<dynamic> importFiles, dynamic curFile) {
@@ -1286,33 +1292,33 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   Expanded(
                     flex: 3,
                     child: SearchableDropdownField<int?>(
-                      labelText: 'ملف الشحنة الاستيرادية المربوط للمتابعة (Import File) *',
-                      hintText: 'اختر ملف الشحنة لمتابعة التوريد والتحميل...',
+                      labelText: context.l10n.cargoShippingImportFileTrackingLabel,
+                      hintText: context.l10n.cargoShippingImportFileTrackingHint,
                       value: _selectedImportFileId,
                       items: [
-                        const SearchableDropdownItem<int?>(value: null, label: '-- اختر ملف الشحنة --'),
+                        SearchableDropdownItem<int?>(value: null, label: context.l10n.cargoShippingImportFileDefault),
                         ...importFiles.map((f) {
                           final hasExisting = existingRecords.any((r) => r.importFileId == f.importFileId && r.isActive);
                           return SearchableDropdownItem<int?>(
                             value: f.importFileId,
-                            label: '[${f.importFileCode}] ${f.companyName} | ACID: ${f.acidNumber ?? "لم يصدر"}${hasExisting ? " (مسجل سابقاً)" : ""}',
+                            label: '[${f.importFileCode}] ${f.companyName} | ACID: ${f.acidNumber ?? "N/A"}${hasExisting ? " ${context.l10n.cargoShippingPreviouslyRegistered}" : ""}',
                             subtitle: f.supplierName,
                           );
                         }),
                       ],
                       onChanged: (val) => _onImportFileSelected(val),
-                      validator: (v) => v == null ? 'يرجى اختيار ملف الشحنة' : null,
+                      validator: (v) => v == null ? context.l10n.cargoShippingSelectFileValidator : null,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
                     child: SearchableDropdownField<String>(
-                      labelText: 'نوع الشحنة (Shipment Type) *',
+                      labelText: context.l10n.cargoShippingShipmentTypeLabel,
                       value: _shipmentType,
-                      items: const [
-                        SearchableDropdownItem(value: 'FCL', label: 'FCL (حاوية كاملة - Full Container)'),
-                        SearchableDropdownItem(value: 'LCL', label: 'LCL (تجميع بضائع - CFS Consolidation)'),
+                      items: [
+                        SearchableDropdownItem(value: 'FCL', label: context.l10n.cargoShippingFclLabel),
+                        SearchableDropdownItem(value: 'LCL', label: context.l10n.cargoShippingLclLabel),
                       ],
                       onChanged: (val) => setState(() => _shipmentType = val ?? 'FCL'),
                     ),
@@ -1334,7 +1340,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'ملف الاستيراد: [${curFile.importFileCode}] ${curFile.companyName} | المورد: ${curFile.supplierName} | ACID: ${curFile.acidNumber ?? "لم يصدر"}',
+                          '${context.l10n.cargoShippingLinkedFileBannerPrefix} [${curFile.importFileCode}] ${curFile.companyName} | ${context.l10n.cargoShippingSupplierLabel} ${curFile.supplierName} | ACID: ${curFile.acidNumber ?? "N/A"}',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                         ),
                       ),
@@ -1349,13 +1355,13 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         // Top Summary Dashboard Cards
         Row(
           children: [
-            _buildMetricSummaryCard('إجمالي الحاويات', totalCount.toString(), Icons.inventory_2, AppTheme.cobalt),
+            _buildMetricSummaryCard(context.l10n.cargoShippingMetricTotalContainers, totalCount.toString(), Icons.inventory_2, AppTheme.cobalt),
             const SizedBox(width: 8),
-            _buildMetricSummaryCard('جاري التحميل والتوريد', inProgressCount.toString(), Icons.hourglass_top, AppTheme.orange),
+            _buildMetricSummaryCard(context.l10n.cargoShippingMetricInProgress, inProgressCount.toString(), Icons.hourglass_top, AppTheme.orange),
             const SizedBox(width: 8),
-            _buildMetricSummaryCard('دخلت الميناء (Gated-in)', gatedInCount.toString(), Icons.check_circle, AppTheme.emerald),
+            _buildMetricSummaryCard(context.l10n.cargoShippingMetricGatedIn, gatedInCount.toString(), Icons.check_circle, AppTheme.emerald),
             const SizedBox(width: 8),
-            _buildMetricSummaryCard('تجاوزت مهلة SLA (48h)', breachedCount.toString(), Icons.warning, breachedCount > 0 ? AppTheme.crimson : Colors.grey),
+            _buildMetricSummaryCard(context.l10n.cargoShippingMetricSlaBreached, breachedCount.toString(), Icons.warning, breachedCount > 0 ? AppTheme.crimson : Colors.grey),
           ],
         ),
         const SizedBox(height: 12),
@@ -1434,7 +1440,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 20),
               const SizedBox(width: 8),
               Text(
-                'حاوية #${index + 1}: ${c.containerNo} (${c.containerType}) | سيل: ${c.sealNo}',
+                context.l10n.cargoShippingContainerCardHeader(index + 1, c.containerNo, c.containerType, c.sealNo),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
               ),
               const Spacer(),
@@ -1446,7 +1452,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   border: Border.all(color: c.statusColor),
                 ),
                 child: Text(
-                  c.arabicStatusLabel,
+                  c.getLocalizedStatus(context.l10n),
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: c.statusColor),
                 ),
               ),
@@ -1459,12 +1465,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: AppTheme.crimson),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.alarm_off, size: 14, color: AppTheme.crimson),
-                      SizedBox(width: 4),
-                      Text('تجاوزت مهلة الـ 48h SLA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: AppTheme.crimson)),
+                      const Icon(Icons.alarm_off, size: 14, color: AppTheme.crimson),
+                      const SizedBox(width: 4),
+                      Text(context.l10n.cargoShippingSlaBreachedBadge, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: AppTheme.crimson)),
                     ],
                   ),
                 ),
@@ -1479,7 +1485,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                 ),
                 onPressed: () => _quickSaveContainerMilestone(index),
                 icon: const Icon(Icons.save, size: 16, color: AppTheme.cobalt),
-                label: const Text('حفظ تحديث هذه الحاوية 💾', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                label: Text(context.l10n.cargoShippingQuickSaveContainer, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1488,12 +1494,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           // 5-Milestone Visual Timeline Progress
           _buildMilestoneTimelineProgress(
             stepIndex: c.progressStepIndex,
-            labels: const [
-              '1. التخصيص',
-              '2. وصول للمورد',
-              '3. بداية التحميل',
-              '4. نهاية التحميل',
-              '5. دخول الميناء',
+            labels: [
+              context.l10n.cargoShippingMilestone1,
+              context.l10n.cargoShippingMilestone2,
+              context.l10n.cargoShippingMilestone3,
+              context.l10n.cargoShippingMilestone4,
+              context.l10n.cargoShippingMilestone5,
             ],
           ),
           const SizedBox(height: 14),
@@ -1506,14 +1512,14 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               Expanded(
                 child: _buildMilestonePickerBox(
                   stepNumber: '1',
-                  stepTitle: 'تاريخ ووقت التخصيص',
+                  stepTitle: context.l10n.cargoShippingMilestone1Title,
                   valueText: c.containerAssignmentDate,
                   noteText: c.milestoneNotes['1'],
                   onPick: () async {
                     final dt = await _pickDateTime(
                       context,
                       initialIso: c.containerAssignmentDate,
-                      title: 'تسجيل تاريخ ووقت تخصيص الحاوية',
+                      title: context.l10n.cargoShippingPickMilestone1,
                     );
                     if (dt != null) _updateContainerTimestamp(index, assignmentDate: dt);
                   },
@@ -1530,7 +1536,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               Expanded(
                 child: _buildMilestonePickerBox(
                   stepNumber: '2',
-                  stepTitle: 'وصول للمورد',
+                  stepTitle: context.l10n.cargoShippingMilestone2Title,
                   valueText: c.arrivalAtSupplierAt,
                   noteText: c.milestoneNotes['2'],
                   onPick: () async {
@@ -1538,7 +1544,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       context,
                       initialIso: c.arrivalAtSupplierAt,
                       minDate: assignDt,
-                      title: 'تسجيل وصول الحاوية لدى المورد',
+                      title: context.l10n.cargoShippingPickMilestone2,
                     );
                     if (dt != null) _updateContainerTimestamp(index, arrival: dt);
                   },
@@ -1554,7 +1560,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               Expanded(
                 child: _buildMilestonePickerBox(
                   stepNumber: '3',
-                  stepTitle: 'بداية التحميل',
+                  stepTitle: context.l10n.cargoShippingMilestone3Title,
                   valueText: c.loadingStartAt,
                   noteText: c.milestoneNotes['3'],
                   onPick: () async {
@@ -1562,7 +1568,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       context,
                       initialIso: c.loadingStartAt,
                       minDate: arrivalDt,
-                      title: 'تسجيل بداية تحميل وتعبئة الحاوية',
+                      title: context.l10n.cargoShippingPickMilestone3,
                     );
                     if (dt != null) _updateContainerTimestamp(index, loadingStart: dt);
                   },
@@ -1578,7 +1584,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               Expanded(
                 child: _buildMilestonePickerBox(
                   stepNumber: '4',
-                  stepTitle: 'نهاية التحميل',
+                  stepTitle: context.l10n.cargoShippingMilestone4Title,
                   valueText: c.loadingEndAt,
                   noteText: c.milestoneNotes['4'],
                   onPick: () async {
@@ -1586,7 +1592,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       context,
                       initialIso: c.loadingEndAt,
                       minDate: loadStartDt,
-                      title: 'تسجيل نهاية التحميل وتركيب السيل',
+                      title: context.l10n.cargoShippingPickMilestone4,
                     );
                     if (dt != null) _updateContainerTimestamp(index, loadingEnd: dt);
                   },
@@ -1602,7 +1608,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               Expanded(
                 child: _buildMilestonePickerBox(
                   stepNumber: '5',
-                  stepTitle: 'دخول الميناء',
+                  stepTitle: context.l10n.cargoShippingMilestone5Title,
                   valueText: c.portGateInAt,
                   noteText: c.milestoneNotes['5'],
                   onPick: () async {
@@ -1610,7 +1616,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       context,
                       initialIso: c.portGateInAt,
                       minDate: loadEndDt,
-                      title: 'تسجيل دخول الحاوية بوابة الميناء (Gate-In)',
+                      title: context.l10n.cargoShippingPickMilestone5,
                     );
                     if (dt != null) _updateContainerTimestamp(index, gateIn: dt);
                   },
@@ -1692,7 +1698,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      _formatDisplayDateTime(valueText),
+                      _formatDisplayDateTime(valueText, context),
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: hasValue ? FontWeight.bold : FontWeight.normal,
@@ -1742,7 +1748,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                   ),
                   onPressed: onPick,
-                  child: const Text('اختيار 📅', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: Text(context.l10n.cargoShippingPickBtn, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 4),
@@ -1754,7 +1760,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                 ),
                 onPressed: onSetNow,
-                child: const Text('الآن ⚡', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                child: Text(context.l10n.cargoShippingSetNowBtn, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
               ),
             ],
           ),
@@ -1775,20 +1781,20 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     }
 
     final stepTitles = {
-      '1': '1. التخصيص',
-      '2': '2. وصول للمورد / CFS',
-      '3': '3. بداية التحميل',
-      '4': '4. نهاية التحميل',
-      '5': '5. دخول الميناء',
+      '1': context.l10n.cargoShippingMilestone1,
+      '2': context.l10n.cargoShippingMilestone2,
+      '3': context.l10n.cargoShippingMilestone3,
+      '4': context.l10n.cargoShippingMilestone4,
+      '5': context.l10n.cargoShippingMilestone5,
     };
 
     final quickTags = [
-      '⚠️ تأخر السائق في الاستلام',
-      '⏳ انتظار إذن وتصريح التحميل',
-      '🔍 فحص سلامة الحاوية والسيل',
-      '🛑 ازدحام عند بوابة الميناء',
-      '📦 بضاعة معبأة على بالتات خشبية',
-      '📝 فحص ظاهري ومطابقة الباكنج ليست',
+      context.l10n.cargoShippingTagDriverDelayed,
+      context.l10n.cargoShippingTagPermitPending,
+      context.l10n.cargoShippingTagContainerInspection,
+      context.l10n.cargoShippingTagPortCongestion,
+      context.l10n.cargoShippingTagPalletizedCargo,
+      context.l10n.cargoShippingTagVisualCheck,
     ];
 
     return Container(
@@ -1806,7 +1812,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               const Icon(Icons.sticky_note_2_outlined, color: AppTheme.cobalt, size: 18),
               const SizedBox(width: 6),
               Text(
-                'تدوين وملاحظات مراحل التسلسل الزمني للحاوية (${c.containerNo.isNotEmpty ? c.containerNo : "حاوية #${containerIndex + 1}"}):',
+                context.l10n.cargoShippingNotesHeader(c.containerNo.isNotEmpty ? c.containerNo : context.l10n.cargoShippingUnitPrefix(containerIndex + 1)),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
               ),
             ],
@@ -1816,7 +1822,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           // 1. Selector of Milestone
           Row(
             children: [
-              const Text('اختر المرحلة المستهدفة: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              Text(context.l10n.cargoShippingSelectMilestoneTarget, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
               const SizedBox(width: 8),
               Expanded(
                 child: Wrap(
@@ -1891,7 +1897,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   controller: ctrl,
                   maxLines: 2,
                   decoration: InputDecoration(
-                    hintText: 'اكتب ملاحظة تفصيلية للمرحلة المحددة (${stepTitles[selectedStep]})...',
+                    hintText: context.l10n.cargoShippingNoteHint(stepTitles[selectedStep] ?? ""),
                     hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                     border: const OutlineInputBorder(),
                     filled: true,
@@ -1923,7 +1929,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       _quickSaveContainerMilestone(containerIndex);
                     },
                     icon: const Icon(Icons.check, size: 16),
-                    label: const Text('حفظ الملاحظة 💾', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    label: Text(context.l10n.cargoShippingSaveNote, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(height: 4),
                   if (c.milestoneNotes[selectedStep]?.isNotEmpty ?? false)
@@ -1939,7 +1945,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                         _quickSaveContainerMilestone(containerIndex);
                       },
                       icon: const Icon(Icons.delete_outline, size: 14),
-                      label: const Text('مسح الملاحظة', style: TextStyle(fontSize: 10)),
+                      label: Text(context.l10n.cargoShippingClearNote, style: const TextStyle(fontSize: 10)),
                     ),
                 ],
               ),
@@ -2019,7 +2025,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               const Icon(Icons.warehouse, color: AppTheme.cobalt, size: 20),
               const SizedBox(width: 8),
               Text(
-                'متابعة تجميع بضائع الـ LCL بمخزن: ${_cfsWarehouseCtrl.text}',
+                context.l10n.cargoShippingLclTrackingHeader(_cfsWarehouseCtrl.text),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
               ),
               const Spacer(),
@@ -2031,7 +2037,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   border: Border.all(color: lcl.statusColor),
                 ),
                 child: Text(
-                  lcl.arabicStatusLabel,
+                  lcl.getLocalizedStatus(context.l10n),
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: lcl.statusColor),
                 ),
               ),
@@ -2046,7 +2052,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                 ),
                 onPressed: _quickSaveLclMilestone,
                 icon: const Icon(Icons.save, size: 16, color: AppTheme.cobalt),
-                label: const Text('حفظ مرحلة الـ LCL 💾', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                label: Text(context.l10n.cargoShippingQuickSaveLcl, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -2055,12 +2061,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           // Timeline
           _buildMilestoneTimelineProgress(
             stepIndex: lcl.progressStepIndex,
-            labels: const [
-              '1. جدولة التجميع',
-              '2. وصول مخزن CFS',
-              '3. بداية التعبئة',
-              '4. نهاية التعبئة',
-              '5. دخول الميناء',
+            labels: [
+              context.l10n.cargoShippingLclMilestone1,
+              context.l10n.cargoShippingLclMilestone2,
+              context.l10n.cargoShippingLclMilestone3,
+              context.l10n.cargoShippingLclMilestone4,
+              context.l10n.cargoShippingLclMilestone5,
             ],
           ),
           const SizedBox(height: 14),
@@ -2073,13 +2079,13 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               Expanded(
                 child: _buildMilestonePickerBox(
                   stepNumber: '1',
-                  stepTitle: 'جدولة التجميع',
+                  stepTitle: context.l10n.cargoShippingLclMilestone1,
                   valueText: lcl.consolidationScheduledDate,
                   onPick: () async {
                     final dt = await _pickDateTime(
                       context,
                       initialIso: lcl.consolidationScheduledDate,
-                      title: 'تسجيل تاريخ وتوقيت جدولة التجميع بمخزن CFS',
+                      title: context.l10n.cargoShippingLclPickMilestone1,
                     );
                     if (dt != null) {
                       setState(() => _lclTracking = LclLoadingTrackingModel(
@@ -2124,14 +2130,15 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               Expanded(
                 child: _buildMilestonePickerBox(
                   stepNumber: '2',
-                  stepTitle: 'وصول مخزن CFS',
+                  stepTitle: context.l10n.cargoShippingLclMilestone2,
                   valueText: lcl.arrivalAtCfsAt,
+                  noteText: null,
                   onPick: () async {
                     final dt = await _pickDateTime(
                       context,
                       initialIso: lcl.arrivalAtCfsAt,
                       minDate: schedDt,
-                      title: 'تسجيل وصول البضاعة لمخزن التجميع (CFS)',
+                      title: context.l10n.cargoShippingLclPickMilestone2,
                     );
                     if (dt != null) {
                       setState(() => _lclTracking = LclLoadingTrackingModel(
@@ -2175,14 +2182,15 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               Expanded(
                 child: _buildMilestonePickerBox(
                   stepNumber: '3',
-                  stepTitle: 'بداية التعبئة',
+                  stepTitle: context.l10n.cargoShippingLclMilestone3,
                   valueText: lcl.stuffingStartAt,
+                  noteText: null,
                   onPick: () async {
                     final dt = await _pickDateTime(
                       context,
                       initialIso: lcl.stuffingStartAt,
                       minDate: arrCfsDt,
-                      title: 'تسجيل بداية تعبئة الحاوية المجمعة',
+                      title: context.l10n.cargoShippingLclPickMilestone3,
                     );
                     if (dt != null) {
                       setState(() => _lclTracking = LclLoadingTrackingModel(
@@ -2226,14 +2234,15 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               Expanded(
                 child: _buildMilestonePickerBox(
                   stepNumber: '4',
-                  stepTitle: 'نهاية التعبئة',
+                  stepTitle: context.l10n.cargoShippingLclMilestone4,
                   valueText: lcl.stuffingEndAt,
+                  noteText: null,
                   onPick: () async {
                     final dt = await _pickDateTime(
                       context,
                       initialIso: lcl.stuffingEndAt,
                       minDate: stuffStartDt,
-                      title: 'تسجيل اكتمال تعبئة وتجهيز الحاوية',
+                      title: context.l10n.cargoShippingLclPickMilestone4,
                     );
                     if (dt != null) {
                       setState(() => _lclTracking = LclLoadingTrackingModel(
@@ -2277,14 +2286,15 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               Expanded(
                 child: _buildMilestonePickerBox(
                   stepNumber: '5',
-                  stepTitle: 'دخول الميناء',
+                  stepTitle: context.l10n.cargoShippingLclMilestone5,
                   valueText: lcl.portGateInAt,
+                  noteText: null,
                   onPick: () async {
                     final dt = await _pickDateTime(
                       context,
                       initialIso: lcl.portGateInAt,
                       minDate: stuffEndDt,
-                      title: 'تسجيل دخول الحاوية المجمعة للميناء',
+                      title: context.l10n.cargoShippingLclPickMilestone5,
                     );
                     if (dt != null) {
                       setState(() => _lclTracking = LclLoadingTrackingModel(
@@ -2392,7 +2402,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               ),
               onPressed: _autoCompleteAllContainersTracking,
               icon: const Icon(Icons.bolt, color: AppTheme.cobalt, size: 18),
-              label: const Text('استيفاء وتأكيد دورة التحميل ودخول الميناء ⚡', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              label: Text(context.l10n.cargoShippingAutoCompleteCycle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
             ),
             const SizedBox(width: 8),
             OutlinedButton.icon(
@@ -2403,7 +2413,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               ),
               onPressed: _refreshAllData,
               icon: const Icon(Icons.refresh, size: 18, color: AppTheme.cobalt),
-              label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              label: Text(context.l10n.liveReload, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 8),
             OutlinedButton.icon(
@@ -2414,7 +2424,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               ),
               onPressed: _resetForm,
               icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: Colors.blueGrey),
-              label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              label: Text(context.l10n.cargoShippingClearStartNew, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 8),
             ElevatedButton.icon(
@@ -2427,7 +2437,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               ),
               onPressed: () => _submitForm(isDraftProgressive: true),
               icon: const Icon(Icons.save_outlined, size: 18, color: AppTheme.cobalt),
-              label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              label: Text(context.l10n.cargoShippingSaveDraft, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 16),
             ElevatedButton.icon(
@@ -2442,7 +2452,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.check_circle_outline, size: 20),
               label: Text(
-                _editingRecordId != null ? 'تحديث وحفظ دراسة ملف الاستيراد' : 'حفظ دراسة ملف الاستيراد وتأكيد المتابعة',
+                _editingRecordId != null ? context.l10n.cargoShippingUpdateStudy : context.l10n.cargoShippingSaveStudy,
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ),
@@ -2483,11 +2493,11 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   flex: 3,
                   child: TextField(
                     controller: _searchController,
-                    decoration: const InputDecoration(
-                      hintText: 'بحث باسم أو كود ملف الاستيراد، اسم الشركة، كود الشحن، أو رقم الحاوية...',
-                      prefixIcon: Icon(Icons.search, color: AppTheme.cobalt),
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: InputDecoration(
+                      hintText: context.l10n.cargoShippingRegistrySearchHint,
+                      prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -2496,12 +2506,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                 Expanded(
                   flex: 2,
                   child: SearchableDropdownField<String>(
-                    labelText: 'حالة الشحن',
+                    labelText: context.l10n.cargoShippingStatusFilterLabel,
                     value: _registryStatusFilter,
-                    items: const [
-                      SearchableDropdownItem(value: 'All', label: 'كافة الحالات (All)'),
-                      SearchableDropdownItem(value: 'Cargo Ready', label: 'جاهزية البضاعة (Cargo Ready)'),
-                      SearchableDropdownItem(value: 'Completed', label: 'مكتمل (Completed)'),
+                    items: [
+                      SearchableDropdownItem(value: 'All', label: context.l10n.cargoShippingStatusAll),
+                      SearchableDropdownItem(value: 'Cargo Ready', label: context.l10n.cargoShippingStatusCargoReady),
+                      SearchableDropdownItem(value: 'Completed', label: context.l10n.cargoShippingStatusCompleted),
                     ],
                     onChanged: (v) => setState(() => _registryStatusFilter = v ?? 'All'),
                   ),
@@ -2510,12 +2520,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                 Expanded(
                   flex: 2,
                   child: SearchableDropdownField<String>(
-                    labelText: 'مهلة الـ 48h SLA',
+                    labelText: context.l10n.cargoShippingSlaFilterLabel,
                     value: _registrySlaFilter,
-                    items: const [
-                      SearchableDropdownItem(value: 'All', label: 'كافة المهل (All)'),
-                      SearchableDropdownItem(value: 'OnTime', label: 'ضمن المهلة (On Time)'),
-                      SearchableDropdownItem(value: 'Breached', label: 'متأخرة عن SLA (Breached)'),
+                    items: [
+                      SearchableDropdownItem(value: 'All', label: context.l10n.cargoShippingSlaAll),
+                      SearchableDropdownItem(value: 'OnTime', label: context.l10n.cargoShippingSlaOnTimeFilter),
+                      SearchableDropdownItem(value: 'Breached', label: context.l10n.cargoShippingSlaBreachedFilter),
                     ],
                     onChanged: (v) => setState(() => _registrySlaFilter = v ?? 'All'),
                   ),
@@ -2524,12 +2534,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                 Expanded(
                   flex: 2,
                   child: SearchableDropdownField<String>(
-                    labelText: 'السجلات النشطة / المحذوفة',
+                    labelText: context.l10n.cargoShippingActiveFilterLabel,
                     value: _registryActiveFilter,
-                    items: const [
-                      SearchableDropdownItem(value: 'All', label: 'كافة السجلات (النشطة والمحذوفة)'),
-                      SearchableDropdownItem(value: 'Active', label: 'النشطة فقط (Active)'),
-                      SearchableDropdownItem(value: 'Deleted', label: 'المحذوفة فقط (Deleted)'),
+                    items: [
+                      SearchableDropdownItem(value: 'All', label: context.l10n.cargoShippingActiveAll),
+                      SearchableDropdownItem(value: 'Active', label: context.l10n.cargoShippingActiveOnly),
+                      SearchableDropdownItem(value: 'Deleted', label: context.l10n.cargoShippingDeletedOnly),
                     ],
                     onChanged: (v) => setState(() => _registryActiveFilter = v ?? 'Active'),
                   ),
@@ -2544,7 +2554,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             child: recordsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, _) => Center(
-                child: Text('خطأ في تحميل سجلات الشحن والمتابعة: $err', style: const TextStyle(color: Colors.red)),
+                child: Text('${context.l10n.error}: $err', style: const TextStyle(color: Colors.red)),
               ),
               data: (list) {
                 final filtered = list.where((item) {
@@ -2580,13 +2590,13 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       children: [
                         Icon(Icons.folder_open, size: 64, color: Colors.grey.shade400),
                         const SizedBox(height: 12),
-                        const Text('لا توجد دراسات متابعة مطابقة للبحث الحالي.', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                        Text(context.l10n.cargoShippingNoMatchingRecords, style: const TextStyle(color: Colors.grey, fontSize: 14)),
                         const SizedBox(height: 12),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                           onPressed: () => _mainTabController.animateTo(0),
                           icon: const Icon(Icons.add, color: Colors.white),
-                          label: const Text('تسجيل ومتابعة شحنة جديدة', style: TextStyle(color: Colors.white)),
+                          label: Text(context.l10n.cargoShippingCreateNewRecord, style: const TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),
@@ -2622,7 +2632,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     final fileCode = matchingFile?.customFileNumber ?? matchingFile?.importFileCode ?? rec.importFileCode ?? 'IMP-${rec.importFileId}';
     final companyName = (matchingFile?.companyName.isNotEmpty == true && matchingFile?.companyName != 'N/A')
         ? matchingFile!.companyName
-        : (rec.companyName != null && rec.companyName!.isNotEmpty && rec.companyName != 'N/A' ? rec.companyName! : 'الشركة المستوردة');
+        : (rec.companyName != null && rec.companyName!.isNotEmpty && rec.companyName != 'N/A' ? rec.companyName! : context.l10n.importCompanies);
     final supplierName = (matchingFile?.supplierName.isNotEmpty == true && matchingFile?.supplierName != 'N/A') ? matchingFile!.supplierName : '';
 
     // The primary title is always formatted as [Import File Code] Company Name
@@ -2671,7 +2681,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.red)),
-              child: const Text('محذوف منطقياً (Soft Deleted)', style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+              child: Text(context.l10n.cargoShippingSoftDeletedBadge, style: const TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
             ),
         ],
       ),
@@ -2681,7 +2691,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${supplierName.isNotEmpty ? "المورد: $supplierName | " : ""}الحاويات: ${rec.containersLoadingData.map((c) => "${c.containerNo} (${c.sealNo})").join(", ")}',
+              '${supplierName.isNotEmpty ? "${context.l10n.cargoShippingSupplierLabel} $supplierName | " : ""}${context.l10n.cargoShippingContainersHeader} ${rec.containersLoadingData.map((c) => "${c.containerNo} (${c.sealNo})").join(", ")}',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
             ),
             const SizedBox(height: 6),
@@ -2689,13 +2699,19 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               spacing: 6,
               runSpacing: 4,
               children: [
-                _buildBadge('الحالة: ${rec.status}', rec.status == 'Completed' ? AppTheme.emerald : AppTheme.cobalt),
+                _buildBadge(
+                  '${context.l10n.status}: ${rec.status == "Completed" ? context.l10n.cargoShippingStatusCompleted : (rec.status == "Cargo Ready" ? context.l10n.cargoShippingStatusCargoReady : rec.status)}',
+                  rec.status == 'Completed' ? AppTheme.emerald : AppTheme.cobalt,
+                ),
                 if (rec.shipmentType == 'FCL')
-                  _buildBadge('دخلت الميناء: $gatedCount / ${rec.containersLoadingData.length}', AppTheme.emerald),
+                  _buildBadge(
+                    context.l10n.cargoShippingGatedCountBadge(gatedCount, rec.containersLoadingData.length),
+                    AppTheme.emerald,
+                  ),
                 if (hasBreach)
-                  _buildBadge('⚠️ متأخر عن SLA', AppTheme.crimson)
+                  _buildBadge(context.l10n.cargoShippingSlaBreached, AppTheme.crimson)
                 else
-                  _buildBadge('✅ ضمن الـ 48h SLA', AppTheme.emerald),
+                  _buildBadge(context.l10n.cargoShippingSlaOnTime, AppTheme.emerald),
               ],
             ),
           ],
@@ -2707,19 +2723,19 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           // Edit Button (Restores if deleted and loads into form)
           IconButton(
             icon: const Icon(Icons.edit, color: AppTheme.cobalt),
-            tooltip: 'تعديل ومتابعة الحاويات وإعادة التفعيل',
+            tooltip: context.l10n.cargoShippingEditTooltip,
             onPressed: () => _loadRecordForEditing(rec),
           ),
           // Restore Button if inactive
           if (!rec.isActive)
             IconButton(
               icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald),
-              tooltip: 'استعادة وتفعيل السجل',
+              tooltip: context.l10n.cargoShippingRestoreTooltip,
               onPressed: () async {
                 await ref.read(cargoShippingProvider.notifier).restoreRecord(rec.cargoShippingId);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('♻️ تم استعادة سجل متابعة الشحن (${rec.cargoShippingCode}) بنجاح!'), backgroundColor: AppTheme.emerald),
+                    SnackBar(content: Text(context.l10n.cargoShippingRestoreSuccess(rec.cargoShippingCode)), backgroundColor: AppTheme.emerald),
                   );
                 }
               },
@@ -2728,7 +2744,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           if (rec.isActive)
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
-              tooltip: 'حذف منطقي',
+              tooltip: context.l10n.delete,
               onPressed: () => _confirmDeleteRecord(rec),
             ),
         ],
@@ -2752,16 +2768,16 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red),
-            SizedBox(width: 8),
-            Text('تأكيد الحذف المنطقي لسجل الشحن'),
+            const Icon(Icons.warning_amber_rounded, color: Colors.red),
+            const SizedBox(width: 8),
+            Text(context.l10n.cargoShippingDeleteConfirmTitle),
           ],
         ),
-        content: Text('هل أنت متأكد من حذف سجل الشحن (${rec.cargoShippingCode}) لملف الاستيراد (${rec.importFileCode})؟\n\nيمكنك استعادته أو إعادة تفعيله في أي وقت من خلال تعديله أو عبر زر الاستعادة.'),
+        content: Text(context.l10n.cargoShippingDeleteConfirmMessage(rec.cargoShippingCode, rec.importFileCode ?? '')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
@@ -2769,11 +2785,11 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               await ref.read(cargoShippingProvider.notifier).softDeleteRecord(rec.cargoShippingId);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('🗑️ تم حذف سجل الشحن (${rec.cargoShippingCode}) منطقياً.'), backgroundColor: Colors.red),
+                  SnackBar(content: Text(context.l10n.cargoShippingDeleteSuccess(rec.cargoShippingCode)), backgroundColor: Colors.red),
                 );
               }
             },
-            child: const Text('تأكيد الحذف', style: TextStyle(color: Colors.white)),
+            child: Text(context.l10n.cargoShippingConfirmDeleteBtn, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),

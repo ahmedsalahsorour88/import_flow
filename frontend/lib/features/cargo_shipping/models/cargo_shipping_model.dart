@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 
 class ContainerLoadingModel {
@@ -176,20 +177,37 @@ class ContainerLoadingModel {
     }
   }
 
+  String getLocalizedStatus(AppLocalizations l10n) {
+    switch (trackingStatus) {
+      case 'GATED_IN_AT_PORT':
+        return l10n.cargoShippingStatusGatedIn;
+      case 'LOADING_COMPLETED':
+        return l10n.cargoShippingStatusLoadingCompleted;
+      case 'LOADING_IN_PROGRESS':
+        return l10n.cargoShippingStatusLoadingInProgress;
+      case 'ARRIVED_AT_SUPPLIER':
+        return l10n.cargoShippingStatusArrivedAtSupplier;
+      case 'ASSIGNED':
+        return l10n.cargoShippingStatusAssigned;
+      default:
+        return l10n.cargoShippingStatusPendingAssignment;
+    }
+  }
+
   String get arabicStatusLabel {
     switch (trackingStatus) {
       case 'GATED_IN_AT_PORT':
-        return 'دخلت الميناء (Gated-in)';
+        return 'دخلت الميناء';
       case 'LOADING_COMPLETED':
-        return 'اكتمل التحميل (Loaded)';
+        return 'اكتمل التحميل';
       case 'LOADING_IN_PROGRESS':
-        return 'جاري التحميل (Loading)';
+        return 'جاري التحميل';
       case 'ARRIVED_AT_SUPPLIER':
-        return 'وصلت لدى المورد (At Supplier)';
+        return 'وصلت لدى المورد';
       case 'ASSIGNED':
-        return 'تم التخصيص (Assigned)';
+        return 'تم التخصيص';
       default:
-        return 'قيد التخصيص (Pending)';
+        return 'قيد التخصيص';
     }
   }
 
@@ -291,10 +309,28 @@ class LclLoadingTrackingModel {
     }
   }
 
+  String getLocalizedStatus(AppLocalizations l10n) {
+    switch (trackingStatus) {
+      case 'GATED_IN_AT_PORT':
+        return l10n.cargoShippingStatusGatedIn;
+      case 'LOADING_COMPLETED':
+        return l10n.cargoShippingStatusLoadingCompleted;
+      case 'LOADING_IN_PROGRESS':
+        return l10n.cargoShippingStatusLoadingInProgress;
+      case 'ARRIVED_AT_SUPPLIER':
+      case 'ARRIVED_AT_CFS':
+        return l10n.cargoShippingStatusArrivedAtCfs;
+      case 'ASSIGNED':
+        return l10n.cargoShippingStatusAssigned;
+      default:
+        return l10n.cargoShippingStatusPendingAssignment;
+    }
+  }
+
   String get arabicStatusLabel {
     switch (trackingStatus) {
       case 'GATED_IN_AT_PORT':
-        return 'دخلت الميناء (Gated-in)';
+        return 'دخلت الميناء';
       case 'LOADING_COMPLETED':
         return 'اكتملت التعبئة بالمخزن';
       case 'LOADING_IN_PROGRESS':
@@ -305,7 +341,7 @@ class LclLoadingTrackingModel {
       case 'ASSIGNED':
         return 'تمت جدولة التجميع';
       default:
-        return 'قيد الجدولة (Pending)';
+        return 'قيد الجدولة';
     }
   }
 

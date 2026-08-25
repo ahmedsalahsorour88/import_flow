@@ -12,6 +12,7 @@ import '../widgets/draft_bl_review_tab.dart';
 import '../widgets/inspection_review_tab.dart';
 import '../widgets/invoice_bl_matcher_tab.dart';
 import '../widgets/po_reconciliation_tab.dart';
+import '../../cargo_insurance/screens/cargo_insurance_screen.dart';
 
 
 class ShipmentDraftDocsScreen extends ConsumerStatefulWidget {
@@ -105,6 +106,11 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         titleEn: 'Inspection Review',
         titleAr: 'شهادات الفحص والمطابقة',
       ),
+      const VerticalNavTabItem(
+        icon: Icons.shield_outlined,
+        titleEn: 'Cargo Insurance Certificate',
+        titleAr: 'وثيقة وشهادة التأمين على البضائع',
+      ),
     ];
 
     return VerticalStageScaffold(
@@ -150,6 +156,12 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         return COOReviewTab(initialImportFileId: _selectedImportFileId);
       case 5:
         return InspectionReviewTab(initialImportFileId: _selectedImportFileId);
+      case 6:
+        return CargoInsuranceScreen(
+          key: ValueKey('cargo_insurance_embedded_$_selectedImportFileId'),
+          initialImportFileId: _selectedImportFileId,
+          isEmbedded: true,
+        );
       default:
         return CustomsDocumentApprovalTab(initialImportFileId: _selectedImportFileId);
     }

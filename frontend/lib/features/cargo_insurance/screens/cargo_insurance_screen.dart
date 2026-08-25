@@ -13,7 +13,24 @@ import '../models/cargo_insurance_model.dart';
 import '../providers/cargo_insurance_provider.dart';
 
 class CargoInsuranceScreen extends ConsumerStatefulWidget {
-  const CargoInsuranceScreen({super.key});
+  final int? initialImportFileId;
+  final bool isEmbedded;
+
+  const CargoInsuranceScreen({
+    super.key,
+    this.initialImportFileId,
+    this.isEmbedded = false,
+  });
+
+  static void showCreateDialog(BuildContext context, {int? initialImportFileId}) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _CargoInsuranceFormDialog(
+        initialImportFileId: initialImportFileId,
+      ),
+    );
+  }
 
   @override
   ConsumerState<CargoInsuranceScreen> createState() => _CargoInsuranceScreenState();
@@ -49,7 +66,10 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => _CargoInsuranceFormDialog(certificateToEdit: certificateToEdit),
+      builder: (context) => _CargoInsuranceFormDialog(
+        certificateToEdit: certificateToEdit,
+        initialImportFileId: widget.initialImportFileId,
+      ),
     );
   }
 
@@ -65,6 +85,10 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final certificatesAsync = ref.watch(cargoInsuranceProvider);
 
+    if (widget.isEmbedded) {
+      return _buildMainContent(isArabic, certificatesAsync);
+    }
+
     final tabs = [
       VerticalNavTabItem(
         icon: Icons.shield_rounded,
@@ -79,7 +103,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
     ];
 
     return VerticalStageScaffold(
-      stageCode: 'STAGE-04-INS',
+      stageCode: 'PHASE-3-INS',
       titleEn: 'Marine & Cargo Insurance Engine',
       titleAr: 'شهادات التأمين على البضائع المشحونة',
       headerIcon: Icons.security_rounded,
@@ -98,10 +122,15 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
           onPressed: _refreshData,
         ),
       ],
-      body: Container(
-        color: Colors.grey.shade50,
-        child: Column(
-          children: [
+      body: _buildMainContent(isArabic, certificatesAsync),
+    );
+  }
+
+  Widget _buildMainContent(bool isArabic, AsyncValue<List<CargoInsuranceModel>> certificatesAsync) {
+    return Container(
+      color: Colors.grey.shade50,
+      child: Column(
+        children: [
             // Filter and Action Bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -414,7 +443,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                                                   );
                                                   if (confirm == true) {
                                                     await ref.read(cargoInsuranceProvider.notifier).issueCertificate(cert.certificateId);
-                                                    if (context.mounted) {
+                                                    if (mounted) {
                                                       ScaffoldMessenger.of(context).showSnackBar(
                                                         SnackBar(
                                                           content: Text(isArabic ? '✅ تم اعتماد وإصدار الوثيقة بنجاح!' : 'Certificate issued successfully!'),
@@ -468,8 +497,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 }
 
@@ -478,7 +506,8 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
 // =============================================================================
 class _CargoInsuranceFormDialog extends ConsumerStatefulWidget {
   final CargoInsuranceModel? certificateToEdit;
-  const _CargoInsuranceFormDialog({this.certificateToEdit});
+  final int? initialImportFileId;
+  const _CargoInsuranceFormDialog({this.certificateToEdit, this.initialImportFileId});
 
   @override
   ConsumerState<_CargoInsuranceFormDialog> createState() => _CargoInsuranceFormDialogState();
@@ -519,7 +548,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
   final TextEditingController _packageCountCtrl = TextEditingController();
   final TextEditingController _packageTypeCtrl = TextEditingController(text: 'Cartons / Pallets');
   final TextEditingController _grossWeightCtrl = TextEditingController();
-  final TextEditingController _surveyAgentCtrl = TextEditingController(text: "Lloyd's Agency / Marine Surveyor");
+  final TextEditingController _surveyAgentCtrl = TextEditingController(text: 'Lloyd\'s Agency Alexandria / Port Said');
   final TextEditingController _claimsPayableAtCtrl = TextEditingController(text: 'Cairo, Egypt');
   final TextEditingController _remarksCtrl = TextEditingController();
 
@@ -562,8 +591,21 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
       _surveyAgentCtrl.text = c.surveyAgentInDestination ?? '';
       _claimsPayableAtCtrl.text = c.claimsPayableAt ?? 'Cairo, Egypt';
       _remarksCtrl.text = c.remarks ?? '';
+    } else if (widget.initialImportFileId != null) {
+      _selectedImportFileId = widget.initialImportFileId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _autoFillFromImportFile(widget.initialImportFileId!);
+      });
     }
     _runLiveCalculation();
+  }
+
+  void _autoFillFromImportFile(int fileId) {
+    final files = ref.read(importFilesProvider).value ?? [];
+    final file = files.where((f) => f.importFileId == fileId).firstOrNull;
+    if (file != null) {
+      _onImportFileSelected(file);
+    }
   }
 
   void _runLiveCalculation() {

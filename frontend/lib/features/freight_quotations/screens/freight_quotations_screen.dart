@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_theme.dart';
@@ -9,6 +11,7 @@ import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/error_details_dialog.dart';
+import '../../../core/widgets/extraction_progress_dialog.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -46,6 +49,15 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
   bool _isSaving = false;
   bool _isStackable = true;
 
+  // ── Smart AI Extractor State (Text & OCR) ──────────────────────────────
+  bool _isFreightExtractorExpanded = true;
+  bool _isFreightExtracting = false;
+  final TextEditingController _rawFreightQuoteController = TextEditingController();
+  List<ExtractedQuotationOption> _extractedOptions = [];
+  Map<String, dynamic>? _extractedFreightMetadata;
+  PlatformFile? _pickedFreightFile;
+  String? _extractorError;
+
   // Search & Filter
   String _searchQuery = '';
   String _statusFilter = 'All';
@@ -67,6 +79,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
     _cbmController.dispose();
     _weightController.dispose();
     _notesController.dispose();
+    _rawFreightQuoteController.dispose();
     super.dispose();
   }
 
@@ -384,6 +397,761 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
   }
 
 
+  static const String _sampleFreightQuoteText = '''
+Dear Ahmed,
+Please find below our best rates for your shipment:
+
+Route: Shanghai – Alexandria
+Local charges: Approx. USD 880/40HQ
+Ocean freight:
+• WHL: USD 6,700/40HQ  ETD: 28/AUG
+  Transit time: 29 days, DIRECT
+  Free time: 21 days FT
+
+• YML: USD 6,180/40HQ  ETD: 27/AUG
+  Transit time: 48 days, INDIRECT
+  Free time: 21 days FT
+
+• MSC: USD 6,950/40HQ  ETD: 30/AUG
+  Transit time: 27 days, DIRECT
+  Free time: 14 days FT (INCL OWS)
+
+Cancellation fee: \$100/cntr
+Best regards,
+''';
+
+  void _loadSampleFreightQuote() {
+    setState(() {
+      _rawFreightQuoteController.text = _sampleFreightQuoteText.trim();
+      _extractorError = null;
+    });
+  }
+
+  Future<void> _extractFreightFromText() async {
+    final text = _rawFreightQuoteController.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ يرجى لصق أو كتابة نص رسالة/إيميل عرض السعر أولاً'), backgroundColor: AppTheme.orange),
+      );
+      return;
+    }
+
+    setState(() {
+      _isFreightExtracting = true;
+      _extractorError = null;
+      _extractedOptions = [];
+      _extractedFreightMetadata = null;
+    });
+
+    final progressCtrl = ExtractionProgressController();
+    progressCtrl.update(
+      percent: 0.20,
+      status: 'جاري فحص وتحليل نصوص عروض الأسعار...',
+      stepLabel: 'المرحلة 1 من 3: معالجة النصوص',
+      currentStep: 1,
+    );
+
+    ExtractionProgressDialog.show(
+      context: context,
+      title: 'استخراج عروض أسعار الشحن من النص',
+      fileName: 'النص المنسوخ (${text.length} حرف)',
+      controller: progressCtrl,
+    );
+
+    progressCtrl.startAutoAdvance(targetPercent: 0.90, duration: const Duration(seconds: 2));
+
+    try {
+      final dio = Dio();
+      final response = await dio.post(
+        '${ApiConstants.baseUrl}/smart-upload/parse-text/freight-quotation',
+        data: FormData.fromMap({
+          'raw_text': text,
+          'save_session': false,
+        }),
+        options: Options(
+          contentType: 'multipart/form-data',
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      progressCtrl.complete();
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+
+      _processExtractedFreightData(response.data);
+    } on DioException catch (e) {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      setState(() => _extractorError = 'خطأ في الاتصال بالخادم: ${e.message}');
+    } catch (e) {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      setState(() => _extractorError = 'حدث خطأ أثناء الاستخراج: $e');
+    } finally {
+      if (mounted) setState(() => _isFreightExtracting = false);
+    }
+  }
+
+  Future<void> _extractFreightFromFile() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'xlsx', 'xls', 'docx', 'doc', 'txt'],
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+      final file = result.files.first;
+      if (file.bytes == null) return;
+
+      setState(() {
+        _pickedFreightFile = file;
+        _isFreightExtracting = true;
+        _extractorError = null;
+        _extractedOptions = [];
+        _extractedFreightMetadata = null;
+      });
+
+      final fileSizeFormatted = file.size > 1024 * 1024
+          ? '${(file.size / (1024 * 1024)).toStringAsFixed(2)} MB'
+          : '${(file.size / 1024).toStringAsFixed(1)} KB';
+
+      final progressCtrl = ExtractionProgressController();
+      progressCtrl.update(
+        percent: 0.15,
+        status: 'جاري رفع الملف وتهيئة الماسح الضوئي (OCR)...',
+        stepLabel: 'المرحلة 1 من 4: رفع الملف',
+        currentStep: 1,
+      );
+
+      ExtractionProgressDialog.show(
+        context: context,
+        title: 'استخراج عروض أسعار الشحن بالماسح الضوئي (OCR)',
+        fileName: file.name,
+        fileSize: fileSizeFormatted,
+        controller: progressCtrl,
+      );
+
+      final dio = Dio();
+      final multipartFile = MultipartFile.fromBytes(file.bytes!, filename: file.name);
+      final formData = FormData.fromMap({
+        'file': multipartFile,
+        'module_name': 'freight-quotation',
+        'save_session': false,
+      });
+
+      final response = await dio.post(
+        '${ApiConstants.baseUrl}/smart-upload/upload',
+        data: formData,
+        options: Options(receiveTimeout: const Duration(seconds: 60)),
+        onSendProgress: (sent, total) {
+          if (total > 0) {
+            final uploadRatio = sent / total;
+            final p = 0.15 + (uploadRatio * 0.35);
+            progressCtrl.update(
+              percent: p,
+              status: 'جاري رفع الملف (${(uploadRatio * 100).round()}%)...',
+              stepLabel: 'المرحلة 2 من 4: رفع الملف',
+              currentStep: 2,
+            );
+            if (uploadRatio >= 0.99) {
+              progressCtrl.startAutoAdvance(targetPercent: 0.92, duration: const Duration(seconds: 5));
+            }
+          }
+        },
+      );
+
+      progressCtrl.complete();
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+
+      _processExtractedFreightData(response.data);
+    } on DioException catch (e) {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      setState(() => _extractorError = 'خطأ في معالجة الملف بالـ OCR: ${e.message}');
+    } catch (e) {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      setState(() => _extractorError = 'حدث خطأ أثناء معالجة المستند: $e');
+    } finally {
+      if (mounted) setState(() => _isFreightExtracting = false);
+    }
+  }
+
+  void _processExtractedFreightData(dynamic data) {
+    if (data == null) return;
+    final extracted = (data['extracted_fields'] as Map<String, dynamic>?) ?? {};
+    final rawRateOptions = (extracted['rate_options'] as List<dynamic>?) ?? [];
+
+    final List<ExtractedQuotationOption> parsedList = [];
+
+    if (rawRateOptions.isNotEmpty) {
+      for (int i = 0; i < rawRateOptions.length; i++) {
+        final optMap = rawRateOptions[i] as Map<String, dynamic>;
+        parsedList.add(ExtractedQuotationOption.fromMap(optMap, i + 1));
+      }
+    } else if (extracted['freight_rate'] != null || extracted['ocean_freight'] != null) {
+      parsedList.add(ExtractedQuotationOption.fromMap(extracted, 1));
+    }
+
+    if (data['raw_text'] != null && (data['raw_text'] as String).isNotEmpty) {
+      _rawFreightQuoteController.text = data['raw_text'] as String;
+    }
+
+    // Auto-populate POL / POD if detected
+    if (extracted['origin_port'] != null && (extracted['origin_port'] as String).isNotEmpty) {
+      final originStr = extracted['origin_port'].toString();
+      final ports = ref.read(transportLocationsProvider).value ?? [];
+      final matched = ports.where((p) => p.locationName.toLowerCase().contains(originStr.toLowerCase()) || originStr.toLowerCase().contains(p.locationName.toLowerCase())).firstOrNull;
+      if (matched != null) {
+        _polName = matched.locationName;
+      }
+    }
+    if (extracted['destination_port'] != null && (extracted['destination_port'] as String).isNotEmpty) {
+      final destStr = extracted['destination_port'].toString();
+      final ports = ref.read(transportLocationsProvider).value ?? [];
+      final matched = ports.where((p) => p.locationName.toLowerCase().contains(destStr.toLowerCase()) || destStr.toLowerCase().contains(p.locationName.toLowerCase())).firstOrNull;
+      if (matched != null) {
+        _podName = matched.locationName;
+      }
+    }
+
+    setState(() {
+      _extractedFreightMetadata = extracted;
+      _extractedOptions = parsedList;
+      if (parsedList.isEmpty) {
+        _extractorError = 'لم يتم العثور على أية عروض أسعار صالحة في النص/المستند المدخل. يرجى التحقق من النص.';
+      }
+    });
+
+    if (parsedList.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✨ تم بنجاح استخراج ${parsedList.length} عرض/عروض أسعار! يمكنك مراجعتها وإضافتها فوراً.'),
+          backgroundColor: AppTheme.emerald,
+        ),
+      );
+    }
+  }
+
+  void _addAllExtractedQuotations() {
+    if (_extractedOptions.isEmpty) return;
+    final partners = ref.read(partnersProvider).valueOrNull ?? [];
+    final defaultSailingDate = DateTime.now().add(const Duration(days: 7));
+
+    setState(() {
+      for (final opt in _extractedOptions) {
+        int providerId = 0;
+        String providerName = opt.carrierName;
+
+        final matchedPartner = partners.cast<dynamic>().firstWhere(
+          (p) {
+            final name = (p.name ?? p.partnerName ?? '').toString().toLowerCase();
+            final optName = opt.carrierName.toLowerCase();
+            return name.contains(optName) || optName.contains(name);
+          },
+          orElse: () => null,
+        );
+
+        if (matchedPartner != null) {
+          providerId = matchedPartner.providerId as int? ?? matchedPartner.id as int? ?? 0;
+          providerName = matchedPartner.partnerName as String? ?? matchedPartner.name as String? ?? opt.carrierName;
+        }
+
+        final transitDays = opt.transitDays ?? 28;
+        final arrivalDate = defaultSailingDate.add(Duration(days: transitDays));
+
+        _quotations.add(
+          FreightQuotationItemModel(
+            providerId: providerId,
+            providerName: providerName,
+            vesselName: null,
+            voyageNumber: opt.containerType,
+            oceanFreightCost: opt.oceanFreight,
+            localChargesCost: opt.localCharges ?? 0.0,
+            inlandCost: opt.exwCharges ?? 0.0,
+            totalCost: opt.totalEstimatedCost,
+            sailingDate: defaultSailingDate.toString().substring(0, 10),
+            estimatedArrivalDate: arrivalDate.toString().substring(0, 10),
+            transitDays: transitDays,
+            freeDaysAtPod: opt.freeTimeDays ?? 14,
+            remarks: [
+              if (opt.notes != null && opt.notes!.isNotEmpty) opt.notes,
+              if (opt.containerType.isNotEmpty) 'نوع الحاوية: ${opt.containerType}',
+              if (!opt.isDirect) 'خط سير غير مباشر (ترانزيت)',
+            ].join(' | '),
+          ),
+        );
+      }
+      _extractedOptions = [];
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🚀 تم نقل وإدراج كافة عروض الأسعار بنجاح إلى جدول المقارنة!'),
+        backgroundColor: AppTheme.emerald,
+      ),
+    );
+  }
+
+  void _addSingleExtractedQuotation(ExtractedQuotationOption opt) {
+    final partners = ref.read(partnersProvider).valueOrNull ?? [];
+    final defaultSailingDate = DateTime.now().add(const Duration(days: 7));
+
+    int providerId = 0;
+    String providerName = opt.carrierName;
+
+    final matchedPartner = partners.cast<dynamic>().firstWhere(
+      (p) {
+        final name = (p.name ?? p.partnerName ?? '').toString().toLowerCase();
+        final optName = opt.carrierName.toLowerCase();
+        return name.contains(optName) || optName.contains(name);
+      },
+      orElse: () => null,
+    );
+
+    if (matchedPartner != null) {
+      providerId = matchedPartner.providerId as int? ?? matchedPartner.id as int? ?? 0;
+      providerName = matchedPartner.partnerName as String? ?? matchedPartner.name as String? ?? opt.carrierName;
+    }
+
+    final transitDays = opt.transitDays ?? 28;
+    final arrivalDate = defaultSailingDate.add(Duration(days: transitDays));
+
+    setState(() {
+      _quotations.add(
+        FreightQuotationItemModel(
+          providerId: providerId,
+          providerName: providerName,
+          vesselName: null,
+          voyageNumber: opt.containerType,
+          oceanFreightCost: opt.oceanFreight,
+          localChargesCost: opt.localCharges ?? 0.0,
+          inlandCost: opt.exwCharges ?? 0.0,
+          totalCost: opt.totalEstimatedCost,
+          sailingDate: defaultSailingDate.toString().substring(0, 10),
+          estimatedArrivalDate: arrivalDate.toString().substring(0, 10),
+          transitDays: transitDays,
+          freeDaysAtPod: opt.freeTimeDays ?? 14,
+          remarks: [
+            if (opt.notes != null && opt.notes!.isNotEmpty) opt.notes,
+            if (opt.containerType.isNotEmpty) 'نوع الحاوية: ${opt.containerType}',
+            if (!opt.isDirect) 'خط سير غير مباشر (ترانزيت)',
+          ].join(' | '),
+        ),
+      );
+      _extractedOptions.removeWhere((o) => o.optionId == opt.optionId);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✅ تمت إضافة عرض [${opt.carrierName} - ${opt.containerType}] إلى جدول المقارنة!'),
+        backgroundColor: AppTheme.emerald,
+      ),
+    );
+  }
+
+  /// ─── Smart Inline Freight Quotation Extractor Card (SWIFT MT103 Style) ────
+  Widget _buildInlineFreightQuotationsExtractorWidget() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.blueGrey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header Bar with Cobalt Gradient & Icons
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppTheme.cobalt, Colors.blue.shade700],
+                begin: Alignment.centerRight,
+                end: Alignment.centerLeft,
+              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                    SizedBox(width: 6),
+                    Icon(Icons.bolt, color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      '(Freight Quotation AI) استخراج وقراءة عروض أسعار الشحن والنولون ⚡ ✨',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: Icon(_isFreightExtractorExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.white),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: _isFreightExtractorExpanded ? 'طي الأداة' : 'توسيع الأداة',
+                  onPressed: () => setState(() => _isFreightExtractorExpanded = !_isFreightExtractorExpanded),
+                ),
+              ],
+            ),
+          ),
+
+          // Collapsible Body
+          if (_isFreightExtractorExpanded)
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isNarrow = constraints.maxWidth < 650;
+
+                      // Text Area with bottom Action Overlay
+                      final textArea = Stack(
+                        children: [
+                          TextField(
+                            controller: _rawFreightQuoteController,
+                            maxLines: 5,
+                            minLines: 4,
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4),
+                            decoration: InputDecoration(
+                              hintText: 'لصق نص رسالة أو إيميل عرض السعر من الخط الملاحي أو شركة الشحن...\n(مثال: Route: Shanghai - Alexandria | WHL: USD 6700/40HQ | Transit: 29 days, DIRECT | Free time: 21 days FT)',
+                              hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 40),
+                            ),
+                          ),
+                          Positioned(
+                            left: 8,
+                            bottom: 8,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                InkWell(
+                                  onTap: () async {
+                                    final d = await Clipboard.getData(Clipboard.kTextPlain);
+                                    if (d != null && d.text != null && d.text!.isNotEmpty) {
+                                      _rawFreightQuoteController.text = d.text!;
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade200,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.paste, size: 12, color: Colors.black87),
+                                        SizedBox(width: 4),
+                                        Text('لصق نص العرض', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                InkWell(
+                                  onTap: () {
+                                    _rawFreightQuoteController.clear();
+                                    setState(() {
+                                      _extractedOptions = [];
+                                      _extractedFreightMetadata = null;
+                                      _extractorError = null;
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.clear, size: 12, color: Colors.black54),
+                                        SizedBox(width: 4),
+                                        Text('تفريغ', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                InkWell(
+                                  onTap: _loadSampleFreightQuote,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade50,
+                                      border: Border.all(color: Colors.amber.shade300),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.lightbulb_outline, size: 12, color: Colors.amber),
+                                        SizedBox(width: 4),
+                                        Text('نموذج تجريبي', style: TextStyle(fontSize: 11, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+
+                      // Action Buttons
+                      final actionButtons = Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.purple.shade800,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.upload_file, size: 16, color: Colors.white),
+                            label: const Text('رفع مستند عرض السعر 📄', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: _isFreightExtracting ? null : _extractFreightFromFile,
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.cobalt,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: _isFreightExtracting
+                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Icon(Icons.bolt, size: 16, color: Colors.amber),
+                            label: const Text('استخراج وتحليل عروض السعر ⚡', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: _isFreightExtracting ? null : _extractFreightFromText,
+                          ),
+                        ],
+                      );
+
+                      if (isNarrow) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            textArea,
+                            const SizedBox(height: 10),
+                            actionButtons,
+                          ],
+                        );
+                      } else {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: textArea),
+                            const SizedBox(width: 14),
+                            SizedBox(width: 220, child: actionButtons),
+                          ],
+                        );
+                      }
+                    },
+                  ),
+
+                  // Error Banner
+                  if (_extractorError != null) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_extractorError!, style: TextStyle(color: Colors.red.shade800, fontSize: 11))),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Extracted Options Live Results Card
+                  if (_extractedOptions.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'تم استخراج ${_extractedOptions.length} عرض/عروض أسعار بنجاح! راجع العروض أدناه ثم أضفها لجدول المقارنة:',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                                ),
+                              ),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.emerald,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                ),
+                                icon: const Icon(Icons.add_task, size: 14, color: Colors.white),
+                                label: Text(
+                                  '🚀 إضافة كافة العروض (${_extractedOptions.length})',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                ),
+                                onPressed: _addAllExtractedQuotations,
+                              ),
+                            ],
+                          ),
+                          if (_pickedFreightFile != null || _extractedFreightMetadata != null) ...[
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                if (_pickedFreightFile != null)
+                                  Chip(
+                                    avatar: const Icon(Icons.attach_file, size: 14, color: AppTheme.cobalt),
+                                    label: Text('الملف: ${_pickedFreightFile!.name}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                                    backgroundColor: Colors.white,
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                if (_extractedFreightMetadata?['origin_port'] != null)
+                                  Chip(
+                                    avatar: const Icon(Icons.flight_takeoff, size: 14, color: Colors.blue),
+                                    label: Text('ميناء الشحن: ${_extractedFreightMetadata!['origin_port']}', style: const TextStyle(fontSize: 10.5)),
+                                    backgroundColor: Colors.white,
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                if (_extractedFreightMetadata?['destination_port'] != null)
+                                  Chip(
+                                    avatar: const Icon(Icons.flight_land, size: 14, color: Colors.green),
+                                    label: Text('ميناء الوصول: ${_extractedFreightMetadata!['destination_port']}', style: const TextStyle(fontSize: 10.5)),
+                                    backgroundColor: Colors.white,
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                if (_extractedFreightMetadata?['local_charges'] != null)
+                                  Chip(
+                                    avatar: const Icon(Icons.monetization_on, size: 14, color: Colors.orange),
+                                    label: Text('المصاريف المحلية: \$${_extractedFreightMetadata!['local_charges']}', style: const TextStyle(fontSize: 10.5)),
+                                    backgroundColor: Colors.white,
+                                    padding: EdgeInsets.zero,
+                                  ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _extractedOptions.map((opt) {
+                              return Container(
+                                width: 340,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                  boxShadow: [
+                                    BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            '${opt.carrierName} (${opt.containerType})',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: opt.isDirect ? Colors.green.shade50 : Colors.orange.shade50,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: opt.isDirect ? Colors.green.shade200 : Colors.orange.shade200),
+                                          ),
+                                          child: Text(
+                                            opt.isDirect ? 'مباشر (Direct)' : 'ترانزيت (Transit)',
+                                            style: TextStyle(fontSize: 10, color: opt.isDirect ? Colors.green.shade800 : Colors.orange.shade800, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const Divider(height: 10),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text('نولون: \$${opt.oceanFreight.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                        if (opt.localCharges != null && opt.localCharges! > 0)
+                                          Text('محلي: \$${opt.localCharges!.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                                        Text('الإجمالي: \$${opt.totalEstimatedCost.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text('⏱️ ترانزيت: ${opt.transitDays ?? "-"} يوم', style: const TextStyle(fontSize: 10.5, color: Colors.black87)),
+                                        Text('⏳ سماح: ${opt.freeTimeDays ?? 14} يوم FT', style: const TextStyle(fontSize: 10.5, color: Colors.black87)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: OutlinedButton.icon(
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: AppTheme.cobalt,
+                                          side: const BorderSide(color: AppTheme.cobalt),
+                                          padding: const EdgeInsets.symmetric(vertical: 6),
+                                        ),
+                                        icon: const Icon(Icons.add, size: 14),
+                                        label: const Text('+ إضافة هذا العرض للجدول', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        onPressed: () => _addSingleExtractedQuotation(opt),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _saveRFQ() async {
     if (!_formKey.currentState!.validate()) return;
     if (_quotations.isEmpty) {
@@ -615,7 +1383,10 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
+
+                  // ── Smart AI Freight Quotations Extractor (Text & OCR Box) ──
+                  _buildInlineFreightQuotationsExtractorWidget(),
 
                   // RFQ Configuration Header Card
                   Card(

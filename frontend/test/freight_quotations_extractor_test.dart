@@ -83,5 +83,24 @@ void main() {
       // Verify OCR drag and drop text
       expect(find.textContaining('لاختيار ملف عرض السعر'), findsOneWidget);
     });
+
+    test('ExtractedQuotationOption fallback parsing with ocean_freight and single rate', () {
+      final singleRateMap = {
+        'carrier_name': 'MSC',
+        'container_type': '20GP',
+        'ocean_freight': 3500.0,
+        'local_charges': 400.0,
+        'is_direct': false,
+        'transit_days': 35,
+      };
+
+      final opt = ExtractedQuotationOption.fromMap(singleRateMap, 2);
+      expect(opt.carrierName, 'MSC');
+      expect(opt.containerType, '20GP');
+      expect(opt.oceanFreight, 3500.0);
+      expect(opt.totalEstimatedCost, 3900.0);
+      expect(opt.isDirect, false);
+      expect(opt.transitDays, 35);
+    });
   });
 }

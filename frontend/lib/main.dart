@@ -217,7 +217,7 @@ class _ImportFlowAppState extends ConsumerState<ImportFlowApp>
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'ImportFlow ERP - Sorour Logistics (v1.0.2)',
+            title: 'ImportFlow ERP - Sorour Logistics (v1.0.4)',
             theme: AppTheme.lightTheme,
             scrollBehavior: AppCustomScrollBehavior(),
             locale: locale,

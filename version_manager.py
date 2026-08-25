@@ -1,6 +1,9 @@
 """
-ImportFlow ERP — Automated Version Manager
-Increments version numbers across all backend, frontend, installer, and packaging files.
+Sorour Logistics ERP — Automated Sequential Version & Build Manager
+===================================================================
+Automatically increments version and build numbers sequentially across
+all backend, frontend, installer, and packaging files.
+
 Usage:
     python version_manager.py bump [patch|minor|major]
     python version_manager.py get
@@ -11,7 +14,7 @@ import re
 from pathlib import Path
 from datetime import datetime
 
-ROOT_DIR = Path(r"C:\Users\Hp\Desktop\ImportFlow")
+ROOT_DIR = Path(__file__).resolve().parent
 VERSION_FILE = ROOT_DIR / "version.json"
 
 
@@ -25,9 +28,9 @@ def get_current_version_info():
     return {
         "major": 1,
         "minor": 0,
-        "patch": 0,
-        "version": "1.0.0",
-        "build_number": 1,
+        "patch": 3,
+        "version": "1.0.3",
+        "build_number": 4,
         "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
 
@@ -39,27 +42,30 @@ def save_version_info(info):
 
 def bump_version(bump_type="patch"):
     info = get_current_version_info()
-    old_version = info["version"]
+    old_version = info.get("version", "1.0.0")
+    old_build = info.get("build_number", 1)
 
     if bump_type == "major":
-        info["major"] += 1
+        info["major"] = info.get("major", 1) + 1
         info["minor"] = 0
         info["patch"] = 0
     elif bump_type == "minor":
-        info["minor"] += 1
+        info["minor"] = info.get("minor", 0) + 1
         info["patch"] = 0
-    else:  # patch
-        info["patch"] += 1
+    elif bump_type == "build_only":
+        pass
+    else:  # patch (default)
+        info["patch"] = info.get("patch", 0) + 1
 
-    info["build_number"] = info.get("build_number", 1) + 1
+    info["build_number"] = old_build + 1
     new_version = f"{info['major']}.{info['minor']}.{info['patch']}"
     info["version"] = new_version
     info["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     save_version_info(info)
-    print(f"[VERSION BUMP] {old_version} -> {new_version} (Build {info['build_number']})")
+    print(f"[SEQUENTIAL VERSION BUMP] v{old_version} (Build {old_build}) -> v{new_version} (Build {info['build_number']})")
 
-    # 1. Update pubspec.yaml
+    # 1. Update frontend/pubspec.yaml
     pubspec_path = ROOT_DIR / "frontend" / "pubspec.yaml"
     if pubspec_path.exists():
         content = pubspec_path.read_text(encoding="utf-8")
@@ -72,8 +78,10 @@ def bump_version(bump_type="patch"):
     if iss_path.exists():
         content = iss_path.read_text(encoding="utf-8")
         content = re.sub(r'#define MyAppVersion "[^"]+"', f'#define MyAppVersion "{new_version}"', content)
+        content = re.sub(r'#define MyAppName "[^"]+"', '#define MyAppName "Sorour Logistics"', content)
+        content = re.sub(r'OutputBaseFilename=.*', f'OutputBaseFilename=Sorour_Logistics_Setup_v{new_version}', content)
         iss_path.write_text(content, encoding="utf-8")
-        print(f"  [+] Updated installer/importflow_setup.iss -> {new_version}")
+        print(f"  [+] Updated installer/importflow_setup.iss -> v{new_version}")
 
     # 3. Update main.py
     main_py_path = ROOT_DIR / "main.py"
@@ -96,10 +104,11 @@ def bump_version(bump_type="patch"):
     home_screen_path = ROOT_DIR / "frontend" / "lib" / "features" / "home" / "home_screen.dart"
     if home_screen_path.exists():
         content = home_screen_path.read_text(encoding="utf-8")
-        content = re.sub(r"'v[\d\.]+\s*\(Build\s*[^']+\)'", f"'v{new_version} (Build {datetime.now().strftime('%Y.%m')})'", content)
+        content = re.sub(r"'v[\d\.]+\s*\(Build\s*[^']+\)'", f"'v{new_version} (Build {info['build_number']})'", content)
         content = re.sub(r"'v[\d\.]+\s*\(Release\)'", f"'v{new_version} (Release)'", content)
+        content = re.sub(r"'Build\s*[\d\.\+]+'", f"'Build {new_version}+{info['build_number']}'", content)
         home_screen_path.write_text(content, encoding="utf-8")
-        print(f"  [+] Updated home_screen.dart -> v{new_version}")
+        print(f"  [+] Updated home_screen.dart -> v{new_version} (Build {info['build_number']})")
 
     # 6. Update frontend/windows/runner/main.cpp
     main_cpp_path = ROOT_DIR / "frontend" / "windows" / "runner" / "main.cpp"
@@ -109,7 +118,7 @@ def bump_version(bump_type="patch"):
         main_cpp_path.write_text(content, encoding="utf-8")
         print(f"  [+] Updated windows/runner/main.cpp -> v{new_version}")
 
-    return new_version
+    return info
 
 
 if __name__ == "__main__":
@@ -119,4 +128,4 @@ if __name__ == "__main__":
         bump_version(b_type)
     else:
         info = get_current_version_info()
-        print(f"Current version: {info['version']} (Build {info.get('build_number', 1)})")
+        print(f"Current version: v{info.get('version', '1.0.0')} (Build {info.get('build_number', 1)})")

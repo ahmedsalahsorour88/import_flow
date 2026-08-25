@@ -1,10 +1,17 @@
 """
 Sorour Logistics ERP — Production Packaging Script
+===================================================
 Creates standalone portable packages and distribution bundles for Windows and Web.
+Automatically increments the sequential version and build number on every production run.
 """
 import os
 import shutil
 import sys
+import zipfile
+import hashlib
+import json
+import subprocess
+from datetime import datetime
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -18,6 +25,8 @@ WEB_SRC = ROOT_DIR / "frontend" / "build" / "web"
 BACKEND_EXE = ROOT_DIR / "dist_backend" / "backend.exe"
 DB_SRC = ROOT_DIR / "sorour_logistics.db"
 APP_ICON_SRC = ROOT_DIR / "installer" / "app_icon.ico"
+
+import version_manager
 
 
 def safe_copy_file(src: Path, dst: Path) -> bool:
@@ -33,7 +42,6 @@ def safe_copy_file(src: Path, dst: Path) -> bool:
         shutil.copy2(src, dst)
         return True
     except Exception as e:
-        # Fallback: try copy via reading binary chunks
         try:
             with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
                 shutil.copyfileobj(fsrc, fdst)
@@ -49,7 +57,6 @@ def clean_dist():
     if (STANDALONE_DEST / "sorour_logistics.db").exists():
         backup_dir = ROOT_DIR / "backups"
         backup_dir.mkdir(parents=True, exist_ok=True)
-        from datetime import datetime
         backup_snapshot = backup_dir / f"sorour_logistics_prod_before_pack_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
         try:
             safe_copy_file(STANDALONE_DEST / "sorour_logistics.db", backup_snapshot)
@@ -96,7 +103,7 @@ def copy_standalone_package():
     else:
         print(f"[WARN] backend.exe not found at {BACKEND_EXE}")
 
-    # 3. Copy Full Master Database (With 3,952 World Ports & Full Master Data)
+    # 3. Copy Full Master Database
     prod_db_file = STANDALONE_DEST / "sorour_logistics.db"
     if DB_SRC.exists():
         safe_copy_file(DB_SRC, prod_db_file)
@@ -136,7 +143,7 @@ WshShell.Run "taskkill /f /im backend.exe", 0, True
     with open(vbs_file, "w", encoding="utf-8") as f:
         f.write(vbs_launcher)
 
-    # 6. Create Standalone Batch Launcher (Optional Fallback)
+    # 6. Create Standalone Batch Launcher
     launcher_content = """@echo off
 title Sorour Logistics ERP
 setlocal
@@ -236,28 +243,11 @@ exit /b 1
     return True
 
 
-import zipfile
-import hashlib
-import json
-import subprocess
-from datetime import datetime
-
-
-def get_current_version() -> str:
-    version_file = ROOT_DIR / "version.json"
-    if version_file.exists():
-        try:
-            with open(version_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return data.get("version", "1.0.3")
-        except Exception:
-            pass
-    return "1.0.3"
-
-
-def compile_installer_and_zip(version: str):
+def compile_installer_and_zip(version_info: dict):
     releases_dir = DIST_DIR / "releases"
     releases_dir.mkdir(parents=True, exist_ok=True)
+    version = version_info.get("version", "1.0.4")
+    build_no = version_info.get("build_number", 1)
     
     # 1. Compile Inno Setup if ISCC is available
     iscc_paths = [
@@ -293,6 +283,7 @@ def compile_installer_and_zip(version: str):
         sha256_hash = hashlib.sha256(f.read()).hexdigest()
     release_info = {
         "version": version,
+        "build_number": build_no,
         "release_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "app_name": "Sorour Logistics ERP",
         "packages": {
@@ -318,20 +309,35 @@ def compile_installer_and_zip(version: str):
 
 
 def main():
-    version = get_current_version()
+    # Automatically bump version unless --no-bump is explicitly provided
+    if "--no-bump" in sys.argv:
+        version_info = version_manager.get_current_version_info()
+    else:
+        bump_type = "patch"
+        if "--major" in sys.argv:
+            bump_type = "major"
+        elif "--minor" in sys.argv:
+            bump_type = "minor"
+        elif "--build-only" in sys.argv:
+            bump_type = "build_only"
+        version_info = version_manager.bump_version(bump_type)
+
+    version = version_info.get("version", "1.0.4")
+    build_no = version_info.get("build_number", 1)
+
     print("================================================================================")
-    print(f"       Sorour Logistics ERP (v{version}) - Production Standalone Packaging       ")
+    print(f"       Sorour Logistics ERP (v{version} - Build {build_no}) - Production Packaging       ")
     print("================================================================================")
     clean_dist()
     s1 = copy_standalone_package()
     s2 = copy_desktop_release()
     s3 = copy_web_release()
     s4 = create_production_launchers()
-    compile_installer_and_zip(version)
+    compile_installer_and_zip(version_info)
 
     if s1 and s2 and s4:
         print("================================================================================")
-        print(f"[SUCCESS] Production release v{version} packages created at: {DIST_DIR}")
+        print(f"[SUCCESS] Production release v{version} (Build {build_no}) created at: {DIST_DIR}")
         print("================================================================================")
         return True
     else:
@@ -342,4 +348,3 @@ def main():
 if __name__ == "__main__":
     success = main()
     sys.exit(0 if success else 1)
-

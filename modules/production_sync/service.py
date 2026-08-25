@@ -338,6 +338,13 @@ class ProductionSyncService:
             except Exception:
                 pass
 
+        # 5. Automatically Bump Sequential Version & Build
+        try:
+            import version_manager
+            version_manager.bump_version("patch")
+        except Exception:
+            pass
+
         stats = self._get_db_stats(PROD_DB)
 
         try:

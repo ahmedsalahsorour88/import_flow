@@ -150,6 +150,9 @@ class FreightQuotationExtractor(BaseExtractor):
         global_free_time = self._extract_free_time(clean_ocr_text)
         global_transit_days, global_is_direct = self._extract_transit_info(clean_ocr_text)
         global_etd = self._extract_etd(clean_ocr_text)
+        global_eta = self._extract_eta(clean_ocr_text)
+        global_vessel = self._extract_vessel_name(clean_ocr_text)
+        global_voyage = self._extract_voyage_number(clean_ocr_text)
         global_forwarder = self._extract_forwarder_name(clean_ocr_text)
         global_quote_ref = self._extract_quotation_ref(clean_ocr_text)
         global_validity = self._extract_validity_date(clean_ocr_text)
@@ -173,11 +176,18 @@ class FreightQuotationExtractor(BaseExtractor):
         primary_free_days = primary_quote.get("free_time_days") or global_free_time
         primary_local_charges = primary_quote.get("local_charges")
         primary_exw_charges = primary_quote.get("exw_charges")
+        primary_vessel = primary_quote.get("vessel_name") or global_vessel
+        primary_voyage = primary_quote.get("voyage_number") or global_voyage
+        primary_etd = primary_quote.get("etd_date") or global_etd
+        primary_eta = primary_quote.get("eta_date") or global_eta
 
         if not rate_options and primary_rate:
             rate_options.append({
                 "option_id": 1,
                 "carrier_name": primary_carrier or "Shipping Line",
+                "forwarder_name": global_forwarder,
+                "vessel_name": primary_vessel,
+                "voyage_number": primary_voyage,
                 "container_type": primary_container,
                 "ocean_freight": primary_rate,
                 "local_charges": primary_local_charges,
@@ -190,13 +200,16 @@ class FreightQuotationExtractor(BaseExtractor):
                 "transit_days": primary_transit,
                 "is_direct": global_is_direct,
                 "free_time_days": primary_free_days,
-                "etd_date": global_etd,
+                "etd_date": primary_etd,
+                "eta_date": primary_eta,
                 "notes": None,
             })
 
         return {
             "carrier_name": primary_carrier,
             "forwarder_name": global_forwarder,
+            "vessel_name": primary_vessel,
+            "voyage_number": primary_voyage,
             "quotation_ref": global_quote_ref,
             "origin_port": primary_origin,
             "destination_port": primary_dest,
@@ -211,7 +224,8 @@ class FreightQuotationExtractor(BaseExtractor):
                 r"(?:Free\s+Days?\s+Detention|Detention\s+Free\s+Days?|فترة\s+سماح\s+الغرامات)[:\s]+(\d+)",
             ], clean_ocr_text),
             "validity_date": global_validity,
-            "etd_date": primary_quote.get("etd_date") or global_etd,
+            "etd_date": primary_etd,
+            "eta_date": primary_eta,
             "local_charges": primary_local_charges,
             "exw_charges": primary_exw_charges,
             "cancel_fee": cancel_fee,
@@ -355,11 +369,87 @@ class FreightQuotationExtractor(BaseExtractor):
             is_direct = True
         return transit_days, is_direct
 
+    def _extract_vessel_name(self, text: str) -> Optional[str]:
+        # Examples: "Vessel: WAN HAI 502", "1st Vessel: COSCO UNIVERSE", "اسم الباخرة: EVER GIVEN", "Vessel Name: MSC OSCAR"
+        found = self.find_first([
+            r"(?:1st\s+Vessel|Mother\s+Vessel|Feeder\s+Vessel|Vessel(?:\s+Name)?|اسم\s+الباخرة|الباخرة|السفينة)[:\s]+([A-Za-z0-9\s\.\-]{3,35}?)(?:\n|,|\||/|\s+V\b|\s+Voy|\Z)",
+            r"\bVessel[:\s]+([A-Za-z0-9\s\.\-]{3,35})",
+        ], text)
+        if found:
+            # Filter out generic words like "Direct", "Indirect", "Service", "Option"
+            f_clean = found.strip()
+            if f_clean.upper() not in {"DIRECT", "INDIRECT", "SERVICE", "LINE", "NEW", "YES", "NO", "NONE"}:
+                return f_clean
+        return None
+
+    def _extract_voyage_number(self, text: str) -> Optional[str]:
+        # Examples: "Voyage: 042E", "Voy No: 2408W", "Voy: W012", "V. 102S", "رقم الرحلة: 042E"
+        found = self.find_first([
+            r"(?:Voyage(?:\s+No|\s+Number)?|Voy(?:\s+No|\s+#)?|V\.?|رقم\s+الرحلة|الرحلة)[:\s]+([A-Za-z0-9\-/]{2,20})",
+            r"\bVOY[:\s]*([A-Za-z0-9\-/]{2,20})",
+        ], text)
+        if found:
+            f_clean = found.strip()
+            if f_clean.upper() not in {"DIRECT", "INDIRECT", "YES", "NO"}:
+                return f_clean
+        return None
+
+    def _extract_eta(self, text: str) -> Optional[str]:
+        raw = self.find_first([
+            r"(?:ETA|Estimated\s+Arrival|Arrival\s+Date|تاريخ\s+الوصول|موعد\s+الوصول)[:\s]+([0-9]{1,2}[\./\-][0-9]{1,2}(?:[\./\-][0-9]{2,4})?|[0-9]{1,2}[\s\-]+[A-Za-z]{3,4})",
+            r"(?:ETA)[:\s]+([0-9]{1,2}/[A-Za-z]{3,4})",
+        ], text)
+        return self._normalize_date_str(raw)
+
     def _extract_etd(self, text: str) -> Optional[str]:
-        return self.find_first([
+        raw = self.find_first([
             r"(?:ETD|1st\s+vessel|Vessel\s+Date|تاريخ\s+الإبحار|موعد\s+المغادرة)[:\s]+([0-9]{1,2}[\./\-][0-9]{1,2}(?:[\./\-][0-9]{2,4})?|[0-9]{1,2}[\s\-]+[A-Za-z]{3,4})",
             r"(?:ETD)[:\s]+([0-9]{1,2}/[A-Za-z]{3,4})",
         ], text)
+        return self._normalize_date_str(raw)
+
+    def _normalize_date_str(self, raw: Optional[str]) -> Optional[str]:
+        if not raw:
+            return None
+        r = raw.strip().upper()
+        months = {
+            "JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6,
+            "JUL": 7, "AUG": 8, "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12,
+        }
+
+        # Match e.g. "28/AUG" or "28-AUG" or "28 AUG" or "28/AUG/2026"
+        m_alpha = re.search(r"(\d{1,2})[\s\./\-]+([A-Z]{3,9})(?:[\s\./\-]+(\d{2,4}))?", r)
+        if m_alpha:
+            day = int(m_alpha.group(1))
+            m_str = m_alpha.group(2)[:3]
+            month = months.get(m_str, 8)
+            year = int(m_alpha.group(3)) if m_alpha.group(3) else 2026
+            if year < 100:
+                year += 2000
+            return f"{year:04d}-{month:02d}-{day:02d}"
+
+        # Match e.g. "2026-08-28" or "28/08/2026" or "28.08.2026"
+        m_iso = re.search(r"(\d{4})[\./\-](\d{1,2})[\./\-](\d{1,2})", r)
+        if m_iso:
+            return f"{int(m_iso.group(1)):04d}-{int(m_iso.group(2)):02d}-{int(m_iso.group(3)):02d}"
+
+        m_dmy = re.search(r"(\d{1,2})[\./\-](\d{1,2})(?:[\./\-](\d{2,4}))?", r)
+        if m_dmy:
+            p1 = int(m_dmy.group(1))
+            p2 = int(m_dmy.group(2))
+            yr = int(m_dmy.group(3)) if m_dmy.group(3) else 2026
+            if yr < 100:
+                yr += 2000
+            # If p1 > 12 -> day is p1, month is p2
+            if p1 > 12 and p2 <= 12:
+                return f"{yr:04d}-{p2:02d}-{p1:02d}"
+            # If p1 <= 12 and p2 > 12 -> month is p1, day is p2 (e.g. 8.28)
+            elif p1 <= 12 and p2 > 12:
+                return f"{yr:04d}-{p1:02d}-{p2:02d}"
+            elif p2 <= 12:
+                return f"{yr:04d}-{p2:02d}-{p1:02d}"
+
+        return raw
 
     def _extract_rate_options(
         self,
@@ -409,7 +499,6 @@ class FreightQuotationExtractor(BaseExtractor):
             itemized_exw_total = truck_val + local_val + cust_val
 
         # Regex captures rate lines supporting standard, unicode quotes, LCL, Air, and OCR formats
-        # Notice: container suffix (20|40) must be followed by GP/DC/HQ/HC or word boundary NOT followed by slash or more digits
         rate_pattern = re.compile(
             r"(?:([A-Z0-9\-\.]{2,10})[:\s]+)?(?:O/?F(?:\s*rate)?[:\s]*|نولون(?:\s*بحري)?[:\s]*)?(?:USD|\$|EUR|EGP)?\s*([0-9,]{2,8}(?:\.\d+)?)\s*(?:/|\\)\s*(20\s*(?:GP|DC|ft\b)?|40\s*(?:HQ|HC|GP|DC|ft\b)?|CBM|KG|W/?M)(?!\d)(?:\s+BY\s+([A-Z0-9\-\.\s]{2,15}))?",
             re.IGNORECASE,
@@ -422,6 +511,10 @@ class FreightQuotationExtractor(BaseExtractor):
             blk_transit_days, blk_is_direct = self._extract_transit_info(block)
             blk_free_time = self._extract_free_time(block)
             blk_etd = self._extract_etd(block)
+            blk_eta = self._extract_eta(block)
+            blk_vessel = self._extract_vessel_name(block)
+            blk_voyage = self._extract_voyage_number(block)
+            blk_forwarder = self._extract_forwarder_name(block)
             blk_orig, blk_dest = self._extract_route(block)
 
             for match in rate_pattern.finditer(block):
@@ -472,9 +565,17 @@ class FreightQuotationExtractor(BaseExtractor):
                 window_text = block[max(0, match.start() - 60):min(len(block), match.end() + 140)]
                 total_cost = rate_val + (local_fee if "Included" not in block and "شامل" not in block else 0.0)
 
+                opt_vessel = self._extract_vessel_name(window_text) or blk_vessel or self._extract_vessel_name(text)
+                opt_voyage = self._extract_voyage_number(window_text) or blk_voyage or self._extract_voyage_number(text)
+                opt_etd = self._extract_etd(window_text) or blk_etd or self._extract_etd(text)
+                opt_eta = self._extract_eta(window_text) or blk_eta or self._extract_eta(text)
+
                 options.append({
                     "option_id": len(options) + 1,
                     "carrier_name": carrier_name or "Shipping Line",
+                    "forwarder_name": blk_forwarder or self._extract_forwarder_name(text),
+                    "vessel_name": opt_vessel,
+                    "voyage_number": opt_voyage,
                     "container_type": cntr_type,
                     "ocean_freight": rate_val,
                     "local_charges": local_fee if local_fee > 0 else None,
@@ -487,7 +588,8 @@ class FreightQuotationExtractor(BaseExtractor):
                     "transit_days": blk_transit_days or self._extract_transit_info(text)[0],
                     "is_direct": blk_is_direct,
                     "free_time_days": blk_free_time or self._extract_free_time(text),
-                    "etd_date": blk_etd or self._extract_etd(text),
+                    "etd_date": opt_etd,
+                    "eta_date": opt_eta,
                     "notes": self._extract_option_notes(window_text) or self._extract_option_notes(block),
                 })
 

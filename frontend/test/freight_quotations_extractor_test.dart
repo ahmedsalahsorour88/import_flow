@@ -84,6 +84,37 @@ void main() {
       expect(find.textContaining('لاختيار ملف عرض السعر'), findsOneWidget);
     });
 
+    test('ExtractedQuotationOption parses all 8 comprehensive shipment and voyage fields', () {
+      final map = {
+        'carrier_name': 'COSCO Shipping Lines',
+        'forwarder_name': 'Kuehne + Nagel',
+        'vessel_name': 'COSCO UNIVERSE',
+        'voyage_number': '042E',
+        'origin_port': 'Shanghai',
+        'destination_port': 'Alexandria',
+        'etd_date': '2026-08-28',
+        'eta_date': '2026-09-26',
+        'container_type': '40HQ',
+        'ocean_freight': 6900.0,
+        'local_charges': 800.0,
+        'transit_days': 29,
+        'is_direct': true,
+        'free_time_days': 21,
+      };
+
+      final opt = ExtractedQuotationOption.fromMap(map, 1);
+      expect(opt.carrierName, 'COSCO Shipping Lines');
+      expect(opt.forwarderName, 'Kuehne + Nagel');
+      expect(opt.vesselName, 'COSCO UNIVERSE');
+      expect(opt.voyageNumber, '042E');
+      expect(opt.originPort, 'Shanghai');
+      expect(opt.destinationPort, 'Alexandria');
+      expect(opt.etdDate, '2026-08-28');
+      expect(opt.etaDate, '2026-09-26');
+      expect(opt.transitDays, 29);
+      expect(opt.freeTimeDays, 21);
+    });
+
     test('ExtractedQuotationOption fallback parsing with ocean_freight and single rate', () {
       final singleRateMap = {
         'carrier_name': 'MSC',

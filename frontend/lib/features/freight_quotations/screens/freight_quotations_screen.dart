@@ -633,8 +633,7 @@ Best regards,
 
   void _addAllExtractedQuotations() {
     if (_extractedOptions.isEmpty) return;
-    final partners = ref.read(partnersProvider).valueOrNull ?? [];
-    final defaultSailingDate = DateTime.now().add(const Duration(days: 7));
+    final partners = ref.read(allPartnersProvider).value ?? ref.read(partnersProvider).valueOrNull ?? [];
 
     setState(() {
       for (final opt in _extractedOptions) {
@@ -643,7 +642,7 @@ Best regards,
 
         final matchedPartner = partners.cast<dynamic>().firstWhere(
           (p) {
-            final name = (p.name ?? p.partnerName ?? '').toString().toLowerCase();
+            final name = (p.partnerName ?? p.name ?? '').toString().toLowerCase();
             final optName = opt.carrierName.toLowerCase();
             return name.contains(optName) || optName.contains(name);
           },
@@ -656,19 +655,29 @@ Best regards,
         }
 
         final transitDays = opt.transitDays ?? 28;
-        final arrivalDate = defaultSailingDate.add(Duration(days: transitDays));
+        DateTime sailingDate = DateTime.now().add(const Duration(days: 7));
+        if (opt.etdDate != null && opt.etdDate!.isNotEmpty) {
+          final parsed = DateTime.tryParse(opt.etdDate!);
+          if (parsed != null) sailingDate = parsed;
+        }
+
+        DateTime arrivalDate = sailingDate.add(Duration(days: transitDays));
+        if (opt.etaDate != null && opt.etaDate!.isNotEmpty) {
+          final parsed = DateTime.tryParse(opt.etaDate!);
+          if (parsed != null) arrivalDate = parsed;
+        }
 
         _quotations.add(
           FreightQuotationItemModel(
             providerId: providerId,
             providerName: providerName,
-            vesselName: null,
-            voyageNumber: opt.containerType,
+            vesselName: opt.vesselName,
+            voyageNumber: opt.voyageNumber ?? opt.containerType,
             oceanFreightCost: opt.oceanFreight,
             localChargesCost: opt.localCharges ?? 0.0,
             inlandCost: opt.exwCharges ?? 0.0,
             totalCost: opt.totalEstimatedCost,
-            sailingDate: defaultSailingDate.toString().substring(0, 10),
+            sailingDate: sailingDate.toString().substring(0, 10),
             estimatedArrivalDate: arrivalDate.toString().substring(0, 10),
             transitDays: transitDays,
             freeDaysAtPod: opt.freeTimeDays ?? 14,
@@ -692,15 +701,14 @@ Best regards,
   }
 
   void _addSingleExtractedQuotation(ExtractedQuotationOption opt) {
-    final partners = ref.read(partnersProvider).valueOrNull ?? [];
-    final defaultSailingDate = DateTime.now().add(const Duration(days: 7));
+    final partners = ref.read(allPartnersProvider).value ?? ref.read(partnersProvider).valueOrNull ?? [];
 
     int providerId = 0;
     String providerName = opt.carrierName;
 
     final matchedPartner = partners.cast<dynamic>().firstWhere(
       (p) {
-        final name = (p.name ?? p.partnerName ?? '').toString().toLowerCase();
+        final name = (p.partnerName ?? p.name ?? '').toString().toLowerCase();
         final optName = opt.carrierName.toLowerCase();
         return name.contains(optName) || optName.contains(name);
       },
@@ -713,20 +721,30 @@ Best regards,
     }
 
     final transitDays = opt.transitDays ?? 28;
-    final arrivalDate = defaultSailingDate.add(Duration(days: transitDays));
+    DateTime sailingDate = DateTime.now().add(const Duration(days: 7));
+    if (opt.etdDate != null && opt.etdDate!.isNotEmpty) {
+      final parsed = DateTime.tryParse(opt.etdDate!);
+      if (parsed != null) sailingDate = parsed;
+    }
+
+    DateTime arrivalDate = sailingDate.add(Duration(days: transitDays));
+    if (opt.etaDate != null && opt.etaDate!.isNotEmpty) {
+      final parsed = DateTime.tryParse(opt.etaDate!);
+      if (parsed != null) arrivalDate = parsed;
+    }
 
     setState(() {
       _quotations.add(
         FreightQuotationItemModel(
           providerId: providerId,
           providerName: providerName,
-          vesselName: null,
-          voyageNumber: opt.containerType,
+          vesselName: opt.vesselName,
+          voyageNumber: opt.voyageNumber ?? opt.containerType,
           oceanFreightCost: opt.oceanFreight,
           localChargesCost: opt.localCharges ?? 0.0,
           inlandCost: opt.exwCharges ?? 0.0,
           totalCost: opt.totalEstimatedCost,
-          sailingDate: defaultSailingDate.toString().substring(0, 10),
+          sailingDate: sailingDate.toString().substring(0, 10),
           estimatedArrivalDate: arrivalDate.toString().substring(0, 10),
           transitDays: transitDays,
           freeDaysAtPod: opt.freeTimeDays ?? 14,

@@ -9,6 +9,9 @@ import '../../../core/widgets/extraction_progress_dialog.dart';
 class ExtractedQuotationOption {
   final int optionId;
   final String carrierName;
+  final String? forwarderName;
+  final String? vesselName;
+  final String? voyageNumber;
   final String containerType;
   final double oceanFreight;
   final double? localCharges;
@@ -22,12 +25,16 @@ class ExtractedQuotationOption {
   final bool isDirect;
   final int? freeTimeDays;
   final String? etdDate;
+  final String? etaDate;
   final String? notes;
   bool isSelected;
 
   ExtractedQuotationOption({
     required this.optionId,
     required this.carrierName,
+    this.forwarderName,
+    this.vesselName,
+    this.voyageNumber,
     required this.containerType,
     required this.oceanFreight,
     this.localCharges,
@@ -41,6 +48,7 @@ class ExtractedQuotationOption {
     this.isDirect = true,
     this.freeTimeDays,
     this.etdDate,
+    this.etaDate,
     this.notes,
     this.isSelected = true,
   });
@@ -56,6 +64,9 @@ class ExtractedQuotationOption {
     return ExtractedQuotationOption(
       optionId: id,
       carrierName: (map['carrier_name'] ?? 'Shipping Line').toString(),
+      forwarderName: map['forwarder_name']?.toString(),
+      vesselName: map['vessel_name']?.toString(),
+      voyageNumber: map['voyage_number']?.toString(),
       containerType: (map['container_type'] ?? '40HQ').toString(),
       oceanFreight: ocean,
       localCharges: local,
@@ -69,6 +80,7 @@ class ExtractedQuotationOption {
       isDirect: map['is_direct'] as bool? ?? true,
       freeTimeDays: (map['free_time_days'] ?? map['free_days_demurrage']) as int?,
       etdDate: map['etd_date']?.toString(),
+      etaDate: map['eta_date']?.toString(),
       notes: map['notes']?.toString(),
       isSelected: true,
     );

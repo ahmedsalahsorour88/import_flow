@@ -514,68 +514,139 @@ Best regards,
     }
   }
 
+  ShippingScenarioItemModel _mapExtractedOptionToScenarioItem({
+    required ExtractedQuotationOption opt,
+    required DateTime crd,
+    required List<PartnerModel> partners,
+    required List portsList,
+    required bool isRecommended,
+  }) {
+    final rawCarrier = opt.carrierName;
+    final cntrType = opt.containerType;
+    final rate = opt.oceanFreight;
+    final localCharges = opt.localCharges;
+    final cancelFee = opt.exwCharges;
+    final freeDays = opt.freeTimeDays ?? 21;
+    final transitDays = opt.transitDays ?? 28;
+    final isDirect = opt.isDirect;
+    final notes = opt.notes;
+    final curr = opt.currency;
+
+    // 1. Match Shipping Line (الخط الملاحي)
+    final shippingLines = partners.where((p) => p.partnerType.contains('Shipping Line')).toList();
+    final matchedLine = shippingLines.where((p) =>
+      p.partnerName.toLowerCase().contains(rawCarrier.toLowerCase()) ||
+      rawCarrier.toLowerCase().contains(p.partnerName.toLowerCase()) ||
+      (p.scacCode != null && rawCarrier.toLowerCase().contains(p.scacCode!.toLowerCase()))
+    ).firstOrNull;
+    final effectiveCarrierName = matchedLine != null ? matchedLine.partnerName : rawCarrier;
+
+    // 2. Match Freight Forwarder (وكيل الشحن / الناقل)
+    final freightForwarders = partners.where((p) => p.partnerType.contains('Freight Forwarder') || p.partnerType.contains('Carrier')).toList();
+    final rawForwarder = opt.forwarderName ?? _extractedFreightMetadata?['forwarder_name']?.toString() ?? '';
+    final matchedForwarder = rawForwarder.isNotEmpty
+        ? freightForwarders.where((p) =>
+            p.partnerName.toLowerCase().contains(rawForwarder.toLowerCase()) ||
+            rawForwarder.toLowerCase().contains(p.partnerName.toLowerCase())).firstOrNull
+        : null;
+
+    // 3. Match Port of Loading POL (ميناء السفر / التحميل)
+    final rawPol = (opt.originPort ?? _extractedFreightMetadata?['origin_port']?.toString() ?? '').toLowerCase();
+    final dynamic matchedPol = rawPol.isNotEmpty
+        ? portsList.where((p) {
+            final pName = (p.locationName as String).toLowerCase();
+            final unloc = (p.unLocode as String).toLowerCase();
+            return rawPol.contains(pName) || pName.contains(rawPol) || (unloc.isNotEmpty && rawPol.contains(unloc));
+          }).firstOrNull
+        : null;
+
+    // 4. Match Port of Discharge POD (ميناء الوصول / التفريغ)
+    final rawPod = (opt.destinationPort ?? _extractedFreightMetadata?['destination_port']?.toString() ?? '').toLowerCase();
+    final dynamic matchedPod = rawPod.isNotEmpty
+        ? portsList.where((p) {
+            final pName = (p.locationName as String).toLowerCase();
+            final unloc = (p.unLocode as String).toLowerCase();
+            return rawPod.contains(pName) || pName.contains(rawPod) || (unloc.isNotEmpty && rawPod.contains(unloc));
+          }).firstOrNull
+        : null;
+
+    // 5. Vessel & Voyage (اسم الباخرة ورقم الرحلة)
+    final effectiveVessel = (opt.vesselName != null && opt.vesselName!.isNotEmpty)
+        ? opt.vesselName!
+        : (_extractedFreightMetadata?['vessel_name']?.toString() ?? (isDirect ? 'Direct Line Service' : 'Transshipment Service'));
+    final effectiveVoyage = (opt.voyageNumber != null && opt.voyageNumber!.isNotEmpty)
+        ? opt.voyageNumber!
+        : (_extractedFreightMetadata?['voyage_number']?.toString() ?? '');
+
+    // 6. Sailing Date ETD & Estimated Arrival ETA (تاريخ الإبحار وتاريخ الوصول)
+    DateTime sDate = crd.add(const Duration(days: 2));
+    if (opt.etdDate != null && opt.etdDate!.isNotEmpty) {
+      final parsed = DateTime.tryParse(opt.etdDate!);
+      if (parsed != null) sDate = parsed;
+    }
+
+    DateTime arrDate = sDate.add(Duration(days: transitDays));
+    if (opt.etaDate != null && opt.etaDate!.isNotEmpty) {
+      final parsed = DateTime.tryParse(opt.etaDate!);
+      if (parsed != null) arrDate = parsed;
+    }
+
+    final is40 = cntrType.contains('40');
+    final is20 = cntrType.contains('20');
+
+    return ShippingScenarioItemModel(
+      providerId: matchedForwarder?.providerId,
+      providerName: effectiveCarrierName,
+      vesselName: effectiveVessel,
+      voyageNumber: effectiveVoyage,
+      portOfLoadingId: matchedPol?.locationId,
+      polName: matchedPol != null ? matchedPol.locationName : (opt.originPort ?? 'Shanghai Port'),
+      portOfDischargeId: matchedPod?.locationId,
+      podName: matchedPod != null ? matchedPod.locationName : (opt.destinationPort ?? 'El Dekheila Port'),
+      sailingDate: sDate.toString().substring(0, 10),
+      estimatedArrivalDate: arrDate.toString().substring(0, 10),
+      expectedLineDelayDays: isDirect ? 2 : 5,
+      isRecommended: isRecommended,
+      riskLevel: isDirect ? 'Low' : 'Medium',
+      quotationCurrency: curr,
+      freeTimeDays: freeDays,
+      container40ftApplicable: is40,
+      container40ftPrice: is40 ? rate : 0.0,
+      container40ftQty: is40 ? 1 : 0,
+      container40ftCurrency: curr,
+      container20ftApplicable: is20,
+      container20ftPrice: is20 ? rate : 0.0,
+      container20ftQty: is20 ? 1 : 0,
+      container20ftCurrency: curr,
+      bookingCancellationApplicable: cancelFee != null && cancelFee > 0,
+      bookingCancellationPrice: cancelFee ?? 0.0,
+      bookingCancellationCurrency: curr,
+      othersFeeApplicable: localCharges != null && localCharges > 0,
+      othersFeePrice: localCharges ?? 0.0,
+      othersFeeCurrency: curr,
+      notes: [
+        if (!isDirect) 'رحلة غير مباشرة (Transshipment)',
+        if (notes != null && notes.isNotEmpty) notes,
+        if (localCharges != null && localCharges > 0) 'مصاريف محلية / EXW: \$$localCharges',
+      ].join(' — '),
+    );
+  }
+
   void _addAllExtractedQuotationsToScenarios() {
     if (_extractedOptions.isEmpty) return;
     final crd = _cargoReadyDate;
-    final partners = ref.read(partnersProvider).value ?? [];
+    final partners = ref.read(allPartnersProvider).value ?? ref.read(partnersProvider).value ?? [];
+    final portsList = ref.read(transportLocationsProvider).value ?? [];
     final List<ShippingScenarioItemModel> newItems = [];
 
     for (int i = 0; i < _extractedOptions.length; i++) {
       final opt = _extractedOptions[i];
-      final rawCarrier = opt.carrierName;
-      final cntrType = opt.containerType;
-      final rate = opt.oceanFreight;
-      final localCharges = opt.localCharges;
-      final cancelFee = opt.exwCharges;
-      final freeDays = opt.freeTimeDays ?? 21;
-      final transitDays = opt.transitDays ?? 28;
-      final isDirect = opt.isDirect;
-      final notes = opt.notes;
-      final curr = opt.currency;
-
-      final matchedPartner = partners.where((p) =>
-        p.partnerName.toLowerCase().contains(rawCarrier.toLowerCase()) ||
-        rawCarrier.toLowerCase().contains(p.partnerName.toLowerCase()) ||
-        (p.scacCode != null && rawCarrier.toLowerCase().contains(p.scacCode!.toLowerCase()))
-      ).firstOrNull;
-
-      final sDate = crd.add(const Duration(days: 2));
-      final arrDate = sDate.add(Duration(days: transitDays));
-      final is40 = cntrType.contains('40');
-      final is20 = cntrType.contains('20');
-
-      newItems.add(ShippingScenarioItemModel(
-        providerId: matchedPartner?.providerId,
-        providerName: matchedPartner?.partnerName ?? rawCarrier,
-        vesselName: isDirect ? 'Direct Line Service' : 'Transshipment Service',
-        polName: opt.originPort ?? 'Shanghai Port',
-        podName: opt.destinationPort ?? 'Alexandria Port',
-        sailingDate: sDate.toString().substring(0, 10),
-        estimatedArrivalDate: arrDate.toString().substring(0, 10),
-        expectedLineDelayDays: isDirect ? 2 : 5,
+      newItems.add(_mapExtractedOptionToScenarioItem(
+        opt: opt,
+        crd: crd,
+        partners: partners,
+        portsList: portsList,
         isRecommended: _evalItems.isEmpty && i == 0,
-        riskLevel: isDirect ? 'Low' : 'Medium',
-        quotationCurrency: curr,
-        freeTimeDays: freeDays,
-        container40ftApplicable: is40,
-        container40ftPrice: is40 ? rate : 0.0,
-        container40ftQty: is40 ? 1 : 0,
-        container40ftCurrency: curr,
-        container20ftApplicable: is20,
-        container20ftPrice: is20 ? rate : 0.0,
-        container20ftQty: is20 ? 1 : 0,
-        container20ftCurrency: curr,
-        bookingCancellationApplicable: cancelFee != null && cancelFee > 0,
-        bookingCancellationPrice: cancelFee ?? 0.0,
-        bookingCancellationCurrency: curr,
-        othersFeeApplicable: localCharges != null && localCharges > 0,
-        othersFeePrice: localCharges ?? 0.0,
-        othersFeeCurrency: curr,
-        notes: [
-          if (!isDirect) 'رحلة غير مباشرة (Transshipment)',
-          if (notes != null && notes.isNotEmpty) notes,
-          if (localCharges != null && localCharges > 0) 'مصاريف محلية: \$$localCharges',
-        ].join(' — '),
       ));
     }
 
@@ -598,61 +669,15 @@ Best regards,
 
   void _addSingleExtractedQuotationToScenarios(ExtractedQuotationOption opt) {
     final crd = _cargoReadyDate;
-    final partners = ref.read(partnersProvider).value ?? [];
-    final rawCarrier = opt.carrierName;
-    final cntrType = opt.containerType;
-    final rate = opt.oceanFreight;
-    final localCharges = opt.localCharges;
-    final cancelFee = opt.exwCharges;
-    final freeDays = opt.freeTimeDays ?? 21;
-    final transitDays = opt.transitDays ?? 28;
-    final isDirect = opt.isDirect;
-    final notes = opt.notes;
-    final curr = opt.currency;
+    final partners = ref.read(allPartnersProvider).value ?? ref.read(partnersProvider).value ?? [];
+    final portsList = ref.read(transportLocationsProvider).value ?? [];
 
-    final matchedPartner = partners.where((p) =>
-      p.partnerName.toLowerCase().contains(rawCarrier.toLowerCase()) ||
-      rawCarrier.toLowerCase().contains(p.partnerName.toLowerCase()) ||
-      (p.scacCode != null && rawCarrier.toLowerCase().contains(p.scacCode!.toLowerCase()))
-    ).firstOrNull;
-
-    final sDate = crd.add(const Duration(days: 2));
-    final arrDate = sDate.add(Duration(days: transitDays));
-    final is40 = cntrType.contains('40');
-    final is20 = cntrType.contains('20');
-
-    final newItem = ShippingScenarioItemModel(
-      providerId: matchedPartner?.providerId,
-      providerName: matchedPartner?.partnerName ?? rawCarrier,
-      vesselName: isDirect ? 'Direct Line Service' : 'Transshipment Service',
-      polName: opt.originPort ?? 'Shanghai Port',
-      podName: opt.destinationPort ?? 'Alexandria Port',
-      sailingDate: sDate.toString().substring(0, 10),
-      estimatedArrivalDate: arrDate.toString().substring(0, 10),
-      expectedLineDelayDays: isDirect ? 2 : 5,
+    final newItem = _mapExtractedOptionToScenarioItem(
+      opt: opt,
+      crd: crd,
+      partners: partners,
+      portsList: portsList,
       isRecommended: _evalItems.isEmpty,
-      riskLevel: isDirect ? 'Low' : 'Medium',
-      quotationCurrency: curr,
-      freeTimeDays: freeDays,
-      container40ftApplicable: is40,
-      container40ftPrice: is40 ? rate : 0.0,
-      container40ftQty: is40 ? 1 : 0,
-      container40ftCurrency: curr,
-      container20ftApplicable: is20,
-      container20ftPrice: is20 ? rate : 0.0,
-      container20ftQty: is20 ? 1 : 0,
-      container20ftCurrency: curr,
-      bookingCancellationApplicable: cancelFee != null && cancelFee > 0,
-      bookingCancellationPrice: cancelFee ?? 0.0,
-      bookingCancellationCurrency: curr,
-      othersFeeApplicable: localCharges != null && localCharges > 0,
-      othersFeePrice: localCharges ?? 0.0,
-      othersFeeCurrency: curr,
-      notes: [
-        if (!isDirect) 'رحلة غير مباشرة (Transshipment)',
-        if (notes != null && notes.isNotEmpty) notes,
-        if (localCharges != null && localCharges > 0) 'مصاريف محلية: \$$localCharges',
-      ].join(' — '),
     );
 
     setState(() {
@@ -1081,68 +1106,18 @@ Best regards,
         : [fields];
 
     final List<ShippingScenarioItemModel> newItems = [];
-    final partners = ref.read(partnersProvider).value ?? [];
+    final partners = ref.read(allPartnersProvider).value ?? ref.read(partnersProvider).value ?? [];
+    final portsList = ref.read(transportLocationsProvider).value ?? [];
 
     for (int i = 0; i < options.length; i++) {
-      final opt = Map<String, dynamic>.from(options[i] as Map);
-      final rawCarrier = opt['carrier_name']?.toString() ?? fields['carrier_name']?.toString() ?? 'Shipping Line';
-      final rawPol = opt['origin_port']?.toString() ?? fields['origin_port']?.toString() ?? 'Shanghai Port (ميناء شانغهاي)';
-      final rawPod = opt['destination_port']?.toString() ?? fields['destination_port']?.toString() ?? 'El Dekheila Port (ميناء الدخيلة)';
-      final cntrType = opt['container_type']?.toString() ?? fields['container_type']?.toString() ?? '40HQ';
-      final rate = (opt['ocean_freight'] as num?)?.toDouble() ?? (opt['freight_rate'] as num?)?.toDouble() ?? (fields['freight_rate'] as num?)?.toDouble() ?? 5000.0;
-      final localCharges = (opt['local_charges'] as num?)?.toDouble() ?? (opt['exw_charges'] as num?)?.toDouble() ?? (fields['local_charges'] as num?)?.toDouble();
-      final cancelFee = (opt['cancel_fee'] as num?)?.toDouble() ?? (fields['cancel_fee'] as num?)?.toDouble();
-      final freeDays = (opt['free_time_days'] as num?)?.toInt() ?? (fields['free_days_demurrage'] as num?)?.toInt() ?? 21;
-      final transitDays = (opt['transit_days'] as num?)?.toInt() ?? (fields['transit_days'] as num?)?.toInt() ?? 28;
-      final isDirect = opt['is_direct'] as bool? ?? fields['is_direct'] as bool? ?? true;
-      final notes = opt['notes']?.toString() ?? fields['notes']?.toString();
-      final curr = opt['currency']?.toString() ?? fields['currency']?.toString() ?? 'USD';
-
-      // Match partner in DB if possible
-      final matchedPartner = partners.where((p) =>
-        p.partnerName.toLowerCase().contains(rawCarrier.toLowerCase()) ||
-        rawCarrier.toLowerCase().contains(p.partnerName.toLowerCase()) ||
-        (p.scacCode != null && rawCarrier.toLowerCase().contains(p.scacCode!.toLowerCase()))
-      ).firstOrNull;
-
-      final sDate = crd.add(const Duration(days: 2));
-      final arrDate = sDate.add(Duration(days: transitDays));
-
-      final is40 = cntrType.contains('40');
-      final is20 = cntrType.contains('20');
-
-      newItems.add(ShippingScenarioItemModel(
-        providerId: matchedPartner?.providerId,
-        providerName: matchedPartner?.partnerName ?? rawCarrier,
-        vesselName: isDirect ? 'Direct Line Service' : 'Transshipment Service',
-        polName: rawPol,
-        podName: rawPod,
-        sailingDate: sDate.toString().substring(0, 10),
-        estimatedArrivalDate: arrDate.toString().substring(0, 10),
-        expectedLineDelayDays: isDirect ? 2 : 5,
+      final optMap = Map<String, dynamic>.from(options[i] as Map);
+      final opt = ExtractedQuotationOption.fromMap(optMap, i + 1);
+      newItems.add(_mapExtractedOptionToScenarioItem(
+        opt: opt,
+        crd: crd,
+        partners: partners,
+        portsList: portsList,
         isRecommended: i == 0,
-        riskLevel: isDirect ? 'Low' : 'Medium',
-        quotationCurrency: curr,
-        freeTimeDays: freeDays,
-        container40ftApplicable: is40,
-        container40ftPrice: is40 ? rate : 0.0,
-        container40ftQty: is40 ? 1 : 0,
-        container40ftCurrency: curr,
-        container20ftApplicable: is20,
-        container20ftPrice: is20 ? rate : 0.0,
-        container20ftQty: is20 ? 1 : 0,
-        container20ftCurrency: curr,
-        bookingCancellationApplicable: cancelFee != null && cancelFee > 0,
-        bookingCancellationPrice: cancelFee ?? 0.0,
-        bookingCancellationCurrency: curr,
-        othersFeeApplicable: localCharges != null && localCharges > 0,
-        othersFeePrice: localCharges ?? 0.0,
-        othersFeeCurrency: curr,
-        notes: [
-          if (!isDirect) 'رحلة غير مباشرة (Transshipment)',
-          if (notes != null && notes.isNotEmpty) notes,
-          if (localCharges != null && localCharges > 0) 'مصاريف محلية / EXW: \$$localCharges',
-        ].join(' — '),
       ));
     }
 

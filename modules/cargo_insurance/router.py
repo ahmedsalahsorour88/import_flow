@@ -16,7 +16,7 @@ from modules.cargo_insurance.service import (
     calculate_cargo_insurance_engine,
 )
 
-router = APIRouter(prefix="/cargo-insurance", tags=["Cargo & Marine Insurance"])
+router = APIRouter(prefix="/api/v1/cargo-insurance", tags=["Cargo & Marine Insurance"])
 
 
 @router.post(

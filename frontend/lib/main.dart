@@ -16,6 +16,24 @@ import 'features/home/home_screen.dart';
 
 final appReloadKeyProvider = StateProvider<int>((ref) => 0);
 
+Future<void> _ensureBackendRunning() async {
+  if (!kIsWeb && Platform.isWindows) {
+    try {
+      final dio = Dio(BaseOptions(connectTimeout: const Duration(milliseconds: 500)));
+      await dio.get('${ApiConstants.serverUrl}/docs');
+    } catch (_) {
+      try {
+        final exeDir = File(Platform.resolvedExecutable).parent.path;
+        final backendPath = '$exeDir\\backend.exe';
+        if (File(backendPath).existsSync()) {
+          Process.start(backendPath, [], mode: ProcessStartMode.detached);
+          await Future.delayed(const Duration(milliseconds: 1200));
+        }
+      } catch (_) {}
+    }
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -28,6 +46,7 @@ void main() async {
         await windowManager.focus();
       });
     } catch (_) {}
+    await _ensureBackendRunning();
   }
 
   // Custom friendly error widget — prevents red screen of death
@@ -86,7 +105,8 @@ void main() async {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 24, vertical: 12),
                     ),
-                    onPressed: () {
+                    onPressed: () async {
+                      await _ensureBackendRunning();
                       ref.read(appReloadKeyProvider.notifier).state++;
                     },
                     icon: const Icon(Icons.refresh, color: Colors.white),
@@ -217,7 +237,7 @@ class _ImportFlowAppState extends ConsumerState<ImportFlowApp>
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'ImportFlow ERP - Sorour Logistics (v1.0.8)',
+            title: 'ImportFlow ERP - Sorour Logistics (v1.0.9)',
             theme: AppTheme.lightTheme,
             scrollBehavior: AppCustomScrollBehavior(),
             locale: locale,

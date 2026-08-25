@@ -32,6 +32,7 @@ class ApiConstants {
   static String get freightQuotations => '$baseUrl/freight-quotations';
   static String get freightBooking => '$baseUrl/freight-booking';
   static String get cargoShipping => '$baseUrl/cargo-shipping';
+  static String get cargoInsurance => '$baseUrl/cargo-insurance';
   static String get demurrageDetention => '$baseUrl/demurrage-detention';
 
   // ── Calculations & Tools ──────────────────────────────────

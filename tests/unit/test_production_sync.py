@@ -110,3 +110,133 @@ class TestProductionSyncBackend(unittest.TestCase):
             self.assertEqual(rows[0], (1, 'Updated Name', 999))
             self.assertEqual(rows[1], (2, 'New Item', 200))
 
+    def test_get_comparison_detects_new_column_in_dev(self):
+        """
+        When Dev DB has a new column in an existing table that Prod DB doesn't have,
+        get_comparison() must flag it as has_schema_diff=True and is_fully_synchronized=False.
+        """
+        import sqlite3, tempfile
+        from modules.production_sync import service as sync_service
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dev_path = Path(tmpdir) / "dev.db"
+            prod_path = Path(tmpdir) / "prod.db"
+
+            # Dev DB: table with extra column 'notes'
+            conn_dev = sqlite3.connect(dev_path)
+            conn_dev.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT, notes TEXT);")
+            conn_dev.execute("INSERT INTO products VALUES (1, 'Apple', 'fresh');")
+            conn_dev.commit()
+            conn_dev.close()
+
+            # Prod DB: same table WITHOUT 'notes' column, same row count
+            conn_prod = sqlite3.connect(prod_path)
+            conn_prod.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT);")
+            conn_prod.execute("INSERT INTO products VALUES (1, 'Apple');")
+            conn_prod.commit()
+            conn_prod.close()
+
+            # Monkey-patch service paths
+            original_dev = sync_service.DEV_DB
+            original_prod = sync_service.PROD_DB
+            sync_service.DEV_DB = dev_path
+            sync_service.PROD_DB = prod_path
+            try:
+                comp = self.service.get_comparison()
+                # Must NOT be fully synchronized — schema differs
+                self.assertFalse(comp.is_fully_synchronized,
+                    "Should NOT be fully synchronized when Dev has new column Prod lacks")
+                self.assertGreater(comp.schema_diffs_count, 0,
+                    "schema_diffs_count must be > 0 when Dev has new columns")
+
+                # Find the 'products' table item
+                tbl = next((t for t in comp.tables if t.table_name == "products"), None)
+                self.assertIsNotNone(tbl)
+                self.assertTrue(tbl.has_schema_diff, "products table must have has_schema_diff=True")
+                self.assertIn("notes", tbl.new_columns, "'notes' must appear in new_columns")
+                self.assertTrue(tbl.needs_sync, "products table must need sync")
+            finally:
+                sync_service.DEV_DB = original_dev
+                sync_service.PROD_DB = original_prod
+
+    def test_get_comparison_detects_new_table_in_dev(self):
+        """
+        When Dev DB has a table that doesn't exist in Prod DB,
+        get_comparison() must flag it as is_new_table=True and is_fully_synchronized=False.
+        """
+        import sqlite3, tempfile
+        from modules.production_sync import service as sync_service
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dev_path = Path(tmpdir) / "dev.db"
+            prod_path = Path(tmpdir) / "prod.db"
+
+            # Dev DB: two tables
+            conn_dev = sqlite3.connect(dev_path)
+            conn_dev.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT);")
+            conn_dev.execute("CREATE TABLE new_feature_table (id INTEGER PRIMARY KEY, data TEXT);")
+            conn_dev.execute("INSERT INTO products VALUES (1, 'Apple');")
+            conn_dev.commit()
+            conn_dev.close()
+
+            # Prod DB: only one table (missing new_feature_table)
+            conn_prod = sqlite3.connect(prod_path)
+            conn_prod.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT);")
+            conn_prod.execute("INSERT INTO products VALUES (1, 'Apple');")
+            conn_prod.commit()
+            conn_prod.close()
+
+            # Monkey-patch service paths
+            original_dev = sync_service.DEV_DB
+            original_prod = sync_service.PROD_DB
+            sync_service.DEV_DB = dev_path
+            sync_service.PROD_DB = prod_path
+            try:
+                comp = self.service.get_comparison()
+                self.assertFalse(comp.is_fully_synchronized,
+                    "Should NOT be fully synchronized when Dev has a new table")
+                self.assertGreater(comp.schema_diffs_count, 0)
+
+                new_tbl = next((t for t in comp.tables if t.table_name == "new_feature_table"), None)
+                self.assertIsNotNone(new_tbl)
+                self.assertTrue(new_tbl.is_new_table)
+                self.assertTrue(new_tbl.has_schema_diff)
+                self.assertTrue(new_tbl.needs_sync)
+            finally:
+                sync_service.DEV_DB = original_dev
+                sync_service.PROD_DB = original_prod
+
+    def test_get_comparison_fully_synced_when_schema_identical(self):
+        """
+        When Dev and Prod have identical tables, columns, and row counts,
+        get_comparison() must report is_fully_synchronized=True.
+        """
+        import sqlite3, tempfile
+        from modules.production_sync import service as sync_service
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dev_path = Path(tmpdir) / "dev.db"
+            prod_path = Path(tmpdir) / "prod.db"
+
+            for db_path in [dev_path, prod_path]:
+                conn = sqlite3.connect(db_path)
+                conn.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT);")
+                conn.execute("INSERT INTO products VALUES (1, 'Apple');")
+                conn.commit()
+                conn.close()
+
+            original_dev = sync_service.DEV_DB
+            original_prod = sync_service.PROD_DB
+            sync_service.DEV_DB = dev_path
+            sync_service.PROD_DB = prod_path
+            try:
+                comp = self.service.get_comparison()
+                self.assertTrue(comp.is_fully_synchronized,
+                    "Should be fully synchronized when schema and data are identical")
+                self.assertEqual(comp.schema_diffs_count, 0)
+                self.assertEqual(comp.differing_tables_count, 0)
+            finally:
+                sync_service.DEV_DB = original_dev
+                sync_service.PROD_DB = original_prod
+
+

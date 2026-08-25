@@ -22,6 +22,13 @@ class TableComparisonItemSchema(BaseModel):
     diff: int
     is_match: bool
     status: str
+    # ── Schema comparison fields ─────────────────────────────────────────
+    dev_columns_count: int = 0
+    prod_columns_count: int = 0
+    new_columns: List[str] = Field(default_factory=list)   # cols in Dev missing from Prod
+    is_new_table: bool = False                              # table exists in Dev only
+    has_schema_diff: bool = False                          # True if schema differs (new cols / new table)
+    needs_sync: bool = False                               # True if data OR schema differs
 
 
 class SyncComparisonResponseSchema(BaseModel):
@@ -31,6 +38,7 @@ class SyncComparisonResponseSchema(BaseModel):
     total_tables: int
     matched_tables_count: int
     differing_tables_count: int
+    schema_diffs_count: int = 0     # tables with schema differences (new cols / new tables)
     tables: List[TableComparisonItemSchema]
 
 

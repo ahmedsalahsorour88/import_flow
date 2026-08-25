@@ -282,12 +282,31 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                           color: comp.isFullySynchronized ? AppTheme.emerald : AppTheme.charcoal,
                         ),
                       ),
-                      Text(
-                        comp.isFullySynchronized
-                            ? l.prodSyncFullySynchronizedSub
-                            : l.prodSyncUpgradeReadySub,
-                        style: const TextStyle(fontSize: 11, color: Colors.black54),
-                      ),
+                      if (!comp.isFullySynchronized) ...[
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            if (comp.differingTablesCount > 0)
+                              _buildSummaryBadge(
+                                '${comp.differingTablesCount} جداول بيانات مختلفة',
+                                AppTheme.orange,
+                                Icons.compare_arrows_rounded,
+                              ),
+                            if (comp.schemaDiffsCount > 0)
+                              _buildSummaryBadge(
+                                '${comp.schemaDiffsCount} جداول تحتاج ترقية Schema',
+                                AppTheme.cobalt,
+                                Icons.schema_rounded,
+                              ),
+                          ],
+                        ),
+                      ] else
+                        Text(
+                          l.prodSyncFullySynchronizedSub,
+                          style: const TextStyle(fontSize: 11, color: Colors.black54),
+                        ),
                     ],
                   ),
                 ),
@@ -372,56 +391,128 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                   separatorBuilder: (ctx, i) => Divider(height: 1, color: Colors.grey.shade200),
                   itemBuilder: (ctx, idx) {
                     final item = filteredTables[idx];
+
+                    // Determine row highlight color
+                    Color rowBg = Colors.transparent;
+                    if (item.isNewTable) {
+                      rowBg = const Color(0xFFF3E8FF).withOpacity(0.5); // purple tint
+                    } else if (item.hasSchemaDiff) {
+                      rowBg = const Color(0xFFEFF6FF).withOpacity(0.5); // blue tint
+                    } else if (!item.isMatch) {
+                      rowBg = Colors.amber.shade50.withOpacity(0.4);    // amber tint
+                    }
+
                     return Container(
-                      color: item.isMatch ? Colors.transparent : Colors.amber.shade50.withOpacity(0.4),
+                      color: rowBg,
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            item.isMatch ? Icons.check_circle_outline : Icons.upgrade_rounded,
-                            size: 16,
-                            color: item.isMatch ? AppTheme.emerald : AppTheme.cobalt,
+                          Row(
+                            children: [
+                              // ── Status icon ─────────────────────────────────
+                              Icon(
+                                item.isNewTable
+                                    ? Icons.add_circle_outline_rounded
+                                    : item.hasSchemaDiff
+                                        ? Icons.schema_rounded
+                                        : item.isMatch
+                                            ? Icons.check_circle_outline
+                                            : Icons.compare_arrows_rounded,
+                                size: 16,
+                                color: item.isNewTable
+                                    ? const Color(0xFF7C3AED)
+                                    : item.hasSchemaDiff
+                                        ? AppTheme.cobalt
+                                        : item.isMatch
+                                            ? AppTheme.emerald
+                                            : AppTheme.orange,
+                              ),
+                              const SizedBox(width: 10),
+                              // ── Table name ──────────────────────────────────
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  item.tableName,
+                                  style: TextStyle(
+                                    fontWeight: item.isMatch ? FontWeight.normal : FontWeight.bold,
+                                    fontSize: 12,
+                                    fontFamily: 'monospace',
+                                    color: item.isNewTable
+                                        ? const Color(0xFF7C3AED)
+                                        : item.hasSchemaDiff
+                                            ? AppTheme.cobalt
+                                            : item.isMatch
+                                                ? AppTheme.charcoal
+                                                : AppTheme.orange,
+                                  ),
+                                ),
+                              ),
+                              // ── Dev count ───────────────────────────────────
+                              Expanded(
+                                flex: 2,
+                                child: Text(l.prodSyncDevRecordsCount(item.devCount),
+                                    style: const TextStyle(fontSize: 11.5, color: Colors.black87)),
+                              ),
+                              // ── Prod count ──────────────────────────────────
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  item.isNewTable
+                                      ? '— غير موجود'
+                                      : l.prodSyncProdRecordsCount(item.prodCount),
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: item.isNewTable ? Colors.grey : Colors.black87,
+                                    fontStyle: item.isNewTable ? FontStyle.italic : FontStyle.normal,
+                                  ),
+                                ),
+                              ),
+                              // ── Status badge ────────────────────────────────
+                              _buildTableStatusBadge(item),
+                            ],
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 3,
-                            child: Text(
-                              item.tableName,
-                              style: TextStyle(
-                                fontWeight: item.isMatch ? FontWeight.normal : FontWeight.bold,
-                                fontSize: 12,
-                                fontFamily: 'monospace',
-                                color: item.isMatch ? AppTheme.charcoal : AppTheme.cobalt,
+                          // ── New columns list (if schema diff) ────────────────
+                          if (item.hasSchemaDiff && !item.isNewTable && item.newColumns.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 26, top: 4),
+                              child: Wrap(
+                                spacing: 4,
+                                runSpacing: 2,
+                                children: [
+                                  const Icon(Icons.add_box_outlined, size: 12, color: AppTheme.cobalt),
+                                  const SizedBox(width: 2),
+                                  ...item.newColumns.take(5).map((col) => Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.cobalt.withOpacity(0.08),
+                                          borderRadius: BorderRadius.circular(3),
+                                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                                        ),
+                                        child: Text(
+                                          col,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontFamily: 'monospace',
+                                            color: AppTheme.cobalt,
+                                          ),
+                                        ),
+                                      )),
+                                  if (item.newColumns.length > 5)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade100,
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: Text(
+                                        '+${item.newColumns.length - 5} more',
+                                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(l.prodSyncDevRecordsCount(item.devCount),
-                                style: const TextStyle(fontSize: 11.5, color: Colors.black87)),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(l.prodSyncProdRecordsCount(item.prodCount),
-                                style: const TextStyle(fontSize: 11.5, color: Colors.black87)),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: item.isMatch
-                                  ? AppTheme.emerald.withOpacity(0.12)
-                                  : AppTheme.cobalt.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              item.isMatch ? l.prodSyncTableStatusUpdated : item.status,
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
-                                color: item.isMatch ? AppTheme.emerald : AppTheme.cobalt,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     );
@@ -609,6 +700,71 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
               error: (err, st) =>
                   Center(child: Text(l.prodSyncErrorFetchingComparison(err), style: const TextStyle(color: AppTheme.crimson))),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Helper: Status badge for each table row
+  // ──────────────────────────────────────────────────────────────────────────
+
+  Widget _buildTableStatusBadge(TableComparisonItemModel item) {
+    if (item.isNewTable) {
+      return _buildBadgeChip('جدول جديد', const Color(0xFF7C3AED), const Color(0xFFF3E8FF));
+    }
+    if (item.hasSchemaDiff && item.isMatch) {
+      return _buildBadgeChip('Schema Upgrade', AppTheme.cobalt, const Color(0xFFEFF6FF));
+    }
+    if (item.hasSchemaDiff && !item.isMatch) {
+      return _buildBadgeChip('بيانات + Schema', AppTheme.orange, const Color(0xFFFFFBEB));
+    }
+    if (!item.isMatch) {
+      return _buildBadgeChip(
+        item.diff > 0 ? '+${item.diff} سجل' : '${item.diff} سجل',
+        AppTheme.orange,
+        Colors.amber.shade50,
+      );
+    }
+    return _buildBadgeChip('✓ متطابق', AppTheme.emerald, const Color(0xFFF0FDF4));
+  }
+
+  Widget _buildBadgeChip(String label, Color textColor, Color bgColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: textColor.withOpacity(0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.bold,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryBadge(String label, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),

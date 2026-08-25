@@ -262,6 +262,27 @@ class ProductionSyncService:
             "rows_merged": rows_merged,
         }
 
+    def _get_table_columns(self, db_path: Path) -> Dict[str, List[str]]:
+        """Returns {table_name: [col1, col2, ...]} for all tables in db_path."""
+        if not db_path.exists():
+            return {}
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+            tables = [row[0] for row in cursor.fetchall()]
+            result = {}
+            for table in tables:
+                try:
+                    cursor.execute(f'PRAGMA table_info("{table}");')
+                    result[table] = [row[1] for row in cursor.fetchall()]
+                except Exception:
+                    result[table] = []
+            conn.close()
+            return result
+        except Exception:
+            return {}
+
     def get_comparison(self) -> SyncComparisonResponseSchema:
         dev_stats = self._get_db_stats(DEV_DB)
         prod_stats = self._get_db_stats(PROD_DB)
@@ -269,23 +290,56 @@ class ProductionSyncService:
         dev_counts = self._get_table_counts(DEV_DB)
         prod_counts = self._get_table_counts(PROD_DB)
 
+        # ── Schema comparison ────────────────────────────────────────────
+        dev_columns = self._get_table_columns(DEV_DB)
+        prod_columns = self._get_table_columns(PROD_DB)
+
         all_table_names = sorted(set(list(dev_counts.keys()) + list(prod_counts.keys())))
-        
+
         table_items: List[TableComparisonItemSchema] = []
         matched_count = 0
         diff_count = 0
+        schema_diffs_count = 0
 
         for tbl in all_table_names:
             d_c = dev_counts.get(tbl, 0)
             p_c = prod_counts.get(tbl, 0)
             diff = d_c - p_c
-            is_m = (d_c == p_c)
-            if is_m:
+
+            dev_cols = dev_columns.get(tbl, [])
+            prod_cols_set = set(prod_columns.get(tbl, []))
+
+            is_new_table = tbl not in prod_counts
+            new_columns = [c for c in dev_cols if c not in prod_cols_set] if not is_new_table else []
+            has_schema_diff = is_new_table or len(new_columns) > 0
+
+            # Data match: same row count (for existing tables in both DBs)
+            data_match = (d_c == p_c) and not is_new_table
+
+            # Fully matched: same data AND same schema
+            is_fully_matched = data_match and not has_schema_diff
+
+            needs_sync = not is_fully_matched
+
+            if is_fully_matched:
                 matched_count += 1
                 status_str = "متطابق (Matched)"
             else:
                 diff_count += 1
-                status_str = f"فرق ({diff:+d})"
+                if is_new_table:
+                    status_str = "جدول جديد (New Table)"
+                elif has_schema_diff and data_match:
+                    new_cols_preview = ", ".join(new_columns[:3])
+                    if len(new_columns) > 3:
+                        new_cols_preview += f" +{len(new_columns) - 3}"
+                    status_str = f"ترقية Schema ({len(new_columns)} عمود جديد: {new_cols_preview})"
+                elif has_schema_diff:
+                    status_str = f"فرق بيانات + Schema ({diff:+d} سجل, {len(new_columns)} عمود)"
+                else:
+                    status_str = f"فرق ({diff:+d})"
+
+            if has_schema_diff:
+                schema_diffs_count += 1
 
             table_items.append(
                 TableComparisonItemSchema(
@@ -293,12 +347,19 @@ class ProductionSyncService:
                     dev_count=d_c,
                     prod_count=p_c,
                     diff=diff,
-                    is_match=is_m,
+                    is_match=is_fully_matched,
                     status=status_str,
+                    dev_columns_count=len(dev_cols),
+                    prod_columns_count=len(prod_columns.get(tbl, [])),
+                    new_columns=new_columns,
+                    is_new_table=is_new_table,
+                    has_schema_diff=has_schema_diff,
+                    needs_sync=needs_sync,
                 )
             )
 
-        is_fully_sync = (diff_count == 0) and dev_stats.exists and prod_stats.exists
+        # Fully synchronized only when data AND schema are identical across all tables
+        is_fully_sync = (diff_count == 0) and (schema_diffs_count == 0) and dev_stats.exists and prod_stats.exists
 
         return SyncComparisonResponseSchema(
             dev_stats=dev_stats,
@@ -307,6 +368,7 @@ class ProductionSyncService:
             total_tables=len(all_table_names),
             matched_tables_count=matched_count,
             differing_tables_count=diff_count,
+            schema_diffs_count=schema_diffs_count,
             tables=table_items,
         )
 

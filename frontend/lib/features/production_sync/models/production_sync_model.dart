@@ -37,6 +37,13 @@ class TableComparisonItemModel {
   final int diff;
   final bool isMatch;
   final String status;
+  // ── Schema comparison fields ──────────────────────────────────────────
+  final int devColumnsCount;
+  final int prodColumnsCount;
+  final List<String> newColumns;
+  final bool isNewTable;
+  final bool hasSchemaDiff;
+  final bool needsSync;
 
   const TableComparisonItemModel({
     required this.tableName,
@@ -45,6 +52,12 @@ class TableComparisonItemModel {
     required this.diff,
     required this.isMatch,
     required this.status,
+    this.devColumnsCount = 0,
+    this.prodColumnsCount = 0,
+    this.newColumns = const [],
+    this.isNewTable = false,
+    this.hasSchemaDiff = false,
+    this.needsSync = false,
   });
 
   factory TableComparisonItemModel.fromJson(Map<String, dynamic> json) {
@@ -55,6 +68,12 @@ class TableComparisonItemModel {
       diff: json['diff'] as int? ?? 0,
       isMatch: json['is_match'] as bool? ?? true,
       status: json['status'] as String? ?? '',
+      devColumnsCount: json['dev_columns_count'] as int? ?? 0,
+      prodColumnsCount: json['prod_columns_count'] as int? ?? 0,
+      newColumns: (json['new_columns'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      isNewTable: json['is_new_table'] as bool? ?? false,
+      hasSchemaDiff: json['has_schema_diff'] as bool? ?? false,
+      needsSync: json['needs_sync'] as bool? ?? false,
     );
   }
 }
@@ -66,6 +85,7 @@ class SyncComparisonResponseModel {
   final int totalTables;
   final int matchedTablesCount;
   final int differingTablesCount;
+  final int schemaDiffsCount;
   final List<TableComparisonItemModel> tables;
 
   const SyncComparisonResponseModel({
@@ -75,6 +95,7 @@ class SyncComparisonResponseModel {
     required this.totalTables,
     required this.matchedTablesCount,
     required this.differingTablesCount,
+    this.schemaDiffsCount = 0,
     required this.tables,
   });
 
@@ -86,6 +107,7 @@ class SyncComparisonResponseModel {
       totalTables: json['total_tables'] as int? ?? 0,
       matchedTablesCount: json['matched_tables_count'] as int? ?? 0,
       differingTablesCount: json['differing_tables_count'] as int? ?? 0,
+      schemaDiffsCount: json['schema_diffs_count'] as int? ?? 0,
       tables: (json['tables'] as List<dynamic>? ?? [])
           .map((item) => TableComparisonItemModel.fromJson(Map<String, dynamic>.from(item as Map)))
           .toList(),

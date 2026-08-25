@@ -5143,6 +5143,135 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String holdSuccessNotification(String code, String stage) =>
       '⚠️ تم إيقاف وتجميد الشحنة ($code) بنجاح عند مرحلة: $stage';
+
+  // ── Purchase Order Comprehensive Report Preview ───────────────────────────
+  @override
+  String get poReportPreviewTitle =>
+      'معاينة تقرير أمر الشراء وقائمة التعبئة المعتمدة';
+  @override
+  String get poReportPreviewSubtitle =>
+      'استعراض تفصيلي شامل ومطابقة نهائية قبل الحفظ — Sorour Logistics ERP';
+  @override
+  String get poReport3dSimulation => 'محاكاة الرص 3D';
+  @override
+  String get poReportCopyText => 'نسخ نص التقرير';
+  @override
+  String get poReportClosePreview => 'إغلاق المعاينة';
+  @override
+  String get poReportHeaderDocumentTitle =>
+      'أمر الشراء ومواصفات التعبئة المعتمدة';
+  @override
+  String get poReportPoNumber => 'رقم أمر الشراء';
+  @override
+  String get poReportPiNumber => 'الفاتورة المبدئية PI';
+  @override
+  String get poReportAcidNumber => 'رقم القيد الجمركي ACID';
+  @override
+  String get poReportOrderDate => 'تاريخ الطلب';
+  @override
+  String get poReportExchangeRate => 'سعر الصرف';
+  @override
+  String get poReportIncoterms => 'شروط التسليم (Incoterms)';
+  @override
+  String get poReportOrigin => 'بلد المنشأ';
+  @override
+  String get poReportBuyer => 'الشركة المستوردة (Buyer)';
+  @override
+  String get poReportTaxId => 'السجل الضريبي';
+  @override
+  String get poReportImportFile => 'ملف الشحنة';
+  @override
+  String get poReportSeller => 'المورد الأجنبي (Seller)';
+  @override
+  String get poReportSupplierCountry => 'دولة المورد';
+  @override
+  String get poReportPaymentTerms => 'شروط السداد';
+  @override
+  String get poReportTotalInvoice => 'إجمالي الفاتورة';
+  @override
+  String get poReportTotalPkgsAndPcs => 'عدد الطرود والقطع';
+  @override
+  String get poReportGrossWeight => 'الوزن القائم';
+  @override
+  String get poReportNetWeight => 'الوزن الصافي';
+  @override
+  String get poReportVolumeCbm => 'الحجم CBM';
+  @override
+  String get poReportPalletPlan => 'مخطط البالتات';
+  @override
+  String get poReportRecommendedContainer => 'الحاوية المقترحة';
+  @override
+  String get poReportSec1InvoiceItems =>
+      '1. جدول بنود الفاتورة التجارية (Commercial Invoice Line Items)';
+  @override
+  String get poReportSec2PackingList =>
+      '2. بيان قائمة التعبئة والطرود والأبعاد (Detailed Packing List)';
+  @override
+  String get poReportSec3PalletPlan =>
+      '3. لوحة مخطط البالتات ووحدات الشحن (Master Palletization Plan)';
+  @override
+  String get poReportSec4Notes =>
+      '4. الملاحظات والشروط الإضافية (Additional Notes & Terms)';
+  @override
+  String get poReportColItemCode => 'كود الصنف';
+  @override
+  String get poReportColDescription => 'البيان والوصف';
+  @override
+  String get poReportColHsCode => 'بند التعريفة (HS Code)';
+  @override
+  String get poReportColQtyUnit => 'الكمية / الوحدة';
+  @override
+  String get poReportColUnitPrice => 'سعر الوحدة';
+  @override
+  String get poReportColTotalAmount => 'الإجمالي (Total)';
+  @override
+  String get poReportColPkgType => 'نوع التعبئة';
+  @override
+  String get poReportColDimensions => 'الأبعاد (سم)';
+  @override
+  String get poReportColStackable => 'الرص';
+  @override
+  String get poReportStackableYes => '📦 نعم';
+  @override
+  String get poReportStackableNo => '🚫 أرضي';
+  @override
+  String get poReportGrandTotal => 'الإجمالي الكلي';
+  @override
+  String get poReportTotalPacking => 'إجمالي التعبئة';
+  @override
+  String get poReportTotalPallets => 'إجمالي البالتات';
+  @override
+  String get poReportReadyForApproval => 'جاهز للاعتماد';
+  @override
+  String get poReportCloseAndEdit => 'إغلاق والعودة للتعديل';
+  @override
+  String get poReportSaveAndApprove => 'حفظ واعتماد أمر الشراء';
+  @override
+  String get poReportCopiedToClipboard =>
+      '📋 تم نسخ نص التقرير بالكامل للحافظة بنجاح!';
+  @override
+  String poReportItemsCountUnit(int count) => '$count بنود';
+  @override
+  String poReportPackagesCountUnit(int count) => '$count طرد';
+  @override
+  String poReportPiecesCountUnit(int count) => '$count قطعة';
+  @override
+  String poReportPalletsCountUnit(int count) => '$count بالتات';
+  @override
+  String poReportRowsCountUnit(int count) => '$count أسطر';
+  @override
+  String get poReportDirectVolume => 'حجم مباشر';
+  @override
+  String get poReportLanguageToggleTooltip =>
+      'تغيير لغة التقرير (عربي / English)';
+  @override
+  String get poReportSwitchLanguageBtn => 'English';
+  @override
+  String get savePurchaseOrderBtn => 'حفظ أمر الشراء';
+  @override
+  String get savePoEditsBtn => 'حفظ تعديلات أمر الشراء';
+  @override
+  String get previewPoReportBtn => 'معاينة تقرير أمر الشراء';
 }
 
 

@@ -5143,6 +5143,135 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String holdSuccessNotification(String code, String stage) =>
       '⚠️ Shipment ($code) held successfully at stage: $stage';
+
+  // ── Purchase Order Comprehensive Report Preview ───────────────────────────
+  @override
+  String get poReportPreviewTitle =>
+      'Purchase Order & Packing List Preview';
+  @override
+  String get poReportPreviewSubtitle =>
+      'Comprehensive Detailed Review & Final Reconciliation — Sorour Logistics ERP';
+  @override
+  String get poReport3dSimulation => '3D Load Simulation';
+  @override
+  String get poReportCopyText => 'Copy Report Text';
+  @override
+  String get poReportClosePreview => 'Close Preview';
+  @override
+  String get poReportHeaderDocumentTitle =>
+      'PURCHASE ORDER & PACKING SPECIFICATION';
+  @override
+  String get poReportPoNumber => 'PO Number';
+  @override
+  String get poReportPiNumber => 'Proforma Invoice (PI)';
+  @override
+  String get poReportAcidNumber => 'ACID Number';
+  @override
+  String get poReportOrderDate => 'Order Date';
+  @override
+  String get poReportExchangeRate => 'Exchange Rate';
+  @override
+  String get poReportIncoterms => 'Incoterms';
+  @override
+  String get poReportOrigin => 'Country of Origin';
+  @override
+  String get poReportBuyer => 'Buyer (Importer)';
+  @override
+  String get poReportTaxId => 'Tax ID';
+  @override
+  String get poReportImportFile => 'Import File';
+  @override
+  String get poReportSeller => 'Seller (Foreign Exporter)';
+  @override
+  String get poReportSupplierCountry => 'Supplier Country';
+  @override
+  String get poReportPaymentTerms => 'Payment Terms';
+  @override
+  String get poReportTotalInvoice => 'Total Invoice';
+  @override
+  String get poReportTotalPkgsAndPcs => 'Packages & Pieces';
+  @override
+  String get poReportGrossWeight => 'Gross Weight';
+  @override
+  String get poReportNetWeight => 'Net Weight';
+  @override
+  String get poReportVolumeCbm => 'Volume CBM';
+  @override
+  String get poReportPalletPlan => 'Pallet Plan';
+  @override
+  String get poReportRecommendedContainer => 'Recommended Container';
+  @override
+  String get poReportSec1InvoiceItems =>
+      '1. Commercial Invoice Line Items Table';
+  @override
+  String get poReportSec2PackingList =>
+      '2. Detailed Packing List & Dimensions';
+  @override
+  String get poReportSec3PalletPlan =>
+      '3. Master Palletization Plan';
+  @override
+  String get poReportSec4Notes =>
+      '4. Additional Notes & Terms';
+  @override
+  String get poReportColItemCode => 'Item Code';
+  @override
+  String get poReportColDescription => 'Description';
+  @override
+  String get poReportColHsCode => 'HS Code';
+  @override
+  String get poReportColQtyUnit => 'Qty / Unit';
+  @override
+  String get poReportColUnitPrice => 'Unit Price';
+  @override
+  String get poReportColTotalAmount => 'Total Amount';
+  @override
+  String get poReportColPkgType => 'Package Type';
+  @override
+  String get poReportColDimensions => 'Dimensions (cm)';
+  @override
+  String get poReportColStackable => 'Stacking';
+  @override
+  String get poReportStackableYes => '📦 Yes';
+  @override
+  String get poReportStackableNo => '🚫 Floor Only';
+  @override
+  String get poReportGrandTotal => 'Grand Total';
+  @override
+  String get poReportTotalPacking => 'Total Packing';
+  @override
+  String get poReportTotalPallets => 'Total Pallets';
+  @override
+  String get poReportReadyForApproval => 'Ready for Approval';
+  @override
+  String get poReportCloseAndEdit => 'Close & Return to Edit';
+  @override
+  String get poReportSaveAndApprove => 'Save & Approve Purchase Order';
+  @override
+  String get poReportCopiedToClipboard =>
+      '📋 Full report text copied to clipboard successfully!';
+  @override
+  String poReportItemsCountUnit(int count) => '$count items';
+  @override
+  String poReportPackagesCountUnit(int count) => '$count pkgs';
+  @override
+  String poReportPiecesCountUnit(int count) => '$count pcs';
+  @override
+  String poReportPalletsCountUnit(int count) => '$count pallets';
+  @override
+  String poReportRowsCountUnit(int count) => '$count rows';
+  @override
+  String get poReportDirectVolume => 'Direct Volume';
+  @override
+  String get poReportLanguageToggleTooltip =>
+      'Switch report language (العربية / English)';
+  @override
+  String get poReportSwitchLanguageBtn => 'العربية';
+  @override
+  String get savePurchaseOrderBtn => 'Save Purchase Order';
+  @override
+  String get savePoEditsBtn => 'Save PO Changes';
+  @override
+  String get previewPoReportBtn => 'Preview PO Report';
 }
 
 

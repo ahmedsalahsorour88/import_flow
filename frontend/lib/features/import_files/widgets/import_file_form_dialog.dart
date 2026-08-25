@@ -47,9 +47,9 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
   late TextEditingController _form4Controller;
   late TextEditingController _swiftController;
   late TextEditingController _form46Controller;
-  late TextEditingController _ownerController;
   late TextEditingController _notesController;
 
+  String? _selectedOwner;
   int? _selectedCompanyId;
   String _companyName = '';
   int? _selectedSupplierId;
@@ -79,9 +79,9 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     super.initState();
     final f = widget.fileToEdit;
     _initialStartingStep = f?.initialStartingStep ?? 'STEP_01';
-    _customFileIdController = TextEditingController(text: f?.customFileNumber ?? '6701068100');
-    _poNoController = TextEditingController(text: f?.poNumber ?? 'PO-1001');
-    _piNoController = TextEditingController(text: f?.piNumber ?? 'PI-889');
+    _customFileIdController = TextEditingController(text: f?.customFileNumber ?? '');
+    _poNoController = TextEditingController(text: f?.poNumber ?? '');
+    _piNoController = TextEditingController(text: f?.piNumber ?? '');
     _estimatedCostController = TextEditingController(text: (f?.estimatedCost != null && f!.estimatedCost > 0) ? f.estimatedCost.toString() : '');
     _selectedScenarioController = TextEditingController(text: f?.selectedScenario ?? '');
     _pickupAddressController = TextEditingController(text: f?.pickupAddress ?? '');
@@ -93,8 +93,9 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     _form4Controller = TextEditingController(text: f?.form4No ?? '');
     _swiftController = TextEditingController(text: f?.swiftNo ?? '');
     _form46Controller = TextEditingController(text: f?.form46No ?? '');
-    _ownerController = TextEditingController(text: f?.owner ?? 'Kamal');
     _notesController = TextEditingController(text: f?.notes ?? '');
+
+    _selectedOwner = f?.owner ?? (f?.companyName.isNotEmpty == true ? f!.companyName : null);
 
     if (f?.fileOpeningDate != null && f!.fileOpeningDate!.isNotEmpty) {
       _fileOpeningDate = DateTime.tryParse(f.fileOpeningDate!) ?? DateTime.now();
@@ -184,16 +185,35 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     _piNoController.dispose();
     _estimatedCostController.dispose();
     _selectedScenarioController.dispose();
+    _pickupAddressController.dispose();
+    _polController.dispose();
+    _podController.dispose();
+    _targetFreeDaysController.dispose();
+    _shippingInstructionsNotesController.dispose();
     _form4Controller.dispose();
     _swiftController.dispose();
     _form46Controller.dispose();
-    _ownerController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final companies = ref.read(importCompaniesProvider).value ?? [];
+    final suppliers = ref.read(suppliersProvider).value ?? [];
+    final partners = ref.read(partnersProvider).value ?? [];
+    final projects = ref.read(projectsProvider).value ?? [];
+
+    if (_selectedCompanyId != null && companies.any((c) => c.companyId == _selectedCompanyId)) {
+      _companyName = companies.firstWhere((c) => c.companyId == _selectedCompanyId).importerName;
+    }
+    if (_selectedSupplierId != null && suppliers.any((s) => s.supplierId == _selectedSupplierId)) {
+      _supplierName = suppliers.firstWhere((s) => s.supplierId == _selectedSupplierId).companyName;
+    }
+    if (_selectedBrokerId != null && partners.any((p) => p.providerId == _selectedBrokerId)) {
+      _brokerName = partners.firstWhere((p) => p.providerId == _selectedBrokerId).partnerName;
+    }
 
     if (_companyName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ يرجى اختيار الشركة المستوردة المصرية'), backgroundColor: Colors.red));
@@ -204,7 +224,10 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
       return;
     }
 
-    final projects = ref.read(projectsProvider).value ?? [];
+    final selectedOwner = (_selectedOwner != null && _selectedOwner!.isNotEmpty)
+        ? _selectedOwner!
+        : (_companyName.isNotEmpty ? _companyName : 'Kamal');
+
     final selectedPjNames = projects
         .where((p) => _selectedProjectIds.contains(p.projectId))
         .map((p) => p.projectName)
@@ -213,15 +236,15 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     setState(() => _isSaving = true);
     try {
       final payload = {
-        'custom_file_number': _customFileIdController.text.trim(),
+        'custom_file_number': _customFileIdController.text.trim().isEmpty ? null : _customFileIdController.text.trim(),
         'company_id': _selectedCompanyId,
         'company_name': _companyName,
         'supplier_id': _selectedSupplierId,
         'supplier_name': _supplierName,
         'broker_id': _selectedBrokerId,
-        'broker_name': _brokerName,
-        'po_number': _poNoController.text.trim(),
-        'pi_number': _piNoController.text.trim(),
+        'broker_name': _brokerName.isEmpty ? null : _brokerName,
+        'po_number': _poNoController.text.trim().isEmpty ? null : _poNoController.text.trim(),
+        'pi_number': _piNoController.text.trim().isEmpty ? null : _piNoController.text.trim(),
         'invoices_data': _invoices.map((i) => i.toJson()).toList(),
         'packing_lists_data': _packingLists.map((p) => p.toJson()).toList(),
         'project_ids': _selectedProjectIds,
@@ -240,15 +263,15 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         'target_free_days': int.tryParse(_targetFreeDaysController.text.trim()) ?? 21,
         'service_type_preference': _serviceTypePreference,
         'shipping_instructions_notes': _shippingInstructionsNotesController.text.trim().isEmpty ? null : _shippingInstructionsNotesController.text.trim(),
-        'form4_no': _form4Controller.text.trim(),
-        'swift_no': _swiftController.text.trim(),
-        'form46_no': _form46Controller.text.trim(),
+        'form4_no': _form4Controller.text.trim().isEmpty ? null : _form4Controller.text.trim(),
+        'swift_no': _swiftController.text.trim().isEmpty ? null : _swiftController.text.trim(),
+        'form46_no': _form46Controller.text.trim().isEmpty ? null : _form46Controller.text.trim(),
         'estimated_cost': double.tryParse(_estimatedCostController.text.trim()) ?? 0.0,
         'estimated_cost_currency': _estimatedCostCurrency,
         'initial_starting_step': _initialStartingStep,
         'status': _status,
-        'owner': _ownerController.text.trim(),
-        'notes': _notesController.text.trim(),
+        'owner': selectedOwner,
+        'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
       };
 
       if (widget.fileToEdit == null) {
@@ -260,22 +283,54 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         if (FieldChangeItem.isDifferent(oldFile.customFileNumber, payload['custom_file_number'])) {
           changes.add(FieldChangeItem(
             fieldName: 'رقم الملف الجمركي / الداخلي',
-            oldValue: oldFile.customFileNumber,
-            newValue: payload['custom_file_number'],
+            oldValue: oldFile.customFileNumber ?? '—',
+            newValue: payload['custom_file_number'] ?? '—',
           ));
         }
         if (FieldChangeItem.isDifferent(oldFile.companyId, payload['company_id'])) {
+          final oldComp = companies.where((c) => c.companyId == oldFile.companyId).firstOrNull?.importerName ?? oldFile.companyName;
+          final newComp = companies.where((c) => c.companyId == payload['company_id']).firstOrNull?.importerName ?? _companyName;
           changes.add(FieldChangeItem(
             fieldName: 'الشركة المستوردة',
-            oldValue: oldFile.companyName,
-            newValue: 'ID: ${payload['company_id']}',
+            oldValue: oldComp,
+            newValue: newComp,
           ));
         }
         if (FieldChangeItem.isDifferent(oldFile.supplierId, payload['supplier_id'])) {
+          final oldSup = suppliers.where((s) => s.supplierId == oldFile.supplierId).firstOrNull?.companyName ?? oldFile.supplierName;
+          final newSup = suppliers.where((s) => s.supplierId == payload['supplier_id']).firstOrNull?.companyName ?? _supplierName;
           changes.add(FieldChangeItem(
             fieldName: 'المورد الأجنبي',
-            oldValue: oldFile.supplierName,
-            newValue: 'ID: ${payload['supplier_id']}',
+            oldValue: oldSup,
+            newValue: newSup,
+          ));
+        }
+        if (FieldChangeItem.isDifferent(oldFile.owner, payload['owner'])) {
+          changes.add(FieldChangeItem(
+            fieldName: 'مسؤول الملف / المالك (Owner)',
+            oldValue: oldFile.owner,
+            newValue: payload['owner'],
+          ));
+        }
+        if (FieldChangeItem.isDifferent(oldFile.poNumber, payload['po_number'])) {
+          changes.add(FieldChangeItem(
+            fieldName: 'أمر الشراء (PO Number)',
+            oldValue: oldFile.poNumber ?? '—',
+            newValue: payload['po_number'] ?? '—',
+          ));
+        }
+        if (FieldChangeItem.isDifferent(oldFile.piNumber, payload['pi_number'])) {
+          changes.add(FieldChangeItem(
+            fieldName: 'الفاتورة المبدئية (PI Number)',
+            oldValue: oldFile.piNumber ?? '—',
+            newValue: payload['pi_number'] ?? '—',
+          ));
+        }
+        if (FieldChangeItem.isDifferent(oldFile.estimatedCost, payload['estimated_cost'])) {
+          changes.add(FieldChangeItem(
+            fieldName: 'التكلفة التقديرية',
+            oldValue: '${oldFile.estimatedCost} ${oldFile.estimatedCostCurrency}',
+            newValue: '${payload['estimated_cost']} ${payload['estimated_cost_currency']}',
           ));
         }
         if (FieldChangeItem.isDifferent(oldFile.status, payload['status'])) {
@@ -288,8 +343,8 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         if (FieldChangeItem.isDifferent(oldFile.notes, payload['notes'])) {
           changes.add(FieldChangeItem(
             fieldName: 'الملاحظات والتعليمات',
-            oldValue: oldFile.notes,
-            newValue: payload['notes'],
+            oldValue: oldFile.notes ?? '—',
+            newValue: payload['notes'] ?? '—',
           ));
         }
 
@@ -309,8 +364,13 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         await ref.read(importFilesProvider.notifier).updateImportFile(widget.fileToEdit!.importFileId, payload);
       }
 
+      ref.read(paginatedImportFilesProvider.notifier).fetchPage(
+        ref.read(paginatedImportFilesProvider).page,
+      );
+      await ref.read(importFilesProvider.notifier).fetchImportFiles();
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ تم حفظ ملف الاستيراد بنجاح!'), backgroundColor: AppTheme.emerald));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ تم حفظ وتحديث ملف الاستيراد بنجاح!'), backgroundColor: AppTheme.emerald));
         Navigator.pop(context);
       }
     } catch (e) {
@@ -388,6 +448,9 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                             setState(() {
                               _selectedCompanyId = val;
                               _companyName = comp.importerName;
+                              if (_selectedOwner == null || _selectedOwner!.isEmpty) {
+                                _selectedOwner = comp.importerName;
+                              }
                               _selectedProjectIds.clear(); // Reset projects on company change
                             });
                           }
@@ -481,29 +544,42 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        alignment: WrapAlignment.spaceBetween,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
-                          const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 20),
-                          const SizedBox(width: 8),
-                          Text('${l.invoicesCountAndNumbers} (${_invoices.length} ${l.invoicesUnit} | ${_packingLists.length} ${l.packingListsUnit})', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                          const Spacer(),
-                          TextButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                _invoices.add(InvoiceItemModel(invoiceNo: 'PI-${890 + _invoices.length}', amount: 12000, currency: 'USD'));
-                              });
-                            },
-                            icon: const Icon(Icons.add, size: 16),
-                            label: Text('+ ${l.poInvoiceLabel}'),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 20),
+                              const SizedBox(width: 8),
+                              Text('${l.invoicesCountAndNumbers} (${_invoices.length} ${l.invoicesUnit} | ${_packingLists.length} ${l.packingListsUnit})', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                            ],
                           ),
-                          TextButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                _packingLists.add(PackingListItemModel(plNo: 'PL-${890 + _packingLists.length}', totalPackages: 30, cbm: 20));
-                              });
-                            },
-                            icon: const Icon(Icons.add, size: 16),
-                            label: Text('+ ${l.packingListsUnit}'),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _invoices.add(InvoiceItemModel(invoiceNo: 'PI-${890 + _invoices.length}', amount: 12000, currency: 'USD'));
+                                  });
+                                },
+                                icon: const Icon(Icons.add, size: 16),
+                                label: Text('+ ${l.poInvoiceLabel}'),
+                              ),
+                              TextButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _packingLists.add(PackingListItemModel(plNo: 'PL-${890 + _packingLists.length}', totalPackages: 30, cbm: 20));
+                                  });
+                                },
+                                icon: const Icon(Icons.add, size: 16),
+                                label: Text('+ ${l.packingListsUnit}'),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -914,9 +990,29 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 1,
-                      child: TextFormField(
-                        controller: _ownerController,
-                        decoration: InputDecoration(labelText: '${l.owner} *', border: const OutlineInputBorder()),
+                      child: SearchableDropdownField<String?>(
+                        value: _selectedOwner != null && companies.any((c) => c.importerName == _selectedOwner)
+                            ? _selectedOwner
+                            : (_selectedCompanyId != null && companies.any((c) => c.companyId == _selectedCompanyId)
+                                ? companies.firstWhere((c) => c.companyId == _selectedCompanyId).importerName
+                                : (_selectedOwner?.isNotEmpty == true ? _selectedOwner : null)),
+                        labelText: '${l.owner} *',
+                        searchHintText: l.searchByShipmentOrCompany,
+                        items: [
+                          ...companies.map((c) => SearchableDropdownItem<String?>(
+                                value: c.importerName,
+                                label: c.importerName,
+                                subtitle: c.vatId,
+                              )),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _selectedOwner = val;
+                            });
+                          }
+                        },
+                        validator: (v) => (v == null || v.trim().isEmpty) ? l.owner : null,
                       ),
                     ),
                   ],

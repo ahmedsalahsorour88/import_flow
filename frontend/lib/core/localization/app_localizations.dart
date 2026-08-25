@@ -4238,6 +4238,67 @@ abstract class AppLocalizations {
   String get holdDialogReasonHint;
   String get confirmHoldActionBtn;
   String holdSuccessNotification(String code, String stage);
+
+  // ── Purchase Order Comprehensive Report Preview ───────────────────────────
+  String get poReportPreviewTitle;
+  String get poReportPreviewSubtitle;
+  String get poReport3dSimulation;
+  String get poReportCopyText;
+  String get poReportClosePreview;
+  String get poReportHeaderDocumentTitle;
+  String get poReportPoNumber;
+  String get poReportPiNumber;
+  String get poReportAcidNumber;
+  String get poReportOrderDate;
+  String get poReportExchangeRate;
+  String get poReportIncoterms;
+  String get poReportOrigin;
+  String get poReportBuyer;
+  String get poReportTaxId;
+  String get poReportImportFile;
+  String get poReportSeller;
+  String get poReportSupplierCountry;
+  String get poReportPaymentTerms;
+  String get poReportTotalInvoice;
+  String get poReportTotalPkgsAndPcs;
+  String get poReportGrossWeight;
+  String get poReportNetWeight;
+  String get poReportVolumeCbm;
+  String get poReportPalletPlan;
+  String get poReportRecommendedContainer;
+  String get poReportSec1InvoiceItems;
+  String get poReportSec2PackingList;
+  String get poReportSec3PalletPlan;
+  String get poReportSec4Notes;
+  String get poReportColItemCode;
+  String get poReportColDescription;
+  String get poReportColHsCode;
+  String get poReportColQtyUnit;
+  String get poReportColUnitPrice;
+  String get poReportColTotalAmount;
+  String get poReportColPkgType;
+  String get poReportColDimensions;
+  String get poReportColStackable;
+  String get poReportStackableYes;
+  String get poReportStackableNo;
+  String get poReportGrandTotal;
+  String get poReportTotalPacking;
+  String get poReportTotalPallets;
+  String get poReportReadyForApproval;
+  String get poReportCloseAndEdit;
+  String get poReportSaveAndApprove;
+  String get poReportCopiedToClipboard;
+  String poReportItemsCountUnit(int count);
+  String poReportPackagesCountUnit(int count);
+  String poReportPiecesCountUnit(int count);
+  String poReportPalletsCountUnit(int count);
+  String poReportRowsCountUnit(int count);
+  String get poReportDirectVolume;
+  String get poReportLanguageToggleTooltip;
+  String get poReportSwitchLanguageBtn;
+  String get savePurchaseOrderBtn;
+  String get savePoEditsBtn;
+  String get previewPoReportBtn;
 }
 
 

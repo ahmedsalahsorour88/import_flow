@@ -21,6 +21,7 @@ import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/stop_shipment_dialog.dart';
 import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
+import '../../import_companies/providers/import_companies_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 
 
@@ -340,12 +341,19 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
     );
   }
 
-  void _showAddEditFileDialog([ImportFileModel? fileToEdit]) {
-    showDialog(
+  void _showAddEditFileDialog([ImportFileModel? fileToEdit]) async {
+    await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => ImportFileFormDialog(fileToEdit: fileToEdit),
     );
+    if (!mounted) return;
+    ref.read(paginatedImportFilesProvider.notifier).fetchPage(
+          ref.read(paginatedImportFilesProvider).page,
+          search: _searchController.text,
+          status: _selectedStatusFilter,
+        );
+    ref.read(importFilesProvider.notifier).fetchImportFiles();
   }
 
   void _promptAndShowMasterReport() async {
@@ -1086,7 +1094,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
   void initState() {
     super.initState();
     Future.microtask(() {
+      ref.read(paginatedImportFilesProvider.notifier).fetchPage(1);
       ref.read(importFilesProvider.notifier).fetchImportFiles();
+      ref.read(importCompaniesProvider.notifier).fetchCompanies();
       ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
       ref.read(shippingScenariosProvider.notifier).fetchSessions();
     });

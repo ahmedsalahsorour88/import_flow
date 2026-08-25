@@ -1667,7 +1667,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                               onChanged: (v) {
                                                 final q = double.tryParse(v) ?? 1.0;
                                                 setState(() {
-                                                  _dialogItems[idx] = _dialogItems[idx].copyWith(quantity: q);
+                                                  _dialogItems[idx] = _dialogItems[idx].copyWith(quantity: q, totalPrice: q * _dialogItems[idx].unitPrice);
                                                 });
                                               },
                                             ),
@@ -2714,423 +2714,434 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
             icon: const Icon(Icons.preview_rounded, size: 18),
-            label: Text(context.l10n.summaryByHsCodeReport, style: const TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(context.l10n.previewPoReportBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () => _showPoComprehensiveReportPreview(context),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-            onPressed: _isSubmitting
-
-                ? null
-                : () async {
-                    if (!_formKey.currentState!.validate()) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('الرجاء استكمال الحقول الإلزامية (الوصف العربي، HS Code، كود البند) بجميع التبويبات.'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      return;
-                    }
-
-                    if (_selectedProjectId == null ||
-                        _selectedCompanyId == null ||
-                        _selectedSupplierId == null ||
-                        _selectedIncotermId == null ||
-                        _selectedCurrencyId == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('الرجاء التأكد من اختيار كافة الحقول الإلزامية (المشروع، الشركة المستوردة، المورد، الـ Incoterm والعملة).'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      return;
-                    }
-
-                    if (_dialogItems.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('الرجاء إضافة بند استيرادي واحد على الأقل في أمر الشراء.'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      return;
-                    }
-
-                    final messenger = ScaffoldMessenger.of(context);
-                    final tariffs = ref.read(customsTariffProvider).value ?? [];
-                    final reconciliation = evaluatePOReconciliation(
-                      invoiceItems: _dialogItems,
-                      packingItems: _dialogPackingItems,
-                      tariffs: tariffs,
-                    );
-
-                    String? discrepancyJustification;
-                    if (reconciliation.hasDiscrepancy) {
-                      discrepancyJustification = await showDialog<String?>(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (ctx) => POReconciliationWarningDialog(report: reconciliation),
-                      );
-
-                      // User chose "الرجوع للتعديل" (Back to Edit)
-                      if (discrepancyJustification == null || !mounted) {
-                        return;
-                      }
-                    }
-
-                    if (!mounted) return;
-                    setState(() => _isSubmitting = true);
-                    final rate = double.tryParse(_rateCtrl.text.trim()) ?? 1.0;
-
-                    // Build final notes with justification if provided
-                    String? effectiveNotes = _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim();
-                    if (discrepancyJustification != null && discrepancyJustification.isNotEmpty) {
-                      final header = '[مبررات اختلاف الفاتورة والباكينج]: $discrepancyJustification';
-                      effectiveNotes = effectiveNotes == null ? header : '$effectiveNotes\n$header';
-                    }
-
-                    if (widget.po == null) {
-                      final int effectivePalletCount = _isDirectVolumeMode ? _dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount) : 0;
-                      final firstPallet = (_isDirectVolumeMode && _dialogPalletItems.isNotEmpty) ? _dialogPalletItems.first : null;
-                      final effectivePalletType = firstPallet?.palletType ?? _selectedPalletType;
-                      final effectiveIsStackable = firstPallet?.isStackable ?? _isPalletStackable;
-                      final effectivePalletL = firstPallet?.lengthCm ?? _palletLengthCm;
-                      final effectivePalletW = firstPallet?.widthCm ?? _palletWidthCm;
-                      final effectivePalletH = firstPallet?.heightCm ?? _palletHeightCm;
-                      final effectivePalletPlan = _isDirectVolumeMode ? _dialogPalletItems : <PalletPlanItemModel>[];
-
-                      final newPO = PurchaseOrderModel(
-                        poNumber: '',
-                        proformaInvoiceNumber: _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
-                        countryOfOrigin: _selectedCountryOfOrigin,
-                        importFileId: _selectedImportFileId,
-                        projectId: _selectedProjectId!,
-                        companyId: _selectedCompanyId!,
-                        supplierId: _selectedSupplierId!,
-                        incotermId: _selectedIncotermId!,
-                        currencyId: _selectedCurrencyId!,
-                        orderDate: _selectedOrderDate,
-                        exchangeRate: rate,
-                        paymentTerms: _selectedPaymentTerms,
-                        palletCount: effectivePalletCount,
-                        palletType: effectivePalletType,
-                        isPalletStackable: effectiveIsStackable,
-                        palletLengthCm: effectivePalletL,
-                        palletWidthCm: effectivePalletW,
-                        palletHeightCm: effectivePalletH,
-                        palletPlanItems: effectivePalletPlan,
-                        status: _selectedStatus,
-                        notes: effectiveNotes,
-                        items: _dialogItems,
-                        packingListItems: _dialogPackingItems,
-                      );
-                      final errorMsg = await ref.read(purchaseOrdersProvider.notifier).createPurchaseOrder(newPO);
-                      if (errorMsg != null) {
-                        setState(() => _isSubmitting = false);
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text('خطأ في إدخال أمر الشراء:\n$errorMsg'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      } else {
-                        messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('تم إنشاء أمر الشراء بنجاح!'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                        if (context.mounted) Navigator.pop(context);
-                      }
-                    } else {
-                      final oldPO = widget.po!;
-                      final List<FieldChangeItem> changes = [];
-
-                      // 1. Header changes
-                      final newPi = _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim();
-                      if (FieldChangeItem.isDifferent(oldPO.proformaInvoiceNumber, newPi)) {
-                        changes.add(FieldChangeItem(
-                          section: 'بيانات الفاتورة المبدئية والترويسة',
-                          fieldName: 'رقم الفاتورة المبدئية (PI Number)',
-                          oldValue: oldPO.proformaInvoiceNumber,
-                          newValue: newPi,
-                        ));
-                      }
-
-                      if (FieldChangeItem.isDifferent(oldPO.countryOfOrigin, _selectedCountryOfOrigin)) {
-                        changes.add(FieldChangeItem(
-                          section: 'بيانات الفاتورة المبدئية والترويسة',
-                          fieldName: 'بلد المنشأ (Country of Origin)',
-                          oldValue: oldPO.countryOfOrigin,
-                          newValue: _selectedCountryOfOrigin,
-                        ));
-                      }
-
-                      if (FieldChangeItem.isDifferent(oldPO.projectId, _selectedProjectId)) {
-                        final oldProj = projects.where((p) => p.projectId == oldPO.projectId).firstOrNull?.projectName ?? '${oldPO.projectId}';
-                        final newProj = projects.where((p) => p.projectId == _selectedProjectId).firstOrNull?.projectName ?? '$_selectedProjectId';
-                        changes.add(FieldChangeItem(
-                          section: 'بيانات الفاتورة المبدئية والترويسة',
-                          fieldName: 'المشروع الاستيرادي',
-                          oldValue: oldProj,
-                          newValue: newProj,
-                        ));
-                      }
-
-                      if (FieldChangeItem.isDifferent(oldPO.companyId, _selectedCompanyId)) {
-                        final oldComp = companies.where((c) => c.companyId == oldPO.companyId).firstOrNull?.importerName ?? '${oldPO.companyId}';
-                        final newComp = companies.where((c) => c.companyId == _selectedCompanyId).firstOrNull?.importerName ?? '$_selectedCompanyId';
-                        changes.add(FieldChangeItem(
-                          section: 'بيانات الفاتورة المبدئية والترويسة',
-                          fieldName: 'الشركة المستوردة',
-                          oldValue: oldComp,
-                          newValue: newComp,
-                        ));
-                      }
-
-                      if (FieldChangeItem.isDifferent(oldPO.supplierId, _selectedSupplierId)) {
-                        final oldSupp = suppliers.where((s) => s.supplierId == oldPO.supplierId).firstOrNull?.companyName ?? '${oldPO.supplierId}';
-                        final newSupp = suppliers.where((s) => s.supplierId == _selectedSupplierId).firstOrNull?.companyName ?? '$_selectedSupplierId';
-                        changes.add(FieldChangeItem(
-                          section: 'بيانات الفاتورة المبدئية والترويسة',
-                          fieldName: 'المورد الأجنبي',
-                          oldValue: oldSupp,
-                          newValue: newSupp,
-                        ));
-                      }
-
-                      if (FieldChangeItem.isDifferent(oldPO.incotermId, _selectedIncotermId)) {
-                        final oldInco = incoterms.where((i) => i.incotermId == oldPO.incotermId).firstOrNull?.incotermCode ?? '${oldPO.incotermId}';
-                        final newInco = incoterms.where((i) => i.incotermId == _selectedIncotermId).firstOrNull?.incotermCode ?? '$_selectedIncotermId';
-                        changes.add(FieldChangeItem(
-                          section: 'بيانات الفاتورة المبدئية والترويسة',
-                          fieldName: 'شرط الشحن (Incoterm)',
-                          oldValue: oldInco,
-                          newValue: newInco,
-                        ));
-                      }
-
-                      if (FieldChangeItem.isDifferent(oldPO.currencyId, _selectedCurrencyId)) {
-                        final oldCurr = currencies.where((c) => c.currencyId == oldPO.currencyId).firstOrNull?.currencyCode ?? '${oldPO.currencyId}';
-                        final newCurr = currencies.where((c) => c.currencyId == _selectedCurrencyId).firstOrNull?.currencyCode ?? '$_selectedCurrencyId';
-                        changes.add(FieldChangeItem(
-                          section: 'بيانات الفاتورة المبدئية والترويسة',
-                          fieldName: 'عملة أمر الشراء',
-                          oldValue: oldCurr,
-                          newValue: newCurr,
-                        ));
-                      }
-
-                      if (FieldChangeItem.isDifferent(oldPO.exchangeRate, rate)) {
-                        changes.add(FieldChangeItem(
-                          section: 'بيانات الفاتورة المبدئية والترويسة',
-                          fieldName: 'سعر الصرف',
-                          oldValue: oldPO.exchangeRate,
-                          newValue: rate,
-                        ));
-                      }
-
-                      if (FieldChangeItem.isDifferent(oldPO.paymentTerms, _selectedPaymentTerms)) {
-                        changes.add(FieldChangeItem(
-                          section: 'بيانات الفاتورة المبدئية والترويسة',
-                          fieldName: 'شروط السداد والدفع',
-                          oldValue: oldPO.paymentTerms,
-                          newValue: _selectedPaymentTerms,
-                        ));
-                      }
-
-                      if (FieldChangeItem.isDifferent(oldPO.status, _selectedStatus)) {
-                        changes.add(FieldChangeItem(
-                          section: 'بيانات الفاتورة المبدئية والترويسة',
-                          fieldName: 'حالة أمر الشراء',
-                          oldValue: oldPO.status,
-                          newValue: _selectedStatus,
-                        ));
-                      }
-
-                      if (FieldChangeItem.isDifferent(oldPO.notes, effectiveNotes)) {
-                        changes.add(FieldChangeItem(
-                          section: 'بيانات الفاتورة المبدئية والترويسة',
-                          fieldName: 'الملاحظات',
-                          oldValue: oldPO.notes,
-                          newValue: effectiveNotes,
-                        ));
-                      }
-
-                      // 2. Line Items
-                      if (oldPO.items.length != _dialogItems.length) {
-                        changes.add(FieldChangeItem(
-                          section: 'بنود الفاتورة المبدئية',
-                          fieldName: 'عدد بنود الفاتورة',
-                          oldValue: '${oldPO.items.length} بند',
-                          newValue: '${_dialogItems.length} بند',
-                        ));
-                      } else {
-                        for (int i = 0; i < _dialogItems.length; i++) {
-                          final o = oldPO.items[i];
-                          final n = _dialogItems[i];
-                          if (FieldChangeItem.isDifferent(o.descriptionAr, n.descriptionAr)) {
-                            changes.add(FieldChangeItem(
-                              section: 'بنود الفاتورة المبدئية',
-                              fieldName: 'بند #${i + 1} - الوصف العربي',
-                              oldValue: o.descriptionAr,
-                              newValue: n.descriptionAr,
-                            ));
-                          }
-                          if (FieldChangeItem.isDifferent(o.quantity, n.quantity)) {
-                            changes.add(FieldChangeItem(
-                              section: 'بنود الفاتورة المبدئية',
-                              fieldName: 'بند #${i + 1} (${n.itemCode ?? ""}) - الكمية',
-                              oldValue: o.quantity,
-                              newValue: n.quantity,
-                            ));
-                          }
-                          if (FieldChangeItem.isDifferent(o.unitPrice, n.unitPrice)) {
-                            changes.add(FieldChangeItem(
-                              section: 'بنود الفاتورة المبدئية',
-                              fieldName: 'بند #${i + 1} (${n.itemCode ?? ""}) - سعر الوحدة',
-                              oldValue: o.unitPrice,
-                              newValue: n.unitPrice,
-                            ));
-                          }
-                        }
-                      }
-
-                      // 3. Packing List Items
-                      if (oldPO.packingListItems.length != _dialogPackingItems.length) {
-                        changes.add(FieldChangeItem(
-                          section: 'قائمة التعبئة (Packing List)',
-                          fieldName: 'عدد طرود قائمة التعبئة',
-                          oldValue: '${oldPO.packingListItems.length} طرد',
-                          newValue: '${_dialogPackingItems.length} طرد',
-                        ));
-                      } else {
-                        for (int i = 0; i < _dialogPackingItems.length; i++) {
-                          final o = oldPO.packingListItems[i];
-                          final n = _dialogPackingItems[i];
-                          if (FieldChangeItem.isDifferent(o.itemCode, n.itemCode)) {
-                            changes.add(FieldChangeItem(
-                              section: 'قائمة التعبئة (Packing List)',
-                              fieldName: 'طرد #${i + 1} - كود البند',
-                              oldValue: o.itemCode,
-                              newValue: n.itemCode,
-                            ));
-                          }
-                          if (FieldChangeItem.isDifferent(o.packageType, n.packageType)) {
-                            changes.add(FieldChangeItem(
-                              section: 'قائمة التعبئة (Packing List)',
-                              fieldName: 'طرد #${i + 1} (${n.itemCode}) - نوع الطرد',
-                              oldValue: o.packageType,
-                              newValue: n.packageType,
-                            ));
-                          }
-                          if (FieldChangeItem.isDifferent(o.qtyPkg, n.qtyPkg)) {
-                            changes.add(FieldChangeItem(
-                              section: 'قائمة التعبئة (Packing List)',
-                              fieldName: 'طرد #${i + 1} (${n.itemCode}) - عدد الطرود',
-                              oldValue: o.qtyPkg,
-                              newValue: n.qtyPkg,
-                            ));
-                          }
-                          if (FieldChangeItem.isDifferent(o.grossWeightUnitKg, n.grossWeightUnitKg)) {
-                            changes.add(FieldChangeItem(
-                              section: 'قائمة التعبئة (Packing List)',
-                              fieldName: 'طرد #${i + 1} (${n.itemCode}) - وزن الطرد (kg)',
-                              oldValue: o.grossWeightUnitKg,
-                              newValue: n.grossWeightUnitKg,
-                            ));
-                          }
-                          if (FieldChangeItem.isDifferent(o.isStackable, n.isStackable)) {
-                            changes.add(FieldChangeItem(
-                              section: 'قائمة التعبئة (Packing List)',
-                              fieldName: 'طرد #${i + 1} (${n.itemCode}) - تعليمات الرص',
-                              oldValue: o.isStackable ? '📦 قابل للرص' : '🚫 غير قابل للرص',
-                              newValue: n.isStackable ? '📦 قابل للرص' : '🚫 غير قابل للرص',
-                            ));
-                          }
-                        }
-                      }
-
-                      if (changes.isNotEmpty) {
-                        if (!context.mounted) return;
-                        final confirmed = await showChangeDiffConfirmationDialog(
-                          context,
-                          title: 'مراجعة وتأكيد تعديلات أمر الشراء',
-                          itemReference: oldPO.poNumber,
-                          changes: changes,
-                        );
-                        if (!confirmed) {
-                          if (mounted) setState(() => _isSubmitting = false);
-                          return;
-                        }
-                      }
-
-                      final int effectivePalletCount = _isDirectVolumeMode ? _dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount) : 0;
-                      final firstPallet = (_isDirectVolumeMode && _dialogPalletItems.isNotEmpty) ? _dialogPalletItems.first : null;
-                      final effectivePalletType = firstPallet?.palletType ?? _selectedPalletType;
-                      final effectiveIsStackable = firstPallet?.isStackable ?? _isPalletStackable;
-                      final effectivePalletL = firstPallet?.lengthCm ?? _palletLengthCm;
-                      final effectivePalletW = firstPallet?.widthCm ?? _palletWidthCm;
-                      final effectivePalletH = firstPallet?.heightCm ?? _palletHeightCm;
-                      final effectivePalletPlan = _isDirectVolumeMode ? _dialogPalletItems.map((p) => p.toJson()).toList() : <Map<String, dynamic>>[];
-
-                      final updateData = {
-                        'proforma_invoice_number': _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
-                        'country_of_origin': _selectedCountryOfOrigin,
-                        'import_file_id': _selectedImportFileId,
-                        'project_id': _selectedProjectId!,
-                        'company_id': _selectedCompanyId!,
-                        'supplier_id': _selectedSupplierId!,
-                        'incoterm_id': _selectedIncotermId!,
-                        'currency_id': _selectedCurrencyId!,
-                        'order_date': _selectedOrderDate.toIso8601String(),
-                        'exchange_rate': rate,
-                        'payment_terms': _selectedPaymentTerms,
-                        'pallet_count': effectivePalletCount,
-                        'pallet_type': effectivePalletType,
-                        'is_pallet_stackable': effectiveIsStackable,
-                        'pallet_length_cm': effectivePalletL,
-                        'pallet_width_cm': effectivePalletW,
-                        'pallet_height_cm': effectivePalletH,
-                        'pallet_plan': effectivePalletPlan,
-                        'status': _selectedStatus,
-                        'notes': effectiveNotes,
-                        'items': _dialogItems.map((i) => i.toJson()).toList(),
-                        'packing_list_items': _dialogPackingItems.map((i) => i.toJson()).toList(),
-                      };
-                      final errorMsg = await ref.read(purchaseOrdersProvider.notifier).updatePurchaseOrder(widget.po!.poId!, updateData);
-                      if (errorMsg != null) {
-                        setState(() => _isSubmitting = false);
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text('خطأ في تحديث أمر الشراء:\n$errorMsg'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      } else {
-                        messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('تم حفظ التعديلات بنجاح!'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                        if (context.mounted) Navigator.pop(context);
-                      }
-                    }
-                  },
-            child: _isSubmitting
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.cobalt,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            ),
+            icon: _isSubmitting
                 ? const SizedBox(
-                    width: 18,
-                    height: 18,
+                    width: 16,
+                    height: 16,
                     child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                   )
-                : Text(widget.po == null ? context.l10n.newPurchaseOrder : context.l10n.saveChanges),
+                : const Icon(Icons.save_rounded, size: 18),
+            label: Text(
+              widget.po == null ? context.l10n.savePurchaseOrderBtn : context.l10n.savePoEditsBtn,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            onPressed: _isSubmitting ? null : () => _submitForm(context),
           ),
-
         ],
       ),
     );
+  }
+
+  Future<void> _submitForm(BuildContext context) async {
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('الرجاء استكمال الحقول الإلزامية (الوصف العربي، HS Code، كود البند) بجميع التبويبات.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_selectedProjectId == null ||
+        _selectedCompanyId == null ||
+        _selectedSupplierId == null ||
+        _selectedIncotermId == null ||
+        _selectedCurrencyId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('الرجاء التأكد من اختيار كافة الحقول الإلزامية (المشروع، الشركة المستوردة، المورد، الـ Incoterm والعملة).'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_dialogItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('الرجاء إضافة بند استيرادي واحد على الأقل في أمر الشراء.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    final tariffs = ref.read(customsTariffProvider).value ?? [];
+    final reconciliation = evaluatePOReconciliation(
+      invoiceItems: _dialogItems,
+      packingItems: _dialogPackingItems,
+      tariffs: tariffs,
+    );
+
+    String? discrepancyJustification;
+    if (reconciliation.hasDiscrepancy) {
+      discrepancyJustification = await showDialog<String?>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => POReconciliationWarningDialog(report: reconciliation),
+      );
+
+      // User chose "الرجوع للتعديل" (Back to Edit)
+      if (discrepancyJustification == null || !mounted) {
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = true);
+    final rate = double.tryParse(_rateCtrl.text.trim()) ?? 1.0;
+
+    // Build final notes with justification if provided
+    String? effectiveNotes = _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim();
+    if (discrepancyJustification != null && discrepancyJustification.isNotEmpty) {
+      final header = '[مبررات اختلاف الفاتورة والباكينج]: $discrepancyJustification';
+      effectiveNotes = effectiveNotes == null ? header : '$effectiveNotes\n$header';
+    }
+
+    if (widget.po == null) {
+      final int effectivePalletCount = _isDirectVolumeMode ? _dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount) : 0;
+      final firstPallet = (_isDirectVolumeMode && _dialogPalletItems.isNotEmpty) ? _dialogPalletItems.first : null;
+      final effectivePalletType = firstPallet?.palletType ?? _selectedPalletType;
+      final effectiveIsStackable = firstPallet?.isStackable ?? _isPalletStackable;
+      final effectivePalletL = firstPallet?.lengthCm ?? _palletLengthCm;
+      final effectivePalletW = firstPallet?.widthCm ?? _palletWidthCm;
+      final effectivePalletH = firstPallet?.heightCm ?? _palletHeightCm;
+      final effectivePalletPlan = _isDirectVolumeMode ? _dialogPalletItems : <PalletPlanItemModel>[];
+
+      final newPO = PurchaseOrderModel(
+        poNumber: '',
+        proformaInvoiceNumber: _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
+        countryOfOrigin: _selectedCountryOfOrigin,
+        importFileId: _selectedImportFileId,
+        projectId: _selectedProjectId!,
+        companyId: _selectedCompanyId!,
+        supplierId: _selectedSupplierId!,
+        incotermId: _selectedIncotermId!,
+        currencyId: _selectedCurrencyId!,
+        orderDate: _selectedOrderDate,
+        exchangeRate: rate,
+        paymentTerms: _selectedPaymentTerms,
+        palletCount: effectivePalletCount,
+        palletType: effectivePalletType,
+        isPalletStackable: effectiveIsStackable,
+        palletLengthCm: effectivePalletL,
+        palletWidthCm: effectivePalletW,
+        palletHeightCm: effectivePalletH,
+        palletPlanItems: effectivePalletPlan,
+        status: _selectedStatus,
+        notes: effectiveNotes,
+        items: _dialogItems,
+        packingListItems: _dialogPackingItems,
+      );
+      final errorMsg = await ref.read(purchaseOrdersProvider.notifier).createPurchaseOrder(newPO);
+      if (errorMsg != null) {
+        setState(() => _isSubmitting = false);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('خطأ في إدخال أمر الشراء:\n$errorMsg'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('تم إنشاء وحفظ أمر الشراء بنجاح!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        if (context.mounted) Navigator.pop(context);
+      }
+    } else {
+      final oldPO = widget.po!;
+      final List<FieldChangeItem> changes = [];
+      final projects = ref.read(projectsProvider).value ?? [];
+      final companies = ref.read(importCompaniesProvider).value ?? [];
+      final suppliers = ref.read(suppliersProvider).value ?? [];
+      final incoterms = ref.read(incotermsProvider).value ?? [];
+      final currencies = ref.read(currenciesProvider).value ?? [];
+
+      // 1. Header changes
+      final newPi = _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim();
+      if (FieldChangeItem.isDifferent(oldPO.proformaInvoiceNumber, newPi)) {
+        changes.add(FieldChangeItem(
+          section: 'بيانات الفاتورة المبدئية والترويسة',
+          fieldName: 'رقم الفاتورة المبدئية (PI Number)',
+          oldValue: oldPO.proformaInvoiceNumber,
+          newValue: newPi,
+        ));
+      }
+
+      if (FieldChangeItem.isDifferent(oldPO.countryOfOrigin, _selectedCountryOfOrigin)) {
+        changes.add(FieldChangeItem(
+          section: 'بيانات الفاتورة المبدئية والترويسة',
+          fieldName: 'بلد المنشأ (Country of Origin)',
+          oldValue: oldPO.countryOfOrigin,
+          newValue: _selectedCountryOfOrigin,
+        ));
+      }
+
+      if (FieldChangeItem.isDifferent(oldPO.projectId, _selectedProjectId)) {
+        final oldProj = projects.where((p) => p.projectId == oldPO.projectId).firstOrNull?.projectName ?? '${oldPO.projectId}';
+        final newProj = projects.where((p) => p.projectId == _selectedProjectId).firstOrNull?.projectName ?? '$_selectedProjectId';
+        changes.add(FieldChangeItem(
+          section: 'بيانات الفاتورة المبدئية والترويسة',
+          fieldName: 'المشروع الاستيرادي',
+          oldValue: oldProj,
+          newValue: newProj,
+        ));
+      }
+
+      if (FieldChangeItem.isDifferent(oldPO.companyId, _selectedCompanyId)) {
+        final oldComp = companies.where((c) => c.companyId == oldPO.companyId).firstOrNull?.importerName ?? '${oldPO.companyId}';
+        final newComp = companies.where((c) => c.companyId == _selectedCompanyId).firstOrNull?.importerName ?? '$_selectedCompanyId';
+        changes.add(FieldChangeItem(
+          section: 'بيانات الفاتورة المبدئية والترويسة',
+          fieldName: 'الشركة المستوردة',
+          oldValue: oldComp,
+          newValue: newComp,
+        ));
+      }
+
+      if (FieldChangeItem.isDifferent(oldPO.supplierId, _selectedSupplierId)) {
+        final oldSupp = suppliers.where((s) => s.supplierId == oldPO.supplierId).firstOrNull?.companyName ?? '${oldPO.supplierId}';
+        final newSupp = suppliers.where((s) => s.supplierId == _selectedSupplierId).firstOrNull?.companyName ?? '$_selectedSupplierId';
+        changes.add(FieldChangeItem(
+          section: 'بيانات الفاتورة المبدئية والترويسة',
+          fieldName: 'المورد الأجنبي',
+          oldValue: oldSupp,
+          newValue: newSupp,
+        ));
+      }
+
+      if (FieldChangeItem.isDifferent(oldPO.incotermId, _selectedIncotermId)) {
+        final oldInco = incoterms.where((i) => i.incotermId == oldPO.incotermId).firstOrNull?.incotermCode ?? '${oldPO.incotermId}';
+        final newInco = incoterms.where((i) => i.incotermId == _selectedIncotermId).firstOrNull?.incotermCode ?? '$_selectedIncotermId';
+        changes.add(FieldChangeItem(
+          section: 'بيانات الفاتورة المبدئية والترويسة',
+          fieldName: 'شرط الشحن (Incoterm)',
+          oldValue: oldInco,
+          newValue: newInco,
+        ));
+      }
+
+      if (FieldChangeItem.isDifferent(oldPO.currencyId, _selectedCurrencyId)) {
+        final oldCurr = currencies.where((c) => c.currencyId == oldPO.currencyId).firstOrNull?.currencyCode ?? '${oldPO.currencyId}';
+        final newCurr = currencies.where((c) => c.currencyId == _selectedCurrencyId).firstOrNull?.currencyCode ?? '$_selectedCurrencyId';
+        changes.add(FieldChangeItem(
+          section: 'بيانات الفاتورة المبدئية والترويسة',
+          fieldName: 'عملة أمر الشراء',
+          oldValue: oldCurr,
+          newValue: newCurr,
+        ));
+      }
+
+      if (FieldChangeItem.isDifferent(oldPO.exchangeRate, rate)) {
+        changes.add(FieldChangeItem(
+          section: 'بيانات الفاتورة المبدئية والترويسة',
+          fieldName: 'سعر الصرف',
+          oldValue: oldPO.exchangeRate,
+          newValue: rate,
+        ));
+      }
+
+      if (FieldChangeItem.isDifferent(oldPO.paymentTerms, _selectedPaymentTerms)) {
+        changes.add(FieldChangeItem(
+          section: 'بيانات الفاتورة المبدئية والترويسة',
+          fieldName: 'شروط السداد والدفع',
+          oldValue: oldPO.paymentTerms,
+          newValue: _selectedPaymentTerms,
+        ));
+      }
+
+      if (FieldChangeItem.isDifferent(oldPO.status, _selectedStatus)) {
+        changes.add(FieldChangeItem(
+          section: 'بيانات الفاتورة المبدئية والترويسة',
+          fieldName: 'حالة أمر الشراء',
+          oldValue: oldPO.status,
+          newValue: _selectedStatus,
+        ));
+      }
+
+      if (FieldChangeItem.isDifferent(oldPO.notes, effectiveNotes)) {
+        changes.add(FieldChangeItem(
+          section: 'بيانات الفاتورة المبدئية والترويسة',
+          fieldName: 'الملاحظات',
+          oldValue: oldPO.notes,
+          newValue: effectiveNotes,
+        ));
+      }
+
+      // 2. Line Items
+      if (oldPO.items.length != _dialogItems.length) {
+        changes.add(FieldChangeItem(
+          section: 'بنود الفاتورة المبدئية',
+          fieldName: 'عدد بنود الفاتورة',
+          oldValue: '${oldPO.items.length} بند',
+          newValue: '${_dialogItems.length} بند',
+        ));
+      } else {
+        for (int i = 0; i < _dialogItems.length; i++) {
+          final o = oldPO.items[i];
+          final n = _dialogItems[i];
+          if (FieldChangeItem.isDifferent(o.descriptionAr, n.descriptionAr)) {
+            changes.add(FieldChangeItem(
+              section: 'بنود الفاتورة المبدئية',
+              fieldName: 'بند #${i + 1} - الوصف العربي',
+              oldValue: o.descriptionAr,
+              newValue: n.descriptionAr,
+            ));
+          }
+          if (FieldChangeItem.isDifferent(o.quantity, n.quantity)) {
+            changes.add(FieldChangeItem(
+              section: 'بنود الفاتورة المبدئية',
+              fieldName: 'بند #${i + 1} (${n.itemCode ?? ""}) - الكمية',
+              oldValue: o.quantity,
+              newValue: n.quantity,
+            ));
+          }
+          if (FieldChangeItem.isDifferent(o.unitPrice, n.unitPrice)) {
+            changes.add(FieldChangeItem(
+              section: 'بنود الفاتورة المبدئية',
+              fieldName: 'بند #${i + 1} (${n.itemCode ?? ""}) - سعر الوحدة',
+              oldValue: o.unitPrice,
+              newValue: n.unitPrice,
+            ));
+          }
+        }
+      }
+
+      // 3. Packing List Items
+      if (oldPO.packingListItems.length != _dialogPackingItems.length) {
+        changes.add(FieldChangeItem(
+          section: 'قائمة التعبئة (Packing List)',
+          fieldName: 'عدد طرود قائمة التعبئة',
+          oldValue: '${oldPO.packingListItems.length} طرد',
+          newValue: '${_dialogPackingItems.length} طرد',
+        ));
+      } else {
+        for (int i = 0; i < _dialogPackingItems.length; i++) {
+          final o = oldPO.packingListItems[i];
+          final n = _dialogPackingItems[i];
+          if (FieldChangeItem.isDifferent(o.itemCode, n.itemCode)) {
+            changes.add(FieldChangeItem(
+              section: 'قائمة التعبئة (Packing List)',
+              fieldName: 'طرد #${i + 1} - كود البند',
+              oldValue: o.itemCode,
+              newValue: n.itemCode,
+            ));
+          }
+          if (FieldChangeItem.isDifferent(o.packageType, n.packageType)) {
+            changes.add(FieldChangeItem(
+              section: 'قائمة التعبئة (Packing List)',
+              fieldName: 'طرد #${i + 1} (${n.itemCode}) - نوع الطرد',
+              oldValue: o.packageType,
+              newValue: n.packageType,
+            ));
+          }
+          if (FieldChangeItem.isDifferent(o.qtyPkg, n.qtyPkg)) {
+            changes.add(FieldChangeItem(
+              section: 'قائمة التعبئة (Packing List)',
+              fieldName: 'طرد #${i + 1} (${n.itemCode}) - عدد الطرود',
+              oldValue: o.qtyPkg,
+              newValue: n.qtyPkg,
+            ));
+          }
+          if (FieldChangeItem.isDifferent(o.grossWeightUnitKg, n.grossWeightUnitKg)) {
+            changes.add(FieldChangeItem(
+              section: 'قائمة التعبئة (Packing List)',
+              fieldName: 'طرد #${i + 1} (${n.itemCode}) - وزن الطرد (kg)',
+              oldValue: o.grossWeightUnitKg,
+              newValue: n.grossWeightUnitKg,
+            ));
+          }
+          if (FieldChangeItem.isDifferent(o.isStackable, n.isStackable)) {
+            changes.add(FieldChangeItem(
+              section: 'قائمة التعبئة (Packing List)',
+              fieldName: 'طرد #${i + 1} (${n.itemCode}) - تعليمات الرص',
+              oldValue: o.isStackable ? '📦 قابل للرص' : '🚫 غير قابل للرص',
+              newValue: n.isStackable ? '📦 قابل للرص' : '🚫 غير قابل للرص',
+            ));
+          }
+        }
+      }
+
+      if (changes.isNotEmpty) {
+        if (!context.mounted) return;
+        final confirmed = await showChangeDiffConfirmationDialog(
+          context,
+          title: 'مراجعة وتأكيد تعديلات أمر الشراء',
+          itemReference: oldPO.poNumber,
+          changes: changes,
+        );
+        if (!confirmed) {
+          if (mounted) setState(() => _isSubmitting = false);
+          return;
+        }
+      }
+
+      final int effectivePalletCount = _isDirectVolumeMode ? _dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount) : 0;
+      final firstPallet = (_isDirectVolumeMode && _dialogPalletItems.isNotEmpty) ? _dialogPalletItems.first : null;
+      final effectivePalletType = firstPallet?.palletType ?? _selectedPalletType;
+      final effectiveIsStackable = firstPallet?.isStackable ?? _isPalletStackable;
+      final effectivePalletL = firstPallet?.lengthCm ?? _palletLengthCm;
+      final effectivePalletW = firstPallet?.widthCm ?? _palletWidthCm;
+      final effectivePalletH = firstPallet?.heightCm ?? _palletHeightCm;
+      final effectivePalletPlan = _isDirectVolumeMode ? _dialogPalletItems.map((p) => p.toJson()).toList() : <Map<String, dynamic>>[];
+
+      final updateData = {
+        'proforma_invoice_number': _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
+        'country_of_origin': _selectedCountryOfOrigin,
+        'import_file_id': _selectedImportFileId,
+        'project_id': _selectedProjectId!,
+        'company_id': _selectedCompanyId!,
+        'supplier_id': _selectedSupplierId!,
+        'incoterm_id': _selectedIncotermId!,
+        'currency_id': _selectedCurrencyId!,
+        'order_date': _selectedOrderDate.toIso8601String(),
+        'exchange_rate': rate,
+        'payment_terms': _selectedPaymentTerms,
+        'pallet_count': effectivePalletCount,
+        'pallet_type': effectivePalletType,
+        'is_pallet_stackable': effectiveIsStackable,
+        'pallet_length_cm': effectivePalletL,
+        'pallet_width_cm': effectivePalletW,
+        'pallet_height_cm': effectivePalletH,
+        'pallet_plan': effectivePalletPlan,
+        'status': _selectedStatus,
+        'notes': effectiveNotes,
+        'items': _dialogItems.map((i) => i.toJson()).toList(),
+        'packing_list_items': _dialogPackingItems.map((i) => i.toJson()).toList(),
+      };
+      final errorMsg = await ref.read(purchaseOrdersProvider.notifier).updatePurchaseOrder(widget.po!.poId!, updateData);
+      if (errorMsg != null) {
+        setState(() => _isSubmitting = false);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('خطأ في تحديث أمر الشراء:\n$errorMsg'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('تم حفظ التعديلات بنجاح!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        if (context.mounted) Navigator.pop(context);
+      }
+    }
   }
 
   void _showPoComprehensiveReportPreview(BuildContext context) {
@@ -3173,6 +3184,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       tariffs: tariffs,
       isDirectVolumeMode: _isDirectVolumeMode,
       notes: _notesCtrl.text.trim(),
+      onConfirmSave: () async {
+        await _submitForm(context);
+      },
     );
   }
 

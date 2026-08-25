@@ -93,7 +93,7 @@ class POLineItemModel {
     this.quantity = 1.0,
     this.unitOfMeasure = 'PCS',
     this.unitPrice = 0.0,
-    this.totalPrice = 0.0,
+    double? totalPrice,
     this.cbmPerUnit = 0.0,
     this.totalCbm = 0.0,
     this.grossWeightKg = 0.0,
@@ -101,11 +101,17 @@ class POLineItemModel {
     this.hsCode,
     this.dutyRate,
     this.vatRate,
-  });
+  }) : totalPrice = (totalPrice != null && totalPrice > 0)
+            ? totalPrice
+            : (quantity * unitPrice);
 
   String get itemDescription => descriptionAr.isNotEmpty ? descriptionAr : (descriptionEn ?? '');
 
   factory POLineItemModel.fromJson(Map<String, dynamic> json) {
+    final q = _numToDouble(json['quantity'], 1.0);
+    final p = _numToDouble(json['unit_price']);
+    final rawTotal = _numToDouble(json['total_price']);
+    final tot = rawTotal > 0 ? rawTotal : (q * p);
     return POLineItemModel(
       itemId: _numToInt(json['item_id']),
       poId: _numToInt(json['po_id']),
@@ -114,10 +120,10 @@ class POLineItemModel {
       descriptionEn: json['description_en'] as String?,
       countryOfOrigin: json['country_of_origin'] as String?,
       tariffId: json['tariff_id'] != null ? _numToInt(json['tariff_id']) : null,
-      quantity: _numToDouble(json['quantity'], 1.0),
+      quantity: q,
       unitOfMeasure: json['unit_of_measure'] as String? ?? 'PCS',
-      unitPrice: _numToDouble(json['unit_price']),
-      totalPrice: _numToDouble(json['total_price']),
+      unitPrice: p,
+      totalPrice: tot,
       cbmPerUnit: _numToDouble(json['cbm_per_unit']),
       totalCbm: _numToDouble(json['total_cbm']),
       grossWeightKg: _numToDouble(json['gross_weight_kg']),
@@ -148,6 +154,8 @@ class POLineItemModel {
     double? dutyRate,
     double? vatRate,
   }) {
+    final newQty = quantity ?? this.quantity;
+    final newPrice = unitPrice ?? this.unitPrice;
     return POLineItemModel(
       itemId: itemId ?? this.itemId,
       poId: poId ?? this.poId,
@@ -156,10 +164,10 @@ class POLineItemModel {
       descriptionEn: descriptionEn ?? this.descriptionEn,
       countryOfOrigin: countryOfOrigin ?? this.countryOfOrigin,
       tariffId: tariffId ?? this.tariffId,
-      quantity: quantity ?? this.quantity,
+      quantity: newQty,
       unitOfMeasure: unitOfMeasure ?? this.unitOfMeasure,
-      unitPrice: unitPrice ?? this.unitPrice,
-      totalPrice: totalPrice ?? this.totalPrice,
+      unitPrice: newPrice,
+      totalPrice: totalPrice ?? (newQty * newPrice),
       cbmPerUnit: cbmPerUnit ?? this.cbmPerUnit,
       totalCbm: totalCbm ?? this.totalCbm,
       grossWeightKg: grossWeightKg ?? this.grossWeightKg,
@@ -182,6 +190,7 @@ class POLineItemModel {
       'quantity': quantity,
       'unit_of_measure': unitOfMeasure,
       'unit_price': unitPrice,
+      'total_price': totalPrice,
       'cbm_per_unit': cbmPerUnit,
       'gross_weight_kg': grossWeightKg,
       'net_weight_kg': netWeightKg,

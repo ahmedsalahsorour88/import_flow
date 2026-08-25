@@ -12,6 +12,19 @@ import 'package:frontend/features/import_files/screens/import_files_screen.dart'
 import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 import 'package:frontend/features/shipping_scenarios/providers/shipping_scenarios_provider.dart';
 
+import 'package:frontend/features/import_companies/models/import_company_model.dart';
+import 'package:frontend/features/import_companies/providers/import_companies_provider.dart';
+
+class MockImportCompaniesNotifier extends ImportCompaniesNotifier {
+  MockImportCompaniesNotifier(List<ImportCompanyModel> list)
+      : super(showInactive: true, dio: Dio()) {
+    state = AsyncValue.data(list);
+  }
+
+  @override
+  Future<void> fetchCompanies() async {}
+}
+
 class MockPaginatedNotifier extends PaginatedImportFilesNotifier {
   MockPaginatedNotifier(List<ImportFileModel> files) : super(Dio()) {
     state = PaginatedImportFilesState(
@@ -69,6 +82,21 @@ class MockShippingScenariosNotifier extends ShippingScenariosNotifier {
 }
 
 void main() {
+  final sampleCompanies = [
+    ImportCompanyModel(
+      companyId: 10,
+      importerName: 'ECO ASSOCIATES for Trading and Contracting',
+      address: 'Cairo, Egypt',
+      country: 'Egypt',
+      importerId: 'IMP-10',
+      importerIdExpiry: DateTime.now().add(const Duration(days: 365)),
+      vatId: '123456789',
+      vatIdExpiry: DateTime.now().add(const Duration(days: 365)),
+      registrationNumber: '98765',
+      registrationExpiry: DateTime.now().add(const Duration(days: 365)),
+    ),
+  ];
+
   final sampleFiles = [
     ImportFileModel(
       importFileId: 1,
@@ -146,6 +174,9 @@ void main() {
               n.setLocale(const Locale('ar'));
               return n;
             }),
+            importCompaniesProvider.overrideWith(
+              (ref) => MockImportCompaniesNotifier(sampleCompanies),
+            ),
             paginatedImportFilesProvider.overrideWith(
               (ref) => MockPaginatedNotifier(sampleFiles),
             ),
@@ -191,6 +222,9 @@ void main() {
               n.setLocale(const Locale('en'));
               return n;
             }),
+            importCompaniesProvider.overrideWith(
+              (ref) => MockImportCompaniesNotifier(sampleCompanies),
+            ),
             paginatedImportFilesProvider.overrideWith(
               (ref) => MockPaginatedNotifier(sampleFiles),
             ),

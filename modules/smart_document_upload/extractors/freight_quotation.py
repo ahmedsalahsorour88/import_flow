@@ -160,8 +160,22 @@ class FreightQuotationExtractor(BaseExtractor):
             r"(?:cancel\s+fee|cancellation\s+fee|رسوم\s+الإلغاء)[:\s]+\$?([0-9,]+\.?\d*)",
         ], clean_ocr_text)
 
+        # 1.5 Extract unmapped and additional expenses / surcharges (e.g. Free Time Extend, THC, etc.)
+        additional_expenses, unmapped_warning = self._extract_unmapped_and_additional_expenses(clean_ocr_text)
+
         # 2. Parse multi-option rate matrix from text & OCR tables
         rate_options = self._extract_rate_options(clean_ocr_text, currency, global_origin, global_dest, incoterm)
+
+        # If additional expenses exist, ensure they are appended to each option's notes
+        if additional_expenses and rate_options:
+            expense_summary = " | ".join([f"{e['label']}: {e['formatted_value']}" for e in additional_expenses])
+            for opt in rate_options:
+                current_notes = opt.get("notes")
+                if current_notes:
+                    if expense_summary not in current_notes:
+                        opt["notes"] = f"{current_notes} | {expense_summary}"
+                else:
+                    opt["notes"] = expense_summary
 
         # 3. Default single-quote representation (fallback / first best option)
         primary_quote = rate_options[0] if rate_options else {}
@@ -182,6 +196,7 @@ class FreightQuotationExtractor(BaseExtractor):
         primary_eta = primary_quote.get("eta_date") or global_eta
 
         if not rate_options and primary_rate:
+            default_notes = " | ".join([f"{e['label']}: {e['formatted_value']}" for e in additional_expenses]) if additional_expenses else None
             rate_options.append({
                 "option_id": 1,
                 "carrier_name": primary_carrier or "Shipping Line",
@@ -202,7 +217,7 @@ class FreightQuotationExtractor(BaseExtractor):
                 "free_time_days": primary_free_days,
                 "etd_date": primary_etd,
                 "eta_date": primary_eta,
-                "notes": None,
+                "notes": default_notes,
             })
 
         return {
@@ -229,6 +244,8 @@ class FreightQuotationExtractor(BaseExtractor):
             "local_charges": primary_local_charges,
             "exw_charges": primary_exw_charges,
             "cancel_fee": cancel_fee,
+            "additional_expenses": additional_expenses,
+            "unmapped_expenses_warning": unmapped_warning,
             "rate_options": rate_options,
             "options_count": len(rate_options),
         }
@@ -238,9 +255,10 @@ class FreightQuotationExtractor(BaseExtractor):
     def _pre_clean_ocr_text(self, text: str) -> str:
         """Fixes common OCR glitches in numbers, currency symbols, and container codes."""
         t = text
-        # Normalize smart quotes and unicode dashes
+        # Normalize smart quotes, unicode dashes, and full-width/Chinese colons
         t = t.replace("’", "'").replace("‘", "'").replace("`", "'").replace("“", '"').replace("”", '"')
         t = t.replace("–", "-").replace("—", "-").replace("−", "-")
+        t = t.replace("：", ":").replace("；", ";").replace("，", ",")
         # Fix spaced decimals/commas inside numbers: e.g. "3 , 400" or "3200 . 00"
         t = re.sub(r"(\d)\s*,\s*(\d{3})\b", r"\1,\2", t)
         t = re.sub(r"(\d)\s*\.\s*(\d{1,2})\b", r"\1.\2", t)
@@ -283,10 +301,33 @@ class FreightQuotationExtractor(BaseExtractor):
         return None
 
     def _extract_forwarder_name(self, text: str) -> Optional[str]:
-        return self.find_first([
+        # 1. Check explicit forwarder/agent labels
+        found = self.find_first([
             r"(?:Freight\s+Forwarder|Forwarder|Agent|شركة\s+الشحن|وكيل\s+الشحن|الوسيط)[:\s]+([A-Za-z0-9\s&.'-]{3,50}?)(?:\n|,|\||$)",
             r"(?:From|Sender|من)[:\s]+([A-Za-z0-9\s&.'-]{3,40}?)(?:<|\n|,)",
         ], text)
+        if found:
+            return found.strip()
+
+        # 2. Check header or first line company branding (e.g. "vertexexpress", "Vertex Express", "Direct Logistics")
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if lines:
+            first_line = lines[0]
+            # Ignore if starts with standard quotation markers
+            lower_first = first_line.lower()
+            ignore_starters = ["dear", "hi", "hello", "pol", "pod", "route", "rate", "ocean", "freight", "quotation", "price", "rfq", "of", "to", "attn"]
+            if not any(lower_first.startswith(w) for w in ignore_starters) and len(first_line) <= 45 and not ":" in first_line:
+                # Format compound name e.g. "vertexexpress" -> "Vertex Express" or keep "Apex Logistics"
+                if re.match(r"^[A-Za-z0-9\s&.'-]{3,45}$", first_line):
+                    if "express" in lower_first and not " " in first_line:
+                        return re.sub(r"(?i)express", " Express", first_line).title().strip()
+                    elif "logistics" in lower_first and not " " in first_line:
+                        return re.sub(r"(?i)logistics", " Logistics", first_line).title().strip()
+                    elif "freight" in lower_first and not " " in first_line:
+                        return re.sub(r"(?i)freight", " Freight", first_line).title().strip()
+                    return first_line.title().strip()
+
+        return None
 
     def _extract_quotation_ref(self, text: str) -> Optional[str]:
         return self.find_first([
@@ -465,6 +506,10 @@ class FreightQuotationExtractor(BaseExtractor):
             "APPROX", "APPROX.", "LOCAL", "OCEAN", "FREIGHT", "RATE", "FEES", "CHARGE", "CHARGES",
             "FEE", "TOTAL", "EXW", "FOB", "CFR", "CIF", "USD", "EUR", "EGP", "GBP", "OF", "O/F",
             "TRANSIT", "FREE", "SERVICE", "ROUTE", "VALID", "VALIDITY", "QUOTE", "RATES", "PRICE",
+            "POD", "POL", "NINGBO", "NBO", "DEKHEILA", "DEK", "SHANGHAI", "SHA", "ALEXANDRIA",
+            "ALEX", "SOKHNA", "PORT SAID", "PSD", "DAMIETTA", "DAM", "ADABIYA", "SHENZHEN", "QINGDAO",
+            "CTNR", "CNTR", "CONTAINER", "CONTAINERS", "EXTEND", "EXTENSION", "TIME", "DAY", "DAYS",
+            "TT", "ETD", "ETA", "DIRECT", "INDIRECT", "OTHER", "SURCHARGE", "SURCHARGES",
         }
 
         # Split text into discrete quotation sections if multiple carrier blocks exist
@@ -523,15 +568,19 @@ class FreightQuotationExtractor(BaseExtractor):
                 cntr_raw = match.group(3)
                 suffix_carrier = match.group(4)
 
-                # Filter out words like APPROX, LOCAL, RATE from carrier code
-                if prefix_carrier and prefix_carrier.upper() in IGNORED_CARRIER_WORDS:
-                    prefix_carrier = None
-
                 carrier_code = (suffix_carrier or prefix_carrier or "").strip().upper()
                 if carrier_code in IGNORED_CARRIER_WORDS:
                     carrier_code = ""
 
-                carrier_name = KNOWN_CARRIERS.get(carrier_code, carrier_code) if carrier_code else (blk_carrier or self._extract_carrier(text))
+                global_detected_carrier = blk_carrier or self._extract_carrier(text)
+                if carrier_code and carrier_code in KNOWN_CARRIERS:
+                    carrier_name = KNOWN_CARRIERS[carrier_code]
+                elif global_detected_carrier:
+                    carrier_name = global_detected_carrier
+                elif carrier_code:
+                    carrier_name = KNOWN_CARRIERS.get(carrier_code, carrier_code)
+                else:
+                    carrier_name = "Shipping Line"
                 cntr_type = self._normalize_cntr(cntr_raw)
                 rate_val = self.parse_numeric_str(raw_rate)
 
@@ -620,5 +669,108 @@ class FreightQuotationExtractor(BaseExtractor):
             if m:
                 notes.append(m.group(0))
         return " | ".join(notes) if notes else None
+
+    def _extract_unmapped_and_additional_expenses(self, text: str) -> tuple[List[Dict[str, Any]], Optional[str]]:
+        """
+        Extracts additional non-standard charges (e.g. Free Time Extension, THC, Detention, Surcharges)
+        and generates an informative warning alert for unmapped items.
+        """
+        expenses: List[Dict[str, Any]] = []
+        warning_msg: Optional[str] = None
+        seen_keys = set()
+
+        # Pattern 1: Free time extension e.g. "FREE TIME EXTEND : USD200/ctnr" or "Extend Free Time: $200/cntr"
+        ft_matches = re.finditer(
+            r"(?:FREE\s*TIME\s*(?:EXTEND|EXTENSION)|تمديد\s*فترة\s*السماح|سماح\s*إضافي|EXTEND\s*FREE\s*TIME)[^:\n\(]*?[:\s\+\(]+(?:(USD|\$|EUR|EGP)\s*)?([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9/]+)?(?:\)|/)?",
+            text,
+            re.IGNORECASE,
+        )
+        for m in ft_matches:
+            has_curr = m.group(1) is not None
+            amt = self.parse_numeric_str(m.group(2))
+            unit = (m.group(3) or "ctnr").strip()
+
+            # If unit is days/day and no currency symbol was given, it's just duration, not a fee
+            if unit.lower() in ["days", "day", "d"] and not has_curr:
+                continue
+
+            key = f"free_time_extend_{amt}_{unit}"
+            if key not in seen_keys and 0 < amt < 5000:
+                seen_keys.add(key)
+                expenses.append({
+                    "field_key": "free_time_extend",
+                    "label": "تمديد فترة السماح (Free Time Extension)",
+                    "raw_label": "FREE TIME EXTEND",
+                    "amount": amt,
+                    "currency": "USD",
+                    "unit": unit,
+                    "formatted_value": f"USD {amt:,.0f} / {unit}",
+                    "category": "Detention & Demurrage Extension",
+                    "is_unmapped": True,
+                })
+
+        # Pattern 2: Other parenthetical / supplementary surcharges: e.g. "Other (21days+USD200/ctnr)"
+        other_matches = re.finditer(
+            r"(?:Other|Surcharges?|مصاريف\s+أخرى|رسوم\s+إضافية)\s*\(([^\)]+)\)",
+            text,
+            re.IGNORECASE,
+        )
+        for m in other_matches:
+            raw_inside = m.group(1).strip()
+            price_m = re.search(r"(?:(USD|\$|EUR|EGP)\s*)?([0-9,]+(?:\.\d+)?)\s*(?:/|\\)\s*([A-Za-z0-9]+)", raw_inside, re.IGNORECASE)
+            if price_m:
+                amt = self.parse_numeric_str(price_m.group(2))
+                unit = price_m.group(3)
+                key = f"other_surcharge_{amt}_{unit}"
+                if key not in seen_keys and 0 < amt < 5000:
+                    seen_keys.add(key)
+                    expenses.append({
+                        "field_key": "other_surcharge",
+                        "label": f"مصروفات إضافية ({raw_inside})",
+                        "raw_label": "Other Surcharge",
+                        "amount": amt,
+                        "currency": "USD",
+                        "unit": unit,
+                        "formatted_value": f"USD {amt:,.0f} / {unit}",
+                        "category": "Supplementary Surcharges",
+                        "is_unmapped": True,
+                    })
+
+        # Pattern 3: Standard shipping surcharges if present as distinct lines
+        surcharge_patterns = [
+            (r"(?:THC|Terminal\s+Handling(?:\s+Charge)?|رسوم\s+المناولة|تداول\s+الحاويات)[:\s]+(?:USD|\$|EUR|EGP)?\s*([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9]+)?", "thc_charge", "رسوم تداول ومناولة (THC)"),
+            (r"(?:Doc(?:\s+Fee|\s+Charges?)?|Documentation(?:\s+Fee)?|رسوم\s+المستندات|مصاريف\s+البوليصة)[:\s]+(?:USD|\$|EUR|EGP)?\s*([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9]+)?", "doc_fee", "رسوم بوليصة ومستندات (Doc Fee)"),
+            (r"(?:ISPS|Security\s+Fee|رسوم\s+الأمن)[:\s]+(?:USD|\$|EUR|EGP)?\s*([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9]+)?", "isps_fee", "رسوم أمن الميناء (ISPS)"),
+            (r"(?:Seal\s+Fee|رسوم\s+السيل)[:\s]+(?:USD|\$|EUR|EGP)?\s*([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9]+)?", "seal_fee", "رسوم الرصاصة الجمركية (Seal Fee)"),
+            (r"(?:VGM\s+Fee|وزن\s+VGM)[:\s]+(?:USD|\$|EUR|EGP)?\s*([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9]+)?", "vgm_fee", "رسوم وزن الحاوية (VGM)"),
+            (r"(?:Chassis\s+Fee|رسوم\s+الشاسيه)[:\s]+(?:USD|\$|EUR|EGP)?\s*([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9]+)?", "chassis_fee", "رسوم الشاسيه (Chassis Fee)"),
+        ]
+
+        for pat, fkey, flabel in surcharge_patterns:
+            m = re.search(pat, text, re.IGNORECASE)
+            if m:
+                amt = self.parse_numeric_str(m.group(1))
+                unit = (m.group(2) or "unit").strip() if len(m.groups()) >= 2 and m.group(2) else "unit"
+                key = f"{fkey}_{amt}"
+                if key not in seen_keys and 0 < amt < 5000:
+                    seen_keys.add(key)
+                    expenses.append({
+                        "field_key": fkey,
+                        "label": flabel,
+                        "raw_label": flabel,
+                        "amount": amt,
+                        "currency": "USD",
+                        "unit": unit,
+                        "formatted_value": f"USD {amt:,.0f} / {unit}",
+                        "category": "Standard Surcharges",
+                        "is_unmapped": False,
+                    })
+
+        if expenses:
+            expense_names = "، ".join([f"{e['label']} ({e['formatted_value']})" for e in expenses])
+            warning_msg = f"⚠️ تنبيه: تم اكتشاف مصروفات وبنود إضافية في عرض السعر ({expense_names}) — تم استخراجها وتثبيتها لعدم فقدان أي تكلفة في دراسة الشحن."
+
+        return expenses, warning_msg
+
 
 

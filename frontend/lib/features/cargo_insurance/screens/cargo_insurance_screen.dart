@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../currencies/providers/currencies_provider.dart';
@@ -39,6 +42,7 @@ class CargoInsuranceScreen extends ConsumerStatefulWidget {
 class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedStatusFilter = 'All';
+  bool _showInactive = false;
 
   @override
   void initState() {
@@ -127,16 +131,143 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
   }
 
   Widget _buildMainContent(bool isArabic, AsyncValue<List<CargoInsuranceModel>> certificatesAsync) {
-    return Container(
-      color: Colors.grey.shade50,
-      child: Column(
-        children: [
-            // Filter and Action Bar
+    final l = context.l10n;
+
+    return certificatesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
+      error: (err, _) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: AppTheme.crimson),
+            const SizedBox(height: 12),
+            Text(
+              isArabic ? 'حدث خطأ أثناء جلب وثائق التأمين: $err' : 'Error loading certificates: $err',
+              style: const TextStyle(color: AppTheme.crimson),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.refresh),
+              label: Text(isArabic ? 'إعادة المحاولة' : 'Retry'),
+              onPressed: _refreshData,
+            ),
+          ],
+        ),
+      ),
+      data: (certificates) {
+        final totalCount = certificates.length;
+        final issuedCount = certificates.where((c) => c.status == 'ISSUED').length;
+        final totalInsuredValue = certificates.fold<double>(0.0, (sum, c) => sum + c.insuredValue);
+        final totalPremiumsPaid = certificates.fold<double>(0.0, (sum, c) => sum + c.totalPayablePremium);
+
+        final query = _searchController.text.trim().toLowerCase();
+        final filteredCertificates = certificates.where((c) {
+          if (!_showInactive && !c.isActive) return false;
+          if (_showInactive && c.isActive) return false;
+          if (_selectedStatusFilter != 'All' && c.status != _selectedStatusFilter) return false;
+          if (query.isNotEmpty) {
+            final code = c.certificateCode.toLowerCase();
+            final pol = (c.policyNumber ?? '').toLowerCase();
+            final entity = c.insuredEntityName.toLowerCase();
+            final carrier = (c.carrierName ?? '').toLowerCase();
+            final file = c.importFileId != null ? 'file #${c.importFileId}' : '';
+            final ports = '${c.portOfLoading} ${c.portOfDischarge}'.toLowerCase();
+            if (!code.contains(query) &&
+                !pol.contains(query) &&
+                !entity.contains(query) &&
+                !carrier.contains(query) &&
+                !file.contains(query) &&
+                !ports.contains(query)) {
+              return false;
+            }
+          }
+          return true;
+        }).toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ─── Top Charcoal Summary Bar ─────────────────────────────────────
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              color: AppTheme.charcoal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  _histStatCard(
+                    icon: Icons.shield_rounded,
+                    label: isArabic ? 'إجمالي الوثائق' : 'Total Policies',
+                    value: '$totalCount',
+                    color: AppTheme.cobalt,
+                  ),
+                  const SizedBox(width: 10),
+                  _histStatCard(
+                    icon: Icons.check_circle_rounded,
+                    label: isArabic ? 'وثائق معتمدة' : 'Issued & Valid',
+                    value: '$issuedCount',
+                    color: AppTheme.emerald,
+                  ),
+                  const SizedBox(width: 10),
+                  _histStatCard(
+                    icon: Icons.account_balance_wallet_rounded,
+                    label: isArabic ? 'إجمالي القيمة المؤمنة' : 'Total Insured',
+                    value: '\$${totalInsuredValue.toStringAsFixed(0)}',
+                    color: Colors.orange.shade300,
+                  ),
+                  const SizedBox(width: 10),
+                  _histStatCard(
+                    icon: Icons.payments_rounded,
+                    label: isArabic ? 'إجمالي الأقساط' : 'Total Premiums',
+                    value: '\$${totalPremiumsPaid.toStringAsFixed(0)}',
+                    color: Colors.purple.shade300,
+                  ),
+                  const Spacer(),
+                  // Refresh button
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white38),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    ),
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: Text(isArabic ? 'تحديث السجل' : 'Refresh Registry', style: const TextStyle(fontSize: 13)),
+                    onPressed: _refreshData,
+                  ),
+                  const SizedBox(width: 10),
+                  // New Certificate button
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.emerald,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.add_moderator_rounded, size: 18),
+                    label: Text(
+                      isArabic ? 'إصدار وثيقة تأمين جديدة' : 'New Certificate',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    onPressed: () => _showAddEditCertificateDialog(),
+                  ),
+                ],
+              ),
+            ),
+
+            // ─── Data Actions Toolbar ─────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: MasterDataToolbarWidget(
+                moduleEndpoint: 'cargo-insurance',
+                title: 'Cargo_Insurance_Certificates',
+                onRefreshNeeded: _refreshData,
+              ),
+            ),
+
+            // ─── Search & Filter Bar ──────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
               ),
               child: Row(
                 children: [
@@ -145,359 +276,488 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                       controller: _searchController,
                       decoration: InputDecoration(
                         hintText: isArabic
-                            ? 'بحث برقم الوثيقة، الشحنة، المستورد، الناقل...'
-                            : 'Search certificate code, file, insured, carrier...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
-                        isDense: true,
+                            ? 'بحث برقم الوثيقة، رقم البوليصة، المستورد، شركة التأمين، الميناء...'
+                            : 'Search certificate code, policy, insured, insurance company, port...',
+                        prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() {});
+                                },
+                              )
+                            : null,
                         filled: true,
                         fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
+                        isDense: true,
                       ),
-                      onChanged: (val) {
-                        ref.read(cargoInsuranceProvider.notifier).fetchCertificates(
-                              search: val,
-                              status: _selectedStatusFilter,
-                            );
-                      },
+                      onChanged: (_) => setState(() {}),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  SizedBox(
-                    width: 200,
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedStatusFilter,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'All', child: Text('الكل / All Statuses')),
-                        DropdownMenuItem(value: 'DRAFT', child: Text('مسودة (Draft)')),
-                        DropdownMenuItem(value: 'ISSUED', child: Text('معتمدة (Issued)')),
-                        DropdownMenuItem(value: 'CANCELLED', child: Text('ملغاة (Cancelled)')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _selectedStatusFilter = val);
-                          ref.read(cargoInsuranceProvider.notifier).fetchCertificates(
-                                status: val,
-                                search: _searchController.text,
-                              );
-                        }
-                      },
-                    ),
+                  // Status Filter Chips
+                  Row(
+                    children: [
+                      _buildStatusFilterChip('All', isArabic ? 'الكل' : 'All'),
+                      const SizedBox(width: 6),
+                      _buildStatusFilterChip('ISSUED', isArabic ? 'معتمدة' : 'Issued', AppTheme.emerald),
+                      const SizedBox(width: 6),
+                      _buildStatusFilterChip('DRAFT', isArabic ? 'مسودة' : 'Draft', Colors.orange),
+                      const SizedBox(width: 6),
+                      _buildStatusFilterChip('CANCELLED', isArabic ? 'ملغاة' : 'Cancelled', AppTheme.crimson),
+                    ],
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.cobalt,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  // Show Inactive Toggle
+                  FilterChip(
+                    avatar: Icon(
+                      _showInactive ? Icons.visibility_off : Icons.visibility,
+                      size: 16,
+                      color: _showInactive ? AppTheme.crimson : Colors.grey,
                     ),
-                    icon: const Icon(Icons.add_moderator_rounded, size: 18),
                     label: Text(
-                      isArabic ? 'إصدار وثيقة تأمين' : 'New Certificate',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      _showInactive ? (isArabic ? 'عرض المحذوف' : 'Deleted') : (isArabic ? 'إخفاء المحذوف' : 'Hide Deleted'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _showInactive ? AppTheme.crimson : Colors.grey.shade700,
+                        fontWeight: _showInactive ? FontWeight.bold : FontWeight.normal,
+                      ),
                     ),
-                    onPressed: () => _showAddEditCertificateDialog(),
+                    selected: _showInactive,
+                    selectedColor: AppTheme.crimson.withOpacity(0.12),
+                    checkmarkColor: AppTheme.crimson,
+                    onSelected: (val) => setState(() => _showInactive = val),
+                  ),
+                  const SizedBox(width: 10),
+                  // Count chip
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${filteredCertificates.length}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // Main Content Area
+            // ─── Data Table Card ──────────────────────────────────────────────
             Expanded(
-              child: certificatesAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, size: 48, color: AppTheme.crimson),
-                      const SizedBox(height: 12),
-                      Text(
-                        isArabic ? 'حدث خطأ أثناء جلب وثائق التأمين: $err' : 'Error loading certificates: $err',
-                        style: const TextStyle(color: AppTheme.crimson),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.refresh),
-                        label: Text(isArabic ? 'إعادة المحاولة' : 'Retry'),
-                        onPressed: _refreshData,
-                      ),
-                    ],
-                  ),
-                ),
-                data: (certificates) {
-                  if (certificates.isEmpty) {
-                    return Center(
+              child: filteredCertificates.isEmpty
+                  ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.shield_outlined, size: 64, color: Colors.grey.shade400),
+                          Icon(Icons.shield_outlined, size: 64, color: Colors.grey.shade300),
                           const SizedBox(height: 16),
                           Text(
-                            isArabic
-                                ? 'لا توجد شهادات أو وثائق تأمين مسجلة حالياً'
-                                : 'No Cargo Insurance Certificates found',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                            _searchController.text.isNotEmpty || _selectedStatusFilter != 'All'
+                                ? (isArabic ? 'لم يتم العثور على وثائق تطابق البحث' : l.noResultsFound)
+                                : (isArabic ? 'لا توجد وثائق تأمين مسجلة حالياً' : l.noDataFound),
+                            style: TextStyle(fontSize: 16, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             isArabic
-                                ? 'اضغط على "إصدار وثيقة تأمين" لحساب وتوليد شهادة التأمين البحري/الجوي للشحنة'
+                                ? 'اضغط على "إصدار وثيقة تأمين جديدة" لحساب وتوليد شهادة التأمين البحري/الجوي'
                                 : 'Click "New Certificate" to calculate and issue marine/air cargo insurance.',
-                            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
                           ),
                           const SizedBox(height: 18),
                           ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
                             icon: const Icon(Icons.add_moderator_rounded),
                             label: Text(isArabic ? 'إصدار وثيقة تأمين جديدة' : 'Create Insurance Certificate'),
                             onPressed: () => _showAddEditCertificateDialog(),
                           ),
                         ],
                       ),
-                    );
-                  }
-
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.security_rounded, color: AppTheme.cobalt, size: 22),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      isArabic ? 'سجل شهادات ووثائق التأمين البحري والجوي' : 'Marine & Cargo Insurance Registry',
-                                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                                    ),
-                                  ],
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.cobalt.withOpacity(0.08),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    isArabic ? '${certificates.length} وثيقة' : '${certificates.length} Certificates',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                  ),
-                                ),
-                              ],
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                      child: Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            headingRowHeight: 48,
+                            dataRowMinHeight: 52,
+                            dataRowMaxHeight: 60,
+                            horizontalMargin: 16,
+                            columnSpacing: 18,
+                            dividerThickness: 0.5,
+                            headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
+                            headingTextStyle: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
                             ),
-                            const Divider(height: 24),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: DataTable(
-                                headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                                columns: [
-                                  DataColumn(label: Text(isArabic ? 'كود الوثيقة' : 'Cert Code', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                  DataColumn(label: Text(isArabic ? 'رقم البوليصة' : 'Policy No', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                  DataColumn(label: Text(isArabic ? 'المؤمن له (المستورد)' : 'Insured Entity', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                  DataColumn(label: Text(isArabic ? 'وسيلة والناقل' : 'Transport / Carrier', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                  DataColumn(label: Text(isArabic ? 'خط السير (شحن -> تفريغ)' : 'Route (POL -> POD)', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                  DataColumn(label: Text(isArabic ? 'القيمة المؤمنة (110%)' : 'Insured Value (110%)', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                  DataColumn(label: Text(isArabic ? 'قسط التأمين الإجمالي' : 'Gross Premium', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                  DataColumn(label: Text(isArabic ? 'بند التغطية' : 'Coverage Clause', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                  DataColumn(label: Text(isArabic ? 'الحالة' : 'Status', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                  DataColumn(label: Text(isArabic ? 'الإجراءات' : 'Actions', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                ],
-                                rows: certificates.map((cert) {
-                                  final isIssued = cert.status == 'ISSUED';
-                                  return DataRow(
-                                    cells: [
-                                      DataCell(
-                                        Text(
-                                          cert.certificateCode,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                        ),
-                                      ),
-                                      DataCell(Text(cert.policyNumber ?? '-')),
-                                      DataCell(
-                                        SizedBox(
-                                          width: 140,
-                                          child: Text(
-                                            cert.insuredEntityName,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            columns: [
+                              const DataColumn(label: Text('#')),
+                              DataColumn(label: Text(isArabic ? 'كود الوثيقة' : 'Cert Code')),
+                              DataColumn(label: Text(isArabic ? 'تاريخ الإصدار' : 'Issue Date')),
+                              DataColumn(label: Text(isArabic ? 'رقم البوليصة / الشحنة' : 'Policy / File')),
+                              DataColumn(label: Text(isArabic ? 'المؤمن له (المستورد)' : 'Insured Entity')),
+                              DataColumn(label: Text(isArabic ? 'شركة التأمين' : 'Insurance Co')),
+                              DataColumn(label: Text(isArabic ? 'الوسيلة وخط السير' : 'Transport / Route')),
+                              DataColumn(label: Text(isArabic ? 'القيمة المؤمنة (110%)' : 'Insured Value')),
+                              DataColumn(label: Text(isArabic ? 'بند التغطية' : 'Coverage Clause')),
+                              DataColumn(label: Text(isArabic ? 'إجمالي القسط المستحق' : 'Gross Premium')),
+                              DataColumn(label: Text(isArabic ? 'الحالة' : 'Status')),
+                              DataColumn(label: Text(isArabic ? 'الإجراءات' : 'Actions')),
+                            ],
+                            rows: filteredCertificates.asMap().entries.map((entry) {
+                              final idx = entry.key + 1;
+                              final cert = entry.value;
+                              final isIssued = cert.status == 'ISSUED';
+                              final isCancelled = cert.status == 'CANCELLED';
+
+                              return DataRow(
+                                cells: [
+                                  // 1. Index
+                                  DataCell(Text('$idx', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+
+                                  // 2. Cert Code
+                                  DataCell(
+                                    InkWell(
+                                      onTap: () => _showViewCertificateDialog(cert),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.shield_rounded, size: 14, color: AppTheme.cobalt),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            cert.certificateCode,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                           ),
-                                        ),
+                                        ],
                                       ),
-                                      DataCell(
+                                    ),
+                                  ),
+
+                                  // 3. Issue Date
+                                  DataCell(
+                                    Text(
+                                      cert.issuedAt?.substring(0, 10) ?? cert.createdAt.substring(0, 10),
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+
+                                  // 4. Policy / File
+                                  DataCell(
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
                                         Text(
-                                          '${cert.transportMode} • ${cert.carrierName ?? cert.vesselOrFlightNo ?? "-"}',
-                                          style: const TextStyle(fontSize: 12),
+                                          cert.policyNumber ?? '-',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                                         ),
-                                      ),
-                                      DataCell(
-                                        Text(
-                                          '${cert.portOfLoading} ➔ ${cert.portOfDischarge}',
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        Text(
-                                          '${cert.insuredValue.toStringAsFixed(2)} ${cert.currency}',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        Text(
-                                          '${cert.totalPayablePremium.toStringAsFixed(2)} ${cert.currency}',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: Colors.blueGrey.shade50,
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: Colors.blueGrey.shade300),
-                                          ),
-                                          child: Text(
-                                            cert.coverageClause,
-                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: (isIssued ? Colors.green : Colors.orange).shade50,
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: (isIssued ? Colors.green : Colors.orange).shade300),
-                                          ),
-                                          child: Text(
-                                            isIssued ? '✅ ${isArabic ? "معتمدة" : "Issued"}' : '⏳ ${isArabic ? "مسودة" : "Draft"}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: isIssued ? Colors.green.shade900 : Colors.orange.shade900,
+                                        if (cert.importFileId != null)
+                                          Container(
+                                            margin: const EdgeInsets.only(top: 2),
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.cobalt.withOpacity(0.08),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              '📁 FILE #${cert.importFileId}',
+                                              style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
                                             ),
                                           ),
-                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // 5. Insured Entity
+                                  DataCell(
+                                    SizedBox(
+                                      width: 140,
+                                      child: Text(
+                                        cert.insuredEntityName,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                                       ),
-                                      DataCell(
+                                    ),
+                                  ),
+
+                                  // 6. Insurance Company
+                                  DataCell(
+                                    SizedBox(
+                                      width: 130,
+                                      child: Text(
+                                        cert.insuranceCompanyName ?? 'Misr Insurance Co.',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 7. Transport / Route
+                                  DataCell(
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.visibility_rounded, color: AppTheme.cobalt, size: 18),
-                                              tooltip: isArabic ? 'عرض وثيقة التأمين' : 'View Certificate',
-                                              onPressed: () => _showViewCertificateDialog(cert),
+                                            Icon(
+                                              cert.transportMode == 'AIR' ? Icons.flight_takeoff_rounded : Icons.directions_boat_rounded,
+                                              size: 13,
+                                              color: AppTheme.charcoal,
                                             ),
-                                            if (!isIssued) ...[
-                                              IconButton(
-                                                icon: const Icon(Icons.edit_rounded, color: AppTheme.charcoal, size: 18),
-                                                tooltip: isArabic ? 'تعديل' : 'Edit',
-                                                onPressed: () => _showAddEditCertificateDialog(cert),
-                                              ),
-                                              IconButton(
-                                                icon: const Icon(Icons.verified_rounded, color: AppTheme.emerald, size: 18),
-                                                tooltip: isArabic ? 'اعتماد وإصدار الوثيقة' : 'Issue Certificate',
-                                                onPressed: () async {
-                                                  final confirm = await showDialog<bool>(
-                                                    context: context,
-                                                    builder: (ctx) => AlertDialog(
-                                                      title: Text(isArabic ? 'اعتماد وثيقة التأمين' : 'Issue Certificate'),
-                                                      content: Text(
-                                                        isArabic
-                                                            ? 'هل أنت متأكد من اعتماد وإصدار وثيقة التأمين ${cert.certificateCode} رسمياً؟'
-                                                            : 'Are you sure you want to officially issue certificate ${cert.certificateCode}?',
-                                                      ),
-                                                      actions: [
-                                                        TextButton(
-                                                          onPressed: () => Navigator.pop(ctx, false),
-                                                          child: Text(isArabic ? 'إلغاء' : 'Cancel'),
-                                                        ),
-                                                        ElevatedButton(
-                                                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
-                                                          onPressed: () => Navigator.pop(ctx, true),
-                                                          child: Text(isArabic ? 'تأكيد الاعتماد' : 'Confirm Issue', style: const TextStyle(color: Colors.white)),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  );
-                                                  if (confirm == true) {
-                                                    await ref.read(cargoInsuranceProvider.notifier).issueCertificate(cert.certificateId);
-                                                    if (mounted) {
-                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                        SnackBar(
-                                                          content: Text(isArabic ? '✅ تم اعتماد وإصدار الوثيقة بنجاح!' : 'Certificate issued successfully!'),
-                                                          backgroundColor: AppTheme.emerald,
-                                                        ),
-                                                      );
-                                                    }
-                                                  }
-                                                },
-                                              ),
-                                            ],
-                                            IconButton(
-                                              icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
-                                              tooltip: isArabic ? 'حذف' : 'Delete',
-                                              onPressed: () async {
-                                                final confirm = await showDialog<bool>(
-                                                  context: context,
-                                                  builder: (ctx) => AlertDialog(
-                                                    title: Text(isArabic ? 'حذف الوثيقة' : 'Delete Certificate'),
-                                                    content: Text(isArabic ? 'هل تريد حذف هذا السجل؟' : 'Delete this record?'),
-                                                    actions: [
-                                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(isArabic ? 'إلغاء' : 'Cancel')),
-                                                      ElevatedButton(
-                                                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
-                                                        onPressed: () => Navigator.pop(ctx, true),
-                                                        child: Text(isArabic ? 'حذف' : 'Delete', style: const TextStyle(color: Colors.white)),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                                if (confirm == true) {
-                                                  await ref.read(cargoInsuranceProvider.notifier).deleteCertificate(cert.certificateId);
-                                                }
-                                              },
-                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(cert.transportMode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                           ],
                                         ),
+                                        Text(
+                                          '${cert.portOfLoading} ➔ ${cert.portOfDischarge}',
+                                          style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // 8. Insured Value (110%)
+                                  DataCell(
+                                    Text(
+                                      '${cert.insuredValue.toStringAsFixed(2)} ${cert.currency}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12),
+                                    ),
+                                  ),
+
+                                  // 9. Coverage Clause
+                                  DataCell(
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blueGrey.shade50,
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: Colors.blueGrey.shade300),
                                       ),
-                                    ],
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ],
+                                      child: Text(
+                                        cert.coverageClause,
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 10. Total Premium
+                                  DataCell(
+                                    Text(
+                                      '${cert.totalPayablePremium.toStringAsFixed(2)} ${cert.currency}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
+                                    ),
+                                  ),
+
+                                  // 11. Status Badge
+                                  DataCell(
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: isIssued
+                                            ? Colors.green.shade50
+                                            : (isCancelled ? Colors.red.shade50 : Colors.orange.shade50),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: isIssued
+                                              ? Colors.green.shade300
+                                              : (isCancelled ? Colors.red.shade300 : Colors.orange.shade300),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        isIssued
+                                            ? (isArabic ? '✅ معتمدة' : 'Issued')
+                                            : (isCancelled ? (isArabic ? '🚫 ملغاة' : 'Cancelled') : (isArabic ? '⏳ مسودة' : 'Draft')),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: isIssued
+                                              ? Colors.green.shade900
+                                              : (isCancelled ? Colors.red.shade900 : Colors.orange.shade900),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 12. Actions
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        RowActionsPill(
+                                          onView: () => _showViewCertificateDialog(cert),
+                                          onEdit: isIssued ? null : () => _showAddEditCertificateDialog(cert),
+                                          onPrint: () => _showViewCertificateDialog(cert),
+                                          onDelete: () => _confirmDeleteCertificate(cert),
+                                          viewTooltip: isArabic ? 'عرض الشهادة الرسمية' : 'View Certificate',
+                                          editTooltip: isArabic ? 'تعديل الوثيقة' : 'Edit',
+                                          printTooltip: isArabic ? 'طباعة شهادة التأمين' : 'Print Certificate',
+                                          deleteTooltip: isArabic ? 'حذف / إلغاء' : 'Delete',
+                                        ),
+                                        if (!isIssued && !isCancelled) ...[
+                                          const SizedBox(width: 4),
+                                          IconButton(
+                                            icon: const Icon(Icons.verified_rounded, color: AppTheme.emerald, size: 18),
+                                            tooltip: isArabic ? 'اعتماد وإصدار الوثيقة' : 'Issue Certificate',
+                                            onPressed: () => _confirmIssueCertificate(cert),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStatusFilterChip(String status, String label, [Color? activeColor]) {
+    final isSelected = _selectedStatusFilter == status;
+    return FilterChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? Colors.white : AppTheme.charcoal,
         ),
-      );
+      ),
+      selected: isSelected,
+      selectedColor: activeColor ?? AppTheme.cobalt,
+      checkmarkColor: Colors.white,
+      onSelected: (val) {
+        if (val) {
+          setState(() => _selectedStatusFilter = status);
+        }
+      },
+    );
+  }
+
+  Widget _histStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmIssueCertificate(CargoInsuranceModel cert) async {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.verified_rounded, color: AppTheme.emerald, size: 24),
+            const SizedBox(width: 8),
+            Text(isArabic ? 'اعتماد وثيقة التأمين' : 'Issue Certificate'),
+          ],
+        ),
+        content: Text(
+          isArabic
+              ? 'هل أنت متأكد من اعتماد وإصدار وثيقة التأمين ${cert.certificateCode} رسمياً؟'
+              : 'Are you sure you want to officially issue certificate ${cert.certificateCode}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(isArabic ? 'تأكيد الاعتماد' : 'Confirm Issue', style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await ref.read(cargoInsuranceProvider.notifier).issueCertificate(cert.certificateId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isArabic ? '✅ تم اعتماد وإصدار الوثيقة بنجاح!' : 'Certificate issued successfully!'),
+            backgroundColor: AppTheme.emerald,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteCertificate(CargoInsuranceModel cert) async {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 24),
+            const SizedBox(width: 8),
+            Text(isArabic ? 'حذف الوثيقة' : 'Delete Certificate'),
+          ],
+        ),
+        content: Text(isArabic ? 'هل تريد حذف هذا السجل نهائياً؟' : 'Delete this record?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(isArabic ? 'إلغاء' : 'Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(isArabic ? 'حذف' : 'Delete', style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await ref.read(cargoInsuranceProvider.notifier).deleteCertificate(cert.certificateId);
+    }
   }
 }
 

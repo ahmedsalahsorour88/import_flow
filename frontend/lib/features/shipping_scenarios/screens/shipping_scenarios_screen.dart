@@ -328,152 +328,44 @@ Best regards,
     });
   }
 
+  void _openFreightSmartExtractorDialog([String? initialText]) {
+    FreightQuotationsExtractorDialog.show(
+      context,
+      onAddQuotations: (selectedOptions) {
+        final crd = _cargoReadyDate;
+        final partners = ref.read(allPartnersProvider).value ?? ref.read(partnersProvider).value ?? [];
+        final portsList = ref.read(transportLocationsProvider).value ?? [];
+
+        setState(() {
+          for (int i = 0; i < selectedOptions.length; i++) {
+            final opt = selectedOptions[i];
+            final scenario = _mapExtractedOptionToScenarioItem(
+              opt: opt,
+              crd: crd,
+              partners: partners,
+              portsList: portsList,
+              isRecommended: i == 0 && _evalItems.isEmpty,
+            );
+            _evalItems.add(scenario);
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✨ تمت إضافة ${selectedOptions.length} عرض/عروض أسعار بنجاح لدراسة ومقارنة الشحن!'),
+            backgroundColor: AppTheme.emerald,
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _extractFreightFromText() async {
-    final text = _rawFreightQuoteController.text.trim();
-    if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ يرجى لصق أو كتابة نص رسالة/إيميل عرض السعر أولاً'), backgroundColor: AppTheme.orange),
-      );
-      return;
-    }
-
-    setState(() {
-      _isFreightExtracting = true;
-      _extractorError = null;
-      _extractedOptions = [];
-      _extractedFreightMetadata = null;
-    });
-
-    final progressCtrl = ExtractionProgressController();
-    progressCtrl.update(
-      percent: 0.20,
-      status: 'جاري فحص وتحليل نصوص عروض الأسعار...',
-      stepLabel: 'المرحلة 1 من 3: معالجة النصوص',
-      currentStep: 1,
-    );
-
-    ExtractionProgressDialog.show(
-      context: context,
-      title: 'استخراج عروض أسعار الشحن من النص',
-      fileName: 'النص المنسوخ (${text.length} حرف)',
-      controller: progressCtrl,
-    );
-
-    progressCtrl.startAutoAdvance(targetPercent: 0.90, duration: const Duration(seconds: 2));
-
-    try {
-      final dio = Dio();
-      final response = await dio.post(
-        '${ApiConstants.baseUrl}/smart-upload/parse-text/freight-quotation',
-        data: FormData.fromMap({
-          'raw_text': text,
-          'save_session': false,
-        }),
-        options: Options(
-          contentType: 'multipart/form-data',
-          receiveTimeout: const Duration(seconds: 30),
-        ),
-      );
-
-      progressCtrl.complete();
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-
-      _processExtractedFreightData(response.data);
-    } on DioException catch (e) {
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-      setState(() => _extractorError = 'خطأ في الاتصال بالخادم: ${e.message}');
-    } catch (e) {
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-      setState(() => _extractorError = 'حدث خطأ أثناء الاستخراج: $e');
-    } finally {
-      if (mounted) setState(() => _isFreightExtracting = false);
-    }
+    _openFreightSmartExtractorDialog(_rawFreightQuoteController.text.trim());
   }
 
   Future<void> _extractFreightFromFile() async {
-    try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'xlsx', 'xls', 'docx', 'doc', 'txt'],
-        withData: true,
-      );
-
-      if (result == null || result.files.isEmpty) return;
-      final file = result.files.first;
-      if (file.bytes == null) return;
-
-      setState(() {
-        _pickedFreightFile = file;
-        _isFreightExtracting = true;
-        _extractorError = null;
-        _extractedOptions = [];
-        _extractedFreightMetadata = null;
-      });
-
-      final fileSizeFormatted = file.size > 1024 * 1024
-          ? '${(file.size / (1024 * 1024)).toStringAsFixed(2)} MB'
-          : '${(file.size / 1024).toStringAsFixed(1)} KB';
-
-      final progressCtrl = ExtractionProgressController();
-      progressCtrl.update(
-        percent: 0.15,
-        status: 'جاري رفع الملف وتهيئة الماسح الضوئي (OCR)...',
-        stepLabel: 'المرحلة 1 من 4: رفع الملف',
-        currentStep: 1,
-      );
-
-      ExtractionProgressDialog.show(
-        context: context,
-        title: 'استخراج عروض أسعار الشحن بالماسح الضوئي (OCR)',
-        fileName: file.name,
-        fileSize: fileSizeFormatted,
-        controller: progressCtrl,
-      );
-
-      final dio = Dio();
-      final multipartFile = MultipartFile.fromBytes(file.bytes!, filename: file.name);
-      final formData = FormData.fromMap({
-        'file': multipartFile,
-        'module_name': 'freight-quotation',
-        'save_session': false,
-      });
-
-      final response = await dio.post(
-        '${ApiConstants.baseUrl}/smart-upload/upload',
-        data: formData,
-        options: Options(receiveTimeout: const Duration(seconds: 60)),
-        onSendProgress: (sent, total) {
-          if (total > 0) {
-            final uploadRatio = sent / total;
-            final p = 0.15 + (uploadRatio * 0.35);
-            progressCtrl.update(
-              percent: p,
-              status: 'جاري رفع الملف (${(uploadRatio * 100).round()}%)...',
-              stepLabel: 'المرحلة 2 من 4: رفع الملف',
-              currentStep: 2,
-            );
-            if (uploadRatio >= 0.99) {
-              progressCtrl.startAutoAdvance(targetPercent: 0.92, duration: const Duration(seconds: 5));
-            }
-          }
-        },
-      );
-
-      progressCtrl.complete();
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-
-      _processExtractedFreightData(response.data);
-    } on DioException catch (e) {
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-      setState(() => _extractorError = 'خطأ في معالجة الملف بالـ OCR: ${e.message}');
-    } catch (e) {
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-      setState(() => _extractorError = 'حدث خطأ أثناء معالجة المستند: $e');
-    } finally {
-      if (mounted) setState(() => _isFreightExtracting = false);
-    }
+    _openFreightSmartExtractorDialog();
   }
 
   void _processExtractedFreightData(dynamic data) {
@@ -514,6 +406,50 @@ Best regards,
     }
   }
 
+  dynamic _matchPortSmart(String rawPortText, List portsList) {
+    if (rawPortText.trim().isEmpty) return null;
+    final raw = rawPortText.toLowerCase();
+
+    // 1. Direct UN/LOCODE exact or substring match e.g. "CNNGB", "EGDKH", "EGALX", "EGEDK"
+    for (final p in portsList) {
+      final unloc = (p.unLocode ?? '').toString().toLowerCase();
+      if (unloc.isNotEmpty && (raw.contains(unloc) || unloc.contains(raw))) {
+        return p;
+      }
+    }
+
+    // 2. Tokenized word matching (e.g. "ningbo", "dekheila", "alexandria", "shanghai", "sokhna", "damietta", "port said", "cairo")
+    // and Arabic keywords ("نينغبو", "الدخيلة", "الإسكندرية", "السخنة", "دمياط", "بورسعيد", "شنغهاي")
+    final portKeywords = [
+      'ningbo', 'dekheila', 'dek', 'alexandria', 'alex', 'shanghai', 'sokhna', 'damietta',
+      'port said', 'cairo', 'qingdao', 'shenzhen', 'guangzhou', 'xiamen',
+      'tianjin', 'yantian', 'busan', 'rotterdam', 'hamburg', 'antwerp',
+      'genoa', 'valencia', 'istanbul', 'mersin', 'jebel ali', 'jeddah', 'adabiya',
+      'نينغبو', 'الدخيلة', 'الإسكندرية', 'السخنة', 'دمياط', 'بورسعيد', 'شنغهاي', 'القاهرة'
+    ];
+
+    for (final kw in portKeywords) {
+      if (raw.contains(kw)) {
+        for (final p in portsList) {
+          final pName = (p.locationName ?? '').toString().toLowerCase();
+          if (pName.contains(kw)) {
+            return p;
+          }
+        }
+      }
+    }
+
+    // 3. Fallback: pName contains raw or raw contains pName
+    for (final p in portsList) {
+      final pName = (p.locationName ?? '').toString().toLowerCase();
+      if (pName.isNotEmpty && (raw.contains(pName) || pName.contains(raw))) {
+        return p;
+      }
+    }
+
+    return null;
+  }
+
   ShippingScenarioItemModel _mapExtractedOptionToScenarioItem({
     required ExtractedQuotationOption opt,
     required DateTime crd,
@@ -533,11 +469,20 @@ Best regards,
     final curr = opt.currency;
 
     // 1. Match Shipping Line (الخط الملاحي)
-    final shippingLines = partners.where((p) => p.partnerType.contains('Shipping Line')).toList();
+    final shippingLines = partners.where((p) => p.partnerType.contains('Shipping Line') || p.partnerType.contains('Carrier')).toList();
     final matchedLine = shippingLines.where((p) =>
       p.partnerName.toLowerCase().contains(rawCarrier.toLowerCase()) ||
       rawCarrier.toLowerCase().contains(p.partnerName.toLowerCase()) ||
-      (p.scacCode != null && rawCarrier.toLowerCase().contains(p.scacCode!.toLowerCase()))
+      (p.scacCode != null && rawCarrier.toLowerCase().contains(p.scacCode!.toLowerCase())) ||
+      (rawCarrier.toLowerCase().contains('whl') && (p.partnerName.toLowerCase().contains('wan hai') || (p.scacCode ?? '').toLowerCase() == 'whl')) ||
+      (rawCarrier.toLowerCase().contains('yml') && (p.partnerName.toLowerCase().contains('yang ming') || (p.scacCode ?? '').toLowerCase() == 'yml')) ||
+      (rawCarrier.toLowerCase().contains('msc') && (p.partnerName.toLowerCase().contains('msc') || (p.scacCode ?? '').toLowerCase() == 'msc')) ||
+      (rawCarrier.toLowerCase().contains('msk') && (p.partnerName.toLowerCase().contains('maersk') || (p.scacCode ?? '').toLowerCase() == 'msk')) ||
+      (rawCarrier.toLowerCase().contains('cma') && (p.partnerName.toLowerCase().contains('cma') || (p.scacCode ?? '').toLowerCase() == 'cma')) ||
+      (rawCarrier.toLowerCase().contains('cosco') && (p.partnerName.toLowerCase().contains('cosco') || (p.scacCode ?? '').toLowerCase() == 'cosco')) ||
+      (rawCarrier.toLowerCase().contains('emc') && (p.partnerName.toLowerCase().contains('evergreen') || (p.scacCode ?? '').toLowerCase() == 'emc')) ||
+      (rawCarrier.toLowerCase().contains('one') && (p.partnerName.toLowerCase().contains('ocean network') || (p.scacCode ?? '').toLowerCase() == 'one')) ||
+      (rawCarrier.toLowerCase().contains('hapag') && (p.partnerName.toLowerCase().contains('hapag') || (p.scacCode ?? '').toLowerCase() == 'hapag'))
     ).firstOrNull;
     final effectiveCarrierName = matchedLine != null ? matchedLine.partnerName : rawCarrier;
 
@@ -552,23 +497,11 @@ Best regards,
 
     // 3. Match Port of Loading POL (ميناء السفر / التحميل)
     final rawPol = (opt.originPort ?? _extractedFreightMetadata?['origin_port']?.toString() ?? '').toLowerCase();
-    final dynamic matchedPol = rawPol.isNotEmpty
-        ? portsList.where((p) {
-            final pName = (p.locationName as String).toLowerCase();
-            final unloc = (p.unLocode as String).toLowerCase();
-            return rawPol.contains(pName) || pName.contains(rawPol) || (unloc.isNotEmpty && rawPol.contains(unloc));
-          }).firstOrNull
-        : null;
+    final dynamic matchedPol = _matchPortSmart(rawPol, portsList);
 
     // 4. Match Port of Discharge POD (ميناء الوصول / التفريغ)
     final rawPod = (opt.destinationPort ?? _extractedFreightMetadata?['destination_port']?.toString() ?? '').toLowerCase();
-    final dynamic matchedPod = rawPod.isNotEmpty
-        ? portsList.where((p) {
-            final pName = (p.locationName as String).toLowerCase();
-            final unloc = (p.unLocode as String).toLowerCase();
-            return rawPod.contains(pName) || pName.contains(rawPod) || (unloc.isNotEmpty && rawPod.contains(unloc));
-          }).firstOrNull
-        : null;
+    final dynamic matchedPod = _matchPortSmart(rawPod, portsList);
 
     // 5. Vessel & Voyage (اسم الباخرة ورقم الرحلة)
     final effectiveVessel = (opt.vesselName != null && opt.vesselName!.isNotEmpty)
@@ -593,6 +526,18 @@ Best regards,
 
     final is40 = cntrType.contains('40');
     final is20 = cntrType.contains('20');
+
+    // Check for additional unmapped expenses / Free Time Extension fees in notes or localCharges
+    double extraFeeAmount = (localCharges != null && localCharges > 0) ? localCharges : 0.0;
+    if (notes != null && notes.isNotEmpty) {
+      final m = RegExp(r'(?:USD|\$|EUR|EGP)\s*([0-9,]+(?:\.\d+)?)', caseSensitive: false).firstMatch(notes);
+      if (m != null) {
+        final parsed = double.tryParse(m.group(1)!.replaceAll(',', ''));
+        if (parsed != null && parsed > 0 && extraFeeAmount == 0.0) {
+          extraFeeAmount = parsed;
+        }
+      }
+    }
 
     return ShippingScenarioItemModel(
       providerId: matchedForwarder?.providerId,
@@ -621,8 +566,8 @@ Best regards,
       bookingCancellationApplicable: cancelFee != null && cancelFee > 0,
       bookingCancellationPrice: cancelFee ?? 0.0,
       bookingCancellationCurrency: curr,
-      othersFeeApplicable: localCharges != null && localCharges > 0,
-      othersFeePrice: localCharges ?? 0.0,
+      othersFeeApplicable: extraFeeAmount > 0,
+      othersFeePrice: extraFeeAmount,
       othersFeeCurrency: curr,
       notes: [
         if (!isDirect) 'رحلة غير مباشرة (Transshipment)',
@@ -1799,10 +1744,17 @@ Best regards,
                                 Expanded(
                                   flex: 2,
                                   child: SearchableDropdownField<String>(
-                                    value: shippingLines.any((p) => p.partnerName == item.providerName) ? item.providerName : '',
+                                    value: shippingLines.any((p) => p.partnerName == item.providerName)
+                                        ? item.providerName
+                                        : (item.providerName.isNotEmpty ? item.providerName : ''),
                                     labelText: '${l.shippingLineCol} *',
                                     items: [
                                       SearchableDropdownItem<String>(value: '', label: l.unassigned),
+                                      if (item.providerName.isNotEmpty && !shippingLines.any((p) => p.partnerName == item.providerName))
+                                        SearchableDropdownItem<String>(
+                                          value: item.providerName,
+                                          label: '★ ${item.providerName} (مقترح)',
+                                        ),
                                       ...shippingLines.map((p) => SearchableDropdownItem<String>(
                                             value: p.partnerName,
                                             label: p.partnerName,

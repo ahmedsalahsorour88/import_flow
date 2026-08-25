@@ -406,6 +406,7 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
   final TextEditingController _notesCtrl = TextEditingController(text: 'تم استيفاء جميع المستندات والإفراج الجمركي وحساب تكلفة الوصول بنجاح.');
 
   bool _isLoading = false;
+  bool _isDraftSaving = false;
 
   @override
   void dispose() {
@@ -415,14 +416,129 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
     super.dispose();
   }
 
+  void _onFileSelected(int? fileId) {
+    setState(() => _selectedImportFileId = fileId);
+    if (fileId == null) return;
+
+    final existingClosures = ref.read(fileClosureProvider).value ?? [];
+    final match = existingClosures.where((c) => c.importFileId == fileId).firstOrNull;
+    if (match != null) {
+      setState(() {
+        _docsVerified = match.closureChecklist.docsVerified;
+        _customsCleared = match.closureChecklist.customsCleared;
+        _warehouseReceived = match.closureChecklist.warehouseReceived;
+        _landedCostSettled = match.closureChecklist.landedCostSettled;
+        _tasksClosed = match.closureChecklist.tasksClosed;
+        if (match.auditorName.isNotEmpty) _auditorCtrl.text = match.auditorName;
+        if (match.archiveLocation.isNotEmpty) _vaultCtrl.text = match.archiveLocation;
+        if (match.archivalNotes != null) _notesCtrl.text = match.archivalNotes!;
+      });
+    }
+  }
+
+  Future<void> _submitClosure({required bool isDraft}) async {
+    final l10n = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
+    if (!_formKey.currentState!.validate()) return;
+
+    if (!isDraft) {
+      if (!_docsVerified || !_customsCleared || !_warehouseReceived || !_landedCostSettled || !_tasksClosed) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(l10n.fileClosureChecklistIncompleteWarning),
+          backgroundColor: AppTheme.crimson,
+        ));
+        return;
+      }
+    }
+
+    setState(() {
+      if (isDraft) {
+        _isDraftSaving = true;
+      } else {
+        _isLoading = true;
+      }
+    });
+
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final payload = {
+        'import_file_id': _selectedImportFileId,
+        'closure_checklist': {
+          'docs_verified': _docsVerified,
+          'customs_cleared': _customsCleared,
+          'warehouse_received': _warehouseReceived,
+          'landed_cost_settled': _landedCostSettled,
+          'tasks_closed': _tasksClosed,
+        },
+        'auditor_name': _auditorCtrl.text.trim(),
+        'archive_location': _vaultCtrl.text.trim(),
+        'archival_notes': _notesCtrl.text.trim(),
+        'is_draft': isDraft,
+      };
+
+      await ref.read(fileClosureProvider.notifier).closeImportFile(payload);
+      await ref.read(importFilesProvider.notifier).fetchImportFiles();
+
+      final int completedCount = (_docsVerified ? 1 : 0) +
+          (_customsCleared ? 1 : 0) +
+          (_warehouseReceived ? 1 : 0) +
+          (_landedCostSettled ? 1 : 0) +
+          (_tasksClosed ? 1 : 0);
+      final double progressPct = (completedCount / 5.0) * 100.0;
+
+      nav.pop();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            isDraft
+                ? (isArabic
+                    ? '💾 تم حفظ تقدم الإغلاق مؤقتاً بنجاح (نسبة الإنجاز: ${progressPct.toStringAsFixed(0)}% - $completedCount من 5 مهام)'
+                    : 'Draft progress saved successfully (${progressPct.toStringAsFixed(0)}% - $completedCount/5 tasks)')
+                : (isArabic ? '✅ تم اعتماد وإصدار شهادة الإغلاق النهائي والأرشفة بنجاح!' : 'Final Closure & Archival Certified Successfully!'),
+          ),
+          backgroundColor: isDraft ? AppTheme.cobalt : AppTheme.emerald,
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.fileClosureSaveError('$e')), backgroundColor: AppTheme.crimson));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isDraftSaving = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
+    final int completedCount = (_docsVerified ? 1 : 0) +
+        (_customsCleared ? 1 : 0) +
+        (_warehouseReceived ? 1 : 0) +
+        (_landedCostSettled ? 1 : 0) +
+        (_tasksClosed ? 1 : 0);
+    final double progressPct = (completedCount / 5.0) * 100.0;
+    final bool isFullyComplete = completedCount == 5;
+    final Color progressColor = isFullyComplete
+        ? AppTheme.emerald
+        : (completedCount >= 3 ? AppTheme.cobalt : (completedCount >= 1 ? Colors.orange.shade800 : Colors.grey.shade600));
 
     return AlertDialog(
-      title: Text(context.l10n.fileClosureDialogTitle),
+      title: Row(
+        children: [
+          const Icon(Icons.inventory_2_outlined, color: AppTheme.cobalt, size: 24),
+          const SizedBox(width: 8),
+          Expanded(child: Text(context.l10n.fileClosureDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+        ],
+      ),
       content: SizedBox(
-        width: 550,
+        width: 600,
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
@@ -441,39 +557,107 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
                             subtitle: f.companyName,
                           ))
                       .toList(),
-                  onChanged: (val) => setState(() => _selectedImportFileId = val),
+                  onChanged: _onFileSelected,
                   validator: (v) => v == null ? context.l10n.fileClosureSelectImportFileValidator : null,
+                ),
+                const SizedBox(height: 14),
+
+                // ─── Dynamic Overall Completion Progress Card ─────────────────
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: progressColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: progressColor.withOpacity(0.35)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                isFullyComplete ? Icons.check_circle_rounded : Icons.pending_actions_rounded,
+                                color: progressColor,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                isArabic ? 'نسبة اكتمال المهام والأوراق الكلية:' : 'Overall Checklist Completion:',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: progressColor,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${progressPct.toStringAsFixed(0)}% ($completedCount/5)',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: completedCount / 5.0,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                          minHeight: 7,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        isArabic
+                            ? '💡 يمكنك استخدام زر "حفظ مؤقت (Save Draft)" لحفظ تقدم الإنجاز ومتابعة باقي الأوراق لاحقاً.'
+                            : '💡 You can use "Save Draft" to save intermediate progress and complete later.',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 14),
 
                 Text(context.l10n.fileClosureMandatoryChecklistHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
                 const SizedBox(height: 6),
                 CheckboxListTile(
-                  title: Text(context.l10n.fileClosureCheck1Docs),
+                  title: Text(context.l10n.fileClosureCheck1Docs, style: TextStyle(fontWeight: _docsVerified ? FontWeight.bold : FontWeight.normal)),
+                  secondary: Icon(_docsVerified ? Icons.check_box : Icons.check_box_outline_blank, color: _docsVerified ? AppTheme.emerald : Colors.grey),
                   value: _docsVerified,
                   onChanged: (v) => setState(() => _docsVerified = v ?? false),
                   dense: true,
                 ),
                 CheckboxListTile(
-                  title: Text(context.l10n.fileClosureCheck2Customs),
+                  title: Text(context.l10n.fileClosureCheck2Customs, style: TextStyle(fontWeight: _customsCleared ? FontWeight.bold : FontWeight.normal)),
+                  secondary: Icon(_customsCleared ? Icons.check_box : Icons.check_box_outline_blank, color: _customsCleared ? AppTheme.emerald : Colors.grey),
                   value: _customsCleared,
                   onChanged: (v) => setState(() => _customsCleared = v ?? false),
                   dense: true,
                 ),
                 CheckboxListTile(
-                  title: Text(context.l10n.fileClosureCheck3Warehouse),
+                  title: Text(context.l10n.fileClosureCheck3Warehouse, style: TextStyle(fontWeight: _warehouseReceived ? FontWeight.bold : FontWeight.normal)),
+                  secondary: Icon(_warehouseReceived ? Icons.check_box : Icons.check_box_outline_blank, color: _warehouseReceived ? AppTheme.emerald : Colors.grey),
                   value: _warehouseReceived,
                   onChanged: (v) => setState(() => _warehouseReceived = v ?? false),
                   dense: true,
                 ),
                 CheckboxListTile(
-                  title: Text(context.l10n.fileClosureCheck4LandedCost),
+                  title: Text(context.l10n.fileClosureCheck4LandedCost, style: TextStyle(fontWeight: _landedCostSettled ? FontWeight.bold : FontWeight.normal)),
+                  secondary: Icon(_landedCostSettled ? Icons.check_box : Icons.check_box_outline_blank, color: _landedCostSettled ? AppTheme.emerald : Colors.grey),
                   value: _landedCostSettled,
                   onChanged: (v) => setState(() => _landedCostSettled = v ?? false),
                   dense: true,
                 ),
                 CheckboxListTile(
-                  title: Text(context.l10n.fileClosureCheck5Tasks),
+                  title: Text(context.l10n.fileClosureCheck5Tasks, style: TextStyle(fontWeight: _tasksClosed ? FontWeight.bold : FontWeight.normal)),
+                  secondary: Icon(_tasksClosed ? Icons.check_box : Icons.check_box_outline_blank, color: _tasksClosed ? AppTheme.emerald : Colors.grey),
                   value: _tasksClosed,
                   onChanged: (v) => setState(() => _tasksClosed = v ?? false),
                   dense: true,
@@ -508,7 +692,7 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
           icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
           label: Text(context.l10n.fileClosureLiveReloadBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 4),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(foregroundColor: Colors.grey.shade800, side: BorderSide(color: Colors.grey.shade400)),
           onPressed: () {
@@ -526,52 +710,42 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
           icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
           label: Text(context.l10n.fileClosureResetFormBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ),
-        const SizedBox(width: 6),
-        TextButton(onPressed: _isLoading ? null : () => Navigator.pop(context), child: Text(context.l10n.cancel)),
+        const SizedBox(width: 4),
+
+        // ─── 💾 Save Draft / حفظ مؤقت ومتابعة لاحقاً ───────────────────────────
         ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
-          icon: _isLoading ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.archive_outlined, color: Colors.white, size: 16),
-          label: Text(context.l10n.fileClosureCertifySubmitBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          onPressed: _isLoading
-              ? null
-              : () async {
-                  final l10n = context.l10n;
-                  if (_formKey.currentState!.validate()) {
-                    if (!_docsVerified || !_customsCleared || !_warehouseReceived || !_landedCostSettled || !_tasksClosed) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(l10n.fileClosureChecklistIncompleteWarning),
-                        backgroundColor: AppTheme.crimson,
-                      ));
-                      return;
-                    }
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFEFF6FF),
+            foregroundColor: AppTheme.cobalt,
+            elevation: 0,
+            side: const BorderSide(color: AppTheme.cobalt),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          ),
+          icon: _isDraftSaving
+              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: AppTheme.cobalt, strokeWidth: 2))
+              : const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
+          label: Text(
+            isArabic ? 'حفظ مؤقت (Save Draft) 💾' : 'Save Draft 💾',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          onPressed: (_isLoading || _isDraftSaving) ? null : () => _submitClosure(isDraft: true),
+        ),
+        const SizedBox(width: 4),
 
-                    setState(() => _isLoading = true);
-                    final nav = Navigator.of(context);
-                    final messenger = ScaffoldMessenger.of(context);
-                    try {
-                      final payload = {
-                        'import_file_id': _selectedImportFileId,
-                        'closure_checklist': {
-                          'docs_verified': _docsVerified,
-                          'customs_cleared': _customsCleared,
-                          'warehouse_received': _warehouseReceived,
-                          'landed_cost_settled': _landedCostSettled,
-                          'tasks_closed': _tasksClosed,
-                        },
-                        'auditor_name': _auditorCtrl.text.trim(),
-                        'archive_location': _vaultCtrl.text.trim(),
-                        'archival_notes': _notesCtrl.text.trim(),
-                      };
+        TextButton(onPressed: (_isLoading || _isDraftSaving) ? null : () => Navigator.pop(context), child: Text(context.l10n.cancel)),
+        const SizedBox(width: 4),
 
-                      await ref.read(fileClosureProvider.notifier).closeImportFile(payload);
-                      nav.pop();
-                    } catch (e) {
-                      messenger.showSnackBar(SnackBar(content: Text(l10n.fileClosureSaveError('$e')), backgroundColor: AppTheme.crimson));
-                    } finally {
-                      if (mounted) setState(() => _isLoading = false);
-                    }
-                  }
-                },
+        // ─── ✅ Certify Final Closure & Archival ──────────────────────────────
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.emerald,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          ),
+          icon: _isLoading
+              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : const Icon(Icons.archive_outlined, color: Colors.white, size: 16),
+          label: Text(context.l10n.fileClosureCertifySubmitBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+          onPressed: (_isLoading || _isDraftSaving) ? null : () => _submitClosure(isDraft: false),
         ),
       ],
     );

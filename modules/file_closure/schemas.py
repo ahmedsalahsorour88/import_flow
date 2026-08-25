@@ -15,6 +15,7 @@ class FileClosureCreate(BaseModel):
     auditor_name: str = "Internal Auditor"
     archive_location: str = "Digital Archive Vault - 2026"
     archival_notes: Optional[str] = None
+    is_draft: bool = False
 
 class FileClosureUpdate(BaseModel):
     closure_checklist: Optional[ClosureChecklistSchema] = None

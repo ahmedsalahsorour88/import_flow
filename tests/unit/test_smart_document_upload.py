@@ -440,6 +440,37 @@ class TestFreightQuotationExtractor:
         assert opt40["total_estimated_cost"] == 7580.0
         assert opt40["free_time_days"] == 21
 
+    def test_vertexexpress_user_quote_extraction(self):
+        user_text = """vertexexpress
+POL ：NINGBO
+POD：DEKHEILA
+OF：USD6760/20GP
+OF：USD7735/40HQ
+ETD：30-Aug
+CARRIER：WHL
+TT : 35 DAYS direct
+FREE TIME：14 days
+Other (21days+USD200/ctnr)"""
+        result = self.extractor.extract(user_text, {})
+        assert result["carrier_name"] == "Wan Hai Lines (WHL)"
+        assert result["forwarder_name"] == "Vertex Express"
+        assert "Ningbo" in result["origin_port"]
+        assert "Dekheila" in result["destination_port"]
+        assert result["free_days_demurrage"] == 14
+        assert result["transit_days"] == 35
+        assert result["is_direct"] is True
+        assert result["etd_date"] == "2026-08-30"
+        assert len(result["rate_options"]) == 2
+
+        opt20 = next(o for o in result["rate_options"] if o["container_type"] == "20GP")
+        assert opt20["ocean_freight"] == 6760.0
+        assert opt20["carrier_name"] == "Wan Hai Lines (WHL)"
+        assert opt20["forwarder_name"] == "Vertex Express"
+
+        opt40 = next(o for o in result["rate_options"] if o["container_type"] == "40HQ")
+        assert opt40["ocean_freight"] == 7735.0
+        assert opt40["carrier_name"] == "Wan Hai Lines (WHL)"
+
     def test_real_world_example_2_surcharges_and_exw(self):
         example_2_text = """
         Dear Ahmed, 
@@ -588,6 +619,36 @@ class TestFreightQuotationExtractor:
         assert opt["ocean_freight"] == 45.0
         assert opt["container_type"] == "LCL (CBM)"
         assert opt["local_charges"] == 15.0
+
+    def test_unmapped_expenses_and_free_time_extend(self):
+        user_quote_text = """
+        vertexexpress
+        POL ：NINGBO
+        POD：DEKHEILA
+        OF：USD6760/20GP
+        FREE TIME EXTEND : USD200/ctnr
+        OF：USD7735/40HQ
+        FREE TIME EXTEND : USD200/ctnr)
+        ETD：30-Aug
+        CARRIER：WHL
+        TT : 35 DAYS direct
+        FREE TIME：14 days
+        Other (21days+USD200/ctnr)
+        """
+        result = self.extractor.extract(user_quote_text, {})
+        assert len(result["rate_options"]) >= 2
+        assert "Dekheila" in (result["destination_port"] or "")
+        assert "Ningbo" in (result["origin_port"] or "")
+        assert result["additional_expenses"] is not None
+        assert len(result["additional_expenses"]) >= 1
+        assert result["unmapped_expenses_warning"] is not None
+        assert "تنبيه" in result["unmapped_expenses_warning"]
+
+        # Check options contain additional charges in notes
+        for opt in result["rate_options"]:
+            assert opt["notes"] is not None
+            assert "USD 200" in opt["notes"]
+
 
 
 

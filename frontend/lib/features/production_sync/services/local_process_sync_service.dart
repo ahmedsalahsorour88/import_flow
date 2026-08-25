@@ -53,14 +53,12 @@ String _baseName(String fullPath) {
   return fullPath;
 }
 
-/// Resolves the ImportFlow project root from the current working directory or executable.
+/// Resolves the ImportFlow project root from the current working directory, executable, or user profile.
 String _resolveProjectRoot() {
+  // 1. Check Directory.current and its parents
   Directory dir = Directory.current;
   for (int i = 0; i < 8; i++) {
     if (File(_joinPath(dir.path, 'sync_to_production.py')).existsSync()) {
-      return dir.path;
-    }
-    if (File(_joinPath(dir.path, 'sorour_logistics.db')).existsSync()) {
       return dir.path;
     }
     final parent = dir.parent;
@@ -68,6 +66,7 @@ String _resolveProjectRoot() {
     dir = parent;
   }
 
+  // 2. Check Platform.resolvedExecutable and its parents
   final exe = File(Platform.resolvedExecutable);
   dir = exe.parent;
   for (int i = 0; i < 8; i++) {
@@ -77,6 +76,35 @@ String _resolveProjectRoot() {
     final parent = dir.parent;
     if (parent.path == dir.path) break;
     dir = parent;
+  }
+
+  // 3. Check USERPROFILE / HOME desktop folder
+  final userProfile = Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'] ?? '';
+  if (userProfile.isNotEmpty) {
+    final candidatePaths = [
+      _joinPath(userProfile, 'Desktop', 'ImportFlow'),
+      _joinPath(userProfile, 'Desktop', 'import_flow'),
+      _joinPath(userProfile, 'Documents', 'ImportFlow'),
+      _joinPath(userProfile, 'ImportFlow'),
+    ];
+    for (final cand in candidatePaths) {
+      if (File(_joinPath(cand, 'sync_to_production.py')).existsSync()) {
+        return cand;
+      }
+    }
+  }
+
+  // 4. Check well-known workspace paths on Windows
+  const knownWindowsPaths = [
+    r'C:\Users\Hp\Desktop\ImportFlow',
+    r'C:\ImportFlow',
+    r'D:\ImportFlow',
+    r'E:\ImportFlow',
+  ];
+  for (final kp in knownWindowsPaths) {
+    if (File(_joinPath(kp, 'sync_to_production.py')).existsSync()) {
+      return kp;
+    }
   }
 
   return Directory.current.path;

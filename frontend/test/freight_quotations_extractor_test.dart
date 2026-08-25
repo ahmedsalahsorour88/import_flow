@@ -1,6 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'package:frontend/features/freight_quotations/widgets/freight_quotations_extractor_dialog.dart';
+import 'package:frontend/features/external_service_providers/providers/partners_provider.dart';
+import 'package:frontend/features/transport_locations/providers/transport_locations_provider.dart';
+
+class MockAllPartnersNotifier extends AllPartnersNotifier {
+  MockAllPartnersNotifier() : super(dio: Dio()) {
+    state = const AsyncValue.data([]);
+  }
+  @override
+  Future<void> fetchPartners() async {
+    state = const AsyncValue.data([]);
+  }
+}
+
+class MockTransportLocationsNotifier extends TransportLocationsNotifier {
+  MockTransportLocationsNotifier() : super(Dio()) {
+    state = const AsyncValue.data([]);
+  }
+  @override
+  Future<void> fetchLocations({bool includeInactive = true, String? locationType, String? search}) async {
+    state = const AsyncValue.data([]);
+  }
+}
 
 void main() {
   group('Freight Quotations Extractor Model & Dialog Tests', () {
@@ -42,17 +66,23 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () {
-                  FreightQuotationsExtractorDialog.show(
-                    context,
-                    onAddQuotations: (_) {},
-                  );
-                },
-                child: const Text('Open'),
+        ProviderScope(
+          overrides: [
+            allPartnersProvider.overrideWith((ref) => MockAllPartnersNotifier()),
+            transportLocationsProvider.overrideWith((ref) => MockTransportLocationsNotifier()),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () {
+                    FreightQuotationsExtractorDialog.show(
+                      context,
+                      onAddQuotations: (_) {},
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
               ),
             ),
           ),
@@ -64,7 +94,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify title and tabs
-      expect(find.text('استخراج عروض أسعار الشحن الذكي (Text & OCR)'), findsOneWidget);
+      expect(find.textContaining('نتائج الاستخراج — استخراج كامل'), findsOneWidget);
       expect(find.text('📝 لصق نص / بريد إلكتروني'), findsOneWidget);
       expect(find.text('📁 رفع ملف / مستند / صورة (OCR)'), findsOneWidget);
 
@@ -74,7 +104,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify text field contains sample quote text
-      expect(find.textContaining('WHL: USD 6,700/40HQ'), findsOneWidget);
+      expect(find.textContaining('USD6760/20GP'), findsOneWidget);
 
       // Switch to OCR tab
       await tester.tap(find.text('📁 رفع ملف / مستند / صورة (OCR)'));

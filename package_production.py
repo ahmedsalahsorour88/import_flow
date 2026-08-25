@@ -112,10 +112,15 @@ def copy_standalone_package():
         safe_copy_file(DB_SRC, prod_db_file)
         print(f"      Included clean master sorour_logistics.db into {STANDALONE_DEST}")
 
-    # 4. Copy App Icon
+    # 4. Copy App Icon & Sync Tools
     if APP_ICON_SRC.exists():
         safe_copy_file(APP_ICON_SRC, STANDALONE_DEST / "app_icon.ico")
         print(f"      Included app_icon.ico into {STANDALONE_DEST}")
+
+    for util_file in ["sync_to_production.py", "version_manager.py", "version.json", "reset_clean_production_db.py", "clean_and_isolate_databases.py"]:
+        if (ROOT_DIR / util_file).exists():
+            safe_copy_file(ROOT_DIR / util_file, STANDALONE_DEST / util_file)
+            print(f"      Included {util_file} into {STANDALONE_DEST}")
 
     # 5. Create Standalone Silent VBS Launcher (0 Terminal Windows)
     vbs_launcher = r'''Set WshShell = CreateObject("WScript.Shell")

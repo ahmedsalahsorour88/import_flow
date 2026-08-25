@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 enum CargoOrientationPreference {
   smartHybrid, // 🌟 Smart Hybrid (Allows flat, 90° rotation, and on-edge vertical standing to fill residual width/height channels)
   flatOnly,    // 📦 Flat Only (Strictly keeps original height axis vertical; only allows flat 2D rotation if length/width swap)

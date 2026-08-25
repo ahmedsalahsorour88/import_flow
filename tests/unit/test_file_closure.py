@@ -161,5 +161,32 @@ class TestFileClosureModule(unittest.TestCase):
         self.assertIsNotNone(record.closure_id)
         self.assertEqual(record.status, "Closed")
 
+    def test_save_draft_intermediate_closure_success(self):
+        # Schema with only 2 out of 5 items completed and is_draft=True
+        schema = FileClosureCreate(
+            import_file_id=self.import_file_id,
+            closure_checklist=ClosureChecklistSchema(
+                docs_verified=True,
+                customs_cleared=True,
+                warehouse_received=False,
+                landed_cost_settled=False,
+                tasks_closed=False,
+            ),
+            auditor_name="Adel Auditor",
+            archive_location="Draft Vault",
+            is_draft=True,
+        )
+
+        record = close_import_file_service(self.db, schema)
+        self.assertIsNotNone(record.closure_id)
+        self.assertEqual(record.status, "Draft")
+        self.assertEqual(record.closure_checklist["docs_verified"], True)
+        self.assertEqual(record.closure_checklist["warehouse_received"], False)
+
+        # Import file should remain open with in-progress closure status
+        imp_file = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
+        self.assertNotEqual(imp_file.status, "Closed")
+        self.assertIn("Closure In-Progress (2/5 items - 40%)", imp_file.current_stage)
+
 if __name__ == "__main__":
     unittest.main()

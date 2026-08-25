@@ -24,7 +24,7 @@ import '../financial_approval/screens/swift_reconciliation_screen.dart';
 import '../financial_settlement/screens/financial_settlement_screen.dart';
 import '../financial_settlement/screens/landed_cost_comparison_screen.dart';
 import '../freight_booking/screens/freight_booking_screen.dart';
-import '../freight_quotations/screens/freight_quotations_comparison_screen.dart';
+import '../freight_quotations/screens/freight_quotations_screen.dart';
 import '../import_companies/screens/import_companies_screen.dart';
 import '../import_documentation/screens/bank_form4_screen.dart';
 import '../cargo_insurance/screens/cargo_insurance_screen.dart';
@@ -138,7 +138,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         LifecycleBoardScreen(),
 
         // 49: Freight Quotations Comparison
-        FreightQuotationsComparisonScreen(),
+        FreightQuotationsScreen(),
 
         // 50: Landed Cost Comparison
         LandedCostComparisonScreen(),
@@ -664,7 +664,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          'v1.0.19 (Build 20)',
+                          'v1.0.23 (Build 24)',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(color: Colors.white70, fontSize: 9.5, fontFamily: 'monospace', fontWeight: FontWeight.w600),
@@ -877,9 +877,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildInfoRow(Icons.verified, l.systemVersion, 'v1.0.19 (Release)'),
+              _buildInfoRow(Icons.verified, l.systemVersion, 'v1.0.23 (Release)'),
               const Divider(height: 14),
-              _buildInfoRow(Icons.build_circle_outlined, l.buildId, 'Build 1.0.19+20'),
+              _buildInfoRow(Icons.build_circle_outlined, l.buildId, 'Build 1.0.23+24'),
               const Divider(height: 14),
               _buildInfoRow(Icons.dns_outlined, l.backendEngine, 'FastAPI (Port 28080)'),
               const Divider(height: 14),

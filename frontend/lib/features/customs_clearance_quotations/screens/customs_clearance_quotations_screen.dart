@@ -1,12 +1,14 @@
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/extraction_progress_dialog.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
@@ -29,6 +31,14 @@ class _CustomsClearanceQuotationsScreenState
   final TextEditingController _searchCtrl = TextEditingController();
   String _selectedStatusFilter = 'ALL';
 
+  // ── Smart AI Extractor State (Text & OCR) ──────────────────────────────
+  bool _isClearanceExtractorExpanded = true;
+  bool _isClearanceExtracting = false;
+  final TextEditingController _rawClearanceQuoteCtrl = TextEditingController();
+  Map<String, dynamic>? _extractedClearanceData;
+  PlatformFile? _pickedClearanceFile;
+  String? _clearanceExtractorError;
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +56,7 @@ class _CustomsClearanceQuotationsScreenState
   void dispose() {
     _tabController.dispose();
     _searchCtrl.dispose();
+    _rawClearanceQuoteCtrl.dispose();
     super.dispose();
   }
 
@@ -289,7 +300,11 @@ class _CustomsClearanceQuotationsScreenState
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
+
+              // ── Smart AI Clearance Quotations Extractor (Text & OCR Box) ──
+              _buildInlineClearanceQuotationsExtractorWidget(),
+              const SizedBox(height: 8),
 
               // Content List
               Expanded(
@@ -639,17 +654,26 @@ class _CustomsClearanceQuotationsScreenState
   // DIALOGS & ACTIONS
   // ===========================================================================
 
-  Future<void> _showCreateRFQDialog() async {
+  Future<void> _showCreateRFQDialog({
+    String? initialBrokerName,
+    String? initialPortName,
+    double? initialClearanceFee,
+    double? initialInspectionFee,
+    double? initialPortExpenses,
+    double? initialMiscFee,
+  }) async {
     final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
-    final titleCtrl = TextEditingController(text: l10n.clearanceQuotesDialogCreateRfqTitle);
+    final titleCtrl = TextEditingController(
+      text: initialBrokerName != null ? 'طلب تخليص جمركي - $initialBrokerName' : l10n.clearanceQuotesDialogCreateRfqTitle,
+    );
     final commodityCtrl = TextEditingController();
     final hsCodeCtrl = TextEditingController();
     final grossWeightCtrl = TextEditingController(text: '10000');
     final cbmCtrl = TextEditingController(text: '30');
     int containersCount = 1;
     String shipmentType = 'Ocean FCL (40HQ)';
-    String portName = 'Alexandria Port (ميناء الإسكندرية)';
+    String portName = initialPortName ?? 'Alexandria Port (ميناء الإسكندرية)';
     int? selectedImportFileId;
 
     final importFiles = ref.read(importFilesProvider).value ?? [];
@@ -986,6 +1010,526 @@ class _CustomsClearanceQuotationsScreenState
             ],
           );
         },
+      ),
+    );
+  }
+
+  static const String _sampleClearanceQuoteText = '''
+مقايسة وعرض أسعار تخليص جمركي
+المخلص الجمركي: مكتب الأهرام للتخليص الجمركي
+ميناء الوصول: ميناء الإسكندرية البحري (Alexandria Port)
+نوع الحاوية: 40HQ - عدد 2 حاوية
+أتعاب التخليص الجمركي: 3,500 جنيه
+مصاريف الشحن والتفريغ: 1,800 جنيه
+رسوم الفحص والعرض (صادرات وواردات): 2,400 جنيه
+مصاريف نولون نقل داخلي للمصنع: 4,500 جنيه
+المصروفات النثرية والوزن: 600 جنيه
+إجمالي المقايسة التقديرية: 12,800 EGP
+''';
+
+  void _loadSampleClearanceQuote() {
+    setState(() {
+      _rawClearanceQuoteCtrl.text = _sampleClearanceQuoteText.trim();
+      _clearanceExtractorError = null;
+    });
+  }
+
+  Future<void> _extractClearanceFromText() async {
+    final text = _rawClearanceQuoteCtrl.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ يرجى لصق أو كتابة نص مقايسة التخليص أولاً'), backgroundColor: AppTheme.orange),
+      );
+      return;
+    }
+
+    setState(() {
+      _isClearanceExtracting = true;
+      _clearanceExtractorError = null;
+      _extractedClearanceData = null;
+    });
+
+    final progressCtrl = ExtractionProgressController();
+    progressCtrl.update(
+      percent: 0.20,
+      status: 'جاري فحص وتحليل بنود مقايسة التخليص الجمركي...',
+      stepLabel: 'المرحلة 1 من 3: معالجة النصوص',
+      currentStep: 1,
+    );
+
+    ExtractionProgressDialog.show(
+      context: context,
+      title: 'استخراج مقايسة التخليص من النص',
+      fileName: 'النص المنسوخ (${text.length} حرف)',
+      controller: progressCtrl,
+    );
+
+    progressCtrl.startAutoAdvance(targetPercent: 0.90, duration: const Duration(seconds: 2));
+
+    try {
+      final dio = Dio();
+      final response = await dio.post(
+        '${ApiConstants.baseUrl}/smart-upload/parse-text/clearance-quotation',
+        data: FormData.fromMap({
+          'raw_text': text,
+          'save_session': false,
+        }),
+        options: Options(
+          contentType: 'multipart/form-data',
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      progressCtrl.complete();
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+
+      _processExtractedClearanceData(response.data);
+    } on DioException catch (e) {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      setState(() => _clearanceExtractorError = 'خطأ في الاتصال بالخادم: ${e.message}');
+    } catch (e) {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      setState(() => _clearanceExtractorError = 'حدث خطأ أثناء الاستخراج: $e');
+    } finally {
+      if (mounted) setState(() => _isClearanceExtracting = false);
+    }
+  }
+
+  Future<void> _extractClearanceFromFile() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'xlsx', 'xls', 'docx', 'doc', 'txt'],
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty || result.files.first.bytes == null) return;
+      final file = result.files.first;
+
+      setState(() {
+        _pickedClearanceFile = file;
+        _isClearanceExtracting = true;
+        _clearanceExtractorError = null;
+        _extractedClearanceData = null;
+      });
+
+      final fileSizeFormatted = file.size > 1024 * 1024
+          ? '${(file.size / (1024 * 1024)).toStringAsFixed(2)} MB'
+          : '${(file.size / 1024).toStringAsFixed(1)} KB';
+
+      final progressCtrl = ExtractionProgressController();
+      progressCtrl.update(
+        percent: 0.15,
+        status: 'جاري رفع الملف وقراءة المقايسة بالماسح الضوئي (OCR)...',
+        stepLabel: 'المرحلة 1 من 4: رفع الملف',
+        currentStep: 1,
+      );
+
+      ExtractionProgressDialog.show(
+        context: context,
+        title: 'استخراج مقايسة التخليص بالماسح الضوئي (OCR)',
+        fileName: file.name,
+        fileSize: fileSizeFormatted,
+        controller: progressCtrl,
+      );
+
+      final dio = Dio();
+      final multipartFile = MultipartFile.fromBytes(file.bytes!, filename: file.name);
+      final formData = FormData.fromMap({
+        'file': multipartFile,
+        'module_name': 'clearance-quotation',
+        'save_session': false,
+      });
+
+      final response = await dio.post(
+        '${ApiConstants.baseUrl}/smart-upload/upload',
+        data: formData,
+        options: Options(receiveTimeout: const Duration(seconds: 60)),
+        onSendProgress: (sent, total) {
+          if (total > 0) {
+            final uploadRatio = sent / total;
+            final p = 0.15 + (uploadRatio * 0.35);
+            progressCtrl.update(
+              percent: p,
+              status: 'جاري رفع الملف (${(uploadRatio * 100).round()}%)...',
+              stepLabel: 'المرحلة 2 من 4: رفع الملف',
+              currentStep: 2,
+            );
+            if (uploadRatio >= 0.99) {
+              progressCtrl.startAutoAdvance(targetPercent: 0.92, duration: const Duration(seconds: 5));
+            }
+          }
+        },
+      );
+
+      progressCtrl.complete();
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+
+      _processExtractedClearanceData(response.data);
+    } on DioException catch (e) {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      setState(() => _clearanceExtractorError = 'خطأ في معالجة الملف بالـ OCR: ${e.message}');
+    } catch (e) {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      setState(() => _clearanceExtractorError = 'حدث خطأ أثناء معالجة المستند: $e');
+    } finally {
+      if (mounted) setState(() => _isClearanceExtracting = false);
+    }
+  }
+
+  void _processExtractedClearanceData(dynamic data) {
+    if (data == null) return;
+    final extracted = (data['extracted_fields'] as Map<String, dynamic>?) ?? {};
+
+    if (data['raw_text'] != null && (data['raw_text'] as String).isNotEmpty) {
+      _rawClearanceQuoteCtrl.text = data['raw_text'] as String;
+    }
+
+    setState(() {
+      _extractedClearanceData = extracted;
+      if (extracted.isEmpty) {
+        _clearanceExtractorError = 'لم يتم العثور على أية بيانات صالحة في النص/المستند المدخل.';
+      }
+    });
+
+    if (extracted.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✨ تم بنجاح استخراج بيانات مقايسة التخليص الجمركي!'),
+          backgroundColor: AppTheme.emerald,
+        ),
+      );
+    }
+  }
+
+  Widget _buildInlineClearanceQuotationsExtractorWidget() {
+    final l10n = context.l10n;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.blueGrey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header Bar with Cobalt Gradient & Icons
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [const Color(0xFF6C5CE7), Colors.deepPurple.shade700],
+                begin: Alignment.centerRight,
+                end: Alignment.centerLeft,
+              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                    SizedBox(width: 6),
+                    Icon(Icons.bolt, color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      '(Clearance Quotation AI) استخراج وقراءة عروض ومقايسات التخليص الجمركي ⚡ ✨',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: Icon(_isClearanceExtractorExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.white),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: _isClearanceExtractorExpanded ? 'طي الأداة' : 'توسيع الأداة',
+                  onPressed: () => setState(() => _isClearanceExtractorExpanded = !_isClearanceExtractorExpanded),
+                ),
+              ],
+            ),
+          ),
+
+          // Collapsible Body
+          if (_isClearanceExtractorExpanded)
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isNarrow = constraints.maxWidth < 650;
+
+                      // Text Area
+                      final textArea = Stack(
+                        children: [
+                          TextField(
+                            controller: _rawClearanceQuoteCtrl,
+                            maxLines: 5,
+                            minLines: 4,
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4),
+                            decoration: InputDecoration(
+                              hintText: 'لصق نص رسالة أو مقايسة عرض أسعار التخليص الجمركي...\n(مثال: المخلص: الأهرام للتخليص | ميناء الإسكندرية | أتعاب التخليص: 3500 ج | الفحص: 2400 ج | إجمالي المقايسة: 12800 EGP)',
+                              hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 40),
+                            ),
+                          ),
+                          Positioned(
+                            left: 8,
+                            bottom: 8,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                InkWell(
+                                  onTap: () async {
+                                    final d = await Clipboard.getData(Clipboard.kTextPlain);
+                                    if (d != null && d.text != null && d.text!.isNotEmpty) {
+                                      _rawClearanceQuoteCtrl.text = d.text!;
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade200,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.paste, size: 12, color: Colors.black87),
+                                        SizedBox(width: 4),
+                                        Text('لصق نص المقايسة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                InkWell(
+                                  onTap: () {
+                                    _rawClearanceQuoteCtrl.clear();
+                                    setState(() {
+                                      _extractedClearanceData = null;
+                                      _clearanceExtractorError = null;
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.clear, size: 12, color: Colors.black54),
+                                        SizedBox(width: 4),
+                                        Text('تفريغ', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                InkWell(
+                                  onTap: _loadSampleClearanceQuote,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.purple.shade50,
+                                      border: Border.all(color: Colors.purple.shade200),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.lightbulb_outline, size: 12, color: Color(0xFF6C5CE7)),
+                                        SizedBox(width: 4),
+                                        Text('نموذج تجريبي', style: TextStyle(fontSize: 11, color: Color(0xFF6C5CE7), fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+
+                      // Buttons
+                      final actionButtons = Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.purple.shade800,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.upload_file, size: 16, color: Colors.white),
+                            label: const Text('رفع مستند المقايسة 📄', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: _isClearanceExtracting ? null : _extractClearanceFromFile,
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF6C5CE7),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: _isClearanceExtracting
+                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Icon(Icons.bolt, size: 16, color: Colors.amber),
+                            label: const Text('استخراج وتحليل المقايسة ⚡', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: _isClearanceExtracting ? null : _extractClearanceFromText,
+                          ),
+                        ],
+                      );
+
+                      if (isNarrow) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            textArea,
+                            const SizedBox(height: 10),
+                            actionButtons,
+                          ],
+                        );
+                      } else {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: textArea),
+                            const SizedBox(width: 14),
+                            SizedBox(width: 220, child: actionButtons),
+                          ],
+                        );
+                      }
+                    },
+                  ),
+
+                  // Error
+                  if (_clearanceExtractorError != null) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_clearanceExtractorError!, style: TextStyle(color: Colors.red.shade800, fontSize: 11))),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Extracted Result Card
+                  if (_extractedClearanceData != null) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'تم استخراج بيانات مقايسة التخليص بنجاح:',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                                ),
+                              ),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.emerald,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                ),
+                                icon: const Icon(Icons.add_circle_outline, size: 14, color: Colors.white),
+                                label: const Text(
+                                  '🚀 إنشاء طلب RFQ جديد بهذه البيانات',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                ),
+                                onPressed: () {
+                                  _showCreateRFQDialog(
+                                    initialBrokerName: _extractedClearanceData!['broker_name'] as String?,
+                                    initialPortName: _extractedClearanceData!['port_name'] as String?,
+                                    initialClearanceFee: (_extractedClearanceData!['clearance_fee'] as num?)?.toDouble(),
+                                    initialInspectionFee: (_extractedClearanceData!['inspection_fee'] as num?)?.toDouble(),
+                                    initialPortExpenses: (_extractedClearanceData!['port_expenses'] as num?)?.toDouble(),
+                                    initialMiscFee: (_extractedClearanceData!['miscellaneous_fee'] as num?)?.toDouble(),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              if (_pickedClearanceFile != null)
+                                Chip(
+                                  avatar: const Icon(Icons.attach_file, size: 14, color: Color(0xFF6C5CE7)),
+                                  label: Text('المستند: ${_pickedClearanceFile!.name}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  backgroundColor: Colors.white,
+                                ),
+                              if (_extractedClearanceData!['broker_name'] != null)
+                                Chip(
+                                  avatar: const Icon(Icons.person, size: 14, color: AppTheme.cobalt),
+                                  label: Text('المخلص: ${_extractedClearanceData!['broker_name']}', style: const TextStyle(fontSize: 11)),
+                                  backgroundColor: Colors.white,
+                                ),
+                              if (_extractedClearanceData!['port_name'] != null)
+                                Chip(
+                                  avatar: const Icon(Icons.location_on, size: 14, color: Colors.blue),
+                                  label: Text('الميناء: ${_extractedClearanceData!['port_name']}', style: const TextStyle(fontSize: 11)),
+                                  backgroundColor: Colors.white,
+                                ),
+                              if (_extractedClearanceData!['clearance_fee'] != null)
+                                Chip(
+                                  label: Text('أتعاب التخليص: ${_extractedClearanceData!['clearance_fee']} EGP', style: const TextStyle(fontSize: 11)),
+                                  backgroundColor: Colors.white,
+                                ),
+                              if (_extractedClearanceData!['total_estimated_clearance_cost'] != null)
+                                Chip(
+                                  avatar: const Icon(Icons.monetization_on, size: 14, color: Colors.green),
+                                  label: Text('الإجمالي التقديري: ${_extractedClearanceData!['total_estimated_clearance_cost']} EGP', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
+                                  backgroundColor: Colors.white,
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

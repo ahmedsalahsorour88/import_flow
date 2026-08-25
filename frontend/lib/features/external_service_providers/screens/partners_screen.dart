@@ -285,241 +285,368 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                     );
                   }
 
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minWidth: MediaQuery.of(context).size.width > 1100
-                                  ? MediaQuery.of(context).size.width - 300
-                                  : 950,
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final tableWidth = constraints.maxWidth < 1100 ? 1100.0 : constraints.maxWidth;
+
+                      return Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.04),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
-                            child: Table(
-                                columnWidths: const {
-                                0: FixedColumnWidth(110),
-                                1: FlexColumnWidth(3),
-                                2: FlexColumnWidth(2.5),
-                                3: FlexColumnWidth(2),
-                                4: FixedColumnWidth(85),
-                                5: FixedColumnWidth(195),
-                              },
-                              children: [
-                                // Table Header
-                                TableRow(
-                                  decoration: const BoxDecoration(color: AppTheme.charcoal),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.vertical,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SizedBox(
+                                width: tableWidth,
+                                child: Table(
+                                  defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                                  columnWidths: const {
+                                    0: FixedColumnWidth(140),
+                                    1: FlexColumnWidth(3.0),
+                                    2: FlexColumnWidth(2.6),
+                                    3: FlexColumnWidth(2.2),
                                   children: [
-                                    l10n.partnerCodeCol,
-                                    l10n.partnerNameAndCategoryCol,
-                                    l10n.registrationAndLicenseCol,
-                                    l10n.contactDetailsCol,
-                                    l10n.partnerStatusCol,
-                                    l10n.partnerActionsCol,
-                                  ]
-                                      .map((h) => Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                            child: Text(
-                                              h,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ))
-                                      .toList(),
-                                ),
-
-                                // Table Data Rows
-                                ...filtered.asMap().entries.map((entry) {
-                                  final partner = entry.value;
-                                  final isEven = entry.key % 2 == 0;
-                                  final isActive = partner.isActive;
-                                  final categories = partner.categoriesList;
-
-                                  return TableRow(
-                                    decoration: BoxDecoration(
-                                      color: isEven ? Colors.white : Colors.grey.shade50,
+                                    // Table Header
+                                    TableRow(
+                                      decoration: const BoxDecoration(color: AppTheme.charcoal),
+                                      children: [
+                                        l10n.partnerCodeCol,
+                                        l10n.partnerNameAndCategoryCol,
+                                        l10n.registrationAndLicenseCol,
+                                        l10n.contactDetailsCol,
+                                        l10n.partnerStatusCol,
+                                        l10n.partnerActionsCol,
+                                      ]
+                                          .map((h) => Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                                child: Text(
+                                                  h,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ))
+                                          .toList(),
                                     ),
-                                    children: [
-                                      // Code
-                                      _cell(
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.charcoal.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            partner.partnerCode,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                              color: AppTheme.charcoal,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
 
-                                      // Partner Name & Categories
-                                      _cell(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              partner.partnerName,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                                color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
-                                                decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                                    // Table Data Rows
+                                    ...filtered.asMap().entries.map((entry) {
+                                      final partner = entry.value;
+                                      final isEven = entry.key % 2 == 0;
+                                      final isActive = partner.isActive;
+                                      final categories = partner.categoriesList;
+
+                                      return TableRow(
+                                        decoration: BoxDecoration(
+                                          color: isEven ? Colors.white : Colors.grey.shade50,
+                                        ),
+                                        children: [
+                                          // Code
+                                          _cell(
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.charcoal.withOpacity(0.08),
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(color: AppTheme.charcoal.withOpacity(0.15)),
+                                              ),
+                                              child: Text(
+                                                partner.partnerCode,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                  letterSpacing: 0.3,
+                                                  color: AppTheme.charcoal,
+                                                ),
                                               ),
                                             ),
-                                            const SizedBox(height: 4),
-                                            Wrap(
-                                              spacing: 4,
-                                              runSpacing: 4,
-                                              children: categories.map((cat) => _buildCategoryBadge(context, cat)).toList(),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-
-                                      // Registration & Identifiers
-                                      _cell(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            if (partner.swiftCode != null && partner.swiftCode!.isNotEmpty)
-                                              Text(l10n.partnerSwiftLabel(partner.swiftCode!), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                            if (partner.scacCode != null && partner.scacCode!.isNotEmpty)
-                                              Text(l10n.partnerScacLabel(partner.scacCode!), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                            if (partner.clearanceLicenseNumber != null && partner.clearanceLicenseNumber!.isNotEmpty)
-                                              Text(l10n.partnerLicenseLabel(partner.clearanceLicenseNumber!), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                            if (partner.commercialRegister != null && partner.commercialRegister!.isNotEmpty)
-                                              Text(l10n.partnerRegLabel(partner.commercialRegister!), style: const TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                            Text(l10n.partnerCountryLabel(partner.country), style: const TextStyle(fontSize: 10, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                          ],
-                                        ),
-                                      ),
-
-                                      // Contact Details
-                                      _cell(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(partner.email ?? l10n.noEmailLabel, style: const TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                            Text(partner.phone ?? l10n.noPhoneLabel, style: const TextStyle(fontSize: 11, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                          ],
-                                        ),
-                                      ),
-
-                                      // Status
-                                      _cell(
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(20),
                                           ),
-                                          child: Text(
-                                            isActive ? l10n.statusActive : l10n.statusInactive,
-                                            style: TextStyle(
-                                              color: isActive ? AppTheme.emerald : AppTheme.crimson,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
+
+                                          // Partner Name & Categories
+                                          _cell(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  partner.partnerName,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14,
+                                                    color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
+                                                    decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 5),
+                                                Wrap(
+                                                  spacing: 4,
+                                                  runSpacing: 4,
+                                                  children: categories.map((cat) => _buildCategoryBadge(context, cat)).toList(),
+                                                ),
+                                              ],
                                             ),
                                           ),
-                                        ),
-                                      ),
 
-                                      // Actions: View, Edit, Print, Delete, Statement of Account
-                                        _cell(
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Tooltip(
-                                                message: l10n.partnerStatementOfAccountTooltip,
-                                                child: InkWell(
-                                                  onTap: () => PartnerStatementOfAccountDialog.show(context, partner),
-                                                  borderRadius: BorderRadius.circular(4),
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                                    margin: const EdgeInsets.only(right: 6),
-                                                    decoration: BoxDecoration(
-                                                      color: AppTheme.cobalt.withOpacity(0.12),
-                                                      borderRadius: BorderRadius.circular(4),
-                                                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                                                    ),
+                                          // Registration & Identifiers
+                                          _cell(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (partner.swiftCode != null && partner.swiftCode!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
                                                     child: Row(
                                                       mainAxisSize: MainAxisSize.min,
                                                       children: [
-                                                        const Icon(Icons.receipt_long, size: 14, color: AppTheme.cobalt),
-                                                        const SizedBox(width: 3),
-                                                        Text(l10n.partnerStatementOfAccountBtn, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              RowActionsPill(
-                                                 onView: () => PartnerDetailsDialog.show(
-                                                   context,
-                                                   partner,
-                                                   onEdit: () => _showPartnerDialog(context, partner),
-                                                 ),
-                                                 onEdit: () => _showPartnerDialog(context, partner),
-                                                 onPrint: () => MasterDataExportService.printOrSavePartnerPdf(partner),
-                                                 onDelete: () async {
-                                                  final confirm = await showDialog<bool>(
-                                                    context: context,
-                                                    builder: (ctx) => AlertDialog(
-                                                      title: Text(l10n.confirmActionTitle),
-                                                      content: Text(isActive
-                                                          ? l10n.confirmDeactivatePartner(partner.partnerName)
-                                                          : l10n.confirmActivatePartner(partner.partnerName)),
-                                                      actions: [
-                                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.closeBtn)),
-                                                        ElevatedButton(
-                                                          onPressed: () => Navigator.pop(ctx, true),
-                                                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                                                        const Icon(Icons.account_balance_outlined, size: 12, color: AppTheme.cobalt),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            l10n.partnerSwiftLabel(partner.swiftCode!),
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
                                                         ),
                                                       ],
                                                     ),
-                                                  );
-                                                  if (confirm == true && partner.providerId != null) {
-                                                    ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
-                                                  }
-                                                },
-                                                deleteTooltip: isActive ? l10n.deactivatePartnerTooltip : l10n.activatePartnerTooltip,
-                                              ),
-                                            ],
+                                                  ),
+                                                if (partner.scacCode != null && partner.scacCode!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.directions_boat_outlined, size: 12, color: AppTheme.cobalt),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            l10n.partnerScacLabel(partner.scacCode!),
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (partner.clearanceLicenseNumber != null && partner.clearanceLicenseNumber!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.badge_outlined, size: 12, color: AppTheme.orange),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            l10n.partnerLicenseLabel(partner.clearanceLicenseNumber!),
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (partner.commercialRegister != null && partner.commercialRegister!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.description_outlined, size: 12, color: AppTheme.charcoal),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            l10n.partnerRegLabel(partner.commercialRegister!),
+                                                            style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(Icons.public, size: 12, color: Colors.grey),
+                                                    const SizedBox(width: 4),
+                                                    Flexible(
+                                                      child: Text(
+                                                        l10n.partnerCountryLabel(partner.country),
+                                                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                    ],
-                                  );
-                                }),
-                              ],
-                            ),
-                          ),
-                        ),
+
+                                          // Contact Details
+                                          _cell(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (partner.email != null && partner.email!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 3),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.email_outlined, size: 12, color: AppTheme.cobalt),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            partner.email!,
+                                                            style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  )
+                                                else
+                                                  Text(l10n.noEmailLabel, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                                if (partner.phone != null && partner.phone!.isNotEmpty)
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(Icons.phone_outlined, size: 12, color: Colors.grey),
+                                                      const SizedBox(width: 4),
+                                                      Flexible(
+                                                        child: Text(
+                                                          partner.phone!,
+                                                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  )
+                                                else
+                                                  Text(l10n.noPhoneLabel, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                              ],
+                                            ),
+                                          ),
+
+                                          // Status
+                                          _cell(
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(20),
+                                                border: Border.all(
+                                                  color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.3),
+                                                  width: 0.8,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                isActive ? l10n.statusActive : l10n.statusInactive,
+                                                style: TextStyle(
+                                                  color: isActive ? AppTheme.emerald : AppTheme.crimson,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+
+                                          // Actions: View, Edit, Print, Delete, Statement of Account
+                                          _cell(
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Tooltip(
+                                                  message: l10n.partnerStatementOfAccountTooltip,
+                                                  child: InkWell(
+                                                    onTap: () => PartnerStatementOfAccountDialog.show(context, partner),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                      margin: const EdgeInsets.only(right: 6),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.cobalt.withOpacity(0.12),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(Icons.receipt_long, size: 14, color: AppTheme.cobalt),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            l10n.partnerStatementOfAccountBtn,
+                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                RowActionsPill(
+                                                  onView: () => PartnerDetailsDialog.show(
+                                                    context,
+                                                    partner,
+                                                    onEdit: () => _showPartnerDialog(context, partner),
+                                                  ),
+                                                  onEdit: () => _showPartnerDialog(context, partner),
+                                                  onPrint: () => MasterDataExportService.printOrSavePartnerPdf(partner),
+                                                  onDelete: () async {
+                                                    final confirm = await showDialog<bool>(
+                                                      context: context,
+                                                      builder: (ctx) => AlertDialog(
+                                                        title: Text(l10n.confirmActionTitle),
+                                                        content: Text(isActive
+                                                            ? l10n.confirmDeactivatePartner(partner.partnerName)
+                                                            : l10n.confirmActivatePartner(partner.partnerName)),
+                                                        actions: [
+                                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.closeBtn)),
+                                                          ElevatedButton(
+                                                            onPressed: () => Navigator.pop(ctx, true),
+                                                            style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                                            child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                    if (confirm == true && partner.providerId != null) {
+                                                      ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
+                                                    }
+                                                  },
+                                                  deleteTooltip: isActive ? l10n.deactivatePartnerTooltip : l10n.activatePartnerTooltip,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    }),
+                                  ],
                       ),
                     ),
                   );

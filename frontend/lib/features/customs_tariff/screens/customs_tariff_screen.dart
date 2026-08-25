@@ -283,35 +283,44 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
   Widget _buildTariffTable(
       BuildContext context, WidgetRef ref, List<CustomsTariffModel> tariffs) {
     final l10n = context.l10n;
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minWidth: MediaQuery.of(context).size.width > 1200
-                    ? MediaQuery.of(context).size.width - 250
-                    : 1150,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tableWidth = constraints.maxWidth < 1150 ? 1150.0 : constraints.maxWidth;
+
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-              child: Table(
-                columnWidths: const {
-                  0: FixedColumnWidth(110),
-                  1: FlexColumnWidth(3),
-                  2: FixedColumnWidth(130),
-                  3: FixedColumnWidth(180),
-                  4: FixedColumnWidth(130),
-                  5: FixedColumnWidth(80),
-                  6: FixedColumnWidth(160),
-                },
-                children: [
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: tableWidth,
+                  child: Table(
+                    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                    columnWidths: const {
+                      0: FixedColumnWidth(130),
+                      1: FlexColumnWidth(3),
+                      2: FixedColumnWidth(140),
+                      3: FixedColumnWidth(180),
+                      4: FixedColumnWidth(140),
+                      5: FixedColumnWidth(90),
+                      6: FixedColumnWidth(160),
+                    },
+                    children: [
                   // Header Row
                   TableRow(
                     decoration: const BoxDecoration(color: AppTheme.charcoal),
@@ -544,8 +553,8 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

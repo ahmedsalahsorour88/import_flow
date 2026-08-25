@@ -227,69 +227,71 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                       ? locations.sublist(startIndex, endIndex)
                       : <TransportLocationModel>[];
 
-                  return Column(
+                   return Column(
                     children: [
                       Expanded(
-                        child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minWidth: MediaQuery.of(context).size.width > 1100
-                                  ? MediaQuery.of(context).size.width - 300
-                                  : 900,
-                            ),
-                            child: Table(
-                              columnWidths: const {
-                                0: FixedColumnWidth(110),
-                                1: FlexColumnWidth(3),
-                                2: FixedColumnWidth(130),
-                                3: FlexColumnWidth(2),
-                                4: FlexColumnWidth(2),
-                                5: FixedColumnWidth(85),
-                                6: FixedColumnWidth(150),
-                              },
-                              children: [
-                                // Table Header
-                                TableRow(
-                                  decoration: const BoxDecoration(color: AppTheme.charcoal),
-                                  children: [
-                                    l10n.unLocodeCol,
-                                    l10n.locationNameCol,
-                                    l10n.locationTypeCol,
-                                    l10n.countryCol,
-                                    l10n.cityCol,
-                                    l10n.statusCol,
-                                    l10n.actionsCol,
-                                  ]
-                                      .map((h) => Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                            child: Text(
-                                              h,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ))
-                                      .toList(),
-                                ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final tableWidth = constraints.maxWidth < 1100 ? 1100.0 : constraints.maxWidth;
+
+                            return Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.04),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.vertical,
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: SizedBox(
+                                      width: tableWidth,
+                                      child: Table(
+                                        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                                        columnWidths: const {
+                                          0: FixedColumnWidth(130),
+                                          1: FlexColumnWidth(3),
+                                          2: FixedColumnWidth(140),
+                                          3: FlexColumnWidth(2),
+                                          4: FlexColumnWidth(2),
+                                          5: FixedColumnWidth(95),
+                                          6: FixedColumnWidth(160),
+                                        },
+                                        children: [
+                                          // Table Header
+                                          TableRow(
+                                            decoration: const BoxDecoration(color: AppTheme.charcoal),
+                                            children: [
+                                              l10n.unLocodeCol,
+                                              l10n.locationNameCol,
+                                              l10n.locationTypeCol,
+                                              l10n.countryCol,
+                                              l10n.cityCol,
+                                              l10n.statusCol,
+                                              l10n.actionsCol,
+                                            ]
+                                                .map((h) => Padding(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                                      child: Text(
+                                                        h,
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 13,
+                                                        ),
+                                                      ),
+                                                    ))
+                                                .toList(),
+                                          ),
 
                                 // Table Data Rows
                                 ...pagedLocations.asMap().entries.map((entry) {

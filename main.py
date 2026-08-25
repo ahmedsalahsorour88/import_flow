@@ -117,7 +117,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(
     title="ImportFlow ERP API",
     description="Enterprise API for Import Management & Customs Clearance",
-    version="1.0.9",
+    version="1.0.10",
 )
 
 # ==================================================
@@ -269,7 +269,7 @@ def dashboard():
 
     return {
         "system": "ImportFlow ERP",
-        "version": "1.0.9",
+        "version": "1.0.10",
         "status": "running",
     }
 
@@ -300,7 +300,7 @@ def health_check():
     return {
         "status": "OK",
         "system": "ImportFlow ERP",
-        "version": "1.0.9",
+        "version": "1.0.10",
         "database": {
             "connected": db_exists,
             "path": db_path,

@@ -438,9 +438,11 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                         ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 10),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
                   // Pagination Footer
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

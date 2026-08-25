@@ -317,6 +317,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                     1: FlexColumnWidth(3.0),
                                     2: FlexColumnWidth(2.6),
                                     3: FlexColumnWidth(2.2),
+                                    4: FixedColumnWidth(95),
+                                    5: FixedColumnWidth(215),
+                                  },
                                   children: [
                                     // Table Header
                                     TableRow(
@@ -647,8 +650,13 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                       );
                                     }),
                                   ],
-                      ),
-                    ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),

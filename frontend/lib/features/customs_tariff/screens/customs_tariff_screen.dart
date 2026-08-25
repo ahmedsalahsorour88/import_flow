@@ -553,10 +553,12 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
-  }
+  },
+);
+}
 
   Widget _rateBadge(String text, Color color) {
     return Container(

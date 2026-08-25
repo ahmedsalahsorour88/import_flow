@@ -74,3 +74,39 @@ class TestProductionSyncBackend(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             self.service.restore_backup(filename="nonexistent_backup_99999.db", target="dev")
 
+    def test_smart_non_destructive_migrate_upsert_edits(self):
+        """Verify that edits to existing rows in src_db are updated in target_db (UPSERT)."""
+        import sqlite3
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_path = Path(tmpdir) / "src.db"
+            tgt_path = Path(tmpdir) / "tgt.db"
+
+            # Create src
+            conn_src = sqlite3.connect(src_path)
+            conn_src.execute("CREATE TABLE test_items (id INTEGER PRIMARY KEY, name TEXT, value INTEGER);")
+            conn_src.execute("INSERT INTO test_items VALUES (1, 'Updated Name', 999);")
+            conn_src.execute("INSERT INTO test_items VALUES (2, 'New Item', 200);")
+            conn_src.commit()
+            conn_src.close()
+
+            # Create tgt with old value for id=1
+            conn_tgt = sqlite3.connect(tgt_path)
+            conn_tgt.execute("CREATE TABLE test_items (id INTEGER PRIMARY KEY, name TEXT, value INTEGER);")
+            conn_tgt.execute("INSERT INTO test_items VALUES (1, 'Old Name', 100);")
+            conn_tgt.commit()
+            conn_tgt.close()
+
+            # Run migration
+            res = self.service._smart_non_destructive_migrate(src_path, tgt_path)
+            self.assertEqual(res["status"], "migrated_safely")
+
+            # Check target has updated row
+            conn_tgt = sqlite3.connect(tgt_path)
+            rows = conn_tgt.execute("SELECT id, name, value FROM test_items ORDER BY id;").fetchall()
+            conn_tgt.close()
+
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0], (1, 'Updated Name', 999))
+            self.assertEqual(rows[1], (2, 'New Item', 200))
+

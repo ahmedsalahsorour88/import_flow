@@ -246,7 +246,7 @@ def smart_non_destructive_migrate(
                         rows_merged += 1  # count what would be inserted
                     else:
                         cur_tgt.execute(
-                            f'INSERT OR IGNORE INTO "{tbl_name}" ({cols_str}) VALUES ({placeholders});',
+                            f'INSERT OR REPLACE INTO "{tbl_name}" ({cols_str}) VALUES ({placeholders});',
                             tuple(row),
                         )
                         if cur_tgt.rowcount > 0:

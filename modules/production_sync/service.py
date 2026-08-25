@@ -29,8 +29,8 @@ import sys
 def _resolve_paths():
     if getattr(sys, "frozen", False):
         exe_dir = Path(sys.executable).resolve().parent
-        # If running from inside dist/ImportFlow_Standalone in the project workspace
-        if exe_dir.name == "ImportFlow_Standalone" and exe_dir.parent.name == "dist":
+        # If running from inside dist/Sorour_Logistics_Standalone or dist/ImportFlow_Standalone
+        if exe_dir.name in ["Sorour_Logistics_Standalone", "ImportFlow_Standalone"] and exe_dir.parent.name == "dist":
             root_dir = exe_dir.parent.parent
         else:
             root_dir = exe_dir
@@ -48,7 +48,11 @@ def _resolve_paths():
         return root_dir, exe_dir, dev_db, prod_db, backups_dir
     else:
         root_dir = Path(__file__).resolve().parent.parent.parent
-        standalone_dir = root_dir / "dist" / "ImportFlow_Standalone"
+        standalone_dir = root_dir / "dist" / "Sorour_Logistics_Standalone"
+        if not standalone_dir.exists():
+            legacy_dir = root_dir / "dist" / "ImportFlow_Standalone"
+            if legacy_dir.exists():
+                standalone_dir = legacy_dir
         dev_db = root_dir / "sorour_logistics.db"
         prod_db = standalone_dir / "sorour_logistics.db"
         backups_dir = root_dir / "backups"
@@ -217,8 +221,8 @@ class ProductionSyncService:
 
         conn_tgt.commit()
 
-        # Step 3: Non-destructively merge rows using INSERT OR IGNORE
-        # This inserts any new system data/ports/HS codes while preserving 100% of existing user data
+        # Step 3: Synchronize and upsert rows using INSERT OR REPLACE
+        # This inserts new records and updates modified fields on existing records
         for tbl_name, _ in src_tables:
             try:
                 cur_src.execute(f'PRAGMA table_info("{tbl_name}");')
@@ -239,7 +243,7 @@ class ProductionSyncService:
 
                 for row in src_rows:
                     cur_tgt.execute(
-                        f'INSERT OR IGNORE INTO "{tbl_name}" ({cols_str}) VALUES ({placeholders});',
+                        f'INSERT OR REPLACE INTO "{tbl_name}" ({cols_str}) VALUES ({placeholders});',
                         tuple(row),
                     )
                     if cur_tgt.rowcount > 0:
@@ -328,15 +332,22 @@ class ProductionSyncService:
         # 3. Ensure target directory exists
         STANDALONE_DIR.mkdir(parents=True, exist_ok=True)
 
-        # 4. Perform Smart Non-Destructive Migration
+        # 4. Perform Smart Non-Destructive Migration to primary standalone DB
         migration_res = self._smart_non_destructive_migrate(DEV_DB, PROD_DB)
 
-        # Also migrate to root dist DB if exists
-        if DIST_DIR.exists() and (DIST_DIR / "sorour_logistics.db").exists():
-            try:
-                self._smart_non_destructive_migrate(DEV_DB, DIST_DIR / "sorour_logistics.db")
-            except Exception:
-                pass
+        # Also migrate to other dist standalone folders if they exist
+        other_dist_dbs = [
+            DIST_DIR / "sorour_logistics.db",
+            ROOT_DIR / "dist_backend" / "sorour_logistics.db",
+            DIST_DIR / "ImportFlow_Standalone" / "sorour_logistics.db",
+            DIST_DIR / "Sorour_Logistics_Desktop" / "sorour_logistics.db",
+        ]
+        for alt_db in other_dist_dbs:
+            if alt_db.exists() and alt_db.resolve() != PROD_DB.resolve():
+                try:
+                    self._smart_non_destructive_migrate(DEV_DB, alt_db)
+                except Exception:
+                    pass
 
         # 5. Automatically Bump Sequential Version & Build
         try:

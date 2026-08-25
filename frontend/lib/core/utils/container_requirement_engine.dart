@@ -1,5 +1,11 @@
 import 'dart:math' as math;
 
+enum CargoOrientationPreference {
+  smartHybrid, // 🌟 Smart Hybrid (Allows flat, 90° rotation, and on-edge vertical standing to fill residual width/height channels)
+  flatOnly,    // 📦 Flat Only (Strictly keeps original height axis vertical; only allows flat 2D rotation if length/width swap)
+  onEdgeOnly,  // 📐 On-Edge Standing Only (Strictly places on side edge)
+}
+
 class CargoItem {
   final String itemId;
   final double length; // cm
@@ -8,6 +14,7 @@ class CargoItem {
   final double weight; // kg
   final bool rotate;
   final bool isStackable;
+  final CargoOrientationPreference orientationPreference;
   final String? packageType;
   final String? description;
 
@@ -19,6 +26,7 @@ class CargoItem {
     required this.weight,
     this.rotate = true,
     this.isStackable = true,
+    this.orientationPreference = CargoOrientationPreference.smartHybrid,
     this.packageType,
     this.description,
   });
@@ -35,6 +43,7 @@ class PlacedItem {
   final double length; // placed length (cm) after possible rotation
   final double width;  // placed width (cm) after possible rotation
   final double height; // placed height (cm)
+  final String orientationType; // 'flat', 'flat_rotated', 'on_edge_long', 'on_edge_short', 'upright'
 
   PlacedItem({
     required this.item,
@@ -44,9 +53,19 @@ class PlacedItem {
     required this.length,
     required this.width,
     required this.height,
+    this.orientationType = 'flat',
   });
 
   bool get isOnFloor => z <= 0.01;
+  bool get isStandingOnEdge => orientationType.contains('edge') || (height > item.height + 0.1);
+  String get orientationBadgeAr {
+    if (orientationType == 'flat') return 'مسطح أفقي';
+    if (orientationType == 'flat_rotated') return 'مسطح مدار 90°';
+    if (orientationType == 'on_edge_long') return 'رأسي على السيف الطولي';
+    if (orientationType == 'on_edge_short') return 'رأسي على السيف العرضي';
+    if (orientationType == 'upright') return 'رأسي كامل';
+    return isStandingOnEdge ? 'على السيف' : 'مسطح';
+  }
 }
 
 class ContainerPackingResult {
@@ -69,6 +88,9 @@ class ContainerPackingResult {
     required this.fits,
     this.failureReason,
   });
+
+  int get edgePlacedCount => placedItems.where((p) => p.isStandingOnEdge).length;
+  int get flatPlacedCount => placedItems.where((p) => !p.isStandingOnEdge).length;
 }
 
 class ContainerSpec {
@@ -90,7 +112,6 @@ class ContainerSpec {
     required this.internalHeight,
   });
 }
-
 
 class ShipmentModeRecommendation {
   final String recommendedMode; // 'Air', 'Sea LCL', 'Sea FCL'
@@ -121,6 +142,7 @@ class ContainerRecommendationResult {
   final String recommendationSummaryEn;
   final List<Map<String, dynamic>> comparisonDetails;
   final ShipmentModeRecommendation modeRecommendation;
+  final CargoOrientationPreference orientationPreference;
 
   ContainerRecommendationResult({
     required this.isStackable,
@@ -133,19 +155,34 @@ class ContainerRecommendationResult {
     this.recommendationSummaryEn = '',
     required this.comparisonDetails,
     required this.modeRecommendation,
+    this.orientationPreference = CargoOrientationPreference.smartHybrid,
   });
 }
 
 class ContainerDualRecommendationResult {
   final ContainerRecommendationResult stackableResult;
   final ContainerRecommendationResult nonStackableResult;
+  final ContainerRecommendationResult? smartHybridResult;
+  final ContainerRecommendationResult? flatOnlyResult;
   final ShipmentModeRecommendation modeRecommendation;
 
   ContainerDualRecommendationResult({
     required this.stackableResult,
     required this.nonStackableResult,
+    this.smartHybridResult,
+    this.flatOnlyResult,
     required this.modeRecommendation,
   });
+
+  bool get hasHybridSavings {
+    if (smartHybridResult == null || flatOnlyResult == null) return false;
+    return smartHybridResult!.requiredContainersCount < flatOnlyResult!.requiredContainersCount;
+  }
+
+  int get containersSavedCount {
+    if (!hasHybridSavings) return 0;
+    return flatOnlyResult!.requiredContainersCount - smartHybridResult!.requiredContainersCount;
+  }
 }
 
 /// MD-019.1 Container Requirement & Utilization Calculation Engine + Cargo Stacking Skill
@@ -157,15 +194,7 @@ class ContainerRequirementEngine {
     ContainerSpec(code: '45HC', name: "45' High Cube Container", internalVolumeCbm: 86.0, maxPayloadKg: 27700.0, internalLength: 1355.6, internalWidth: 235.2, internalHeight: 269.8),
   ];
 
-
-  /// Smart Shipment Mode Recommendation Rules:
-  /// 1. Air Freight Rule (MUST SATISFY BOTH CONDITIONS):
-  ///    - Condition 1: Actual Gross Weight (kg) >= Volumetric Air Chargeable Weight (totalCbm * 166.67 kg).
-  ///    - Condition 2: Actual Total Volume (CBM) < 5.0 m³.
-  /// 2. Sea LCL Rule:
-  ///    - If totalCbm < 15.0 m³ (and not qualifying for Air Freight).
-  /// 3. Sea FCL Rule:
-  ///    - If totalCbm >= 15.0 m³.
+  /// Smart Shipment Mode Recommendation Rules
   static ShipmentModeRecommendation recommendShipmentMode({
     required double totalCbm,
     required double totalWeightKg,
@@ -205,9 +234,24 @@ class ContainerRequirementEngine {
     required double totalCbm,
     required double totalWeightKg,
     bool isStackable = true,
+    CargoOrientationPreference orientationPreference = CargoOrientationPreference.smartHybrid,
   }) {
-    final modeTag = isStackable ? '📦 قابل للرص' : '🚫 غير قابل للرص';
-    final modeTagEn = isStackable ? '📦 Stackable' : '🚫 Non-Stackable';
+    String modeTag;
+    String modeTagEn;
+    if (!isStackable) {
+      modeTag = '🚫 غير قابل للرص (أرضي فقط Z=0)';
+      modeTagEn = '🚫 Non-Stackable (Floor-Only Z=0)';
+    } else if (orientationPreference == CargoOrientationPreference.smartHybrid) {
+      modeTag = '🌟 رص ذكي هجين (أفقي + على السيف)';
+      modeTagEn = '🌟 Smart Hybrid (Flat + On-Edge)';
+    } else if (orientationPreference == CargoOrientationPreference.onEdgeOnly) {
+      modeTag = '📐 رص على السيف فقط';
+      modeTagEn = '📐 On-Edge Only';
+    } else {
+      modeTag = '📦 رص مسطح فقط';
+      modeTagEn = '📦 Flat Only';
+    }
+
     final modeRec = recommendShipmentMode(totalCbm: totalCbm, totalWeightKg: totalWeightKg);
 
     if (totalCbm <= 0 && totalWeightKg <= 0) {
@@ -222,15 +266,24 @@ class ContainerRequirementEngine {
         recommendationSummaryEn: 'No cargo specified to calculate recommended container [$modeTagEn]',
         comparisonDetails: [],
         modeRecommendation: modeRec,
+        orientationPreference: orientationPreference,
       );
     }
 
     final List<Map<String, dynamic>> comparisons = [];
 
     for (final spec in specs) {
-      // For Non-Stackable cargo, calculate effective volume and floor footprint constraints:
-      // 40HC (76.4 CBM, 28.27 m² floor) fits up to 70 CBM / 28 m² floor footprint safely.
-      final double volumeUsabilityFactor = isStackable ? 1.0 : (spec.code == '40HC' || spec.code == '45HC' ? 0.85 : 0.65);
+      double volumeUsabilityFactor = 1.0;
+      if (!isStackable) {
+        volumeUsabilityFactor = (spec.code == '40HC' || spec.code == '45HC') ? 0.85 : 0.65;
+      } else if (orientationPreference == CargoOrientationPreference.flatOnly) {
+        // Flat only has lower volume usability due to dimensional width mismatches
+        volumeUsabilityFactor = 0.70;
+      } else {
+        // Smart hybrid achieves high packing efficiency
+        volumeUsabilityFactor = 0.95;
+      }
+
       final double effectiveVolumeCbm = spec.internalVolumeCbm * volumeUsabilityFactor;
       final int countByVol = effectiveVolumeCbm > 0 ? (totalCbm / effectiveVolumeCbm).ceil() : 1;
       final int countByWeight = spec.maxPayloadKg > 0 ? (totalWeightKg / spec.maxPayloadKg).ceil() : 1;
@@ -240,13 +293,12 @@ class ContainerRequirementEngine {
       final double spaceUtil = (totalCbm / (reqCount * spec.internalVolumeCbm)) * 100;
       final double payloadUtil = (totalWeightKg / (reqCount * spec.maxPayloadKg)) * 100;
 
-      // Penalize oversized 45HC when 40HC fits 100% of cargo (e.g. 40 CBM)
       double score = (reqCount * 100) - ((spaceUtil + payloadUtil) / 2);
-      if (!isStackable && totalCbm > 30.0 && totalCbm <= 65.0 && spec.code == '40HC' && reqCount == 1) {
-        score -= 50.0; // Boost 40HC as ideal non-stackable choice
+      if (totalCbm > 30.0 && totalCbm <= 76.0 && spec.code == '40HC' && reqCount == 1) {
+        score -= 50.0; // Boost 40HC
       }
-      if (!isStackable && totalCbm <= 65.0 && spec.code == '45HC') {
-        score += 30.0; // Discourage unnecessary 45HC when 40HC is sufficient
+      if (totalCbm <= 76.0 && spec.code == '45HC') {
+        score += 30.0;
       }
 
       comparisons.add({
@@ -267,13 +319,16 @@ class ContainerRequirementEngine {
     final double bestVol = best['spaceUtil'] as double;
     final double bestWeight = best['payloadUtil'] as double;
 
-    // Optimized Container Fleet Mix Calculation (e.g. 2x 40HC vs 2x 40HC + 1x 20GP)
     String fleetCombination = '';
     if (isStackable) {
-      final int count40HC = (totalCbm / 76.4).ceil();
-      fleetCombination = '$count40HC x 40HC Container(s)';
+      if (orientationPreference == CargoOrientationPreference.smartHybrid) {
+        final int count40HC = (totalCbm / 74.0).ceil();
+        fleetCombination = '${count40HC < 1 ? 1 : count40HC} x 40HC Container(s)';
+      } else {
+        final int count40HC = (totalCbm / 53.0).ceil();
+        fleetCombination = '${count40HC < 1 ? 1 : count40HC} x 40HC Container(s)';
+      }
     } else {
-      // Non-stackable floor usage:
       final int full40HC = (totalCbm / 50.0).floor();
       final double remCbm = totalCbm - (full40HC * 50.0);
       if (remCbm <= 0) {
@@ -285,10 +340,8 @@ class ContainerRequirementEngine {
       }
     }
 
-    final modeDetail = isStackable ? 'رص متعدد الطبقات' : 'رص أرضي فقط Z=0';
-    final modeDetailEn = isStackable ? 'Multi-Layer Stacking' : 'Floor-Only Placement (Z=0)';
-    final summary = '$fleetCombination [$modeDetail] — (استغلال المساحة: ${bestVol.toStringAsFixed(1)}% | استغلال الوزن: ${bestWeight.toStringAsFixed(1)}%)';
-    final summaryEn = '$fleetCombination [$modeDetailEn] — (Space Util: ${bestVol.toStringAsFixed(1)}% | Weight Util: ${bestWeight.toStringAsFixed(1)}%)';
+    final summary = '$fleetCombination [$modeTag] — (استغلال المساحة: ${bestVol.toStringAsFixed(1)}% | استغلال الوزن: ${bestWeight.toStringAsFixed(1)}%)';
+    final summaryEn = '$fleetCombination [$modeTagEn] — (Space Util: ${bestVol.toStringAsFixed(1)}% | Weight Util: ${bestWeight.toStringAsFixed(1)}%)';
 
     return ContainerRecommendationResult(
       isStackable: isStackable,
@@ -301,6 +354,7 @@ class ContainerRequirementEngine {
       recommendationSummaryEn: summaryEn,
       comparisonDetails: comparisons,
       modeRecommendation: modeRec,
+      orientationPreference: orientationPreference,
     );
   }
 
@@ -309,32 +363,37 @@ class ContainerRequirementEngine {
     required double totalWeightKg,
   }) {
     final modeRec = recommendShipmentMode(totalCbm: totalCbm, totalWeightKg: totalWeightKg);
+    final smartHybrid = calculate(totalCbm: totalCbm, totalWeightKg: totalWeightKg, isStackable: true, orientationPreference: CargoOrientationPreference.smartHybrid);
+    final flatOnly = calculate(totalCbm: totalCbm, totalWeightKg: totalWeightKg, isStackable: true, orientationPreference: CargoOrientationPreference.flatOnly);
+    final nonStackable = calculate(totalCbm: totalCbm, totalWeightKg: totalWeightKg, isStackable: false);
+
     return ContainerDualRecommendationResult(
-      stackableResult: calculate(totalCbm: totalCbm, totalWeightKg: totalWeightKg, isStackable: true),
-      nonStackableResult: calculate(totalCbm: totalCbm, totalWeightKg: totalWeightKg, isStackable: false),
+      stackableResult: smartHybrid,
+      nonStackableResult: nonStackable,
+      smartHybridResult: smartHybrid,
+      flatOnlyResult: flatOnly,
       modeRecommendation: modeRec,
     );
   }
 
-  /// Advanced 3D/2.5D Cargo Packing Algorithm using Extreme-Point 3D Bin Packing:
-  /// - Non-stackable cargo: Placed strictly on the container floor (z = 0) and blocks all vertical space above.
-  /// - Stackable cargo: Can be placed on the floor (z = 0) or tiled on top of compatible stackable items below.
+  /// Advanced 3D/2.5D Cargo Packing Algorithm using 6-DOF Multi-Orientation Extreme-Point Bin Packing
   static ContainerPackingResult packCargo({
     required List<CargoItem> items,
     required ContainerSpec spec,
+    CargoOrientationPreference? forceOrientation,
   }) {
-    // Universal 3D Bin Packing: Sort ALL items primarily by physical footprint/volume descending (Largest First!)
+    // Sort items primarily by largest volume and base footprint descending
     final sortedItems = List<CargoItem>.from(items)
       ..sort((a, b) {
-        final areaA = (a.length * a.width);
-        final areaB = (b.length * b.width);
-        if ((areaA - areaB).abs() > 1.0) {
-          return areaB.compareTo(areaA);
-        }
         final volA = a.volumeM3;
         final volB = b.volumeM3;
-        if ((volA - volB).abs() > 0.01) {
+        if ((volA - volB).abs() > 0.001) {
           return volB.compareTo(volA);
+        }
+        final areaA = a.length * a.width;
+        final areaB = b.length * b.width;
+        if ((areaA - areaB).abs() > 1.0) {
+          return areaB.compareTo(areaA);
         }
         if (a.isStackable != b.isStackable) {
           return a.isStackable ? 1 : -1;
@@ -345,128 +404,130 @@ class ContainerRequirementEngine {
     final List<PlacedItem> placed = [];
     final List<CargoItem> unplaced = [];
 
-    // Helper: 3D bounding box collision check
     bool hasCollision(double x, double y, double z, double L, double W, double H) {
       for (final p in placed) {
         final bool overlapX = x < (p.x + p.length - 0.01) && (x + L - 0.01) > p.x;
         final bool overlapY = y < (p.y + p.width - 0.01) && (y + W - 0.01) > p.y;
         final bool overlapZ = z < (p.z + p.height - 0.01) && (z + H - 0.01) > p.z;
         if (overlapX && overlapY && overlapZ) return true;
-        // Non-stackable items block all space above them
         if (!p.item.isStackable && overlapX && overlapY && z >= (p.z + p.height - 0.01)) return true;
       }
       return false;
     }
 
-    for (final item in sortedItems) {
-      final bool fitsNormal = item.length <= spec.internalLength + 0.1 && item.width <= spec.internalWidth + 0.1;
-      final bool fitsRotated = item.rotate && item.width <= spec.internalLength + 0.1 && item.length <= spec.internalWidth + 0.1;
-      final bool fitsHeight = item.height <= spec.internalHeight + 0.1;
+    for (final rawItem in sortedItems) {
+      final itemPref = forceOrientation ?? rawItem.orientationPreference;
+      final L0 = rawItem.length;
+      final W0 = rawItem.width;
+      final H0 = rawItem.height;
 
-      // Reject early ONLY if neither orientation fits inside container boundaries or height exceeds internal height
-      if (!fitsHeight || (!fitsNormal && !fitsRotated)) {
-        unplaced.add(item);
+      final candidateOrientations = <List<dynamic>>[];
+      if (itemPref == CargoOrientationPreference.flatOnly || !rawItem.isStackable) {
+        candidateOrientations.add([L0, W0, H0, 'flat']);
+        if (rawItem.rotate && (L0 - W0).abs() > 0.1) {
+          candidateOrientations.add([W0, L0, H0, 'flat_rotated']);
+        }
+      } else if (itemPref == CargoOrientationPreference.onEdgeOnly) {
+        candidateOrientations.add([L0, H0, W0, 'on_edge_long']);
+        if (rawItem.rotate && (L0 - W0).abs() > 0.1) {
+          candidateOrientations.add([W0, H0, L0, 'on_edge_short']);
+        }
+      } else { // smartHybrid (stackable cargo)
+        // 1. Flat orientations
+        candidateOrientations.add([L0, W0, H0, 'flat']);
+        if (rawItem.rotate && (L0 - W0).abs() > 0.1) {
+          candidateOrientations.add([W0, L0, H0, 'flat_rotated']);
+        }
+        // 2. On-edge vertical standing orientations (fills residual width/height channels)
+        candidateOrientations.add([L0, H0, W0, 'on_edge_long']);
+        if (rawItem.rotate && (L0 - W0).abs() > 0.1) {
+          candidateOrientations.add([W0, H0, L0, 'on_edge_short']);
+          candidateOrientations.add([H0, L0, W0, 'on_edge_rotated']);
+        }
+        candidateOrientations.add([H0, W0, L0, 'upright']);
+      }
+
+      // Filter orientations that fit within container internal dimensions
+      final validOrientations = candidateOrientations.where((o) {
+        final double ol = (o[0] as num).toDouble();
+        final double ow = (o[1] as num).toDouble();
+        final double oh = (o[2] as num).toDouble();
+        return ol <= spec.internalLength + 0.1 && ow <= spec.internalWidth + 0.1 && oh <= spec.internalHeight + 0.1;
+      }).toList();
+
+      if (validOrientations.isEmpty) {
+        unplaced.add(rawItem);
         continue;
       }
 
-      bool isPlaced = false;
+      // Build 3D Extreme Points
+      final Set<String> seenPoints = {};
+      final List<List<double>> candidatePoints = [];
 
-      // Evaluate both orientations (swapping Length and Width if rotation is allowed)
-      final orientations = <List<double>>[];
-      if (fitsNormal) {
-        orientations.add([item.length, item.width]);
-      }
-      if (fitsRotated && (item.length - item.width).abs() > 0.1) {
-        orientations.add([item.width, item.length]);
-      }
-      if (orientations.isEmpty) {
-        orientations.add([item.length, item.width]);
-      }
-
-      // 1. If stackable, try placing on top of compatible stackable base items
-      if (item.isStackable) {
-        for (final base in placed) {
-          if (!base.item.isStackable) continue;
-          final double topZ = base.z + base.height;
-          if (topZ + item.height > spec.internalHeight + 0.1) continue;
-
-          // Candidate surface coordinates on top of base
-          final List<List<double>> candidateOffsets = [];
-          for (final orient in orientations) {
-            final L = orient[0];
-            final W = orient[1];
-
-            // Try grid positions on base surface
-            for (double subX = base.x; subX <= (base.x + base.length - L + 0.1); subX += math.min(L, 10.0)) {
-              for (double subY = base.y; subY <= (base.y + base.width - W + 0.1); subY += math.min(W, 10.0)) {
-                candidateOffsets.add([subX, subY, L, W]);
-              }
-            }
+      void addPoint(double x, double y, double z) {
+        final rx = (x * 100).round() / 100;
+        final ry = (y * 100).round() / 100;
+        final rz = (z * 100).round() / 100;
+        if (rx <= spec.internalLength && ry <= spec.internalWidth && rz <= spec.internalHeight) {
+          final key = '$rx,$ry,$rz';
+          if (!seenPoints.contains(key)) {
+            seenPoints.add(key);
+            candidatePoints.add([rx, ry, rz]);
           }
-
-          for (final cand in candidateOffsets) {
-            final cX = cand[0];
-            final cY = cand[1];
-            final L = cand[2];
-            final W = cand[3];
-
-            if ((cX + L) <= spec.internalLength + 0.1 && (cY + W) <= spec.internalWidth + 0.1) {
-              if (!hasCollision(cX, cY, topZ, L, W, item.height)) {
-                placed.add(PlacedItem(
-                  item: item,
-                  x: cX,
-                  y: cY,
-                  z: topZ,
-                  length: L,
-                  width: W,
-                  height: item.height,
-                ));
-                isPlaced = true;
-                break;
-              }
-            }
-          }
-          if (isPlaced) break;
         }
       }
 
-      if (isPlaced) continue;
+      addPoint(0.0, 0.0, 0.0);
 
-      // 2. Place on container floor (z = 0) using Extreme Points
-      final List<List<double>> floorCandidates = [[0.0, 0.0]];
       for (final p in placed) {
-        if (p.x + p.length <= spec.internalLength) floorCandidates.add([p.x + p.length, p.y]);
-        if (p.y + p.width <= spec.internalWidth) floorCandidates.add([p.x, p.y + p.width]);
-        if (p.x + p.length <= spec.internalLength && p.y + p.width <= spec.internalWidth) {
-          floorCandidates.add([p.x + p.length, p.y + p.width]);
+        addPoint(p.x + p.length, p.y, p.z);
+        addPoint(p.x, p.y + p.width, p.z);
+        if (rawItem.isStackable && p.item.isStackable) {
+          addPoint(p.x, p.y, p.z + p.height);
+          addPoint(p.x + p.length, p.y, p.z + p.height);
+          addPoint(p.x, p.y + p.width, p.z + p.height);
         }
+        addPoint(p.x + p.length, p.y + p.width, p.z);
+        addPoint(p.x + p.length, 0.0, 0.0);
+        addPoint(p.x, p.y + p.width, 0.0);
       }
 
-      // Sort candidate floor points: Y ascending, then X ascending
-      floorCandidates.sort((a, b) {
+      // Sort candidate points: X ascending (bay-by-bay along container length), then Y ascending, then Z ascending
+      candidatePoints.sort((a, b) {
+        final cmpX = a[0].compareTo(b[0]);
+        if (cmpX != 0) return cmpX;
         final cmpY = a[1].compareTo(b[1]);
         if (cmpY != 0) return cmpY;
-        return a[0].compareTo(b[0]);
+        return a[2].compareTo(b[2]);
       });
 
-      for (final cand in floorCandidates) {
-        final cX = cand[0];
-        final cY = cand[1];
+      bool isPlaced = false;
 
-        for (final orient in orientations) {
-          final L = orient[0];
-          final W = orient[1];
+      for (final pt in candidatePoints) {
+        final cX = pt[0];
+        final cY = pt[1];
+        final cZ = pt[2];
 
-          if ((cX + L) <= spec.internalLength + 0.1 && (cY + W) <= spec.internalWidth + 0.1) {
-            if (!hasCollision(cX, cY, 0.0, L, W, item.height)) {
+        // Non-stackable cannot be elevated above floor
+        if (!rawItem.isStackable && cZ > 0.01) continue;
+
+        for (final orient in validOrientations) {
+          final double L = (orient[0] as num).toDouble();
+          final double W = (orient[1] as num).toDouble();
+          final double H = (orient[2] as num).toDouble();
+          final String oType = orient[3] as String;
+
+          if ((cX + L) <= spec.internalLength + 0.1 && (cY + W) <= spec.internalWidth + 0.1 && (cZ + H) <= spec.internalHeight + 0.1) {
+            if (!hasCollision(cX, cY, cZ, L, W, H)) {
               placed.add(PlacedItem(
-                item: item,
+                item: rawItem,
                 x: cX,
                 y: cY,
-                z: 0.0,
+                z: cZ,
                 length: L,
                 width: W,
-                height: item.height,
+                height: H,
+                orientationType: oType,
               ));
               isPlaced = true;
               break;
@@ -477,7 +538,7 @@ class ContainerRequirementEngine {
       }
 
       if (!isPlaced) {
-        unplaced.add(item);
+        unplaced.add(rawItem);
       }
     }
 
@@ -489,22 +550,20 @@ class ContainerRequirementEngine {
     if (unplaced.isNotEmpty) {
       final reasons = <String>[];
       for (final u in unplaced) {
-        final bool fitsNormal = u.length <= spec.internalLength + 0.1 && u.width <= spec.internalWidth + 0.1;
-        final bool fitsRotated = u.rotate && u.width <= spec.internalLength + 0.1 && u.length <= spec.internalWidth + 0.1;
-        final bool fitsHeight = u.height <= spec.internalHeight + 0.1;
+        final bool fitsAny = u.length <= spec.internalLength && u.width <= spec.internalWidth && u.height <= spec.internalHeight;
+        final bool fitsRot = u.rotate && u.width <= spec.internalLength && u.length <= spec.internalWidth && u.height <= spec.internalHeight;
+        final bool fitsEdge = u.isStackable && (forceOrientation ?? u.orientationPreference) != CargoOrientationPreference.flatOnly && u.length <= spec.internalLength && u.height <= spec.internalWidth && u.width <= spec.internalHeight;
 
-        if (!fitsNormal && !fitsRotated) {
+        if (!fitsAny && !fitsRot && !fitsEdge) {
           if (u.length > spec.internalWidth && u.width > spec.internalWidth) {
             reasons.add('فشل الرص: تجاوز الطول والعرض الأبعاد القياسية للحاوية (أبعاد الطرد: ${u.length.toStringAsFixed(0)} × ${u.width.toStringAsFixed(0)} سم - أقصى عرض مسموح للحاوية ${spec.internalWidth.toStringAsFixed(0)} سم)');
           } else if (u.length > spec.internalLength || u.width > spec.internalLength) {
-            reasons.add('فشل الرص: أبعاد الطرد (${u.length.toStringAsFixed(0)} × ${u.width.toStringAsFixed(0)} سم) تتجاوز الطول الداخلي للحاوية (${spec.internalLength.toStringAsFixed(0)} سم)');
+            reasons.add('فشل الرص: أبعاد الطرد تتجاوز الطول الداخلي للحاوية (${spec.internalLength.toStringAsFixed(0)} سم)');
           } else {
-            reasons.add('فشل الرص: أبعاد الطرد (${u.length.toStringAsFixed(0)} × ${u.width.toStringAsFixed(0)} سم) تتجاوز الأبعاد القياسية الداخلية للحاوية ${spec.code}');
+            reasons.add('فشل الرص: أبعاد الطرد تتجاوز الأبعاد القياسية الداخلية للحاوية ${spec.code}');
           }
-        } else if (!fitsHeight) {
-          reasons.add('فشل الرص: ارتفاع الطرد (${u.height.toStringAsFixed(0)} سم) يتجاوز الارتفاع الداخلي للحاوية (${spec.internalHeight.toStringAsFixed(0)} سم)');
         } else {
-          reasons.add('فشل الرص: يتعذر رص الطرد داخل الحاوية بسبب تزاحم المساحة الأرضية أو سعة الاستيعاب');
+          reasons.add('فشل الرص: يتعذر استيعاب الطرد داخل الحاوية بسبب تزاحم المساحة الأرضية وسعة الحاوية');
         }
       }
       failureReason = reasons.toSet().join(' | ');
@@ -527,8 +586,8 @@ class ContainerRequirementEngine {
   static List<ContainerPackingResult> planShipment(
     List<CargoItem> items, {
     bool? forceStackable,
+    CargoOrientationPreference? forceOrientation,
   }) {
-    // If forceStackable is specified, override isStackable for all items
     final List<CargoItem> effectiveItems = items.map((i) => CargoItem(
       itemId: i.itemId,
       length: i.length,
@@ -537,6 +596,7 @@ class ContainerRequirementEngine {
       weight: i.weight,
       rotate: i.rotate,
       isStackable: forceStackable ?? i.isStackable,
+      orientationPreference: forceOrientation ?? i.orientationPreference,
       packageType: i.packageType,
       description: i.description,
     )).toList();
@@ -545,7 +605,6 @@ class ContainerRequirementEngine {
     final List<ContainerPackingResult> plan = [];
     int guard = 0;
 
-    // Standard container specs for maritime shipping
     final spec20GP = specs.firstWhere((s) => s.code == '20GP');
     final spec40HC = specs.firstWhere((s) => s.code == '40HC');
     final spec40GP = specs.firstWhere((s) => s.code == '40GP');
@@ -555,21 +614,21 @@ class ContainerRequirementEngine {
       guard++;
 
       // 1. Check if all remaining items fit in a 20GP
-      final res20 = packCargo(items: remaining, spec: spec20GP);
+      final res20 = packCargo(items: remaining, spec: spec20GP, forceOrientation: forceOrientation);
       if (res20.fits) {
         plan.add(res20);
         break;
       }
 
       // 2. Check if all remaining items fit in a 40GP
-      final res40 = packCargo(items: remaining, spec: spec40GP);
+      final res40 = packCargo(items: remaining, spec: spec40GP, forceOrientation: forceOrientation);
       if (res40.fits) {
         plan.add(res40);
         break;
       }
 
-      // 3. Check if all remaining items fit in a 40HC (The universal standard high cube)
-      final res40HC = packCargo(items: remaining, spec: spec40HC);
+      // 3. Check if all remaining items fit in a 40HC (Universal standard high cube)
+      final res40HC = packCargo(items: remaining, spec: spec40HC, forceOrientation: forceOrientation);
       if (res40HC.fits) {
         plan.add(res40HC);
         break;
@@ -578,7 +637,7 @@ class ContainerRequirementEngine {
       // 4. Check if all remaining items fit in a 45HC (only if items exceed 40HC dimensions)
       final hasExtraLongItem = remaining.any((i) => i.length > 1203 || (i.rotate && i.width > 1203));
       if (hasExtraLongItem) {
-        final res45HC = packCargo(items: remaining, spec: spec45HC);
+        final res45HC = packCargo(items: remaining, spec: spec45HC, forceOrientation: forceOrientation);
         if (res45HC.fits) {
           plan.add(res45HC);
           break;
@@ -587,11 +646,10 @@ class ContainerRequirementEngine {
 
       // 5. Multi-container packing step: Fill a standard 40HC first (or 45HC if oversized)
       final targetSpec = hasExtraLongItem ? spec45HC : spec40HC;
-      final res = packCargo(items: remaining, spec: targetSpec);
+      final res = packCargo(items: remaining, spec: targetSpec, forceOrientation: forceOrientation);
 
       if (res.placedItems.isEmpty) {
-        // Fallback to largest available spec
-        final fallbackRes = packCargo(items: remaining, spec: spec45HC);
+        final fallbackRes = packCargo(items: remaining, spec: spec45HC, forceOrientation: forceOrientation);
         if (fallbackRes.placedItems.isEmpty) {
           plan.add(ContainerPackingResult(
             containerCode: 'FAILED',

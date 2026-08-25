@@ -118,6 +118,11 @@ class CBMService:
                 rec_container_count = math.ceil(total_cbm / 76.0)
                 rec_container_type = f"40FT High Cube Containers (40' HC)"
 
+        # Smart Hybrid vs Flat Only calculations
+        count_40hc_hybrid = math.ceil(total_cbm / 74.0) if total_cbm > 0 else 1
+        count_40hc_flat = math.ceil(total_cbm / 53.0) if total_cbm > 0 else 1
+        hybrid_savings = max(0, count_40hc_flat - count_40hc_hybrid)
+
         summary_totals = {
             "total_qty": total_qty,
             "total_cbm": total_cbm,
@@ -127,6 +132,9 @@ class CBMService:
             "recommended_shipping_method": rec_method,
             "recommended_container_type": rec_container_type,
             "recommended_container_count": rec_container_count,
+            "smart_hybrid_containers": f"{count_40hc_hybrid} x 40FT High Cube Container (40' HC)",
+            "flat_only_containers": f"{count_40hc_flat} x 40FT High Cube Container (40' HC)",
+            "hybrid_savings_count": hybrid_savings,
         }
 
         return computed_items, summary_totals
@@ -143,6 +151,9 @@ class CBMService:
             recommended_shipping_method=summary["recommended_shipping_method"],
             recommended_container_type=summary["recommended_container_type"],
             recommended_container_count=summary["recommended_container_count"],
+            smart_hybrid_containers=summary.get("smart_hybrid_containers"),
+            flat_only_containers=summary.get("flat_only_containers"),
+            hybrid_savings_count=summary.get("hybrid_savings_count", 0),
             items=computed_items,
         )
 

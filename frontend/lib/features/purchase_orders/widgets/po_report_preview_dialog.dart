@@ -1025,8 +1025,9 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
       return;
     }
 
-    bool? activeStackingMode = cargoItems.any((i) => !i.isStackable) ? null : true;
     bool isTopView = true;
+    bool? activeStackingMode = cargoItems.any((i) => !i.isStackable) ? null : true;
+    CargoOrientationPreference activeOrientationMode = CargoOrientationPreference.smartHybrid;
 
     showDialog(
       context: context,
@@ -1036,6 +1037,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
             final plan = ContainerRequirementEngine.planShipment(
               cargoItems,
               forceStackable: activeStackingMode,
+              forceOrientation: activeOrientationMode,
             );
 
             final totalPkgs = cargoItems.length;
@@ -1108,19 +1110,28 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                             const SizedBox(width: 10),
                             SegmentedButton<int>(
                               segments: [
-                                ButtonSegment(value: 0, label: Text(l.simulationModeActualMixed)),
-                                ButtonSegment(value: 1, label: Text(l.simulationModeStackable)),
+                                ButtonSegment(value: 0, label: Text(l.smartHybridOption)),
+                                ButtonSegment(value: 1, label: Text(l.flatOnlyOption)),
                                 ButtonSegment(value: 2, label: Text(l.simulationModeFloorOnly)),
+                                ButtonSegment(value: 3, label: Text(l.simulationModeActualMixed)),
                               ],
                               selected: {
-                                activeStackingMode == null ? 0 : (activeStackingMode == true ? 1 : 2)
+                                activeStackingMode == false ? 2 : (activeStackingMode == null ? 3 : (activeOrientationMode == CargoOrientationPreference.smartHybrid ? 0 : 1))
                               },
                               onSelectionChanged: (val) {
                                 setDialogState(() {
                                   final sel = val.first;
-                                  if (sel == 0) activeStackingMode = null;
-                                  if (sel == 1) activeStackingMode = true;
-                                  if (sel == 2) activeStackingMode = false;
+                                  if (sel == 0) {
+                                    activeOrientationMode = CargoOrientationPreference.smartHybrid;
+                                    activeStackingMode = true;
+                                  } else if (sel == 1) {
+                                    activeOrientationMode = CargoOrientationPreference.flatOnly;
+                                    activeStackingMode = true;
+                                  } else if (sel == 2) {
+                                    activeStackingMode = false;
+                                  } else if (sel == 3) {
+                                    activeStackingMode = null;
+                                  }
                                 });
                               },
                             ),

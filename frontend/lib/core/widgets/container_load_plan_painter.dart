@@ -357,7 +357,7 @@ class ContainerLoadPlanPainter extends CustomPainter {
         }
       }
 
-      // 6. Non-Stackable Visual Badge
+      // 6. Non-Stackable / On-Edge Visual Badge
       if (!p.item.isStackable && itemRect.width >= 20 && itemRect.height >= 18) {
         final Paint noStackPaint = Paint()..color = Colors.red.shade900.withOpacity(0.85);
         final Rect noStackRect = Rect.fromLTWH(itemRect.left + 2, itemRect.top + 2, 14, 12);
@@ -369,6 +369,17 @@ class ContainerLoadPlanPainter extends CustomPainter {
         );
         textPainter.layout();
         textPainter.paint(canvas, Offset(noStackRect.left + 1, noStackRect.top + 1));
+      } else if (p.isStandingOnEdge && itemRect.width >= 22 && itemRect.height >= 18) {
+        final Paint edgeBadgePaint = Paint()..color = const Color(0xFF0D9488).withOpacity(0.9);
+        final Rect edgeBadgeRect = Rect.fromLTWH(itemRect.left + 2, itemRect.top + 2, 18, 12);
+        canvas.drawRRect(RRect.fromRectAndRadius(edgeBadgeRect, const Radius.circular(2)), edgeBadgePaint);
+
+        textPainter.text = const TextSpan(
+          text: '📐',
+          style: TextStyle(fontSize: 8),
+        );
+        textPainter.layout();
+        textPainter.paint(canvas, Offset(edgeBadgeRect.left + 2, edgeBadgeRect.top + 1));
       }
     }
   }

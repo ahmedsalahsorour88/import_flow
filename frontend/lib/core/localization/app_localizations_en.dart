@@ -455,6 +455,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get bestOptionBadge => 'Best Option';
   @override String get viableAlternative => 'Viable Alternative';
   @override String get chooseStackingScenario => 'Choose Stacking Scenario for Preview:';
+  @override String get smartHybridOption => '🌟 Smart Hybrid (Flat + On-Edge)';
+  @override String get flatOnlyOption => '📦 Flat Only';
+  @override String get onEdgeOption => '📐 On-Edge Only';
+  @override String get smartHybridSavingsMessage => '💡 Smart Insight: Hybrid Stacking saves extra container(s) by packing residual side channels!';
+  @override String get orientationPreferenceLabel => 'Preferred Stacking Orientation:';
   @override String get requiredFleet => 'Required Fleet:';
   @override String get containerPlanTitle => 'Container Layout Plan';
   @override String get closePlan => 'Close Plan';

@@ -102,6 +102,9 @@ class CBMCalculationResponse(CBMCalculationBase):
     recommended_shipping_method: Optional[str] = None
     recommended_container_type: Optional[str] = None
     recommended_container_count: int = 0
+    smart_hybrid_containers: Optional[str] = None
+    flat_only_containers: Optional[str] = None
+    hybrid_savings_count: Optional[int] = 0
     is_stackable: Optional[bool] = True
     is_active: bool
     created_at: datetime
@@ -126,6 +129,9 @@ class CBMQuickCalcResponse(BaseModel):
     recommended_shipping_method: str
     recommended_container_type: str
     recommended_container_count: int
+    smart_hybrid_containers: Optional[str] = None
+    flat_only_containers: Optional[str] = None
+    hybrid_savings_count: Optional[int] = 0
     items: List[dict]
 
 

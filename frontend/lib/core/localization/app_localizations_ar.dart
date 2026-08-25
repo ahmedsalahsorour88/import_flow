@@ -455,6 +455,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get bestOptionBadge => 'الخيار الأنسب';
   @override String get viableAlternative => 'بديل قابل للتطبيق';
   @override String get chooseStackingScenario => 'اختر سيناريو الرص للمعاينة:';
+  @override String get smartHybridOption => '🌟 رص ذكي هجين (أفقي + على السيف)';
+  @override String get flatOnlyOption => '📦 رص مسطح فقط';
+  @override String get onEdgeOption => '📐 رص على السيف فقط';
+  @override String get smartHybridSavingsMessage => '💡 التوصية الذكية: يوفر الرص الهجين حاويات إضافية بتعبئة المساحات الجانبية!';
+  @override String get orientationPreferenceLabel => 'نمط الرص المفضل:';
   @override String get requiredFleet => 'الأسطول المطلوب:';
   @override String get containerPlanTitle => 'مخطط رص الحاوية';
   @override String get closePlan => 'إغلاق المخطط';

@@ -461,6 +461,11 @@ abstract class AppLocalizations {
   String get bestOptionBadge;
   String get viableAlternative;
   String get chooseStackingScenario;
+  String get smartHybridOption;
+  String get flatOnlyOption;
+  String get onEdgeOption;
+  String get smartHybridSavingsMessage;
+  String get orientationPreferenceLabel;
   String get requiredFleet;
   String get containerPlanTitle;
   String get closePlan;

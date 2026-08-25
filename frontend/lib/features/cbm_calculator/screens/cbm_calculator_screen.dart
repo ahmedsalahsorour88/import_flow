@@ -1374,16 +1374,18 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
     // Default active view mode: null = Actual/Mixed, true = All Stackable, false = All Non-Stackable
     bool? activeStackingMode = cargoItems.any((i) => !i.isStackable) ? null : true;
+    CargoOrientationPreference activeOrientationMode = CargoOrientationPreference.smartHybrid;
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
-            // Compute plan dynamically based on the selected mode
+            // Compute plan dynamically based on the selected mode & orientation preference
             final plan = ContainerRequirementEngine.planShipment(
               cargoItems,
               forceStackable: activeStackingMode,
+              forceOrientation: activeOrientationMode,
             );
 
             // Compute summary metrics for active plan
@@ -1396,7 +1398,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
             final totalPlanWeight = plan.fold(0.0, (s, p) => s + p.totalWeight);
             final totalPlanVolume = plan.fold(0.0, (s, p) => s + p.totalVolume);
 
-            // Determine container fleet text (e.g. 2 x 40HC or 2 x 40HC + 1 x 20GP)
+            // Determine container fleet text (e.g. 1 x 40HC or 1 x 40HC + 1 x 40GP)
             final Map<String, int> containerCounts = {};
             for (final p in plan) {
               if (p.containerCode != 'FAILED') {
@@ -1435,7 +1437,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 height: math.min(680.0, MediaQuery.of(context).size.height * 0.85),
                 child: Column(
                   children: [
-                    // 1. Scenario / Stacking Mode Switcher (All 3 required states)
+                    // 1. Scenario & Orientation Mode Switcher
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
@@ -1443,29 +1445,56 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.grey.shade300),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 12,
+                        runSpacing: 8,
                         children: [
                           Text(
                             l.chooseStackingScenario,
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                           ),
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
                             children: [
                               ChoiceChip(
-                                label: Text(l.allStackableOption),
-                                selected: activeStackingMode == true,
+                                label: Text(l.smartHybridOption),
+                                selected: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false,
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == true ? Colors.white : AppTheme.charcoal,
+                                  color: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false ? Colors.white : AppTheme.charcoal,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
                                 onSelected: (val) {
-                                  if (val) setDialogState(() => activeStackingMode = true);
+                                  if (val) {
+                                    setDialogState(() {
+                                      activeOrientationMode = CargoOrientationPreference.smartHybrid;
+                                      activeStackingMode = true;
+                                    });
+                                  }
                                 },
                               ),
-                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: Text(l.flatOnlyOption),
+                                selected: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false,
+                                selectedColor: Colors.blue.shade700,
+                                labelStyle: TextStyle(
+                                  color: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) {
+                                    setDialogState(() {
+                                      activeOrientationMode = CargoOrientationPreference.flatOnly;
+                                      activeStackingMode = true;
+                                    });
+                                  }
+                                },
+                              ),
                               ChoiceChip(
                                 label: Text(l.allNonStackableOption),
                                 selected: activeStackingMode == false,
@@ -1476,10 +1505,13 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                   fontSize: 11,
                                 ),
                                 onSelected: (val) {
-                                  if (val) setDialogState(() => activeStackingMode = false);
+                                  if (val) {
+                                    setDialogState(() {
+                                      activeStackingMode = false;
+                                    });
+                                  }
                                 },
                               ),
-                              const SizedBox(width: 8),
                               ChoiceChip(
                                 label: Text(l.mixedStackingOption),
                                 selected: activeStackingMode == null,

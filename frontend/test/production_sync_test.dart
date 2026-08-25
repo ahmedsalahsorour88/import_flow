@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/production_sync/models/production_sync_model.dart';
+import 'package:frontend/features/production_sync/services/local_process_sync_service.dart';
 
 void main() {
   group('ProductionSyncModel Unit Tests', () {
@@ -147,6 +148,17 @@ void main() {
       expect(res.action, 'PUSH_TO_PROD');
       expect(res.affectedTablesCount, 66);
       expect(res.totalRecordsSynced, 379);
+    });
+
+    test('LocalProcessSyncService retrieves db stats directly from filesystem', () {
+      final service = LocalProcessSyncService();
+      final stats = service.getDbStats(service.devDbPath);
+      expect(stats.exists, isTrue);
+      expect(stats.sizeKb, greaterThan(0));
+      expect(stats.mtime, isNotNull);
+
+      final backups = service.listBackups();
+      expect(backups, isA<List<LocalBackupEntry>>());
     });
   });
 }

@@ -664,7 +664,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          'v1.0.13 (Build 14)',
+                          'v1.0.14 (Build 15)',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(color: Colors.white70, fontSize: 9.5, fontFamily: 'monospace', fontWeight: FontWeight.w600),
@@ -877,9 +877,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildInfoRow(Icons.verified, l.systemVersion, 'v1.0.13 (Release)'),
+              _buildInfoRow(Icons.verified, l.systemVersion, 'v1.0.14 (Release)'),
               const Divider(height: 14),
-              _buildInfoRow(Icons.build_circle_outlined, l.buildId, 'Build 1.0.13+14'),
+              _buildInfoRow(Icons.build_circle_outlined, l.buildId, 'Build 1.0.14+15'),
               const Divider(height: 14),
               _buildInfoRow(Icons.dns_outlined, l.backendEngine, 'FastAPI (Port 28080)'),
               const Divider(height: 14),

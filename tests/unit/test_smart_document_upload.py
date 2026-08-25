@@ -517,6 +517,78 @@ class TestFreightQuotationExtractor:
         assert yml_opt["is_direct"] is False
         assert yml_opt["free_time_days"] == 21
 
+    def test_ocr_noisy_text_extraction(self):
+        ocr_noisy_text = """
+        QUOTATION FROM COSCO SHIPPING
+        Quote Ref: COSCO-EGY-2026-88
+        Valid To: 15/09/2026
+        POL: NINGBO
+        POD: EL DEKHEILA
+        
+        RATES:
+        • COSCO: USD 3, 400 / 40 ' HQ BY COSCO
+        • CMA: USD 3, 250 / 40HC BY CMA CGM
+        
+        Local charges: USD 420 / 40HQ
+        Free time: 14 days FT
+        Transit time: about 30 days
+        """
+        result = self.extractor.extract(ocr_noisy_text, {})
+        assert result["quotation_ref"] == "COSCO-EGY-2026-88"
+        assert result["validity_date"] == "15/09/2026"
+        assert "Dekheila" in (result["destination_port"] or "")
+        assert len(result["rate_options"]) >= 2
+
+        cosco_opt = next(o for o in result["rate_options"] if "COSCO" in o["carrier_name"])
+        assert cosco_opt["ocean_freight"] == 3400.0
+        assert cosco_opt["local_charges"] == 420.0
+
+        cma_opt = next(o for o in result["rate_options"] if "CMA" in o["carrier_name"])
+        assert cma_opt["ocean_freight"] == 3250.0
+
+    def test_arabic_shipping_quotation_text(self):
+        arabic_text = """
+        عرض سعر شحن بحري
+        الخط الملاحي: إيفرجرين (EVERGREEN)
+        شركة الشحن: الأهرام لخدمات الشحن واللوجستيات
+        رقم العرض: RFQ-EGY-9912
+        صالح حتى: 30/09/2026
+        ميناء الشحن: شنغهاي
+        ميناء الوصول: ميناء الإسكندرية
+        
+        الأسعار:
+        نولون بحري: USD 3100/40HQ BY EMC
+        مصاريف محلية: USD 350/40HQ
+        فترة السماح: 21 يوم
+        مدة الإبحار: 26 يوم مباشر
+        رسوم الإلغاء: $150
+        """
+        result = self.extractor.extract(arabic_text, {})
+        assert "Evergreen" in (result["carrier_name"] or "") or "EMC" in (result["carrier_name"] or "")
+        assert "Shanghai" in (result["origin_port"] or "") or "شنغهاي" in (result["origin_port"] or "")
+        assert "Alexandria" in (result["destination_port"] or "") or "الإسكندرية" in (result["destination_port"] or "")
+        assert result["free_days_demurrage"] == 21
+        assert result["transit_days"] == 26
+        assert result["is_direct"] is True
+        assert result["cancel_fee"] == 150.0
+
+    def test_lcl_and_air_freight_rates(self):
+        lcl_air_text = """
+        LCL Consolidation Quote
+        POL: SHANGHAI
+        POD: ALEXANDRIA
+        Rate: USD 45/CBM BY MSK
+        Local charges: USD 15/CBM
+        Free time: 10 days
+        Transit time: 32 days
+        """
+        result = self.extractor.extract(lcl_air_text, {})
+        assert len(result["rate_options"]) >= 1
+        opt = result["rate_options"][0]
+        assert opt["ocean_freight"] == 45.0
+        assert opt["container_type"] == "LCL (CBM)"
+        assert opt["local_charges"] == 15.0
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────

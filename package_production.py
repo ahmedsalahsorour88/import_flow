@@ -103,11 +103,14 @@ def copy_standalone_package():
     else:
         print(f"[WARN] backend.exe not found at {BACKEND_EXE}")
 
-    # 3. Copy Full Master Database
+    # 3. Clean operational data and copy Master Reference Database
+    import clean_and_isolate_databases
+    clean_and_isolate_databases.clean_database(DB_SRC)
+
     prod_db_file = STANDALONE_DEST / "sorour_logistics.db"
     if DB_SRC.exists():
         safe_copy_file(DB_SRC, prod_db_file)
-        print(f"      Included master sorour_logistics.db (3,952 Ports & Full Data) into {STANDALONE_DEST}")
+        print(f"      Included clean master sorour_logistics.db into {STANDALONE_DEST}")
 
     # 4. Copy App Icon
     if APP_ICON_SRC.exists():

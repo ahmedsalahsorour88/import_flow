@@ -108,6 +108,14 @@ class CooExportService {
     required String invoiceData,
     required String acidNumber,
   }) {
+    var cleanBox7 = goodsDesc.trim();
+    if (!cleanBox7.toUpperCase().contains('ACID:')) {
+      cleanBox7 = '$cleanBox7 ACID:$acidNumber';
+    }
+    if (!cleanBox7.endsWith('***')) {
+      cleanBox7 = '$cleanBox7\n\n***';
+    }
+
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
@@ -119,21 +127,29 @@ class CooExportService {
         ),
         pw.Divider(height: 1, color: PdfColors.black),
 
-        // Row 1: Box 1 (Left 50%) vs Title / Certificate No. (Right 50%)
+        // ─── Top Block: Box 1 & Box 2 (Left 50%) vs Title (Right 50%) ───
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
+            // Left Column: Box 1 & Box 2
             pw.Expanded(
               flex: 5,
-              child: _buildPdfBoxCell('1. Exporter', exporter, minHeight: 90, hasRightBorder: true, hasBottomBorder: true),
+              child: pw.Column(
+                children: [
+                  _buildPdfBoxCell('1. Exporter', exporter, minHeight: 85, hasRightBorder: true, hasBottomBorder: true),
+                  _buildPdfBoxCell('2. Consignee', consignee, minHeight: 70, hasRightBorder: true, hasBottomBorder: true),
+                ],
+              ),
             ),
+            // Right Column: Official Title Header
             pw.Expanded(
               flex: 5,
               child: pw.Container(
-                padding: const pw.EdgeInsets.all(6),
+                height: 155,
+                padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black, width: 0.8))),
                 child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -142,10 +158,11 @@ class CooExportService {
                         pw.Text('Certificate No. $certNo', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9.5)),
                       ],
                     ),
-                    pw.SizedBox(height: 6),
-                    pw.Text('CERTIFICATE OF ORIGIN', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
+                    pw.SizedBox(height: 8),
+                    pw.Text('CERTIFICATE OF ORIGIN', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
                     pw.Text('OF', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
-                    pw.Text("THE PEOPLE'S REPUBLIC OF CHINA", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                    pw.Text("THE PEOPLE'S REPUBLIC OF CHINA", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10.5, letterSpacing: 0.5)),
+                    pw.SizedBox(height: 8),
                   ],
                 ),
               ),
@@ -153,73 +170,48 @@ class CooExportService {
           ],
         ),
 
-        // Row 2: Box 2 (Consignee)
+        // ─── Middle Block: Box 3 & Box 4 (Left 50%) vs Box 5 (Right 50%) ───
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Expanded(
-              flex: 5,
-              child: _buildPdfBoxCell('2. Consignee', consignee, minHeight: 70, hasRightBorder: true, hasBottomBorder: true),
-            ),
-            pw.Expanded(
-              flex: 5,
-              child: pw.Container(
-                padding: const pw.EdgeInsets.all(6),
-                decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black, width: 0.8))),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('Country / Region of Origin: CHINA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.blue900)),
-                    pw.SizedBox(height: 4),
-                    pw.Text('ACID Reference: $acidNumber', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.green900)),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        // Row 3 & 4: Transport & Destination vs Box 5 (CCPIT Authority)
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
+            // Left: Box 3 & Box 4
             pw.Expanded(
               flex: 5,
               child: pw.Column(
                 children: [
-                  _buildPdfBoxCell('3. Means of transport and route', transport, minHeight: 45, hasRightBorder: true, hasBottomBorder: true),
+                  _buildPdfBoxCell('3. Means of transport and route', transport, minHeight: 48, hasRightBorder: true, hasBottomBorder: true),
                   _buildPdfBoxCell('4. Country / region of destination', destination, minHeight: 35, hasRightBorder: true, hasBottomBorder: true),
                 ],
               ),
             ),
+            // Right: Box 5 Authority stamp
             pw.Expanded(
               flex: 5,
               child: pw.Container(
+                height: 83,
                 padding: const pw.EdgeInsets.all(6),
                 decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black, width: 0.8))),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Text('5. For certifying authority use only', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
-                    pw.SizedBox(height: 4),
-                    pw.Container(
-                      padding: const pw.EdgeInsets.all(6),
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border.all(color: PdfColors.blue900, width: 1),
-                        color: PdfColors.blue50,
+                    pw.Center(
+                      child: pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(color: PdfColors.blue900, width: 1),
+                        ),
+                        child: pw.Text(
+                          'CHINA COUNCIL FOR THE PROMOTION OF INTERNATIONAL TRADE IS CHINA CHAMBER OF INTERNATIONAL COMMERCE',
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7, color: PdfColors.blue900),
+                        ),
                       ),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.center,
-                        children: [
-                          pw.Text(
-                            'CHINA COUNCIL FOR THE PROMOTION OF INTERNATIONAL TRADE IS CHINA CHAMBER OF INTERNATIONAL COMMERCE',
-                            textAlign: pw.TextAlign.center,
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7.5, color: PdfColors.blue900),
-                          ),
-                          pw.SizedBox(height: 2),
-                          pw.Text('VERIFY URL: HTTP://CHECK.ECOCCPIT.NET/', style: const pw.TextStyle(fontSize: 7)),
-                        ],
-                      ),
+                    ),
+                    pw.Align(
+                      alignment: pw.Alignment.bottomRight,
+                      child: pw.Text('VERIFY URL: HTTP://CHECK.ECOCCPIT.NET/', style: const pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -228,7 +220,7 @@ class CooExportService {
           ],
         ),
 
-        // Middle Table (Boxes 6, 7, 8, 9, 10)
+        // ─── Table Section (Boxes 6, 7, 8, 9, 10) ───
         pw.Container(
           decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black, width: 1))),
           child: pw.Column(
@@ -255,15 +247,7 @@ class CooExportService {
                     child: pw.Container(
                       padding: const pw.EdgeInsets.all(6),
                       decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 0.8))),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text(goodsDesc, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
-                          pw.SizedBox(height: 4),
-                          pw.Text('ACID: $acidNumber', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8, color: PdfColors.green900)),
-                          pw.Text('***', style: const pw.TextStyle(color: PdfColors.grey600, fontSize: 8)),
-                        ],
-                      ),
+                      child: pw.Text(cleanBox7, style: const pw.TextStyle(fontSize: 8, height: 1.2)),
                     ),
                   ),
                   _buildPdfTableBodyCell(hsCodes, flex: 2),
@@ -275,7 +259,7 @@ class CooExportService {
           ),
         ),
 
-        // Bottom Row: Box 11 (Declaration) vs Box 12 (Certification)
+        // ─── Bottom Row: Box 11 (Declaration) vs Box 12 (Certification) ───
         pw.Expanded(
           child: pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -292,7 +276,7 @@ class CooExportService {
                       pw.SizedBox(height: 2),
                       pw.Text(
                         'The undersigned hereby declares that the above details and statements are correct, that all the goods were produced in China and that they comply with the Rules of Origin of the People\'s Republic of China.',
-                        style: const pw.TextStyle(fontSize: 7.5, height: 1.2),
+                        style: const pw.TextStyle(fontSize: 7, height: 1.2),
                       ),
                       pw.Spacer(),
                       pw.Text('SUZHOU, CHINA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8)),
@@ -311,7 +295,7 @@ class CooExportService {
                     children: [
                       pw.Text('12. Certification', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold)),
                       pw.SizedBox(height: 2),
-                      pw.Text('It is hereby certified that the declaration by the exporter is correct.', style: const pw.TextStyle(fontSize: 7.5)),
+                      pw.Text('It is hereby certified that the declaration by the exporter is correct.', style: const pw.TextStyle(fontSize: 7)),
                       pw.SizedBox(height: 4),
                       pw.Text(
                         'ADDRESS: DONGWU NORTH ROAD GUOYU BUILDING 15A FLOOR WUZHONG DISTRICT SUZHOU CITY\nFAX: 0512-65252957 TEL: 0512-65252453',

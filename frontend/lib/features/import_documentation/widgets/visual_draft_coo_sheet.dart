@@ -231,6 +231,15 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
     required List<String> originsList,
     required String acidNumber,
   }) {
+    // Format clean Box 7 description with inline ACID
+    var cleanBox7 = goodsDesc.trim();
+    if (!cleanBox7.toUpperCase().contains('ACID:')) {
+      cleanBox7 = '$cleanBox7 ACID:$acidNumber';
+    }
+    if (!cleanBox7.endsWith('***')) {
+      cleanBox7 = '$cleanBox7\n\n***';
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -238,169 +247,161 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
         Container(
           padding: const EdgeInsets.symmetric(vertical: 4),
           alignment: Alignment.center,
-          child: const Text('ORIGINAL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 2)),
+          child: const Text(
+            'ORIGINAL',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 3, color: Colors.black),
+          ),
         ),
-        const Divider(height: 1, color: Colors.black87),
+        const Divider(height: 1, thickness: 1.2, color: Colors.black87),
 
-        // Header Row: Box 1 (Left 50%) vs Title / Certificate No. (Right 50%)
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 5,
-              child: _buildBoxCell(
-                '1. Exporter',
-                exporter,
-                hasRightBorder: true,
-                hasBottomBorder: true,
-                minHeight: 110,
-              ),
-            ),
-            Expanded(
-              flex: 5,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.black87, width: 0.8)),
-                ),
+        // ─── Top Block: Box 1 & Box 2 (Left 50%) vs Official Title (Right 50%) ───
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left: Box 1 (Exporter) & Box 2 (Consignee)
+              Expanded(
+                flex: 5,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Serial No.', style: TextStyle(fontSize: 9.5, color: Colors.black54)),
-                        Text('Certificate No. $certNo', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.black)),
-                      ],
+                    _buildBoxCell(
+                      '1. Exporter',
+                      exporter,
+                      hasRightBorder: true,
+                      hasBottomBorder: true,
+                      minHeight: 95,
                     ),
-                    const SizedBox(height: 10),
-                    const Text('CERTIFICATE OF ORIGIN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, letterSpacing: 0.5)),
-                    const Text('OF', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                    const Text("THE PEOPLE'S REPUBLIC OF CHINA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, letterSpacing: 0.5)),
-                    const SizedBox(height: 4),
+                    _buildBoxCell(
+                      '2. Consignee',
+                      consignee,
+                      hasRightBorder: true,
+                      hasBottomBorder: true,
+                      minHeight: 80,
+                    ),
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
 
-        // Row 2: Box 2 (Consignee) spanning full or left
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 5,
-              child: _buildBoxCell(
-                '2. Consignee',
-                consignee,
-                hasRightBorder: true,
-                hasBottomBorder: true,
-                minHeight: 85,
-              ),
-            ),
-            Expanded(
-              flex: 5,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.black87, width: 0.8)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Country / Region of Origin:', style: TextStyle(fontSize: 9.5, color: Colors.black54)),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: originsList.map((c) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.blue.shade300)),
-                          child: Text('🇨🇳 $c', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 6),
-                    Text('ACID Reference: $acidNumber', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.green)),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        // Row 3 & 4: Box 3 (Transport) & Box 4 (Destination) vs Box 5 (Certifying Authority)
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Left Column (Box 3 + Box 4)
-            Expanded(
-              flex: 5,
-              child: Column(
-                children: [
-                  _buildBoxCell(
-                    '3. Means of transport and route',
-                    transport,
-                    hasRightBorder: true,
-                    hasBottomBorder: true,
-                    minHeight: 55,
+              // Right: Authentic CCPIT Title & Certificate Header
+              Expanded(
+                flex: 5,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: const BoxDecoration(
+                    border: Border(bottom: BorderSide(color: Colors.black87, width: 0.8)),
                   ),
-                  _buildBoxCell(
-                    '4. Country / region of destination',
-                    destination,
-                    hasRightBorder: true,
-                    hasBottomBorder: true,
-                    minHeight: 45,
-                  ),
-                ],
-              ),
-            ),
-            // Right Column (Box 5: For certifying authority use only)
-            Expanded(
-              flex: 5,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.black87, width: 0.8)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('5. For certifying authority use only', style: TextStyle(fontSize: 9.5, color: Colors.black54)),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.blue.shade800, width: 1.2),
-                        color: Colors.blue.shade50.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'CHINA COUNCIL FOR THE PROMOTION OF INTERNATIONAL TRADE IS CHINA CHAMBER OF INTERNATIONAL COMMERCE',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 9.5, color: Colors.blue.shade900),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'VERIFY URL: HTTP://CHECK.ECOCCPIT.NET/',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 9, color: Colors.black87),
-                          ),
+                          const Text('Serial No.', style: TextStyle(fontSize: 9.5, color: Colors.black87)),
+                          Text('Certificate No. $certNo', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black)),
                         ],
                       ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'CERTIFICATE OF ORIGIN',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, letterSpacing: 0.8, color: Colors.black),
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'OF',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black),
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        "THE PEOPLE'S REPUBLIC OF CHINA",
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.8, color: Colors.black),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ─── Middle Block: Box 3 & Box 4 (Left 50%) vs Box 5 (Right 50%) ───
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left: Box 3 (Transport) & Box 4 (Destination)
+              Expanded(
+                flex: 5,
+                child: Column(
+                  children: [
+                    _buildBoxCell(
+                      '3. Means of transport and route',
+                      transport,
+                      hasRightBorder: true,
+                      hasBottomBorder: true,
+                      minHeight: 60,
+                    ),
+                    _buildBoxCell(
+                      '4. Country / region of destination',
+                      destination,
+                      hasRightBorder: true,
+                      hasBottomBorder: true,
+                      minHeight: 45,
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
+
+              // Right: Box 5 (For certifying authority use only)
+              Expanded(
+                flex: 5,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    border: Border(bottom: BorderSide(color: Colors.black87, width: 0.8)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('5. For certifying authority use only', style: TextStyle(fontSize: 9.5, color: Colors.black87)),
+                      const SizedBox(height: 4),
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFF1B4F72), width: 1.2),
+                          ),
+                          child: const Text(
+                            'CHINA COUNCIL FOR THE PROMOTION OF INTERNATIONAL TRADE IS CHINA CHAMBER OF INTERNATIONAL COMMERCE',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 9.5,
+                              color: Color(0xFF1B4F72),
+                              letterSpacing: 0.3,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Align(
+                        alignment: Alignment.bottomRight,
+                        child: Text(
+                          'VERIFY URL: HTTP://CHECK.ECOCCPIT.NET/',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 8.5, color: Colors.black87),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
 
-        // Middle Table (Boxes 6, 7, 8, 9, 10)
+        // ─── Table Section (Boxes 6, 7, 8, 9, 10) ───
         Container(
           decoration: const BoxDecoration(
             border: Border(bottom: BorderSide(color: Colors.black87, width: 1.2)),
@@ -434,19 +435,9 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(goodsDesc, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(3), border: Border.all(color: Colors.green.shade400)),
-                            child: Text('ACID: $acidNumber', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text('***', style: TextStyle(color: Colors.black54)),
-                        ],
+                      child: Text(
+                        cleanBox7,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10.5, color: Colors.black87, height: 1.3),
                       ),
                     ),
                   ),
@@ -459,7 +450,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       child: Wrap(
                         spacing: 4,
                         runSpacing: 4,
-                        children: hsCodesList.map((hs) => Text(hs, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))).toList(),
+                        children: hsCodesList.map((hs) => Text(hs, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5))).toList(),
                       ),
                     ),
                   ),
@@ -473,7 +464,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
           ),
         ),
 
-        // Bottom Row: Box 11 (Declaration by exporter) vs Box 12 (Certification by CCPIT)
+        // ─── Bottom Row: Box 11 (Declaration) vs Box 12 (Certification) ───
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -492,13 +483,13 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                     SizedBox(height: 4),
                     Text(
                       'The undersigned hereby declares that the above details and statements are correct, that all the goods were produced in China and that they comply with the Rules of Origin of the People\'s Republic of China.',
-                      style: TextStyle(fontSize: 9.5, height: 1.25, color: Colors.black87),
+                      style: TextStyle(fontSize: 9, height: 1.25, color: Colors.black87),
                     ),
-                    SizedBox(height: 16),
+                    SizedBox(height: 14),
                     Text('SUZHOU, CHINA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
                     SizedBox(height: 8),
                     Divider(height: 1, color: Colors.black54),
-                    Text('Place and date, signature and stamp of authorized signatory', style: TextStyle(fontSize: 8.5, color: Colors.black54)),
+                    Text('Place and date, signature and stamp of authorized signatory', style: TextStyle(fontSize: 8, color: Colors.black54)),
                   ],
                 ),
               ),
@@ -516,31 +507,23 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                     SizedBox(height: 4),
                     Text(
                       'It is hereby certified that the declaration by the exporter is correct.',
-                      style: TextStyle(fontSize: 9.5, height: 1.25, color: Colors.black87),
+                      style: TextStyle(fontSize: 9, height: 1.25, color: Colors.black87),
                     ),
                     SizedBox(height: 6),
                     Text(
-                      'ADDRESS: DONGWU NORTH ROAD GUOYU BUILDING 15A FLOOR WUZHONG DISTRICT SUZHOU CITY\nFAX: 0512-65252957  TEL: 0512-65252453',
-                      style: TextStyle(fontSize: 8.5, color: Colors.black87),
+                      'ADDRESS: DONGWU NORTH ROAD GUOYU BUILDING 15A FLOOR WUZHONG DISTRICT SUZHOU CITY\nFAX: 0512-65252957 TEL: 0512-65252453',
+                      style: TextStyle(fontSize: 8.5, height: 1.2, color: Colors.black87),
                     ),
                     SizedBox(height: 8),
                     Text('SUZHOU, CHINA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
                     SizedBox(height: 8),
                     Divider(height: 1, color: Colors.black54),
-                    Text('Place and date, signature and stamp of certifying authority', style: TextStyle(fontSize: 8.5, color: Colors.black54)),
+                    Text('Place and date, signature and stamp of certifying authority', style: TextStyle(fontSize: 8, color: Colors.black54)),
                   ],
                 ),
               ),
             ),
           ],
-        ),
-
-        // Page Indicator
-        Container(
-          padding: const EdgeInsets.all(4),
-          alignment: Alignment.center,
-          color: Colors.grey.shade50,
-          child: const Text('Page 1 of 1', style: TextStyle(fontSize: 9, color: Colors.black54)),
         ),
       ],
     );

@@ -2458,10 +2458,30 @@ def generate_coo_draft_template_service(
     importer_addr = sanitize_english_only(raw_imp_addr)
 
     dest_country = "EGYPT"
-    raw_pol = (getattr(booking, 'pol_name', None) or getattr(booking, 'pol_port_name', None)) or getattr(imp_file, 'port_of_loading', None) or getattr(imp_file, 'pol_name', None) or "NINGBO-ZHOUSHAN PORT"
-    raw_pod = (getattr(booking, 'pod_name', None) or getattr(booking, 'pod_port_name', None)) or getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "ALEXANDRIA PORT"
-    pol = sanitize_english_only(raw_pol) or "NINGBO-ZHOUSHAN PORT"
-    pod = sanitize_english_only(raw_pod) or "ALEXANDRIA PORT"
+    raw_pol = (getattr(booking, 'pol_name', None) or getattr(booking, 'pol_port_name', None)) or getattr(imp_file, 'port_of_loading', None) or getattr(imp_file, 'pol_name', None) or "SHANGHAI"
+    raw_pod = (getattr(booking, 'pod_name', None) or getattr(booking, 'pod_port_name', None)) or getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "ALEXANDRIA"
+    
+    # Format Port of Loading + Country
+    pol_name_clean = re.sub(r'(?i)\s+port\s*$', '', sanitize_english_only(raw_pol)).strip().upper()
+    if not pol_name_clean:
+        pol_name_clean = "NINGBO-ZHOUSHAN" if is_china else "SHANGHAI"
+    pol_country_name = sanitize_english_only(clean_country_name or ("CHINA" if is_china else "EUROPEAN UNION")).upper()
+    if pol_country_name and pol_country_name not in pol_name_clean:
+        pol_full = f"{pol_name_clean} {pol_country_name}".strip()
+    else:
+        pol_full = pol_name_clean
+
+    # Format Port of Discharge + Country
+    pod_name_clean = re.sub(r'(?i)\s+port\s*$', '', sanitize_english_only(raw_pod)).strip().upper()
+    if not pod_name_clean:
+        pod_name_clean = "ALEXANDRIA"
+    pod_country_name = "EGYPT"
+    if pod_country_name not in pod_name_clean:
+        pod_full = f"{pod_name_clean} {pod_country_name}".strip()
+    else:
+        pod_full = pod_name_clean
+
+    transport_route_str = f"FROM {pol_full} TO {pod_full} BY SEA"
 
     if is_china:
         cert_name = "China Certificate of Origin (CCPIT)"
@@ -2476,17 +2496,23 @@ def generate_coo_draft_template_service(
         wt_str = f"G.WEIGHT {gross_wt:,.2f} KGS"
         box_9_china = f"{pcs_str}\n{pkgs_str}\n{wt_str}"
 
+        # Clean Box 7 description without duplicate text or raw artifacts
+        clean_box_7_desc = goods_desc_str.split(" / ACID:")[0].split(" | ")[0]
+        if not clean_box_7_desc or clean_box_7_desc == "COMMERCIAL CARGO":
+            clean_box_7_desc = "ACOUSTIC PANELS" if "560229" in hs_codes_str else "COMMERCIAL CARGO"
+        box_7_formatted = f"{clean_box_7_desc} ACID:{acid_no}\n\n***"
+
         template = {
             "certificate_type": cert_name,
             "certificate_number": f"26C{import_file_id:06d}/00001",
-            "box_1_exporter": f"{exporter_name}\n{exporter_addr}".strip(),
+            "box_1_exporter": f"{exporter_name}\n{exporter_addr}\n***".strip(),
             "box_2_consignee": f"{importer_name}\n{importer_addr}".strip(),
             "box_3_consignee": f"{importer_name}\n{importer_addr}".strip(),
-            "box_3_means_of_transport": f"FROM {pol} TO {pod} BY SEA",
+            "box_3_means_of_transport": transport_route_str,
             "box_4_country_of_destination": dest_country,
             "box_5_certifying_authority": "CHINA COUNCIL FOR THE PROMOTION OF INTERNATIONAL TRADE (CCPIT)",
-            "box_6_marks_and_numbers": goods_desc_str,
-            "box_7_description_and_acid": f"{goods_desc_str} / ACID: {acid_no}",
+            "box_6_marks_and_numbers": "Acoustic Panel\nN/M" if "560229" in hs_codes_str else f"{goods_desc_str}\nN/M",
+            "box_7_description_and_acid": box_7_formatted,
             "box_8_hs_code": hs_codes_str,
             "box_9_quantity_and_weight": box_9_china,
             "box_10_invoice_number_and_date": f"{invoice_no}\n{inv_date}",
@@ -2527,9 +2553,10 @@ def generate_coo_draft_template_service(
             "box_2_preferential_trade": "EU and EGYPT",
             "box_2_consignee": f"{importer_name}\n{importer_addr}".strip(),
             "box_3_consignee": f"{importer_name}\n{importer_addr}".strip(),
+            "box_3_means_of_transport": transport_route_str,
             "box_4_country_origin": "EU",
             "box_5_country_destination": dest_country,
-            "box_6_transport_details": f"BY SEA FROM {pol} TO {pod}",
+            "box_6_transport_details": f"BY SEA FROM {pol_full} TO {pod_full}",
             "box_7_remarks": "REVISED RULES",
             "box_8_description_packages": f"{goods_desc_str} {pkgs} PACKAGES HS: {hs_codes_str}",
             "box_9_gross_mass": f"{gross_wt:,.3f} KG",

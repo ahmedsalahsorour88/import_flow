@@ -268,193 +268,196 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
   }
 
   Widget _buildOperationsTab() {
-    return Column(
-      children: [
-        // Action Buttons Row
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            alignment: WrapAlignment.center,
-            children: [
-              // 1. Sync Dev -> Prod
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.emerald,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-                icon: _isRunning && _currentAction.contains('Dev → Prod')
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.cloud_upload_rounded, size: 18),
-                label: const Text(
-                  '⚡ مزامنة لقاعدة الإنتاج (Dev → Prod)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                ),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
-                          'مزامنة لقاعدة الإنتاج (Dev → Prod)',
-                          () => _service.syncDevToProd(
-                            onOutput: (l) => _appendLog(l),
-                            onError: (l) => _appendLog(l, isError: true),
-                            onProgress: (p) {
-                              if (mounted) setState(() => _progress = p);
-                            },
-                            onDiffSummary: (d) {
-                              if (mounted) setState(() => _diffSummary = d);
-                            },
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Action Buttons Row
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.center,
+              children: [
+                // 1. Sync Dev -> Prod
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.emerald,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  icon: _isRunning && _currentAction.contains('Dev → Prod')
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.cloud_upload_rounded, size: 18),
+                  label: const Text(
+                    '⚡ مزامنة لقاعدة الإنتاج (Dev → Prod)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                  ),
+                  onPressed: _isRunning
+                      ? null
+                      : () => _executeAction(
+                            'مزامنة لقاعدة الإنتاج (Dev → Prod)',
+                            () => _service.syncDevToProd(
+                              onOutput: (l) => _appendLog(l),
+                              onError: (l) => _appendLog(l, isError: true),
+                              onProgress: (p) {
+                                if (mounted) setState(() => _progress = p);
+                              },
+                              onDiffSummary: (d) {
+                                if (mounted) setState(() => _diffSummary = d);
+                              },
+                            ),
                           ),
-                        ),
-              ),
+                ),
 
-              // 2. Compare DBs
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                ),
-                icon: _isRunning && _currentAction.contains('مقارنة')
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.compare_arrows_rounded, size: 18),
-                label: const Text(
-                  '🔍 فحص ومقارنة الجداول (Compare)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                ),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
-                          'فحص ومقارنة الجداول',
-                          () => _service.compareDatabases(
-                            onOutput: (l) => _appendLog(l),
-                            onError: (l) => _appendLog(l, isError: true),
-                            onDiffSummary: (d) {
-                              if (mounted) setState(() => _diffSummary = d);
-                            },
+                // 2. Compare DBs
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.cobalt,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                  icon: _isRunning && _currentAction.contains('مقارنة')
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.compare_arrows_rounded, size: 18),
+                  label: const Text(
+                    '🔍 فحص ومقارنة الجداول (Compare)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                  ),
+                  onPressed: _isRunning
+                      ? null
+                      : () => _executeAction(
+                            'فحص ومقارنة الجداول',
+                            () => _service.compareDatabases(
+                              onOutput: (l) => _appendLog(l),
+                              onError: (l) => _appendLog(l, isError: true),
+                              onDiffSummary: (d) {
+                                if (mounted) setState(() => _diffSummary = d);
+                              },
+                            ),
                           ),
-                        ),
-              ),
+                ),
 
-              // 3. Pull Prod -> Dev
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.charcoal,
-                  side: const BorderSide(color: AppTheme.charcoal),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                ),
-                icon: _isRunning && _currentAction.contains('سحب')
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.charcoal))
-                    : const Icon(Icons.download_rounded, size: 18),
-                label: const Text(
-                  '⬇ سحب الإنتاج للتطوير (Prod → Dev)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
-                          'سحب بيانات الإنتاج إلى بيئة التطوير (Prod → Dev)',
-                          () => _service.pullProdToDev(
-                            onOutput: (l) => _appendLog(l),
-                            onError: (l) => _appendLog(l, isError: true),
-                            onProgress: (p) {
-                              if (mounted) setState(() => _progress = p);
-                            },
+                // 3. Pull Prod -> Dev
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.charcoal,
+                    side: const BorderSide(color: AppTheme.charcoal),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                  icon: _isRunning && _currentAction.contains('سحب')
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.charcoal))
+                      : const Icon(Icons.download_rounded, size: 18),
+                  label: const Text(
+                    '⬇ سحب الإنتاج للتطوير (Prod → Dev)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  onPressed: _isRunning
+                      ? null
+                      : () => _executeAction(
+                            'سحب بيانات الإنتاج إلى بيئة التطوير (Prod → Dev)',
+                            () => _service.pullProdToDev(
+                              onOutput: (l) => _appendLog(l),
+                              onError: (l) => _appendLog(l, isError: true),
+                              onProgress: (p) {
+                                if (mounted) setState(() => _progress = p);
+                              },
+                            ),
                           ),
-                        ),
-              ),
+                ),
 
-              // 4. Full Production Package
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.orange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                ),
-                icon: _isRunning && _currentAction.contains('بناء كامل')
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.inventory_rounded, size: 18),
-                label: const Text(
-                  '📦 بناء وحزم الإنتاج بالكامل (Full Build)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
-                          'بناء وتجميع الإنتاج بالكامل (Full Build & Package)',
-                          () => _service.fullBuildAndSync(
-                            onOutput: (l) => _appendLog(l),
-                            onError: (l) => _appendLog(l, isError: true),
-                            onProgress: (p) {
-                              if (mounted) setState(() => _progress = p);
-                            },
-                            onDiffSummary: (d) {
-                              if (mounted) setState(() => _diffSummary = d);
-                            },
+                // 4. Full Production Package
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.orange,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                  icon: _isRunning && _currentAction.contains('بناء كامل')
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.inventory_rounded, size: 18),
+                  label: const Text(
+                    '📦 بناء وحزم الإنتاج بالكامل (Full Build)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  onPressed: _isRunning
+                      ? null
+                      : () => _executeAction(
+                            'بناء وتجميع الإنتاج بالكامل (Full Build & Package)',
+                            () => _service.fullBuildAndSync(
+                              onOutput: (l) => _appendLog(l),
+                              onError: (l) => _appendLog(l, isError: true),
+                              onProgress: (p) {
+                                if (mounted) setState(() => _progress = p);
+                              },
+                              onDiffSummary: (d) {
+                                if (mounted) setState(() => _diffSummary = d);
+                              },
+                            ),
                           ),
-                        ),
-              ),
+                ),
 
-              // 5. Launch Standalone App
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1), // Indigo
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                ),
-                icon: const Icon(Icons.play_circle_filled_rounded, size: 18),
-                label: const Text(
-                  '🚀 إطلاق تطبيق البرودكشن الآن',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
-                          'إطلاق تطبيق البرودكشن',
-                          () => _service.launchProductionApp(
-                            onOutput: (l) => _appendLog(l),
-                            onError: (l) => _appendLog(l, isError: true),
+                // 5. Launch Standalone App
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6366F1), // Indigo
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                  icon: const Icon(Icons.play_circle_filled_rounded, size: 18),
+                  label: const Text(
+                    '🚀 إطلاق تطبيق البرودكشن الآن',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  onPressed: _isRunning
+                      ? null
+                      : () => _executeAction(
+                            'إطلاق تطبيق البرودكشن',
+                            () => _service.launchProductionApp(
+                              onOutput: (l) => _appendLog(l),
+                              onError: (l) => _appendLog(l, isError: true),
+                            ),
                           ),
-                        ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // ── Visual Progress & Database Changes Diff Inspector ────────────
-        SyncProgressAndDiffWidget(
-          progress: _progress,
-          diffSummary: _diffSummary,
-          isRunning: _isRunning,
-          onCheckDiff: () => _executeAction(
-            'فحص ومقارنة الجداول',
-            () => _service.compareDatabases(
-              onOutput: (l) => _appendLog(l),
-              onError: (l) => _appendLog(l, isError: true),
-              onDiffSummary: (d) {
-                if (mounted) setState(() => _diffSummary = d);
-              },
+                ),
+              ],
             ),
           ),
-        ),
-        const SizedBox(height: 10),
+          const SizedBox(height: 10),
 
-        // Live Console Output
-        Expanded(
-          child: SyncConsoleWidget(
-            logs: _consoleLogs,
+          // ── Visual Progress & Database Changes Diff Inspector ────────────
+          SyncProgressAndDiffWidget(
+            progress: _progress,
+            diffSummary: _diffSummary,
             isRunning: _isRunning,
-            onClear: () => setState(() => _consoleLogs.clear()),
+            onCheckDiff: () => _executeAction(
+              'فحص ومقارنة الجداول',
+              () => _service.compareDatabases(
+                onOutput: (l) => _appendLog(l),
+                onError: (l) => _appendLog(l, isError: true),
+                onDiffSummary: (d) {
+                  if (mounted) setState(() => _diffSummary = d);
+                },
+              ),
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 10),
+
+          // Live Console Output
+          SizedBox(
+            height: 220,
+            child: SyncConsoleWidget(
+              logs: _consoleLogs,
+              isRunning: _isRunning,
+              onClear: () => setState(() => _consoleLogs.clear()),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

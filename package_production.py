@@ -336,6 +336,12 @@ def main():
     print("================================================================================")
     print(f"       Sorour Logistics ERP (v{version} - Build {build_no}) - Production Packaging       ")
     print("================================================================================")
+    
+    # Compile Flutter desktop release if requested or if frontend/build does not match
+    if "--compile-all" in sys.argv or "--compile-flutter" in sys.argv or not DESKTOP_SRC.exists():
+        print(f"[*] Compiling Flutter Desktop Release (v{version} - Build {build_no})...")
+        subprocess.run(["flutter", "build", "windows", "--release"], cwd=ROOT_DIR / "frontend", check=True, shell=True)
+
     clean_dist()
     s1 = copy_standalone_package()
     s2 = copy_desktop_release()

@@ -5121,6 +5121,66 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get searchFieldHint => 'ابحث برقم الملف أو الكود أو اسم الشركة...';
 
+  // ── Master Palletization Plan Localizations ─────────────────────────────────
+  @override
+  String get masterPalletizationPlanTitle =>
+      'لوحة مخطط وحدات الشحن والبالتات (Master Palletization Plan)';
+  @override
+  String totalPalletsPill(int count) => 'إجمالي البالتات: $count بالتة';
+  @override
+  String palletsVolumePill(String vol) => 'حجم البالتات: $vol م³';
+  @override
+  String get addPalletRowBtn => 'إضافة سطر بالتات';
+  @override
+  String simulateAndPackPallets3dBtn(int count) => 'محاكاة ورص الحاويات 3D ($count بالتة)';
+  @override
+  String get clickToAddPalletsPrompt =>
+      'اضغط هنا لإضافة أسطر البالتات وتوزيع الشحنة عليها';
+  @override
+  String palletRowHeader(int index) => 'سطر بالتات #$index';
+  @override
+  String get palletStackableBadge => 'قابل للرص 📦';
+  @override
+  String get palletFloorOnlyBadge => 'غير قابل للرص (أرضي فقط) 🚫';
+  @override
+  String palletRowSummary(String vol, String wt) =>
+      'حجم السطر: $vol م³ | إجمالي الوزن: $wt كجم';
+  @override
+  String get palletTypeAndSizeLabel => 'نوع ومقاس البالتة';
+  @override
+  String get palletCountFieldLabel => 'عدد البالتات (Qty) *';
+  @override
+  String get palletStackingInstructionsLabel => 'تعليمات رص البالتة *';
+  @override
+  String get palletGrossWeightLabel => 'وزن البالتة Gross (كجم)';
+  @override
+  String get deletePalletRowTooltip => 'حذف سطر البالتات';
+  @override
+  String get customPalletOption => 'Custom Pallet (أبعاد مخصصة)';
+
+  // ── 3D Container Cards & Items Table ──────────────────────────────────────
+  @override
+  String containerCardHeader(int index, String code, int pkgsCount, String spacePct, String payloadPct) =>
+      'حاوية #$index: $code — ($pkgsCount طرد) — استغلال المساحة: $spacePct% | استغلال الحمولة: $payloadPct%';
+  @override
+  String internalDimensionsLabel(String l, String w, String h) =>
+      'أبعاد داخلية: $l × $w × $h سم';
+  @override
+  String placedPackagesTableTitle(int count) =>
+      '📋 تفاصيل ومواقع الطرود المرصوصة داخل الحاوية ($count طرد)';
+  @override
+  String get thPackageCode => 'كود الطرد / الصنف';
+  @override
+  String get thDimensions => 'الأبعاد (L×W×H سم)';
+  @override
+  String get thWeight => 'الوزن (كجم)';
+  @override
+  String get thCoordinates => 'إحداثيات الموضع (X, Y, Z سم)';
+  @override
+  String get thStacking => 'الرص';
+  @override
+  String get noSuitableContainersFound => 'لا توجد حاويات مناسبة';
+
   // ── Standardized Stage Stop & Resume Buttons ────────────────────────────────
   @override
   String get stopShipmentAtThisStageBtn => 'إيقاف الشحنة عند هذه المرحلة';

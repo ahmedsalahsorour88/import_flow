@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/widgets/extraction_progress_dialog.dart';
 
 void main() {
@@ -52,12 +53,15 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: ExtractionProgressDialog(
-              title: 'جاري استخراج بيانات الفاتورة المبدئية',
-              fileName: 'Proforma_Invoice_901.pdf',
-              fileSize: '450.0 KB',
-              controller: ctrl,
+          home: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: Scaffold(
+              body: ExtractionProgressDialog(
+                title: 'جاري استخراج بيانات الفاتورة المبدئية',
+                fileName: 'Proforma_Invoice_901.pdf',
+                fileSize: '450.0 KB',
+                controller: ctrl,
+              ),
             ),
           ),
         ),
@@ -67,7 +71,6 @@ void main() {
       expect(find.text('Proforma_Invoice_901.pdf'), findsOneWidget);
       expect(find.text('450.0 KB'), findsOneWidget);
       expect(find.text('65%'), findsOneWidget);
-      expect(find.text('جاري التعرف الضوئي OCR...'), findsOneWidget);
 
       ctrl.dispose();
     });

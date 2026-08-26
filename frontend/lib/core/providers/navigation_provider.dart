@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/audit_logs/providers/audit_logs_provider.dart';
+import '../../features/cargo_insurance/providers/cargo_insurance_provider.dart';
 import '../../features/cargo_shipping/providers/cargo_shipping_provider.dart';
 import '../../features/cbm_calculator/providers/cbm_calculator_provider.dart';
 import '../../features/currencies/providers/currencies_provider.dart';
@@ -87,10 +88,11 @@ import '../../features/warehouse_receiving/providers/warehouse_receiving_provide
 //  62 = CustomsClearanceScreen (subTab 3 — Final Customs Payment)
 //  63 = GoodsInTransitScreen
 //  64 = WarehouseReceivedReportScreen
+//  65 = CargoInsuranceScreen
 // ============================================================
 
 
-const int _totalScreens = 65; // matches home_screen._screens list (indices 0–64)
+const int _totalScreens = 70; // matches home_screen._screens list (indices 0–65)
 
 
 final navigationIndexProvider = StateProvider<int>((ref) => 0);
@@ -227,6 +229,9 @@ void _liveRefreshScreenData(WidgetRef ref, int index) {
       break;
     case 49:
       ref.read(freightQuotationsProvider.notifier).fetchRFQs();
+      break;
+    case 65:
+      ref.read(cargoInsuranceProvider.notifier).fetchCertificates();
       break;
 
     default:

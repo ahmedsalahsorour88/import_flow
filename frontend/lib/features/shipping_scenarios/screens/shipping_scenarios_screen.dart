@@ -2,10 +2,8 @@ import '../widgets/saved_scenarios_registry_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 
-import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/utils/container_requirement_engine.dart';
@@ -14,7 +12,6 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
-import '../../../core/widgets/extraction_progress_dialog.dart';
 
 import '../../external_service_providers/models/partner_model.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -175,8 +172,8 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
         providerName: 'COSCO Shipping',
         vesselName: 'COSCO UNIVERSE',
         voyageNumber: '042E',
-        polName: 'Shanghai Port (ميناء شانغهاي)',
-        podName: 'El Dekheila Port (ميناء الدخيلة)',
+        polName: 'Shanghai Port',
+        podName: 'El Dekheila Port',
         sailingDate: crd.add(const Duration(days: 2)).toString().substring(0, 10),
         estimatedArrivalDate: crd.add(const Duration(days: 26)).toString().substring(0, 10),
         expectedLineDelayDays: 2,
@@ -188,8 +185,8 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
         providerName: 'Maersk Line',
         vesselName: 'MAERSK MC-KINNEY MOLLER',
         voyageNumber: '2608W',
-        polName: 'Ningbo-Zhoushan Port (ميناء نينغبو)',
-        podName: 'Damietta Port (ميناء دمياط)',
+        polName: 'Ningbo-Zhoushan Port',
+        podName: 'Damietta Port',
         sailingDate: crd.add(const Duration(days: 5)).toString().substring(0, 10),
         estimatedArrivalDate: crd.add(const Duration(days: 32)).toString().substring(0, 10),
         expectedLineDelayDays: 4,
@@ -1668,8 +1665,8 @@ Best regards,
                             _evalItems.add(ShippingScenarioItemModel(
                               providerName: defaultLineName,
                               vesselName: 'VESSEL NEW',
-                              polName: 'Shanghai Port (ميناء شانغهاي)',
-                              podName: 'El Dekheila Port (ميناء الدخيلة)',
+                              polName: 'Shanghai Port',
+                              podName: 'El Dekheila Port',
                               sailingDate: crd.add(const Duration(days: 3)).toString().substring(0, 10),
                               estimatedArrivalDate: crd.add(const Duration(days: 28)).toString().substring(0, 10),
                               expectedLineDelayDays: 2,

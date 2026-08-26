@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/customs_consultation/models/customs_consultation_model.dart';
 import 'package:frontend/features/customs_consultation/widgets/recalculation_variance_comparison_card.dart';
 
@@ -75,12 +76,15 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: RecalculationVarianceComparisonCard(
-              recalculationResult: recalculationResult,
-              onApplyNewFees: () => applied = true,
-              onClose: () => closed = true,
+        home: AppLocalizationsProvider(
+          locale: const Locale('ar'),
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: RecalculationVarianceComparisonCard(
+                recalculationResult: recalculationResult,
+                onApplyNewFees: () => applied = true,
+                onClose: () => closed = true,
+              ),
             ),
           ),
         ),
@@ -89,13 +93,13 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('شاشة إعادة احتساب الجمارك ومقارنة الفروق وتوقع السيولة'), findsOneWidget);
+    expect(find.textContaining('محرك حساب الرسوم والضرائب'), findsOneWidget);
     expect(find.textContaining('INV-FINAL-2026-88'), findsOneWidget);
     expect(find.text('Raw Marble Blocks'), findsOneWidget);
     expect(find.text('6802.99'), findsOneWidget);
-    expect(find.text('💾 حفظ الرسوم الجديدة واعتماد دراسة الجمارك المحدثة'), findsOneWidget);
+    expect(find.byIcon(Icons.save_alt), findsOneWidget);
 
-    await tester.tap(find.text('💾 حفظ الرسوم الجديدة واعتماد دراسة الجمارك المحدثة'));
+    await tester.tap(find.byIcon(Icons.save_alt));
     expect(applied, isTrue);
 
     await tester.tap(find.byIcon(Icons.close));

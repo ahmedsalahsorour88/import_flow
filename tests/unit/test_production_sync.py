@@ -110,6 +110,42 @@ class TestProductionSyncBackend(unittest.TestCase):
             self.assertEqual(rows[0], (1, 'Updated Name', 999))
             self.assertEqual(rows[1], (2, 'New Item', 200))
 
+    def test_smart_non_destructive_migrate_protects_operational_user_data(self):
+        """Verify that user-entered operational data in target is NOT overwritten by Dev test data."""
+        import sqlite3
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_path = Path(tmpdir) / "dev.db"
+            tgt_path = Path(tmpdir) / "prod.db"
+
+            # Create src (Dev) with dummy test import file
+            conn_src = sqlite3.connect(src_path)
+            conn_src.execute("CREATE TABLE import_files (id INTEGER PRIMARY KEY, file_number TEXT, notes TEXT);")
+            conn_src.execute("INSERT INTO import_files VALUES (1, 'DEV-DUMMY-001', 'Test note from Dev');")
+            conn_src.execute("INSERT INTO import_files VALUES (2, 'DEV-NEW-002', 'Newly added in Dev');")
+            conn_src.commit()
+            conn_src.close()
+
+            # Create tgt (Prod) with REAL user data for id=1
+            conn_tgt = sqlite3.connect(tgt_path)
+            conn_tgt.execute("CREATE TABLE import_files (id INTEGER PRIMARY KEY, file_number TEXT, notes TEXT);")
+            conn_tgt.execute("INSERT INTO import_files VALUES (1, 'REAL-PROD-USER-FILE-001', 'Important Client Data');")
+            conn_tgt.commit()
+            conn_tgt.close()
+
+            # Run migration with preserve_target_user_data=True
+            res = self.service._smart_non_destructive_migrate(src_path, tgt_path, preserve_target_user_data=True)
+            self.assertEqual(res["status"], "migrated_safely")
+
+            # Check target: id=1 MUST remain 'REAL-PROD-USER-FILE-001' (Protected!) and id=2 is inserted
+            conn_tgt = sqlite3.connect(tgt_path)
+            rows = conn_tgt.execute("SELECT id, file_number, notes FROM import_files ORDER BY id;").fetchall()
+            conn_tgt.close()
+
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0], (1, 'REAL-PROD-USER-FILE-001', 'Important Client Data'))
+            self.assertEqual(rows[1], (2, 'DEV-NEW-002', 'Newly added in Dev'))
+
     def test_get_comparison_detects_new_column_in_dev(self):
         """
         When Dev DB has a new column in an existing table that Prod DB doesn't have,

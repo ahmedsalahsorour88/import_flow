@@ -5121,6 +5121,66 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get searchFieldHint => 'Search by file number, code, or company name...';
 
+  // ── Master Palletization Plan Localizations ─────────────────────────────────
+  @override
+  String get masterPalletizationPlanTitle => 'Master Palletization Plan';
+  @override
+  String totalPalletsPill(int count) => 'Total Pallets: $count Pallets';
+  @override
+  String palletsVolumePill(String vol) => 'Pallets Volume: $vol m³';
+  @override
+  String get addPalletRowBtn => 'Add Pallet Row';
+  @override
+  String simulateAndPackPallets3dBtn(int count) =>
+      '3D Container Simulation & Packing ($count Pallets)';
+  @override
+  String get clickToAddPalletsPrompt =>
+      'Click here to add pallet rows and distribute cargo';
+  @override
+  String palletRowHeader(int index) => 'Pallet Row #$index';
+  @override
+  String get palletStackableBadge => 'Stackable 📦';
+  @override
+  String get palletFloorOnlyBadge => 'Non-Stackable (Floor Only) 🚫';
+  @override
+  String palletRowSummary(String vol, String wt) =>
+      'Row Volume: $vol m³ | Total Weight: $wt kg';
+  @override
+  String get palletTypeAndSizeLabel => 'Pallet Type & Size';
+  @override
+  String get palletCountFieldLabel => 'Pallet Count (Qty) *';
+  @override
+  String get palletStackingInstructionsLabel => 'Pallet Stacking Instructions *';
+  @override
+  String get palletGrossWeightLabel => 'Pallet Gross Weight (kg)';
+  @override
+  String get deletePalletRowTooltip => 'Delete Pallet Row';
+  @override
+  String get customPalletOption => 'Custom Pallet (Custom Dimensions)';
+
+  // ── 3D Container Cards & Items Table ──────────────────────────────────────
+  @override
+  String containerCardHeader(int index, String code, int pkgsCount, String spacePct, String payloadPct) =>
+      'Container #$index: $code — ($pkgsCount pkgs) — Space: $spacePct% | Payload: $payloadPct%';
+  @override
+  String internalDimensionsLabel(String l, String w, String h) =>
+      'Internal Dims: $l × $w × $h cm';
+  @override
+  String placedPackagesTableTitle(int count) =>
+      '📋 Placed Packages & Position Details ($count pkgs)';
+  @override
+  String get thPackageCode => 'Package / Item Code';
+  @override
+  String get thDimensions => 'Dimensions (L×W×H cm)';
+  @override
+  String get thWeight => 'Weight (kg)';
+  @override
+  String get thCoordinates => 'Position Coords (X, Y, Z cm)';
+  @override
+  String get thStacking => 'Stacking';
+  @override
+  String get noSuitableContainersFound => 'No suitable containers found';
+
   // ── Standardized Stage Stop & Resume Buttons ────────────────────────────────
   @override
   String get stopShipmentAtThisStageBtn => 'Stop Shipment at this Stage';

@@ -8,6 +8,12 @@ import 'package:frontend/features/cargo_shipping/models/cargo_shipping_model.dar
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
 
+import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/features/freight_booking/providers/freight_booking_provider.dart';
+import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
+import 'package:frontend/features/purchase_orders/models/purchase_order_model.dart';
+import 'package:frontend/features/freight_booking/models/freight_booking_model.dart';
+
 void main() {
   testWidgets('CargoShippingScreen should prefill dates, times, and milestone notes accurately', (tester) async {
     tester.view.physicalSize = const Size(1920, 1080);
@@ -70,6 +76,8 @@ void main() {
             updatedAt: '2026-08-16T00:00:00',
           )
         ])),
+        freightBookingProvider.overrideWith((ref) => _MockFreightBookingNotifier([])),
+        purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([])),
       ],
     );
 
@@ -78,7 +86,13 @@ void main() {
         container: container,
         child: const MaterialApp(
           home: Scaffold(
-            body: CargoShippingScreen(),
+            body: Directionality(
+              textDirection: TextDirection.rtl,
+              child: AppLocalizationsProvider(
+                locale: Locale('ar'),
+                child: CargoShippingScreen(),
+              ),
+            ),
           ),
         ),
       ),
@@ -172,6 +186,8 @@ void main() {
             updatedAt: '2026-08-16T00:00:00',
           )
         ])),
+        freightBookingProvider.overrideWith((ref) => _MockFreightBookingNotifier([])),
+        purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([])),
       ],
     );
 
@@ -180,7 +196,13 @@ void main() {
         container: container,
         child: const MaterialApp(
           home: Scaffold(
-            body: CargoShippingScreen(),
+            body: Directionality(
+              textDirection: TextDirection.rtl,
+              child: AppLocalizationsProvider(
+                locale: Locale('ar'),
+                child: CargoShippingScreen(),
+              ),
+            ),
           ),
         ),
       ),
@@ -238,4 +260,35 @@ class _MockImportFilesNotifier extends ImportFilesNotifier {
   }) async {
     state = AsyncValue.data(initialFiles);
   }
+}
+
+class _MockFreightBookingNotifier extends FreightBookingNotifier {
+  final List<ShipmentBookingModel> initialBookings;
+  _MockFreightBookingNotifier(this.initialBookings) : super(Dio()) {
+    state = AsyncValue.data(initialBookings);
+  }
+
+  @override
+  Future<void> fetchBookings({bool includeInactive = false, int? importFileId, String? status, String? search}) async {
+    state = AsyncValue.data(initialBookings);
+  }
+}
+
+class _MockPurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> implements PurchaseOrdersNotifier {
+  final List<PurchaseOrderModel> initialPOs;
+  _MockPurchaseOrdersNotifier(this.initialPOs) : super(PurchaseOrdersState(purchaseOrders: initialPOs));
+
+  @override
+  Future<void> fetchPurchaseOrders({
+    bool includeInactive = false,
+    String? search,
+    int? importFileId,
+    int? supplierId,
+    String? status,
+  }) async {
+    state = state.copyWith(purchaseOrders: initialPOs, isLoading: false);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

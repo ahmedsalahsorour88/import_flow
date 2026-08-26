@@ -2,10 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/customs_clearance/models/customs_clearance_model.dart';
 import 'package:frontend/features/customs_clearance/providers/customs_clearance_provider.dart';
 import 'package:frontend/features/customs_clearance/screens/customs_clearance_screen.dart';
+import 'package:frontend/features/external_service_providers/models/partner_model.dart';
 import 'package:frontend/features/external_service_providers/providers/partners_provider.dart';
+import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
 
 class _MockClearanceNotifier extends CustomsClearanceNotifier {
@@ -49,24 +52,23 @@ class _MockPartnersNotifier extends PartnersNotifier {
   }
 
   @override
-  Future<void> fetchPartners() async {
+  Future<void> fetchPartners({
+    String? category,
+    bool includeInactive = false,
+    String? search,
+  }) async {
     state = const AsyncValue.data([]);
   }
 }
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
   final mockClearance = CustomsClearanceModel(
     customsClearanceId: 10,
     clearanceCode: 'CLR-2026-0010',
-    importFileId: 5,
+    importFileId: 101,
     declaration46No: '46-ALX-2026-991',
-    customsOfficeName: 'Alexandria Port Customs',
+    customsOfficeName: 'Alexandria Sea Port',
     channelType: 'Red Channel',
-    inspectionNotes: 'كشف فعلي وظاهري بنسبة 100%',
-    importDutyAmount: 25000.0,
-    vatAmount: 38000.0,
     totalDutyPayable: 63000.0,
     actualDutyTotal: 63000.0,
     paymentStatus: 'Paid & Verified',
@@ -80,6 +82,13 @@ void main() {
 
   group('CustomsClearanceScreen 4 Subtabs Tests', () {
     testWidgets('Renders Tab 0 (Customs Clearance Follow-up) correctly', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -88,20 +97,29 @@ void main() {
             partnersProvider.overrideWith((ref) => _MockPartnersNotifier()),
           ],
           child: const MaterialApp(
-            home: Scaffold(
-              body: CustomsClearanceScreen(initialSubTab: 0),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Scaffold(
+                body: CustomsClearanceScreen(initialSubTab: 0),
+              ),
             ),
           ),
         ),
       );
 
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('متابعة الكشف والتثمين والتفتيش الجمركي'), findsWidgets);
-      expect(find.text('CLR-2026-0010'), findsOneWidget);
-      expect(find.text('46 ك.م: 46-ALX-2026-991'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('CLR-2026-0010'), findsWidgets);
+      expect(find.textContaining('46-ALX-2026-991'), findsWidgets);
     });
 
     testWidgets('Renders Tab 1 (Drawing Samples & Shortage) correctly', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -110,20 +128,29 @@ void main() {
             partnersProvider.overrideWith((ref) => _MockPartnersNotifier()),
           ],
           child: const MaterialApp(
-            home: Scaffold(
-              body: CustomsClearanceScreen(initialSubTab: 1),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Scaffold(
+                body: CustomsClearanceScreen(initialSubTab: 1),
+              ),
             ),
           ),
         ),
       );
 
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.textContaining('سحب العينات وتتبع الفحص المعملي'), findsWidgets);
-      expect(find.textContaining('سجل العينات المسحوبة للفحص والتحليل المعملي'), findsOneWidget);
-      expect(find.text('تسجيل سحب عينة'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('سحب العينات'), findsWidgets);
+      expect(find.textContaining('تسجيل سحب عينة'), findsOneWidget);
     });
 
     testWidgets('Renders Tab 2 (Discrepancy & Damage) correctly', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -132,19 +159,29 @@ void main() {
             partnersProvider.overrideWith((ref) => _MockPartnersNotifier()),
           ],
           child: const MaterialApp(
-            home: Scaffold(
-              body: CustomsClearanceScreen(initialSubTab: 2),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Scaffold(
+                body: CustomsClearanceScreen(initialSubTab: 2),
+              ),
             ),
           ),
         ),
       );
 
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.textContaining('سجل إثبات الفاقد والتلف الجمركي'), findsWidgets);
-      expect(find.text('تحرير محضر مشترك'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('الفاقد والتلف'), findsWidgets);
+      expect(find.textContaining('تحرير محضر'), findsOneWidget);
     });
 
     testWidgets('Renders Tab 3 (Final Customs Duty Payment & Release) correctly', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -153,16 +190,19 @@ void main() {
             partnersProvider.overrideWith((ref) => _MockPartnersNotifier()),
           ],
           child: const MaterialApp(
-            home: Scaffold(
-              body: CustomsClearanceScreen(initialSubTab: 3),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Scaffold(
+                body: CustomsClearanceScreen(initialSubTab: 3),
+              ),
             ),
           ),
         ),
       );
 
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.textContaining('سداد الرسوم والضرائب الجمركية وإذن الإفراج النهائي'), findsWidgets);
-      expect(find.textContaining('سجل أذون سداد نافذة المعتمدة ومطابقة الرسوم'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('سداد الرسوم والضرائب'), findsWidgets);
+      expect(find.textContaining('سجل أذون سداد نافذة'), findsOneWidget);
     });
   });
 }

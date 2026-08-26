@@ -462,18 +462,18 @@ def build_clean_production_db():
         # ==================================================
         print("[4/5] Seeding Egyptian Ports & Transport Locations (MD-009)...")
         ports = [
-            TransportLocation(un_locode="EGALY", location_name="Alexandria Port (ميناء الإسكندرية)", location_type="Port", country="Egypt", city="Alexandria", is_active=True),
-            TransportLocation(un_locode="EGDKH", location_name="El-Dekheila Port (ميناء الدخيلة)", location_type="Port", country="Egypt", city="Alexandria", is_active=True),
-            TransportLocation(un_locode="EGPSD", location_name="Port Said West (ميناء غرب بورسعيد)", location_type="Port", country="Egypt", city="Port Said", is_active=True),
-            TransportLocation(un_locode="EGPSE", location_name="Port Said East (ميناء شرق بورسعيد)", location_type="Port", country="Egypt", city="Port Said", is_active=True),
-            TransportLocation(un_locode="EGDAM", location_name="Damietta Port (ميناء دمياط)", location_type="Port", country="Egypt", city="Damietta", is_active=True),
-            TransportLocation(un_locode="EGSOK", location_name="Sokhna Port (ميناء العين السخنة)", location_type="Port", country="Egypt", city="Suez", is_active=True),
-            TransportLocation(un_locode="EGSUZ", location_name="Suez Port (ميناء السويس - بورتوفيق)", location_type="Port", country="Egypt", city="Suez", is_active=True),
-            TransportLocation(un_locode="EGADA", location_name="Adabiya Port (ميناء الأدبية)", location_type="Port", country="Egypt", city="Suez", is_active=True),
-            TransportLocation(un_locode="EGCAI", location_name="Cairo International Airport Cargo Terminal (قرية البضائع بمطار القاهرة)", location_type="Airport", country="Egypt", city="Cairo", is_active=True),
-            TransportLocation(un_locode="EG6OCT", location_name="6th of October Dry Port (الميناء الجاف بمدينة 6 أكتوبر)", location_type="Dry Port", country="Egypt", city="Giza", is_active=True),
-            TransportLocation(un_locode="EG10R", location_name="10th of Ramadan Dry Port (الميناء الجاف بمدينة العاشر من رمضان)", location_type="Dry Port", country="Egypt", city="Sharqia", is_active=True),
-            TransportLocation(un_locode="EGSAD", location_name="Sadat City Inland Logistics Center (المركز اللوجستي بمدينة السادات)", location_type="Warehouse", country="Egypt", city="Monufia", is_active=True),
+            TransportLocation(un_locode="EGALY", location_name="Alexandria Port", location_type="Port", country="Egypt", city="Alexandria", is_active=True),
+            TransportLocation(un_locode="EGDKH", location_name="El-Dekheila Port", location_type="Port", country="Egypt", city="Alexandria", is_active=True),
+            TransportLocation(un_locode="EGPSD", location_name="Port Said West", location_type="Port", country="Egypt", city="Port Said", is_active=True),
+            TransportLocation(un_locode="EGPSE", location_name="Port Said East", location_type="Port", country="Egypt", city="Port Said", is_active=True),
+            TransportLocation(un_locode="EGDAM", location_name="Damietta Port", location_type="Port", country="Egypt", city="Damietta", is_active=True),
+            TransportLocation(un_locode="EGSOK", location_name="Sokhna Port", location_type="Port", country="Egypt", city="Suez", is_active=True),
+            TransportLocation(un_locode="EGSUZ", location_name="Suez Port", location_type="Port", country="Egypt", city="Suez", is_active=True),
+            TransportLocation(un_locode="EGADA", location_name="Adabiya Port", location_type="Port", country="Egypt", city="Suez", is_active=True),
+            TransportLocation(un_locode="EGCAI", location_name="Cairo International Airport Cargo Terminal", location_type="Airport", country="Egypt", city="Cairo", is_active=True),
+            TransportLocation(un_locode="EG6OCT", location_name="6th of October Dry Port", location_type="Dry Port", country="Egypt", city="Giza", is_active=True),
+            TransportLocation(un_locode="EG10R", location_name="10th of Ramadan Dry Port", location_type="Dry Port", country="Egypt", city="Sharqia", is_active=True),
+            TransportLocation(un_locode="EGSAD", location_name="Sadat City Inland Logistics Center", location_type="Warehouse", country="Egypt", city="Monufia", is_active=True),
         ]
         db.add_all(ports)
         db.commit()

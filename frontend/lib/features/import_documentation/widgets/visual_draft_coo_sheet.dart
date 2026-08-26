@@ -27,25 +27,55 @@ class VisualDraftCOOSheet extends StatefulWidget {
 class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
   bool _isExporting = false;
 
+  static String sanitizeEnglishOnly(String input) {
+    if (input.isEmpty) return input;
+    // 1. Remove Arabic words inside parentheses e.g. (ميناء نينغبو تشوشان) or (الصين)
+    var text = input.replaceAll(RegExp(r'\s*\([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s\.\-]+\)'), '');
+    // 2. Remove any remaining Arabic characters
+    text = text.replaceAll(RegExp(r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]'), '');
+    // 3. Remove empty parentheses or double dashes/spaces
+    text = text.replaceAll(RegExp(r'\(\s*\)'), '');
+    text = text.replaceAll(RegExp(r'-\s*-+'), '-');
+    text = text.replaceAll(RegExp(r'\s*-\s*$'), '');
+    text = text.replaceAll(RegExp(r'^\s*-\s*'), '');
+    text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (text.toUpperCase() == 'CN -' || text.toUpperCase() == 'CN - (CHINA)' || text.toUpperCase() == 'CN-CHINA' || text.toUpperCase() == 'CN') {
+      text = 'CN - China';
+    } else if (text.toUpperCase().contains('CHINA') && text.contains('-')) {
+      text = 'CN - China';
+    }
+    return text;
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = widget.templateData;
     final isChina = widget.certificateType.toUpperCase().contains('CHINA') || widget.certificateType.toUpperCase().contains('CCPIT');
     final isEur1 = widget.certificateType.toUpperCase().contains('EUR.1') || widget.certificateType.toUpperCase().contains('EUR1');
 
-    final certNo = (t['certificate_number'] ?? 'DRAFT-COO').toString();
-    final exporter = (t['box_1_exporter'] ?? 'EXPORTER / PRODUCER').toString();
-    final consignee = (t['box_2_consignee'] ?? t['box_3_consignee'] ?? 'IMPORTER / CONSIGNEE').toString();
-    final transport = (t['box_3_means_of_transport'] ?? t['box_6_transport_details'] ?? 'BY SEA').toString();
-    final destination = (t['box_4_country_of_destination'] ?? t['box_5_country_destination'] ?? 'EGYPT').toString();
-    final origin = (t['country_of_origin'] ?? t['box_4_country_origin'] ?? 'EUROPEAN UNION').toString();
-    final originsList = (t['countries_of_origin_list'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [origin];
+    final certNo = sanitizeEnglishOnly((t['certificate_number'] ?? 'DRAFT-COO').toString());
+    final exporter = sanitizeEnglishOnly((t['box_1_exporter'] ?? 'EXPORTER / PRODUCER').toString());
+    final consignee = sanitizeEnglishOnly((t['box_2_consignee'] ?? t['box_3_consignee'] ?? 'IMPORTER / CONSIGNEE').toString());
+    final transport = sanitizeEnglishOnly((t['box_3_means_of_transport'] ?? t['box_6_transport_details'] ?? 'BY SEA').toString());
+    final destination = sanitizeEnglishOnly((t['box_4_country_of_destination'] ?? t['box_5_country_destination'] ?? 'EGYPT').toString());
+    final origin = sanitizeEnglishOnly((t['country_of_origin'] ?? t['box_4_country_origin'] ?? 'EUROPEAN UNION').toString());
+    final originsList = (t['countries_of_origin_list'] as List<dynamic>?)
+            ?.map((e) => sanitizeEnglishOnly(e.toString()))
+            .where((e) => e.isNotEmpty)
+            .toList() ??
+        [origin];
     final hsCodes = (t['box_8_hs_code'] ?? t['hs_code'] ?? t['hs_codes'] ?? '560229').toString();
     final hsCodesList = (t['hs_codes_list'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [hsCodes];
-    final goodsDesc = (t['box_6_marks_and_numbers'] ?? t['box_8_description_packages'] ?? 'COMMERCIAL CARGO').toString();
-    final weight = (t['box_9_quantity_and_weight'] ?? t['box_9_gross_mass'] ?? 'GROSS WEIGHT').toString();
-    final invoiceData = (t['box_10_invoice_number_and_date'] ?? t['box_10_invoices_and_acid'] ?? 'INVOICE INFO').toString();
-    final remarks = (t['box_7_remarks'] ?? (isEur1 ? 'REVISED RULES' : 'N/A')).toString();
+    final goodsDesc = sanitizeEnglishOnly((t['box_6_marks_and_numbers'] ?? t['box_8_description_packages'] ?? 'COMMERCIAL CARGO').toString());
+    
+    // Weight: strip trailing or duplicate G.W.
+    var rawWeight = (t['box_9_quantity_and_weight'] ?? t['box_9_gross_mass'] ?? 'GROSS WEIGHT').toString();
+    rawWeight = rawWeight.replaceAll(RegExp(r'\s+G\.W\.\s*$', caseSensitive: false), '');
+    final weight = sanitizeEnglishOnly(rawWeight);
+
+    final invoiceData = sanitizeEnglishOnly((t['box_10_invoice_number_and_date'] ?? t['box_10_invoices_and_acid'] ?? 'INVOICE INFO').toString());
+    final remarks = sanitizeEnglishOnly((t['box_7_remarks'] ?? (isEur1 ? 'REVISED RULES' : 'N/A')).toString());
+    final cleanAcidNo = sanitizeEnglishOnly(widget.acidNumber);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -165,6 +195,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                   weight: weight,
                   invoiceData: invoiceData,
                   originsList: originsList,
+                  acidNumber: cleanAcidNo,
                 )
               : _buildEur1Layout(
                   certNo: certNo,
@@ -179,6 +210,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                   originsList: originsList,
                   remarks: remarks,
                   isEur1: isEur1,
+                  acidNumber: cleanAcidNo,
                 ),
         ),
       ],
@@ -197,6 +229,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
     required String weight,
     required String invoiceData,
     required List<String> originsList,
+    required String acidNumber,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -290,7 +323,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       }).toList(),
                     ),
                     const SizedBox(height: 6),
-                    Text('ACID Reference: ${widget.acidNumber}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.green)),
+                    Text('ACID Reference: $acidNumber', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.green)),
                   ],
                 ),
               ),
@@ -409,7 +442,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(3), border: Border.all(color: Colors.green.shade400)),
-                            child: Text('ACID: ${widget.acidNumber}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                            child: Text('ACID: $acidNumber', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
                           ),
                           const SizedBox(height: 6),
                           const Text('***', style: TextStyle(color: Colors.black54)),
@@ -527,6 +560,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
     required List<String> originsList,
     required String remarks,
     required bool isEur1,
+    required String acidNumber,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -803,7 +837,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            weight.isNotEmpty ? weight : '1774,514 KG',
+                            weight.isNotEmpty ? weight : '10,510.6 KG',
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                             textAlign: TextAlign.center,
                           ),
@@ -826,7 +860,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('ACID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.green)),
-                          Text(widget.acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.green)),
+                          Text(acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.green)),
                           if (invoiceData.isNotEmpty && invoiceData != 'INVOICE INFO') ...[
                             const SizedBox(height: 4),
                             Text(invoiceData, style: const TextStyle(fontSize: 9.5, color: Colors.black87)),

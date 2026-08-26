@@ -13,7 +13,6 @@ import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../freight_booking/providers/freight_booking_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
-import '../../cargo_insurance/screens/cargo_insurance_screen.dart';
 import '../models/cargo_shipping_model.dart';
 import '../providers/cargo_shipping_provider.dart';
 
@@ -649,25 +648,6 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         ref.read(importFilesProvider.notifier).fetchImportFiles();
       },
       headerActions: [
-        ElevatedButton.icon(
-          icon: const Icon(Icons.shield_outlined, size: 16, color: Colors.white),
-          label: Text(
-            Localizations.localeOf(context).languageCode == 'ar' ? 'وثيقة التأمين (Insurance)' : 'Cargo Insurance',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.teal.shade700,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-          ),
-          onPressed: () {
-            CargoInsuranceScreen.showCreateDialog(
-              context,
-              initialImportFileId: _selectedImportFileId,
-            );
-          },
-        ),
-        const SizedBox(width: 8),
         SmartUploadButton(
           module: SmartUploadModule.cargoShipping,
           label: context.l10n.cargoShippingUploadBlLabel,

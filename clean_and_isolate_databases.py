@@ -25,8 +25,8 @@ except Exception:
 
 ROOT_DIR = Path(__file__).resolve().parent
 
+# Distribution databases to clean (never wipe dev root db by default)
 DATABASES = [
-    ROOT_DIR / "sorour_logistics.db",
     ROOT_DIR / "dist" / "Sorour_Logistics_Standalone" / "sorour_logistics.db",
     ROOT_DIR / "dist" / "ImportFlow_Standalone" / "sorour_logistics.db",
     ROOT_DIR / "dist" / "sorour_logistics.db",
@@ -50,6 +50,7 @@ PRESERVED_TABLES = {
     "package_types",
     "units_of_measure",
     "clearance_expense_types",
+    "alembic_version",
 }
 
 

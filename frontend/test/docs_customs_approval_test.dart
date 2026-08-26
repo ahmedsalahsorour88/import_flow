@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 
 import 'package:frontend/features/import_documentation/models/docs_customs_approval_model.dart';
 import 'package:frontend/features/import_documentation/providers/docs_customs_approval_provider.dart';
@@ -213,22 +214,25 @@ void main() {
             discrepancyTicketsProvider.overrideWith((ref) => MockDiscrepancyTicketsNotifier()),
           ],
           child: const MaterialApp(
-            home: Scaffold(
-              body: CustomsDocumentApprovalTab(),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Scaffold(
+                body: CustomsDocumentApprovalTab(),
+              ),
             ),
           ),
         ),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       // Verify Toolbar Buttons
-      expect(find.text('فحص متقاطع ذكي (AI Matrix Audit)'), findsOneWidget);
-      expect(find.text('توليد القائمة القياسية'), findsOneWidget);
-      expect(find.text('تذكرة استدراك للمورد'), findsOneWidget);
+      expect(find.textContaining('فحص متقاطع'), findsOneWidget);
+      expect(find.textContaining('توليد القائمة'), findsOneWidget);
+      expect(find.textContaining('تذكرة استدراك'), findsOneWidget);
 
       // Verify Dual-Tier Section Titles
-      expect(find.text('مصفوفة اعتماد المستندات الجمركية (Dual-Tier Sign-off)'), findsOneWidget);
-      expect(find.text('سجل تذاكر الاستدراك والاستفسارات'), findsOneWidget);
+      expect(find.textContaining('مصفوفة اعتماد المستندات الجمركية'), findsOneWidget);
+      expect(find.textContaining('سجل تذاكر الاستدراك'), findsOneWidget);
     });
   });
 }

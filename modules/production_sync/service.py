@@ -165,12 +165,15 @@ class ProductionSyncService:
             tag=tag,
         )
 
-    def _smart_non_destructive_migrate(self, src_db: Path, target_db: Path) -> Dict[str, Any]:
+    def _smart_non_destructive_migrate(
+        self, src_db: Path, target_db: Path, preserve_target_user_data: bool = True
+    ) -> Dict[str, Any]:
         """
         Enterprise Non-Destructive Migration Engine:
         1. Ensures all tables from src_db exist in target_db (creates missing tables).
         2. Ensures all columns from src_db exist in target_db (executes ALTER TABLE ADD COLUMN for new features).
-        3. Non-destructively merges new seed/reference rows with INSERT OR IGNORE without modifying or deleting existing records.
+        3. Preserves 100% of user data in target_db (never deletes or overwrites existing user operational rows).
+        4. Reference/Master data tables are safely updated/upserted.
         """
         if not target_db.exists():
             target_db.parent.mkdir(parents=True, exist_ok=True)
@@ -178,10 +181,15 @@ class ProductionSyncService:
             return {"status": "copied_fresh", "tables_added": 0, "columns_added": 0, "rows_merged": 0}
 
         conn_src = sqlite3.connect(src_db)
+        conn_src.execute("PRAGMA journal_mode = WAL;")
         cur_src = conn_src.cursor()
 
         conn_tgt = sqlite3.connect(target_db)
+        conn_tgt.execute("PRAGMA journal_mode = WAL;")
         cur_tgt = conn_tgt.cursor()
+
+        cur_tgt.execute("PRAGMA foreign_keys = OFF;")
+        cur_tgt.execute("BEGIN TRANSACTION;")
 
         # 1. Fetch tables
         cur_src.execute("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
@@ -193,6 +201,44 @@ class ProductionSyncService:
         tables_added = 0
         columns_added = 0
         rows_merged = 0
+
+        # Operational tables where user data must NEVER be overwritten
+        OPERATIONAL_TABLES = {
+            "import_files",
+            "purchase_orders",
+            "purchase_order_items",
+            "commercial_invoices",
+            "commercial_invoice_items",
+            "shipments",
+            "shipment_containers",
+            "shipment_packages",
+            "customs_declarations",
+            "customs_declaration_items",
+            "customs_declaration_receipts",
+            "landed_cost_calculations",
+            "landed_cost_items",
+            "clearance_operations",
+            "clearance_expenses",
+            "shipping_quotes",
+            "shipping_quote_options",
+            "cargo_insurance_certificates",
+            "inspection_certificates",
+            "shipment_tracking_events",
+            "shipment_documents",
+            "importing_companies",
+            "importing_company_documents",
+            "suppliers",
+            "supplier_contacts",
+            "supplier_documents",
+            "service_partners",
+            "service_partner_contacts",
+            "projects",
+            "project_documents",
+            "activity_logs",
+            "audit_trail_logs",
+            "acid_validity_logs",
+            "system_notifications",
+        }
 
         # Step 1: Create missing tables
         for tbl_name, tbl_sql in src_tables:
@@ -219,10 +265,9 @@ class ProductionSyncService:
                 except Exception:
                     pass
 
-        conn_tgt.commit()
-
-        # Step 3: Synchronize and upsert rows using INSERT OR REPLACE
-        # This inserts new records and updates modified fields on existing records
+        # Step 3: Synchronize and upsert rows
+        # - For operational user tables: use INSERT OR IGNORE so existing user data is NEVER overwritten
+        # - For reference/system catalog tables: use INSERT OR REPLACE to update official definitions
         for tbl_name, _ in src_tables:
             try:
                 cur_src.execute(f'PRAGMA table_info("{tbl_name}");')
@@ -241,9 +286,12 @@ class ProductionSyncService:
                 cur_src.execute(f'SELECT {cols_str} FROM "{tbl_name}";')
                 src_rows = cur_src.fetchall()
 
+                is_operational = tbl_name in OPERATIONAL_TABLES
+                insert_verb = "INSERT OR IGNORE" if (preserve_target_user_data and is_operational) else "INSERT OR REPLACE"
+
                 for row in src_rows:
                     cur_tgt.execute(
-                        f'INSERT OR REPLACE INTO "{tbl_name}" ({cols_str}) VALUES ({placeholders});',
+                        f'{insert_verb} INTO "{tbl_name}" ({cols_str}) VALUES ({placeholders});',
                         tuple(row),
                     )
                     if cur_tgt.rowcount > 0:
@@ -252,6 +300,7 @@ class ProductionSyncService:
                 pass
 
         conn_tgt.commit()
+        cur_tgt.execute("PRAGMA foreign_keys = ON;")
         conn_src.close()
         conn_tgt.close()
 
@@ -462,7 +511,7 @@ class ProductionSyncService:
         prod_backup = self.create_safety_backup(PROD_DB, "prod_snapshot")
 
         # 3. Non-destructively migrate/merge Prod -> Dev
-        migration_res = self._smart_non_destructive_migrate(PROD_DB, DEV_DB)
+        migration_res = self._smart_non_destructive_migrate(PROD_DB, DEV_DB, preserve_target_user_data=False)
 
         stats = self._get_db_stats(DEV_DB)
 

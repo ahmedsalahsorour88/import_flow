@@ -673,7 +673,7 @@ class _CustomsClearanceQuotationsScreenState
     final cbmCtrl = TextEditingController(text: '30');
     int containersCount = 1;
     String shipmentType = 'Ocean FCL (40HQ)';
-    String portName = initialPortName ?? 'Alexandria Port (ميناء الإسكندرية)';
+    String portName = initialPortName ?? 'Alexandria Port';
     int? selectedImportFileId;
 
     final importFiles = ref.read(importFilesProvider).value ?? [];

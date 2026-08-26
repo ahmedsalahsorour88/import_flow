@@ -1241,10 +1241,13 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        "حاوية #${pIdx + 1}: ${res.spec.code} — (${res.placedItems.length} طرد) — استغلال المساحة: ${spacePct.toStringAsFixed(1)}% | استغلال الحمولة: ${weightPct.toStringAsFixed(1)}%",
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.cobalt),
+                                      Expanded(
+                                        child: Text(
+                                          context.l10n.containerCardHeader(pIdx + 1, res.spec.code, res.placedItems.length, spacePct.toStringAsFixed(1), weightPct.toStringAsFixed(1)),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.cobalt),
+                                        ),
                                       ),
+                                      const SizedBox(width: 8),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                         decoration: BoxDecoration(
@@ -1252,7 +1255,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Text(
-                                          'أبعاد داخلية: ${res.spec.internalLength.toStringAsFixed(0)} × ${res.spec.internalWidth.toStringAsFixed(0)} × ${res.spec.internalHeight.toStringAsFixed(0)} سم',
+                                          context.l10n.internalDimensionsLabel(res.spec.internalLength.toStringAsFixed(0), res.spec.internalWidth.toStringAsFixed(0), res.spec.internalHeight.toStringAsFixed(0)),
                                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                         ),
                                       ),
@@ -1275,7 +1278,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                                     child: ExpansionTile(
                                       tilePadding: EdgeInsets.zero,
                                       title: Text(
-                                        '📋 تفاصيل ومواقع الطرود المرصوصة داخل الحاوية (${res.placedItems.length} طرد)',
+                                        context.l10n.placedPackagesTableTitle(res.placedItems.length),
                                         style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                                       ),
                                       children: [
@@ -1292,13 +1295,13 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                                           children: [
                                             TableRow(
                                               decoration: BoxDecoration(color: Colors.grey.shade200),
-                                              children: const [
-                                                Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                Padding(padding: EdgeInsets.all(6), child: Text('كود الطرد / الصنف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                                Padding(padding: EdgeInsets.all(6), child: Text('الأبعاد (L×W×H سم)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                Padding(padding: EdgeInsets.all(6), child: Text('الوزن (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                Padding(padding: EdgeInsets.all(6), child: Text('إحداثيات الموضع (X, Y, Z سم)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                Padding(padding: EdgeInsets.all(6), child: Text('الرص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                              children: [
+                                                const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                Padding(padding: EdgeInsets.all(6), child: Text(context.l10n.thPackageCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                                Padding(padding: EdgeInsets.all(6), child: Text(context.l10n.thDimensions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                Padding(padding: EdgeInsets.all(6), child: Text(context.l10n.thWeight, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                Padding(padding: EdgeInsets.all(6), child: Text(context.l10n.thCoordinates, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                Padding(padding: EdgeInsets.all(6), child: Text(context.l10n.thStacking, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                                               ],
                                             ),
                                             ...res.placedItems.asMap().entries.map((entry) {
@@ -1311,7 +1314,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                                                   Padding(padding: const EdgeInsets.all(6), child: Text('${item.length.toStringAsFixed(0)} × ${item.width.toStringAsFixed(0)} × ${item.height.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
                                                   Padding(padding: const EdgeInsets.all(6), child: Text(item.item.weight.toStringAsFixed(1), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
                                                   Padding(padding: const EdgeInsets.all(6), child: Text('X: ${item.x.toStringAsFixed(0)} | Y: ${item.y.toStringAsFixed(0)} | Z: ${item.z.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10.5, fontFamily: 'monospace'), textAlign: TextAlign.center)),
-                                                  Padding(padding: const EdgeInsets.all(6), child: Text(item.item.isStackable ? '📦 نعم' : '🚫 أرضي', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: item.item.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(item.item.isStackable ? context.l10n.stackableOption : context.l10n.nonStackableOption, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: item.item.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
                                                 ],
                                               );
                                             }),

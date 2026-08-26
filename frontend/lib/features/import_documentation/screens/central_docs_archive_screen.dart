@@ -529,8 +529,13 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         children: [
           Icon(icon, size: 16, color: fg),
           const SizedBox(width: 6),
-          Text('$label: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: fg)),
-          Text(statusText, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: fg)),
+          Flexible(
+            child: Text(
+              '$label: $statusText',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: fg),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );

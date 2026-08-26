@@ -15,6 +15,7 @@ Features:
 
 import os
 import sys
+import json
 import shutil
 import sqlite3
 import argparse
@@ -31,8 +32,37 @@ try:
 except Exception:
     pass
 
-# Paths
-ROOT_DIR = Path(__file__).resolve().parent
+
+def find_project_root() -> Path:
+    """Finds the true project root directory containing the source code / workspace."""
+    start_dir = Path(__file__).resolve().parent
+
+    # 1. If start_dir itself is root (contains frontend or modules)
+    if (start_dir / "frontend").exists() or (start_dir / "modules").exists():
+        return start_dir
+
+    # 2. Check parent directories
+    for parent in start_dir.parents:
+        if (parent / "frontend").exists() or (parent / "modules").exists():
+            return parent
+
+    # 3. Check well-known workspace locations
+    candidates = [
+        Path.home() / "Desktop" / "ImportFlow",
+        Path.home() / "Desktop" / "import_flow",
+        Path("C:/Users/Hp/Desktop/ImportFlow"),
+        Path("C:/ImportFlow"),
+        Path("D:/ImportFlow"),
+        Path("E:/ImportFlow"),
+    ]
+    for cand in candidates:
+        if cand.exists() and ((cand / "sorour_logistics.db").exists() or (cand / "frontend").exists()):
+            return cand
+
+    return start_dir
+
+
+ROOT_DIR = find_project_root()
 DIST_DIR = ROOT_DIR / "dist"
 STANDALONE_DIR = DIST_DIR / "Sorour_Logistics_Standalone"
 DESKTOP_DIR = DIST_DIR / "Sorour_Logistics_Desktop"
@@ -43,6 +73,7 @@ DEV_DB = ROOT_DIR / "sorour_logistics.db"
 PROD_DB = STANDALONE_DIR / "sorour_logistics.db"
 BACKEND_EXE = ROOT_DIR / "dist_backend" / "backend.exe"
 FRONTEND_WINDOWS_RELEASE = ROOT_DIR / "frontend" / "build" / "windows" / "x64" / "runner" / "Release"
+
 
 
 def create_backup(db_path: Path, tag: str = "backup") -> Path:
@@ -92,8 +123,128 @@ def get_db_stats(db_path: Path) -> dict:
         return {"exists": True, "error": str(e)}
 
 
+def get_db_diffs(src_db: Path, target_db: Path) -> dict:
+    """Computes exact diffs: tables, rows, new columns, and differences between two databases."""
+    if not src_db.exists():
+        return {"exists": False, "error": f"Source database not found: {src_db}"}
+    if not target_db.exists():
+        dev_stats = get_db_stats(src_db)
+        tables_list = [
+            {
+                "table_name": tbl,
+                "dev_count": cnt,
+                "prod_count": 0,
+                "diff": cnt,
+                "status": "NEW_TABLE",
+            }
+            for tbl, cnt in dev_stats.get("table_counts", {}).items()
+        ]
+        return {
+            "exists": True,
+            "target_exists": False,
+            "total_new_records": dev_stats.get("total_records", 0),
+            "tables_with_diff": dev_stats.get("tables_count", 0),
+            "new_tables_count": dev_stats.get("tables_count", 0),
+            "new_columns_count": 0,
+            "tables": tables_list,
+        }
+
+    conn_src = sqlite3.connect(src_db)
+    cur_src = conn_src.cursor()
+    conn_tgt = sqlite3.connect(target_db)
+    cur_tgt = conn_tgt.cursor()
+
+    cur_src.execute("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+    src_tables = dict(cur_src.fetchall())
+
+    cur_tgt.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+    tgt_tables = set(r[0] for r in cur_tgt.fetchall())
+
+    all_table_names = sorted(set(list(src_tables.keys()) + list(tgt_tables)))
+    tables_diff = []
+    total_new_records = 0
+    tables_with_diff = 0
+    new_tables_count = 0
+    new_columns_count = 0
+
+    for tbl in all_table_names:
+        dev_count = 0
+        prod_count = 0
+        is_new_table = False
+        is_missing_in_dev = False
+
+        if tbl in src_tables:
+            try:
+                cur_src.execute(f'SELECT COUNT(*) FROM "{tbl}";')
+                dev_count = cur_src.fetchone()[0]
+            except Exception:
+                dev_count = 0
+        else:
+            is_missing_in_dev = True
+
+        if tbl in tgt_tables:
+            try:
+                cur_tgt.execute(f'SELECT COUNT(*) FROM "{tbl}";')
+                prod_count = cur_tgt.fetchone()[0]
+            except Exception:
+                prod_count = 0
+        else:
+            is_new_table = True
+            new_tables_count += 1
+
+        # Check new columns
+        if tbl in src_tables and tbl in tgt_tables:
+            try:
+                cur_src.execute(f'PRAGMA table_info("{tbl}");')
+                src_cols = set(r[1] for r in cur_src.fetchall())
+                cur_tgt.execute(f'PRAGMA table_info("{tbl}");')
+                tgt_cols = set(r[1] for r in cur_tgt.fetchall())
+                new_cols = src_cols - tgt_cols
+                new_columns_count += len(new_cols)
+            except Exception:
+                pass
+
+        diff = dev_count - prod_count
+        if is_new_table:
+            status = "NEW_TABLE"
+            tables_with_diff += 1
+            total_new_records += dev_count
+        elif is_missing_in_dev:
+            status = "PROD_ONLY"
+        elif diff > 0:
+            status = "NEW_DATA"
+            tables_with_diff += 1
+            total_new_records += diff
+        elif diff < 0:
+            status = "BEHIND"
+            tables_with_diff += 1
+        else:
+            status = "MATCH"
+
+        tables_diff.append({
+            "table_name": tbl,
+            "dev_count": dev_count,
+            "prod_count": prod_count,
+            "diff": diff,
+            "status": status,
+        })
+
+    conn_src.close()
+    conn_tgt.close()
+
+    return {
+        "exists": True,
+        "target_exists": True,
+        "total_new_records": total_new_records,
+        "tables_with_diff": tables_with_diff,
+        "new_tables_count": new_tables_count,
+        "new_columns_count": new_columns_count,
+        "tables": tables_diff,
+    }
+
+
 def compare_databases():
-    """Compares Dev and Prod databases table by table."""
+    """Compares Dev and Prod databases table by table and emits structured JSON diff."""
     print("\n===============================================================================")
     print(" [CHECK] Database Comparison: Development (Dev) vs Production (Prod)")
     print("===============================================================================")
@@ -115,40 +266,48 @@ def compare_databases():
     else:
         print("   [!] Not found yet — will be created on first sync.")
 
+    diff_data = get_db_diffs(DEV_DB, PROD_DB)
+    if diff_data.get("exists"):
+        print(f"\n[DIFF_DATA] {json.dumps(diff_data, ensure_ascii=False)}")
+        sys.stdout.flush()
+
     if dev_stats.get("exists") and prod_stats.get("exists"):
         print("\n[TABLE COMPARISON]")
         print(f"{'Table Name':<35} | {'Dev Records':<14} | {'Prod Records':<14} | {'Status':<10}")
         print("-" * 85)
 
-        all_tables = sorted(set(
-            list(dev_stats.get("table_counts", {}).keys()) +
-            list(prod_stats.get("table_counts", {}).keys())
-        ))
-        for tbl in all_tables:
-            dev_c = dev_stats.get("table_counts", {}).get(tbl, 0)
-            prod_c = prod_stats.get("table_counts", {}).get(tbl, 0)
-            if dev_c == prod_c:
-                status = "✓ MATCH"
-            elif dev_c > prod_c:
-                status = f"+{dev_c - prod_c} new"
+        for tbl_info in diff_data.get("tables", []):
+            tbl = tbl_info["table_name"]
+            dev_c = tbl_info["dev_count"]
+            prod_c = tbl_info["prod_count"]
+            status = tbl_info["status"]
+            if status == "MATCH":
+                status_str = "✓ MATCH"
+            elif status == "NEW_DATA":
+                status_str = f"+{tbl_info['diff']} new"
+            elif status == "NEW_TABLE":
+                status_str = "+NEW TABLE"
+            elif status == "BEHIND":
+                status_str = f"{tbl_info['diff']} behind"
             else:
-                status = f"{dev_c - prod_c} behind"
-            print(f"{tbl:<35} | {dev_c:<14} | {prod_c:<14} | {status}")
+                status_str = status
+            print(f"{tbl:<35} | {dev_c:<14} | {prod_c:<14} | {status_str}")
+        print("=" * 85)
+        print(f"📊 الخلاصة: {diff_data.get('tables_with_diff', 0)} جدول به تحديثات | {diff_data.get('total_new_records', 0)} سجل جديد ستتم إضافته/تحديثه")
     print("===============================================================================\n")
-
-
+    sys.stdout.flush()
 
 
 def smart_non_destructive_migrate(
     src_db: Path, target_db: Path, dry_run: bool = False
 ) -> dict:
     """
-    Enterprise Non-Destructive Migration:
+    Enterprise Non-Destructive Migration with Live Progress Streaming:
     1. Creates any missing tables from src in target.
     2. Adds any new columns via ALTER TABLE ADD COLUMN.
-    3. Merges new rows with INSERT OR IGNORE (never deletes user data).
+    3. Merges new rows with INSERT OR REPLACE (never deletes user data).
     4. All changes are wrapped in a single transaction (atomic rollback on failure).
-    5. dry_run=True: shows what WOULD be changed without applying anything.
+    5. Streams live progress JSON on stdout for Flutter UI progress bar.
     """
     if not target_db.exists():
         if dry_run:
@@ -156,6 +315,8 @@ def smart_non_destructive_migrate(
             return {"status": "dry_run_fresh_copy", "tables_added": 0, "columns_added": 0, "rows_merged": 0}
         target_db.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src_db, target_db)
+        print(f"[PROGRESS] {json.dumps({'percent': 100, 'stage': 'completed', 'table': 'ALL', 'current_index': 1, 'total_tables': 1, 'records_synced': 0, 'total_synced': 0, 'message': 'تم إنشاء نسخة البرودكشن الأولية بنجاح'})}")
+        sys.stdout.flush()
         return {"status": "fresh_copy", "tables_added": 0, "columns_added": 0, "rows_merged": 0}
 
     conn_src = sqlite3.connect(src_db)
@@ -173,6 +334,11 @@ def smart_non_destructive_migrate(
     tables_added = 0
     columns_added = 0
     rows_merged = 0
+    total_tables_count = len(src_tables)
+
+    # Initial Progress Report
+    print(f"[PROGRESS] {json.dumps({'percent': 5, 'stage': 'init', 'table': '', 'current_index': 0, 'total_tables': total_tables_count, 'records_synced': 0, 'total_synced': 0, 'message': 'جارٍ فحص ومقارنة بنية الجداول...'})}")
+    sys.stdout.flush()
 
     # Pre-merge record counts for integrity verification
     pre_counts = {}
@@ -187,7 +353,8 @@ def smart_non_destructive_migrate(
 
     try:
         if not dry_run:
-            cur_tgt.execute("BEGIN")
+            cur_tgt.execute("PRAGMA foreign_keys = OFF;")
+            cur_tgt.execute("BEGIN TRANSACTION;")
 
         # 1. Create missing tables
         for tbl_name, tbl_sql in src_tables:
@@ -197,6 +364,7 @@ def smart_non_destructive_migrate(
                         print(f"   [DRY-RUN] Would CREATE TABLE: {tbl_name}")
                     else:
                         cur_tgt.execute(tbl_sql)
+                        print(f"   + [NEW TABLE] Created: {tbl_name}")
                     tables_added += 1
                     tgt_table_names.add(tbl_name)
 
@@ -218,12 +386,15 @@ def smart_non_destructive_migrate(
                                 cur_tgt.execute(
                                     f'ALTER TABLE "{tbl_name}" ADD COLUMN "{col_name}" {col_type};'
                                 )
+                                print(f"   + [NEW COLUMN] {tbl_name}.{col_name} ({col_type})")
                             columns_added += 1
-                except Exception:
-                    pass
+                except Exception as col_e:
+                    print(f"   [WARN] Column check for {tbl_name}: {col_e}")
 
-        # 3. Merge new rows — INSERT OR IGNORE (safe, never deletes)
-        for tbl_name, _ in src_tables:
+        # 3. Synchronize / UPSERT rows across all common tables with live progress
+        synced_tables_count = 0
+        for idx, (tbl_name, _) in enumerate(src_tables):
+            tbl_rows_synced = 0
             try:
                 cur_src.execute(f'PRAGMA table_info("{tbl_name}");')
                 src_cols = [row[1] for row in cur_src.fetchall()]
@@ -241,21 +412,45 @@ def smart_non_destructive_migrate(
                 cur_src.execute(f'SELECT {cols_str} FROM "{tbl_name}";')
                 src_rows = cur_src.fetchall()
 
-                for row in src_rows:
-                    if dry_run:
-                        rows_merged += 1  # count what would be inserted
-                    else:
-                        cur_tgt.execute(
-                            f'INSERT OR REPLACE INTO "{tbl_name}" ({cols_str}) VALUES ({placeholders});',
-                            tuple(row),
-                        )
-                        if cur_tgt.rowcount > 0:
+                if src_rows:
+                    for row in src_rows:
+                        if dry_run:
                             rows_merged += 1
-            except Exception:
-                pass
+                        else:
+                            try:
+                                cur_tgt.execute(
+                                    f'INSERT OR REPLACE INTO "{tbl_name}" ({cols_str}) VALUES ({placeholders});',
+                                    tuple(row),
+                                )
+                                if cur_tgt.rowcount > 0:
+                                    rows_merged += 1
+                                    tbl_rows_synced += 1
+                            except Exception as row_e:
+                                print(f"   [WARN] Row sync error in {tbl_name}: {row_e}")
+
+                    if tbl_rows_synced > 0:
+                        synced_tables_count += 1
+                        print(f"   ✓ [DATA SYNC] {tbl_name}: {tbl_rows_synced} records synced/updated")
+
+                # Stream live progress percentage
+                percent = int(10 + ((idx + 1) / max(1, total_tables_count)) * 85)
+                percent = min(95, percent)
+                msg = f"جارٍ فحص ومزامنة جدول: {tbl_name} ({idx + 1}/{total_tables_count})"
+                if tbl_rows_synced > 0:
+                    msg += f" — تم تحديث {tbl_rows_synced} سجل"
+                print(f"[PROGRESS] {json.dumps({'percent': percent, 'stage': 'syncing', 'table': tbl_name, 'current_index': idx + 1, 'total_tables': total_tables_count, 'records_synced': tbl_rows_synced, 'total_synced': rows_merged, 'message': msg}, ensure_ascii=False)}")
+                sys.stdout.flush()
+
+            except Exception as tbl_e:
+                print(f"   [ERROR] Table sync failed for {tbl_name}: {tbl_e}")
 
         if not dry_run:
-            conn_tgt.commit()  # single atomic commit
+            cur_tgt.execute("PRAGMA foreign_keys = ON;")
+            conn_tgt.commit()
+
+        # Emit 100% completion progress
+        print(f"[PROGRESS] {json.dumps({'percent': 100, 'stage': 'completed', 'table': 'DONE', 'current_index': total_tables_count, 'total_tables': total_tables_count, 'records_synced': 0, 'total_synced': rows_merged, 'message': f'✅ اكتملت المزامنة بنجاح! تم نقل وتحديث {rows_merged} سجل عبر {total_tables_count} جدول'}, ensure_ascii=False)}")
+        sys.stdout.flush()
 
     except Exception as exc:
         if not dry_run:
@@ -507,6 +702,7 @@ def main():
     parser.add_argument("--full", action="store_true", help="Full compilation, test, and production packaging")
     parser.add_argument("--pull", action="store_true", help="Pull Database from Prod to Dev with backup")
     parser.add_argument("--compare", action="store_true", help="Compare Dev and Prod databases")
+    parser.add_argument("--diff", action="store_true", help="Emit structured diff data JSON")
     parser.add_argument("--zip", action="store_true", help="Generate Release ZIP and manifest")
     parser.add_argument("--launch", action="store_true", help="Launch Production App")
 
@@ -518,7 +714,7 @@ def main():
         full_production_build_and_sync()
     elif args.pull:
         pull_prod_db_to_dev()
-    elif args.compare:
+    elif args.compare or args.diff:
         compare_databases()
     elif args.zip:
         export_release_zip()

@@ -41,7 +41,7 @@ void main() {
         'rfq_id': 100,
         'rfq_code': 'CRFQ-000001',
         'title': 'طلب عروض أسعار تخليص خط إنتاج',
-        'port_name': 'Alexandria Port (ميناء الإسكندرية)',
+        'port_name': 'Alexandria Port',
         'shipment_type': 'Ocean FCL (40HQ)',
         'containers_count': 2,
         'packages_count': 12,
@@ -80,7 +80,7 @@ void main() {
 
       final createJson = rfq.toCreateJson();
       expect(createJson['title'], 'طلب عروض أسعار تخليص خط إنتاج');
-      expect(createJson['port_name'], 'Alexandria Port (ميناء الإسكندرية)');
+      expect(createJson['port_name'], 'Alexandria Port');
       expect(createJson['containers_count'], 2);
     });
 
@@ -89,7 +89,7 @@ void main() {
         'price_item_id': 5,
         'provider_id': 2,
         'provider_name': 'النسر للخدمات اللوجستية',
-        'port_name': 'Sokhna Port (ميناء السخنة)',
+        'port_name': 'Sokhna Port',
         'service_category': 'Inland Transport',
         'container_type': '40HQ',
         'unit_price': 6500.0,
@@ -99,7 +99,7 @@ void main() {
 
       final item = ClearancePriceListItemModel.fromJson(json);
       expect(item.providerName, 'النسر للخدمات اللوجستية');
-      expect(item.portName, 'Sokhna Port (ميناء السخنة)');
+      expect(item.portName, 'Sokhna Port');
       expect(item.unitPrice, 6500.0);
 
       final createJson = item.toCreateJson();

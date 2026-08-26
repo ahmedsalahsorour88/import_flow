@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../services/local_process_sync_service.dart';
+import '../services/production_sync_service.dart';
 import '../widgets/sync_console_widget.dart';
+import '../widgets/sync_progress_and_diff_widget.dart';
 
 class ProductionSyncScreen extends ConsumerStatefulWidget {
   const ProductionSyncScreen({super.key});
@@ -20,6 +22,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
   final List<ConsoleLogLine> _consoleLogs = [];
   bool _isRunning = false;
   String _currentAction = '';
+  SyncProgressEvent? _progress;
+  SyncDiffSummary? _diffSummary;
 
   late LocalDbStats _devStats;
   late LocalDbStats _prodStats;
@@ -30,6 +34,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _refreshLocalData();
+    Future.microtask(() => _checkDiffsSilently());
   }
 
   @override
@@ -46,10 +51,72 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     });
   }
 
+  Future<void> _checkDiffsSilently() async {
+    try {
+      await _service.compareDatabases(
+        onOutput: (l) => _appendLog(l),
+        onError: (l) => _appendLog(l, isError: true),
+        onDiffSummary: (d) {
+          if (mounted) setState(() => _diffSummary = d);
+        },
+      );
+    } catch (_) {}
+  }
+
   void _appendLog(String text, {bool isError = false}) {
     if (mounted) {
       setState(() {
         _consoleLogs.add(ConsoleLogLine(text, isError: isError));
+      });
+    }
+  }
+
+  Future<void> _confirmAndRestoreBackup(LocalBackupEntry b) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.history_rounded, color: AppTheme.orange),
+            SizedBox(width: 8),
+            Text('تأكيد استعادة النسخة الاحتياطية', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('هل أنت متأكد من استعادة هذه النسخة: ${b.filename}؟'),
+            const SizedBox(height: 10),
+            const Text(
+              '🛡️ سيقوم النظام تلقائياً بإنشاء نسخة أمان فورية من الوضع الحالي قبل تطبيق الاسترجاع لضمان عدم فقدان أي بيانات نهائياً.',
+              style: TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('استعادة الآن'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _executeAction('استعادة النسخة ${b.filename}', () async {
+        try {
+          final api = ProductionSyncService();
+          final target = b.tag.contains('dev') ? 'dev' : 'prod';
+          final res = await api.restoreBackup(filename: b.filename, target: target);
+          _appendLog('✅ ${res.message}');
+          return 0;
+        } catch (e) {
+          _appendLog('❌ فشل الاسترجاع: $e', isError: true);
+          return 1;
+        }
       });
     }
   }
@@ -237,6 +304,12 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                           () => _service.syncDevToProd(
                             onOutput: (l) => _appendLog(l),
                             onError: (l) => _appendLog(l, isError: true),
+                            onProgress: (p) {
+                              if (mounted) setState(() => _progress = p);
+                            },
+                            onDiffSummary: (d) {
+                              if (mounted) setState(() => _diffSummary = d);
+                            },
                           ),
                         ),
               ),
@@ -262,6 +335,9 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                           () => _service.compareDatabases(
                             onOutput: (l) => _appendLog(l),
                             onError: (l) => _appendLog(l, isError: true),
+                            onDiffSummary: (d) {
+                              if (mounted) setState(() => _diffSummary = d);
+                            },
                           ),
                         ),
               ),
@@ -287,6 +363,9 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                           () => _service.pullProdToDev(
                             onOutput: (l) => _appendLog(l),
                             onError: (l) => _appendLog(l, isError: true),
+                            onProgress: (p) {
+                              if (mounted) setState(() => _progress = p);
+                            },
                           ),
                         ),
               ),
@@ -312,6 +391,12 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                           () => _service.fullBuildAndSync(
                             onOutput: (l) => _appendLog(l),
                             onError: (l) => _appendLog(l, isError: true),
+                            onProgress: (p) {
+                              if (mounted) setState(() => _progress = p);
+                            },
+                            onDiffSummary: (d) {
+                              if (mounted) setState(() => _diffSummary = d);
+                            },
                           ),
                         ),
               ),
@@ -339,6 +424,24 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                         ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // ── Visual Progress & Database Changes Diff Inspector ────────────
+        SyncProgressAndDiffWidget(
+          progress: _progress,
+          diffSummary: _diffSummary,
+          isRunning: _isRunning,
+          onCheckDiff: () => _executeAction(
+            'فحص ومقارنة الجداول',
+            () => _service.compareDatabases(
+              onOutput: (l) => _appendLog(l),
+              onError: (l) => _appendLog(l, isError: true),
+              onDiffSummary: (d) {
+                if (mounted) setState(() => _diffSummary = d);
+              },
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -426,16 +529,33 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                           'تاريخ الإنشاء: ${b.mtime}  •  الحجم: ${b.sizeKb} KB',
                           style: const TextStyle(fontSize: 11, color: Colors.grey),
                         ),
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: tagColor.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            b.tag,
-                            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: tagColor),
-                          ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: tagColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                b.tag,
+                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: tagColor),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.orange,
+                                side: const BorderSide(color: AppTheme.orange),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              icon: const Icon(Icons.restore_rounded, size: 14),
+                              label: const Text('استعادة (Rollback)', style: TextStyle(fontSize: 10.5)),
+                              onPressed: _isRunning ? null : () => _confirmAndRestoreBackup(b),
+                            ),
+                          ],
                         ),
                       );
                     },

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/customs_tariff/models/customs_tariff_model.dart';
 import 'package:frontend/features/customs_tariff/providers/customs_tariff_provider.dart';
 import 'package:frontend/features/import_documentation/screens/customs_declaration46_screen.dart';
@@ -118,13 +119,20 @@ void main() {
             customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([mockTariff])),
           ],
           child: const MaterialApp(
-            home: Scaffold(
-              body: CustomsDeclaration46Screen(
-                initialSubTab: 0,
-                initialImportFileId: 5,
+          locale: Locale('ar'),
+          home: AppLocalizationsProvider(
+            locale: Locale('ar'),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Scaffold(
+                body: CustomsDeclaration46Screen(
+                  initialSubTab: 0,
+                  initialImportFileId: 5,
+                ),
               ),
             ),
           ),
+        ),
         ),
       );
 

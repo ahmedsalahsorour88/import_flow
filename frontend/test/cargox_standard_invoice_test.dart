@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/cargox/models/cargox_model.dart';
 import 'package:frontend/features/cargox/widgets/standard_invoice_hub_tab.dart';
 
@@ -151,8 +152,11 @@ void main() {
       await tester.pumpWidget(
         const ProviderScope(
           child: MaterialApp(
-            home: Scaffold(
-              body: StandardInvoiceHubTab(),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Scaffold(
+                body: StandardInvoiceHubTab(),
+              ),
             ),
           ),
         ),
@@ -160,13 +164,13 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('مركز إدارة وتوليد الفاتورة التجارية المعيارية'), findsOneWidget);
-      expect(find.textContaining('1. توليد نموذج الإكسيل المعياري'), findsOneWidget);
-      expect(find.textContaining('2. قراءة واستخراج فاتورة المورد'), findsOneWidget);
-      expect(find.text('بيانات الفاتورة المستخرجة'), findsOneWidget);
-      expect(find.text('مصفوفة المطابقة والفروق'), findsOneWidget);
-      expect(find.text('الاعتماد والتحكم الجمركي'), findsOneWidget);
-      expect(find.text('سجل الفواتير المعيارية'), findsOneWidget);
+      expect(find.textContaining('الفاتورة التجارية المعيارية'), findsWidgets);
+      expect(find.textContaining('توليد نموذج الإكسيل'), findsOneWidget);
+      expect(find.textContaining('قراءة واستخراج فاتورة المورد'), findsOneWidget);
+      expect(find.textContaining('بيانات الفاتورة المستخرجة'), findsWidgets);
+      expect(find.textContaining('مصفوفة المطابقة'), findsWidgets);
+      expect(find.textContaining('الاعتماد والتحكم الجمركي'), findsWidgets);
+      expect(find.textContaining('سجل الفواتير المعيارية'), findsWidgets);
     });
   });
 }

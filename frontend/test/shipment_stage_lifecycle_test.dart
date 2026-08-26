@@ -80,7 +80,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('استكمال الشحنة'), findsOneWidget);
+    expect(find.text('استئناف الشحنة'), findsOneWidget);
     expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
     expect(find.textContaining('متوقفة:'), findsOneWidget);
   });

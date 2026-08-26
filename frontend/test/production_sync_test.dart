@@ -160,5 +160,82 @@ void main() {
       final backups = service.listBackups();
       expect(backups, isA<List<LocalBackupEntry>>());
     });
+
+    test('SyncProgressEvent fromJson parses progress data correctly', () {
+      final json = {
+        'percent': 65,
+        'stage': 'syncing',
+        'table': 'cargo_insurance_certificates',
+        'current_index': 48,
+        'total_tables': 73,
+        'records_synced': 5,
+        'total_synced': 1450,
+        'message': 'جارٍ فحص ومزامنة جدول: cargo_insurance_certificates (48/73) — تم تحديث 5 سجل',
+      };
+
+      final event = SyncProgressEvent.fromJson(json);
+      expect(event.percent, 65);
+      expect(event.stage, 'syncing');
+      expect(event.table, 'cargo_insurance_certificates');
+      expect(event.currentIndex, 48);
+      expect(event.totalTables, 73);
+      expect(event.recordsSynced, 5);
+      expect(event.totalSynced, 1450);
+      expect(event.message, contains('cargo_insurance_certificates'));
+    });
+
+    test('SyncTableDiff and SyncDiffSummary parse structured diff correctly', () {
+      final json = {
+        'exists': true,
+        'target_exists': true,
+        'total_new_records': 15,
+        'tables_with_diff': 2,
+        'new_tables_count': 1,
+        'new_columns_count': 3,
+        'tables': [
+          {
+            'table_name': 'transport_locations',
+            'dev_count': 261,
+            'prod_count': 256,
+            'diff': 5,
+            'status': 'NEW_DATA',
+          },
+          {
+            'table_name': 'cargo_insurance_certificates',
+            'dev_count': 10,
+            'prod_count': 0,
+            'diff': 10,
+            'status': 'NEW_TABLE',
+          },
+          {
+            'table_name': 'users',
+            'dev_count': 4,
+            'prod_count': 4,
+            'diff': 0,
+            'status': 'MATCH',
+          },
+        ]
+      };
+
+      final diffSummary = SyncDiffSummary.fromJson(json);
+      expect(diffSummary.exists, isTrue);
+      expect(diffSummary.totalNewRecords, 15);
+      expect(diffSummary.tablesWithDiff, 2);
+      expect(diffSummary.tables.length, 3);
+
+      final t1 = diffSummary.tables[0];
+      expect(t1.tableName, 'transport_locations');
+      expect(t1.hasChanges, isTrue);
+      expect(t1.isMatch, isFalse);
+      expect(t1.diff, 5);
+
+      final t2 = diffSummary.tables[1];
+      expect(t2.status, 'NEW_TABLE');
+      expect(t2.hasChanges, isTrue);
+
+      final t3 = diffSummary.tables[2];
+      expect(t3.isMatch, isTrue);
+      expect(t3.hasChanges, isFalse);
+    });
   });
 }

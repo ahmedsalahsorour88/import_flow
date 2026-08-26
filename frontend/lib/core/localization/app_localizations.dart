@@ -4230,6 +4230,35 @@ abstract class AppLocalizations {
   String get fieldCurrentStage;
   String get searchFieldHint;
 
+  // ── Master Palletization Plan Localizations ─────────────────────────────────
+  String get masterPalletizationPlanTitle;
+  String totalPalletsPill(int count);
+  String palletsVolumePill(String vol);
+  String get addPalletRowBtn;
+  String simulateAndPackPallets3dBtn(int count);
+  String get clickToAddPalletsPrompt;
+  String palletRowHeader(int index);
+  String get palletStackableBadge;
+  String get palletFloorOnlyBadge;
+  String palletRowSummary(String vol, String wt);
+  String get palletTypeAndSizeLabel;
+  String get palletCountFieldLabel;
+  String get palletStackingInstructionsLabel;
+  String get palletGrossWeightLabel;
+  String get deletePalletRowTooltip;
+  String get customPalletOption;
+
+  // ── 3D Container Cards & Items Table ──────────────────────────────────────
+  String containerCardHeader(int index, String code, int pkgsCount, String spacePct, String payloadPct);
+  String internalDimensionsLabel(String l, String w, String h);
+  String placedPackagesTableTitle(int count);
+  String get thPackageCode;
+  String get thDimensions;
+  String get thWeight;
+  String get thCoordinates;
+  String get thStacking;
+  String get noSuitableContainersFound;
+
   // ── Standardized Stage Stop & Resume Buttons ────────────────────────────────
   String get stopShipmentAtThisStageBtn;
   String get shipmentOnHoldPrefix;

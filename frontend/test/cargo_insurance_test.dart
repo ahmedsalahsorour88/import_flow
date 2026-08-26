@@ -1,5 +1,25 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/core/localization/locale_provider.dart';
 import 'package:frontend/features/cargo_insurance/models/cargo_insurance_model.dart';
+import 'package:frontend/features/cargo_insurance/providers/cargo_insurance_provider.dart';
+import 'package:frontend/features/cargo_insurance/screens/cargo_insurance_screen.dart';
+import 'package:frontend/features/cargo_shipping/models/cargo_shipping_model.dart';
+import 'package:frontend/features/cargo_shipping/providers/cargo_shipping_provider.dart';
+import 'package:frontend/features/currencies/models/currency_model.dart';
+import 'package:frontend/features/currencies/providers/currencies_provider.dart';
+import 'package:frontend/features/external_service_providers/models/partner_model.dart';
+import 'package:frontend/features/external_service_providers/providers/partners_provider.dart';
+import 'package:frontend/features/freight_booking/models/freight_booking_model.dart';
+import 'package:frontend/features/freight_booking/providers/freight_booking_provider.dart';
+import 'package:frontend/features/import_companies/models/import_company_model.dart';
+import 'package:frontend/features/import_companies/providers/import_companies_provider.dart';
+import 'package:frontend/features/import_files/models/import_file_model.dart';
+import 'package:frontend/features/import_files/providers/import_files_provider.dart';
+import 'package:frontend/features/purchase_orders/models/purchase_order_model.dart';
+import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 
 void main() {
   group('Cargo Insurance Frontend Model & Valuation Tests', () {
@@ -87,5 +107,160 @@ void main() {
       expect(calc.totalPayablePremium, 160.13);
       expect(calc.currency, 'USD');
     });
+
+    testWidgets('CargoInsuranceScreen should render cleanly with search and tabs', (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final container = ProviderContainer(
+        overrides: [
+          cargoInsuranceProvider.overrideWith((ref) => _MockCargoInsuranceNotifier([])),
+          importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([])),
+          partnersProvider.overrideWith((ref) => _MockPartnersNotifier([])),
+          importCompaniesProvider.overrideWith((ref) => _MockCompaniesNotifier([])),
+          currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([])),
+          freightBookingProvider.overrideWith((ref) => _MockFreightBookingNotifier([])),
+          cargoShippingProvider.overrideWith((ref) => _MockCargoShippingNotifier([])),
+          purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([])),
+          localeProvider.overrideWith((ref) => _MockLocaleNotifier(const Locale('ar'))),
+        ],
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            locale: Locale('ar'),
+            home: Scaffold(
+              body: Directionality(
+                textDirection: TextDirection.rtl,
+                child: AppLocalizationsProvider(
+                  locale: Locale('ar'),
+                  child: CargoInsuranceScreen(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Verify title & toolbar render
+      expect(find.textContaining('شهادات التأمين على البضائع المشحونة'), findsOneWidget);
+      expect(find.textContaining('سجل شهادات التأمين'), findsOneWidget);
+      expect(find.text('إصدار وثيقة تأمين جديدة'), findsWidgets);
+
+      // Tap on "New Certificate" button
+      await tester.tap(find.text('إصدار وثيقة تأمين جديدة').first);
+      await tester.pumpAndSettle();
+
+      // Verify modal dialog opened
+      expect(find.textContaining('إصدار شهادة تأمين البضائع المشحونة'), findsWidgets);
+      expect(find.textContaining('حساب القيمة المؤمنة'), findsOneWidget);
+    });
   });
+}
+
+class _MockCargoInsuranceNotifier extends StateNotifier<AsyncValue<List<CargoInsuranceModel>>> implements CargoInsuranceNotifier {
+  _MockCargoInsuranceNotifier(List<CargoInsuranceModel> initial) : super(AsyncValue.data(initial));
+
+  @override
+  Future<void> fetchCertificates({int? importFileId, String? status, String? search}) async {
+    state = const AsyncValue.data([]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>>> implements ImportFilesNotifier {
+  _MockImportFilesNotifier(List<ImportFileModel> initial) : super(AsyncValue.data(initial));
+
+  @override
+  Future<void> fetchImportFiles({bool includeInactive = false, String? search, int? companyId, int? supplierId, String? status, String? owner}) async {
+    state = const AsyncValue.data([]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockPartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> implements PartnersNotifier {
+  _MockPartnersNotifier(List<PartnerModel> initial) : super(AsyncValue.data(initial));
+
+  @override
+  Future<void> fetchPartners({bool includeInactive = false, String? search, String? partnerType}) async {
+    state = const AsyncValue.data([]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockCompaniesNotifier extends StateNotifier<AsyncValue<List<ImportCompanyModel>>> implements ImportCompaniesNotifier {
+  _MockCompaniesNotifier(List<ImportCompanyModel> initial) : super(AsyncValue.data(initial));
+
+  @override
+  Future<void> fetchCompanies({bool includeInactive = false, String? search}) async {
+    state = const AsyncValue.data([]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockCurrenciesNotifier extends StateNotifier<AsyncValue<List<CurrencyModel>>> implements CurrenciesNotifier {
+  _MockCurrenciesNotifier(List<CurrencyModel> initial) : super(AsyncValue.data(initial));
+
+  @override
+  Future<void> fetchCurrencies({bool includeInactive = false, String? search}) async {
+    state = const AsyncValue.data([]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockCargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShippingModel>>> implements CargoShippingNotifier {
+  _MockCargoShippingNotifier(List<CargoShippingModel> initial) : super(AsyncValue.data(initial));
+
+  @override
+  Future<void> fetchRecords({bool includeInactive = true, int? importFileId, String? status, String? search}) async {
+    state = const AsyncValue.data([]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockFreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBookingModel>>> implements FreightBookingNotifier {
+  _MockFreightBookingNotifier(List<ShipmentBookingModel> initial) : super(AsyncValue.data(initial));
+
+  @override
+  Future<void> fetchBookings({bool includeInactive = false, int? importFileId, String? status, String? search}) async {
+    state = const AsyncValue.data([]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockPurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> implements PurchaseOrdersNotifier {
+  _MockPurchaseOrdersNotifier(List<PurchaseOrderModel> initial) : super(PurchaseOrdersState(purchaseOrders: initial));
+
+  @override
+  Future<void> fetchPurchaseOrders({bool includeInactive = false, String? search, int? importFileId, int? supplierId, String? status}) async {
+    state = state.copyWith(purchaseOrders: [], isLoading: false);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockLocaleNotifier extends LocaleNotifier {
+  _MockLocaleNotifier(Locale initial) {
+    state = initial;
+  }
 }

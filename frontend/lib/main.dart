@@ -51,7 +51,12 @@ void main() async {
 
   // Custom friendly error widget — prevents red screen of death
   ErrorWidget.builder = (FlutterErrorDetails details) {
-    // Cannot use context.l10n here (no BuildContext) — use static English strings
+    final errStr = details.exceptionAsString();
+    final isNetwork = errStr.toLowerCase().contains('connection') ||
+        errStr.toLowerCase().contains('socket') ||
+        errStr.toLowerCase().contains('dio') ||
+        errStr.toLowerCase().contains('http');
+
     return Material(
       color: Colors.grey.shade100,
       child: Center(
@@ -63,11 +68,15 @@ void main() async {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_off_rounded, size: 54, color: AppTheme.crimson),
+              Icon(
+                isNetwork ? Icons.cloud_off_rounded : Icons.info_outline_rounded,
+                size: 54,
+                color: isNetwork ? AppTheme.crimson : AppTheme.cobalt,
+              ),
               const SizedBox(height: 14),
-              const Text(
-                'Server Connection Error',
-                style: TextStyle(
+              Text(
+                isNetwork ? 'Server Connection Notice' : 'Application Interface Notice',
+                style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.charcoal),
@@ -75,7 +84,9 @@ void main() async {
               ),
               const SizedBox(height: 8),
               Text(
-                'Make sure the backend server is running on ${ApiConstants.serverUrl} then press Retry.',
+                isNetwork
+                    ? 'Make sure the backend server is running on ${ApiConstants.serverUrl} then press Reload.'
+                    : 'Press Reload to refresh the interface.',
                 style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
                 textAlign: TextAlign.center,
               ),
@@ -88,7 +99,7 @@ void main() async {
                   border: Border.all(color: Colors.red.shade200),
                 ),
                 child: SelectableText(
-                  'Error details:\n${details.exceptionAsString()}',
+                  'Details:\n$errStr',
                   style: const TextStyle(
                       fontSize: 11,
                       color: AppTheme.crimson,
@@ -111,7 +122,7 @@ void main() async {
                     },
                     icon: const Icon(Icons.refresh, color: Colors.white),
                     label: const Text(
-                      'Retry Connection',
+                      'Reload Application',
                       style: TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold),
                     ),
@@ -237,7 +248,7 @@ class _ImportFlowAppState extends ConsumerState<ImportFlowApp>
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'ImportFlow ERP - Sorour Logistics (v1.0.30)',
+            title: 'ImportFlow ERP - Sorour Logistics (v1.0.48)',
             theme: AppTheme.lightTheme,
             scrollBehavior: AppCustomScrollBehavior(),
             locale: locale,

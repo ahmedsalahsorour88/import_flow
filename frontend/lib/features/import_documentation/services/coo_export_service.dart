@@ -3,6 +3,23 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 class CooExportService {
+  static String sanitizeEnglishOnly(String input) {
+    if (input.isEmpty) return input;
+    var text = input.replaceAll(RegExp(r'\s*\([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s\.\-]+\)'), '');
+    text = text.replaceAll(RegExp(r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]'), '');
+    text = text.replaceAll(RegExp(r'\(\s*\)'), '');
+    text = text.replaceAll(RegExp(r'-\s*-+'), '-');
+    text = text.replaceAll(RegExp(r'\s*-\s*$'), '');
+    text = text.replaceAll(RegExp(r'^\s*-\s*'), '');
+    text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (text.toUpperCase() == 'CN -' || text.toUpperCase() == 'CN - (CHINA)' || text.toUpperCase() == 'CN-CHINA' || text.toUpperCase() == 'CN') {
+      text = 'CN - China';
+    } else if (text.toUpperCase().contains('CHINA') && text.contains('-')) {
+      text = 'CN - China';
+    }
+    return text;
+  }
+
   /// Generates the pdf.Document instance for Certificate of Origin (EUR.1 / China CCPIT / Generic)
   static Future<pw.Document> generateCOOPdf({
     required Map<String, dynamic> templateData,
@@ -14,20 +31,25 @@ class CooExportService {
     final fontCairo = await PdfGoogleFonts.cairoRegular();
     final fontCairoBold = await PdfGoogleFonts.cairoBold();
 
-    final certNo = templateData['certificate_number'] ?? 'DRAFT-COO';
+    final certNo = sanitizeEnglishOnly((templateData['certificate_number'] ?? 'DRAFT-COO').toString());
     final isChina = certificateType.toUpperCase().contains('CHINA') || certificateType.toUpperCase().contains('CCPIT');
     final isEur1 = certificateType.toUpperCase().contains('EUR.1') || certificateType.toUpperCase().contains('EUR1');
 
-    final exporter = templateData['box_1_exporter'] ?? 'EXPORTER / PRODUCER';
-    final consignee = templateData['box_2_consignee'] ?? templateData['box_3_consignee'] ?? 'IMPORTER / CONSIGNEE';
-    final transport = templateData['box_3_means_of_transport'] ?? templateData['box_6_transport_details'] ?? 'BY SEA';
-    final destination = templateData['box_4_country_of_destination'] ?? templateData['box_5_country_destination'] ?? 'EGYPT';
-    final origin = templateData['country_of_origin'] ?? templateData['box_4_country_origin'] ?? 'EUROPEAN UNION';
-    final hsCodes = templateData['box_8_hs_code'] ?? templateData['hs_code'] ?? templateData['hs_codes'] ?? '560229';
-    final goodsDesc = templateData['box_6_marks_and_numbers'] ?? templateData['box_8_description_packages'] ?? 'COMMERCIAL CARGO';
-    final weight = templateData['box_9_quantity_and_weight'] ?? templateData['box_9_gross_mass'] ?? 'GROSS WEIGHT';
-    final invoiceData = templateData['box_10_invoice_number_and_date'] ?? templateData['box_10_invoices_and_acid'] ?? 'INVOICE INFO';
-    final remarks = templateData['box_7_remarks'] ?? (isEur1 ? 'REVISED RULES' : 'N/A');
+    final exporter = sanitizeEnglishOnly((templateData['box_1_exporter'] ?? 'EXPORTER / PRODUCER').toString());
+    final consignee = sanitizeEnglishOnly((templateData['box_2_consignee'] ?? templateData['box_3_consignee'] ?? 'IMPORTER / CONSIGNEE').toString());
+    final transport = sanitizeEnglishOnly((templateData['box_3_means_of_transport'] ?? templateData['box_6_transport_details'] ?? 'BY SEA').toString());
+    final destination = sanitizeEnglishOnly((templateData['box_4_country_of_destination'] ?? templateData['box_5_country_destination'] ?? 'EGYPT').toString());
+    final origin = sanitizeEnglishOnly((templateData['country_of_origin'] ?? templateData['box_4_country_origin'] ?? 'EUROPEAN UNION').toString());
+    final hsCodes = (templateData['box_8_hs_code'] ?? templateData['hs_code'] ?? templateData['hs_codes'] ?? '560229').toString();
+    final goodsDesc = sanitizeEnglishOnly((templateData['box_6_marks_and_numbers'] ?? templateData['box_8_description_packages'] ?? 'COMMERCIAL CARGO').toString());
+    
+    var rawWeight = (templateData['box_9_quantity_and_weight'] ?? templateData['box_9_gross_mass'] ?? 'GROSS WEIGHT').toString();
+    rawWeight = rawWeight.replaceAll(RegExp(r'\s+G\.W\.\s*$', caseSensitive: false), '');
+    final weight = sanitizeEnglishOnly(rawWeight);
+
+    final invoiceData = sanitizeEnglishOnly((templateData['box_10_invoice_number_and_date'] ?? templateData['box_10_invoices_and_acid'] ?? 'INVOICE INFO').toString());
+    final remarks = sanitizeEnglishOnly((templateData['box_7_remarks'] ?? (isEur1 ? 'REVISED RULES' : 'N/A')).toString());
+    final cleanAcidNumber = sanitizeEnglishOnly(acidNumber);
 
     pdf.addPage(
       pw.Page(
@@ -48,7 +70,7 @@ class CooExportService {
                     hsCodes: hsCodes,
                     weight: weight,
                     invoiceData: invoiceData,
-                    acidNumber: acidNumber,
+                    acidNumber: cleanAcidNumber,
                   )
                 : _buildEur1Pdf(
                     certNo: certNo,
@@ -62,7 +84,7 @@ class CooExportService {
                     weight: weight,
                     invoiceData: invoiceData,
                     remarks: remarks,
-                    acidNumber: acidNumber,
+                    acidNumber: cleanAcidNumber,
                     exemptionNotes: exemptionNotes,
                     isEur1: isEur1,
                   ),
@@ -678,17 +700,18 @@ class CooExportService {
     required String certificateType,
     required String acidNumber,
   }) {
-    final certNo = templateData['certificate_number'] ?? 'DRAFT-COO';
-    final origin = templateData['country_of_origin'] ?? 'EUROPEAN UNION';
-    final hsCodes = templateData['box_8_hs_code'] ?? templateData['hs_codes'] ?? '560229';
-    final exporter = (templateData['box_1_exporter'] ?? '').toString().replaceAll('\n', ' ');
-    final consignee = (templateData['box_2_consignee'] ?? templateData['box_3_consignee'] ?? '').toString().replaceAll('\n', ' ');
+    final certNo = sanitizeEnglishOnly((templateData['certificate_number'] ?? 'DRAFT-COO').toString());
+    final origin = sanitizeEnglishOnly((templateData['country_of_origin'] ?? 'EUROPEAN UNION').toString());
+    final hsCodes = (templateData['box_8_hs_code'] ?? templateData['hs_codes'] ?? '560229').toString();
+    final exporter = sanitizeEnglishOnly((templateData['box_1_exporter'] ?? '').toString().replaceAll('\n', ' '));
+    final consignee = sanitizeEnglishOnly((templateData['box_2_consignee'] ?? templateData['box_3_consignee'] ?? '').toString().replaceAll('\n', ' '));
+    final cleanAcidNo = sanitizeEnglishOnly(acidNumber);
 
     final sb = StringBuffer();
     sb.writeln('Field,Value');
     sb.writeln('Certificate Type,"$certificateType"');
     sb.writeln('Certificate Number,"$certNo"');
-    sb.writeln('ACID Number,"$acidNumber"');
+    sb.writeln('ACID Number,"$cleanAcidNo"');
     sb.writeln('Exporter,"$exporter"');
     sb.writeln('Consignee,"$consignee"');
     sb.writeln('Country of Origin,"$origin"');

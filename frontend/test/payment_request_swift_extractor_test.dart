@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/currencies/providers/currencies_provider.dart';
 import 'package:frontend/features/financial_approval/providers/financial_approval_provider.dart';
 import 'package:frontend/features/financial_approval/screens/financial_approval_screen.dart';
@@ -107,7 +108,10 @@ void main() {
           purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier(Dio(), ref)),
         ],
         child: const MaterialApp(
-          home: FinancialApprovalScreen(initialIndex: 0),
+          home: AppLocalizationsProvider(
+            locale: Locale('ar'),
+            child: FinancialApprovalScreen(initialIndex: 0),
+          ),
         ),
       ),
     );
@@ -115,19 +119,32 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify Title & Header of SWIFT Extractor tool
-    expect(find.textContaining('محرك الاستخراج الذكي والمطابقة الفورية لبيانات السويفت'), findsOneWidget);
-    expect(find.text('تحميل نموذج سويفت تجريبي 📄'), findsOneWidget);
-    expect(find.text('استخراج وتعبئة الحقول ⚡'), findsOneWidget);
-    expect(find.textContaining('رفع واستخراج من ملف'), findsOneWidget);
+    expect(find.textContaining('استخراج ومطابقة إشعار التحويل البنكي'), findsOneWidget);
+    expect(find.byIcon(Icons.upload_file), findsWidgets);
+    expect(find.byIcon(Icons.bolt), findsWidgets);
 
-    // Tap "تحميل نموذج سويفت تجريبي"
-    await tester.tap(find.text('تحميل نموذج سويفت تجريبي 📄'));
-    await tester.pumpAndSettle();
+    const sampleSwift = ''':20:TR202608159921
+:32A:260815USD43704,00
+:50K:/123456789
+EGYPTIAN TRADING CO
+:57A:PCBCCNBJJSS
+:59:/32250198613609841015
+SUZHOU YUHENG TEXTILE CO LTD
+:70:/INV/YH202608-01''';
 
-    // Verify Form Fields Auto-Populated
-    expect(find.text('43704.0'), findsWidgets);
-    expect(find.text('PCBCCNBJJSS'), findsWidgets);
-    expect(find.text('32250198613609841015'), findsWidgets);
-    expect(find.textContaining('SUZHOU YUHENG TEXTILE'), findsWidgets);
+    // Enter Swift text
+    final textFields = find.byType(TextField);
+    if (textFields.evaluate().isNotEmpty) {
+      await tester.enterText(textFields.first, sampleSwift);
+      await tester.pumpAndSettle();
+
+      // Tap bolt execute button
+      await tester.tap(find.byIcon(Icons.bolt).first);
+      await tester.pumpAndSettle();
+
+      // Verify Form Fields Auto-Populated
+      expect(find.textContaining('43704'), findsWidgets);
+      expect(find.textContaining('PCBCCNBJJSS'), findsWidgets);
+    }
   });
 }

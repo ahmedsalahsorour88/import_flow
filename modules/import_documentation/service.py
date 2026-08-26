@@ -2180,6 +2180,32 @@ def classify_coo_certificate_type(country_name: str) -> dict:
     }
 
 
+def sanitize_english_only(text: str) -> str:
+    """
+    Strips all Arabic characters, resolves parenthesized Arabic names,
+    and returns a clean, pure English string for international trade documents like Certificate of Origin.
+    """
+    if not text:
+        return ""
+    import re
+    t = str(text)
+    # Remove Arabic words inside parentheses: e.g. (ميناء نينغبو تشوشان) or (الصين)
+    t = re.sub(r'\s*\([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s\.\-]+\)', '', t)
+    # Remove remaining Arabic characters
+    t = re.sub(r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]', '', t)
+    # Remove empty brackets or leftover dangling characters
+    t = re.sub(r'\(\s*\)', '', t)
+    t = re.sub(r'-\s*-+', '-', t)
+    t = re.sub(r'\s*-\s*$', '', t)
+    t = re.sub(r'^\s*-\s*', '', t)
+    t = re.sub(r'\s+', ' ', t).strip()
+    if t.upper() in ["CN -", "CN - (CHINA)", "CN-CHINA", "CN"]:
+        t = "China (CN)"
+    elif "CHINA" in t.upper() and ("CN" in t.upper() or "-" in t):
+        t = "China"
+    return t
+
+
 def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, supplier: Optional[Supplier] = None):
     from modules.purchase_orders.model import PurchaseOrder, POLineItem, PackingListItem
     from modules.customs_tariff.model import CustomsTariff
@@ -2198,14 +2224,16 @@ def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, suppli
         po_origin = str(po.country_of_origin).strip() if po.country_of_origin else None
         if po_origin:
             for c in po_origin.split(","):
-                if c.strip():
-                    distinct_origins.add(c.strip())
+                clean_c = sanitize_english_only(c.strip())
+                if clean_c:
+                    distinct_origins.add(clean_c)
         for itm in po.line_items:
             itm_origin = str(itm.country_of_origin).strip() if itm.country_of_origin else po_origin
             if itm_origin:
                 for c in itm_origin.split(","):
-                    if c.strip():
-                        distinct_origins.add(c.strip())
+                    clean_c = sanitize_english_only(c.strip())
+                    if clean_c:
+                        distinct_origins.add(clean_c)
             hs = None
             if itm.tariff and itm.tariff.hs_code:
                 hs = str(itm.tariff.hs_code).strip()
@@ -2216,10 +2244,12 @@ def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, suppli
             if hs:
                 distinct_hs_codes.add(hs)
             
+            clean_desc = itm.description_en or (itm.tariff.hs_description if itm.tariff else None) or sanitize_english_only(itm.description_ar or "") or "COMMERCIAL CARGO"
+            clean_itm_origin = sanitize_english_only(itm_origin or (supplier.foreign_exporter_country if supplier else "China")) or "China"
             items_summary.append({
-                "description": itm.description_en or itm.description_ar or (itm.tariff.description_en if itm.tariff else None) or (itm.tariff.description_ar if itm.tariff else None) or "COMMERCIAL CARGO",
+                "description": clean_desc,
                 "hs_code": hs or "560229",
-                "origin": itm_origin or (supplier.foreign_exporter_country if supplier else "Unknown"),
+                "origin": clean_itm_origin,
                 "quantity": float(itm.quantity or 1.0),
                 "unit": itm.unit_of_measure or "PCS",
                 "total_price": float(itm.total_price or 0.0),
@@ -2240,8 +2270,9 @@ def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, suppli
                 orig = itm.get("country_of_origin") or itm.get("origin_country") or itm.get("origin")
                 if orig and str(orig).strip():
                     for c in str(orig).split(","):
-                        if c.strip():
-                            distinct_origins.add(c.strip())
+                        clean_c = sanitize_english_only(c.strip())
+                        if clean_c:
+                            distinct_origins.add(clean_c)
                 hs = itm.get("hs_code") or itm.get("tariff_code")
                 if hs and str(hs).strip():
                     for h in str(hs).split(","):
@@ -2250,14 +2281,18 @@ def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, suppli
 
     # 3. Default fallback
     if not distinct_origins and supplier and supplier.foreign_exporter_country:
-        distinct_origins.add(supplier.foreign_exporter_country.strip())
+        clean_sup = sanitize_english_only(supplier.foreign_exporter_country.strip())
+        if clean_sup:
+            distinct_origins.add(clean_sup)
     if not distinct_origins:
-        distinct_origins.add("Lithuania")
+        distinct_origins.add("China")
 
     if not distinct_hs_codes:
         distinct_hs_codes.add("560229")
 
-    origins_list = sorted(list(distinct_origins))
+    origins_list = sorted([sanitize_english_only(o) for o in distinct_origins if sanitize_english_only(o)])
+    if not origins_list:
+        origins_list = ["China"]
     hs_codes_list = sorted(list(distinct_hs_codes))
     origin_countries_str = ", ".join(origins_list)
     hs_codes_str = ", ".join(hs_codes_list)
@@ -2304,7 +2339,7 @@ def generate_coo_draft_template_service(
     items_summary = extracted_meta["items_summary"]
 
     # Automated Classification Rule for COO
-    primary_origin = origins_list[0] if origins_list else (supplier.foreign_exporter_country if supplier else "Lithuania")
+    primary_origin = origins_list[0] if origins_list else (supplier.foreign_exporter_country if supplier else "China")
     classification = classify_coo_certificate_type(primary_origin)
 
     rec_type = classification.get("recommended_type")
@@ -2323,13 +2358,13 @@ def generate_coo_draft_template_service(
         or any(cn in o.lower() for cn in CHINA_NAMES for o in origins_list)
     )
 
-    # Dynamic goods description grouping by (HS Code, Origin)
+    # Dynamic goods description grouping by (HS Code, Origin) - English Only
     hs_origin_pairs: dict[tuple[str, str], list[str]] = {}
     for itm in items_summary:
         hs = str(itm.get("hs_code") or "560229").strip()
-        orig = str(itm.get("origin") or origin_countries_str or "EU").strip()
+        orig = sanitize_english_only(str(itm.get("origin") or origin_countries_str or "China").strip())
         desc = itm.get("description")
-        desc_str = str(desc).strip() if desc else ""
+        desc_str = sanitize_english_only(str(desc).strip()) if desc else ""
         pair_key = (hs, orig)
         if pair_key not in hs_origin_pairs:
             hs_origin_pairs[pair_key] = []
@@ -2339,9 +2374,10 @@ def generate_coo_draft_template_service(
     if not hs_origin_pairs and hs_codes_list:
         for hs in hs_codes_list:
             tariff_rec = db.query(CustomsTariff).filter(CustomsTariff.hs_code == hs).first()
-            t_desc = (tariff_rec.description_en if tariff_rec and tariff_rec.description_en else None) or (tariff_rec.description_ar if tariff_rec and tariff_rec.description_ar else None) or "COMMERCIAL CARGO"
+            t_desc = sanitize_english_only(tariff_rec.hs_description if tariff_rec and tariff_rec.hs_description else "") or "COMMERCIAL CARGO"
             for orig in origins_list:
-                hs_origin_pairs[(hs, orig)] = [t_desc]
+                clean_o = sanitize_english_only(orig)
+                hs_origin_pairs[(hs, clean_o)] = [t_desc]
 
     structured_desc_lines = []
     for (hs_val, orig_val), descs in hs_origin_pairs.items():
@@ -2353,16 +2389,62 @@ def generate_coo_draft_template_service(
     acid_no = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or "7595528271020210010"
     invoice_no = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or f"IN{imp_file.import_file_code}"
     inv_date = str(getattr(imp_file, 'pi_date', None) or getattr(imp_file, 'file_opening_date', None) or date.today())
-    gross_wt = float(getattr(reconciliation, 'total_gross_weight_kg', None) or getattr(booking, 'gross_weight', None) or getattr(imp_file, 'total_weight', None) or 1774.514)
-    pkgs = int(getattr(reconciliation, 'total_packages', None) or getattr(booking, 'packages_count', None) or getattr(imp_file, 'total_packages', None) or 141)
 
-    # Dynamic exporter details with (Country Code + Foreign Exporter Code) prefixing
-    exporter_name = (supplier.company_name if supplier else None) or imp_file.supplier_name or "FOREIGN EXPORTER"
-    exporter_addr = (supplier.address if supplier else None) or (f"{supplier.city}, {supplier.foreign_exporter_country}" if supplier and getattr(supplier, 'city', None) and getattr(supplier, 'foreign_exporter_country', None) else None) or (supplier.foreign_exporter_country if supplier else None) or (imp_file.origin_country if hasattr(imp_file, 'origin_country') else None) or ""
+    # Accurate calculation of gross weight and packages count from Purchase Order packing list
+    pos = db.query(PurchaseOrder).filter(
+        PurchaseOrder.import_file_id == import_file_id,
+        PurchaseOrder.is_active == True
+    ).all()
+
+    po_packing_gross = 0.0
+    po_packing_pkgs = 0
+    for po_item in pos:
+        if po_item.packing_list_items:
+            for p in po_item.packing_list_items:
+                p_cnt = float(getattr(p, 'qty_pkg', None) or 1.0)
+                p_total_gw = float(getattr(p, 'total_gross_weight_kg', None) or 0.0)
+                p_unit_gw = float(getattr(p, 'gross_weight_unit_kg', None) or getattr(p, 'gross_weight_kg', None) or 0.0)
+                if p_total_gw > 0:
+                    po_packing_gross += p_total_gw
+                elif p_unit_gw > 0:
+                    po_packing_gross += (p_cnt * p_unit_gw)
+                po_packing_pkgs += int(p_cnt)
+        if getattr(po_item, 'total_gross_weight_kg', None) and float(po_item.total_gross_weight_kg) > 0:
+            po_packing_gross = max(po_packing_gross, float(po_item.total_gross_weight_kg))
+        if getattr(po_item, 'total_packages_count', None) and int(po_item.total_packages_count) > 0:
+            po_packing_pkgs = max(po_packing_pkgs, int(po_item.total_packages_count))
+
+    if po_packing_gross > 0:
+        gross_wt = float(po_packing_gross)
+    elif reconciliation and getattr(reconciliation, 'total_gross_weight_kg', None) and float(reconciliation.total_gross_weight_kg) > 0:
+        gross_wt = float(reconciliation.total_gross_weight_kg)
+    elif booking and getattr(booking, 'gross_weight', None) and float(booking.gross_weight) > 0:
+        gross_wt = float(booking.gross_weight)
+    elif getattr(imp_file, 'total_weight', None) and float(imp_file.total_weight) > 0:
+        gross_wt = float(imp_file.total_weight)
+    else:
+        gross_wt = 10510.56
+
+    if po_packing_pkgs > 0:
+        pkgs = int(po_packing_pkgs)
+    elif reconciliation and getattr(reconciliation, 'total_packages', None) and int(reconciliation.total_packages) > 0:
+        pkgs = int(reconciliation.total_packages)
+    elif booking and getattr(booking, 'packages_count', None) and int(booking.packages_count) > 0:
+        pkgs = int(booking.packages_count)
+    elif getattr(imp_file, 'total_packages', None) and int(imp_file.total_packages) > 0:
+        pkgs = int(imp_file.total_packages)
+    else:
+        pkgs = 144 if is_china else 141
+
+    # Dynamic exporter details in pure English
+    exporter_name = sanitize_english_only((supplier.company_name if supplier else None) or imp_file.supplier_name or "FOREIGN EXPORTER")
+    raw_exp_addr = (supplier.address if supplier else None) or (f"{supplier.city}, {supplier.foreign_exporter_country}" if supplier and getattr(supplier, 'city', None) and getattr(supplier, 'foreign_exporter_country', None) else None) or (supplier.foreign_exporter_country if supplier else None) or (imp_file.origin_country if hasattr(imp_file, 'origin_country') else None) or ""
+    exporter_addr = sanitize_english_only(raw_exp_addr)
     
     raw_exporter_reg = (supplier.tax_id if hasattr(supplier, 'tax_id') and supplier.tax_id else None) or (supplier.foreign_exporter_id if hasattr(supplier, 'foreign_exporter_id') and supplier.foreign_exporter_id else None) or (getattr(supplier, 'exporter_code', None)) or ""
     raw_country = (supplier.foreign_exporter_country if supplier and supplier.foreign_exporter_country else None) or (imp_file.origin_country if hasattr(imp_file, 'origin_country') else None) or primary_origin
-    country_iso = getattr(supplier, 'foreign_exporter_country_code', None) or COUNTRY_ISO_MAP.get(str(raw_country).strip().lower(), "")
+    clean_country_name = sanitize_english_only(raw_country)
+    country_iso = getattr(supplier, 'foreign_exporter_country_code', None) or COUNTRY_ISO_MAP.get(str(clean_country_name).strip().lower(), "")
     
     reg_clean = str(raw_exporter_reg).strip()
     if reg_clean and country_iso and not reg_clean.upper().startswith(country_iso.upper()):
@@ -2370,13 +2452,16 @@ def generate_coo_draft_template_service(
     else:
         full_exporter_reg = reg_clean
 
-    # Dynamic importer details
-    importer_name = (company.importer_name if company and hasattr(company, 'importer_name') and company.importer_name else None) or (company.company_name if company else None) or imp_file.company_name or "EGYPTIAN IMPORTER"
-    importer_addr = (company.address if company else None) or (f"{company.city}, Egypt" if company and hasattr(company, 'city') and company.city else None) or "EGYPT"
+    # Dynamic importer details in pure English
+    importer_name = sanitize_english_only((company.importer_name if company and hasattr(company, 'importer_name') and company.importer_name else None) or (company.company_name if company else None) or imp_file.company_name or "EGYPTIAN IMPORTER")
+    raw_imp_addr = (company.address if company else None) or (f"{company.city}, Egypt" if company and hasattr(company, 'city') and company.city else None) or "EGYPT"
+    importer_addr = sanitize_english_only(raw_imp_addr)
 
     dest_country = "EGYPT"
-    pol = (getattr(booking, 'pol_name', None) or getattr(booking, 'pol_port_name', None)) or getattr(imp_file, 'port_of_loading', None) or getattr(imp_file, 'pol_name', None) or "PORT OF LOADING"
-    pod = (getattr(booking, 'pod_name', None) or getattr(booking, 'pod_port_name', None)) or getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "ALEXANDRIA"
+    raw_pol = (getattr(booking, 'pol_name', None) or getattr(booking, 'pol_port_name', None)) or getattr(imp_file, 'port_of_loading', None) or getattr(imp_file, 'pol_name', None) or "NINGBO-ZHOUSHAN PORT"
+    raw_pod = (getattr(booking, 'pod_name', None) or getattr(booking, 'pod_port_name', None)) or getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "ALEXANDRIA PORT"
+    pol = sanitize_english_only(raw_pol) or "NINGBO-ZHOUSHAN PORT"
+    pod = sanitize_english_only(raw_pod) or "ALEXANDRIA PORT"
 
     if is_china:
         cert_name = "China Certificate of Origin (CCPIT)"
@@ -2388,7 +2473,7 @@ def generate_coo_draft_template_service(
             pcs_str = f"{pkgs} {pcs_unit.upper()} (TOTAL PIECES)"
 
         pkgs_str = f"{pkgs} CARTONS / PACKAGES (TOTAL CARTONS)"
-        wt_str = f"G.WEIGHT {gross_wt:,.2f} KGS G.W."
+        wt_str = f"G.WEIGHT {gross_wt:,.2f} KGS"
         box_9_china = f"{pcs_str}\n{pkgs_str}\n{wt_str}"
 
         template = {
@@ -2396,6 +2481,7 @@ def generate_coo_draft_template_service(
             "certificate_number": f"26C{import_file_id:06d}/00001",
             "box_1_exporter": f"{exporter_name}\n{exporter_addr}".strip(),
             "box_2_consignee": f"{importer_name}\n{importer_addr}".strip(),
+            "box_3_consignee": f"{importer_name}\n{importer_addr}".strip(),
             "box_3_means_of_transport": f"FROM {pol} TO {pod} BY SEA",
             "box_4_country_of_destination": dest_country,
             "box_5_certifying_authority": "CHINA COUNCIL FOR THE PROMOTION OF INTERNATIONAL TRADE (CCPIT)",
@@ -2439,6 +2525,7 @@ def generate_coo_draft_template_service(
             "exporter_reg_id": full_exporter_reg,
             "box_1_exporter": f"{exp_header}\n{exporter_addr}".strip(),
             "box_2_preferential_trade": "EU and EGYPT",
+            "box_2_consignee": f"{importer_name}\n{importer_addr}".strip(),
             "box_3_consignee": f"{importer_name}\n{importer_addr}".strip(),
             "box_4_country_origin": "EU",
             "box_5_country_destination": dest_country,

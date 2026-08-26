@@ -147,7 +147,7 @@ void main() {
     expect(find.textContaining('سجل جلسات المطابقة المحفوظة'), findsWidgets);
 
     // Verify presence of the Smart Extraction & 3-Way Reconciliation Tool Card
-    expect(find.textContaining('Smart 3-Way Extractor'), findsOneWidget);
+    expect(find.byIcon(Icons.auto_awesome), findsWidgets);
     expect(find.textContaining('الفاتورة التجارية النهائية'), findsWidgets);
     expect(find.textContaining('قائمة التعبئة والأوزان'), findsWidgets);
 

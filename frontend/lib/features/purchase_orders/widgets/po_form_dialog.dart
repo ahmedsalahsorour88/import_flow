@@ -960,21 +960,29 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     final tariffs = tariffsAsync.value ?? [];
     final importFiles = importFilesAsync.value ?? [];
 
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
     final cachedCountryItems = [
-      const SearchableDropdownItem<String?>(value: null, label: '-- الافتراضي --'),
-      ...countryOptions.map((c) => SearchableDropdownItem<String?>(
-            value: c['name'],
-            label: c['name']!,
-          )),
+      SearchableDropdownItem<String?>(value: null, label: isArabic ? '-- الافتراضي --' : '-- Default --'),
+      ...countryOptions.map((c) {
+        final label = isArabic ? c['name']! : '${c['code']} - ${c['code'] == 'CN' ? 'China' : c['code'] == 'DE' ? 'Germany' : c['code'] == 'IT' ? 'Italy' : c['code'] == 'LT' ? 'Lithuania' : c['name']!.split('(').last.replaceAll(')', '')}';
+        return SearchableDropdownItem<String?>(
+          value: c['name'],
+          label: label,
+        );
+      }),
     ];
 
-    final cachedUomItems = kMasterUnitsOfMeasure
-        .map((u) => SearchableDropdownItem<String>(value: u['code']!, label: u['name']!))
-        .toList();
+    final cachedUomItems = kMasterUnitsOfMeasure.map((u) {
+      final label = isArabic ? u['name']! : '${u['code']} - ${u['name']!.split(' - ').last.split('(').first.trim()}';
+      return SearchableDropdownItem<String>(value: u['code']!, label: label);
+    }).toList();
 
-    final cachedPackageTypeItems = kMasterPackageTypes
-        .map((p) => SearchableDropdownItem<String>(value: p['name']!, label: '${p['name']} (${p['code']})'))
-        .toList();
+    final cachedPackageTypeItems = kMasterPackageTypes.map((p) {
+      final cleanEn = p['name']!.split(' - ').last.split('(').first.trim();
+      final label = isArabic ? '${p['name']} (${p['code']})' : '${p['code']} - $cleanEn';
+      return SearchableDropdownItem<String>(value: p['name']!, label: label);
+    }).toList();
 
     final reconciliation = evaluatePOReconciliation(
       invoiceItems: _dialogItems,
@@ -1938,14 +1946,14 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       crossAxisAlignment: WrapCrossAlignment.center,
                                       alignment: WrapAlignment.spaceBetween,
                                       children: [
-                                        const Row(
+                                        Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(Icons.pallet, color: AppTheme.cobalt, size: 20),
-                                            SizedBox(width: 8),
+                                            const Icon(Icons.pallet, color: AppTheme.cobalt, size: 20),
+                                            const SizedBox(width: 8),
                                             Text(
-                                              'لوحة مخطط وحدات الشحن والبالتات (Master Palletization Plan)',
-                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                              context.l10n.masterPalletizationPlanTitle,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                             ),
                                           ],
                                         ),
@@ -1962,7 +1970,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                 border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
                                               ),
                                               child: Text(
-                                                '🔢 إجمالي البالتات: ${_dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount)} بالتة',
+                                                '🔢 ${context.l10n.totalPalletsPill(_dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount))}',
                                                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                               ),
                                             ),
@@ -1974,7 +1982,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                 border: Border.all(color: Colors.orange.withOpacity(0.4)),
                                               ),
                                               child: Text(
-                                                '📐 حجم البالتات: ${_dialogPalletItems.fold<double>(0.0, (sum, p) => sum + p.calculatedCbm).toStringAsFixed(3)} m³',
+                                                '📐 ${context.l10n.palletsVolumePill(_dialogPalletItems.fold<double>(0.0, (sum, p) => sum + p.calculatedCbm).toStringAsFixed(3))}',
                                                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
                                               ),
                                             ),
@@ -1985,7 +1993,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                               ),
                                               icon: const Icon(Icons.add_circle_outline, size: 16),
-                                              label: const Text('إضافة سطر بالتات', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                              label: Text(context.l10n.addPalletRowBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                               onPressed: () {
                                                 setState(() {
                                                   _dialogPalletItems.add(PalletPlanItemModel(
@@ -2007,7 +2015,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                               ),
                                               icon: const Icon(Icons.view_in_ar_rounded, size: 16),
-                                              label: Text('محاكاة ورص الحاويات 3D (${_dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount)} بالتة)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                              label: Text(context.l10n.simulateAndPackPallets3dBtn(_dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                               onPressed: () => _showPoVisualLoadPlannerDialog(context, _dialogPackingItems),
                                             ),
                                           ],
@@ -2025,7 +2033,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           padding: const EdgeInsets.symmetric(vertical: 12),
                                           child: TextButton.icon(
                                             icon: const Icon(Icons.add, color: AppTheme.cobalt),
-                                            label: const Text('اضغط هنا لإضافة أسطر البالتات وتوزيع الشحنة عليها'),
+                                            label: Text(context.l10n.clickToAddPalletsPrompt),
                                             onPressed: () {
                                               setState(() {
                                                 _dialogPalletItems.add(PalletPlanItemModel(
@@ -2068,7 +2076,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                         borderRadius: BorderRadius.circular(4),
                                                       ),
                                                       child: Text(
-                                                        'سطر بالتات #${pIdx + 1}',
+                                                        context.l10n.palletRowHeader(pIdx + 1),
                                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt),
                                                       ),
                                                     ),
@@ -2081,7 +2089,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                         border: Border.all(color: pLine.isStackable ? Colors.green.shade300 : Colors.orange.shade300),
                                                       ),
                                                       child: Text(
-                                                        pLine.isStackable ? 'قابل للرص 📦' : 'غير قابل للرص (Floor Placement) 🚫',
+                                                        pLine.isStackable ? context.l10n.palletStackableBadge : context.l10n.palletFloorOnlyBadge,
                                                         style: TextStyle(
                                                           fontSize: 10,
                                                           fontWeight: FontWeight.bold,
@@ -2091,7 +2099,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     ),
                                                     const Spacer(),
                                                     Text(
-                                                      'حجم السطر: ${pLine.calculatedCbm.toStringAsFixed(3)} m³ | إجمالي الوزن: ${pLine.totalWeightKg.toStringAsFixed(1)} kg',
+                                                      context.l10n.palletRowSummary(pLine.calculatedCbm.toStringAsFixed(3), pLine.totalWeightKg.toStringAsFixed(1)),
                                                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87),
                                                     ),
                                                     const SizedBox(width: 8),
@@ -2099,7 +2107,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                       icon: const Icon(Icons.remove_circle_outline, color: AppTheme.crimson, size: 20),
                                                       padding: EdgeInsets.zero,
                                                       constraints: const BoxConstraints(),
-                                                      tooltip: 'حذف سطر البالتات',
+                                                      tooltip: context.l10n.deletePalletRowTooltip,
                                                       onPressed: () {
                                                         setState(() {
                                                           _dialogPalletItems.removeAt(pIdx);
@@ -2115,11 +2123,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                       flex: 3,
                                                       child: SearchableDropdownField<String>(
                                                         value: pLine.palletType,
-                                                        labelText: 'نوع ومقاس البالتة',
-                                                        items: const [
-                                                          SearchableDropdownItem(value: 'Euro Pallet (120x80)', label: 'Euro Pallet (120 × 80 cm)'),
-                                                          SearchableDropdownItem(value: 'Standard Pallet (120x100)', label: 'Standard Industrial (120 × 100 cm)'),
-                                                          SearchableDropdownItem(value: 'Custom Pallet', label: 'Custom Pallet (أبعاد مخصصة)'),
+                                                        labelText: context.l10n.palletTypeAndSizeLabel,
+                                                        items: [
+                                                          const SearchableDropdownItem(value: 'Euro Pallet (120x80)', label: 'Euro Pallet (120 × 80 cm)'),
+                                                          const SearchableDropdownItem(value: 'Standard Pallet (120x100)', label: 'Standard Industrial (120 × 100 cm)'),
+                                                          SearchableDropdownItem(value: 'Custom Pallet', label: context.l10n.customPalletOption),
                                                         ],
                                                         onChanged: (v) {
                                                           if (v != null) {
@@ -2149,7 +2157,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                       child: TextFormField(
                                                         initialValue: pLine.palletCount.toString(),
                                                         keyboardType: TextInputType.number,
-                                                        decoration: const InputDecoration(labelText: 'عدد البالتات (Qty) *', isDense: true),
+                                                        decoration: InputDecoration(labelText: context.l10n.palletCountFieldLabel, isDense: true),
                                                         onChanged: (v) {
                                                           final count = int.tryParse(v) ?? 1;
                                                           setState(() {
@@ -2163,10 +2171,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                       flex: 3,
                                                       child: SearchableDropdownField<bool>(
                                                         value: pLine.isStackable,
-                                                        labelText: 'تعليمات رص البالتة *',
-                                                        items: const [
-                                                          SearchableDropdownItem(value: false, label: '🚫 غير قابل للرص (Floor Only)'),
-                                                          SearchableDropdownItem(value: true, label: '📦 قابل للرص (Stackable)'),
+                                                        labelText: context.l10n.palletStackingInstructionsLabel,
+                                                        items: [
+                                                          SearchableDropdownItem(value: false, label: '🚫 ${context.l10n.simulationModeFloorOnly}'),
+                                                          SearchableDropdownItem(value: true, label: '📦 ${context.l10n.simulationModeStackable}'),
                                                         ],
                                                         onChanged: (v) {
                                                           if (v != null) {
@@ -3481,10 +3489,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        "حاوية #${pIdx + 1}: ${res.spec.code} — (${res.placedItems.length} طرد) — استغلال المساحة: ${spacePct.toStringAsFixed(1)}% | استغلال الحمولة: ${weightPct.toStringAsFixed(1)}%",
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.cobalt),
+                                      Expanded(
+                                        child: Text(
+                                          context.l10n.containerCardHeader(pIdx + 1, res.spec.code, res.placedItems.length, spacePct.toStringAsFixed(1), weightPct.toStringAsFixed(1)),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                                        ),
                                       ),
+                                      const SizedBox(width: 8),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                         decoration: BoxDecoration(
@@ -3492,7 +3503,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Text(
-                                          'أبعاد داخلية: ${res.spec.internalLength.toStringAsFixed(0)} × ${res.spec.internalWidth.toStringAsFixed(0)} × ${res.spec.internalHeight.toStringAsFixed(0)} سم',
+                                          context.l10n.internalDimensionsLabel(res.spec.internalLength.toStringAsFixed(0), res.spec.internalWidth.toStringAsFixed(0), res.spec.internalHeight.toStringAsFixed(0)),
                                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                         ),
                                       ),
@@ -3517,7 +3528,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                     child: ExpansionTile(
                                       tilePadding: EdgeInsets.zero,
                                       title: Text(
-                                        '📋 تفاصيل ومواقع الطرود المرصوصة داخل الحاوية (${res.placedItems.length} طرد)',
+                                        context.l10n.placedPackagesTableTitle(res.placedItems.length),
                                         style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                                       ),
                                       children: [
@@ -3534,13 +3545,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           children: [
                                             TableRow(
                                               decoration: BoxDecoration(color: Colors.grey.shade200),
-                                              children: const [
-                                                Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                Padding(padding: EdgeInsets.all(6), child: Text('كود الطرد / الصنف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                                Padding(padding: EdgeInsets.all(6), child: Text('الأبعاد (L×W×H سم)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                Padding(padding: EdgeInsets.all(6), child: Text('الوزن (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                Padding(padding: EdgeInsets.all(6), child: Text('إحداثيات الموضع (X, Y, Z سم)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                                                Padding(padding: EdgeInsets.all(6), child: Text('الرص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                              children: [
+                                                const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thPackageCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                                Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thDimensions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thWeight, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thCoordinates, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                Padding(padding: const EdgeInsets.all(6), child: Text(context.l10n.thStacking, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                                               ],
                                             ),
                                             ...res.placedItems.asMap().entries.map((entry) {

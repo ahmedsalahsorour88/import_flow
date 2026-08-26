@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
@@ -19,10 +20,15 @@ class _StreamlitBoardScreenState extends ConsumerState<StreamlitBoardScreen> {
   @override
   void initState() {
     super.initState();
-    _checkServerStatus();
+    if (!kIsWeb) {
+      _checkServerStatus();
+    } else {
+      _statusMessage = 'لوحة Streamlit تعمل على http://localhost:8501';
+    }
   }
 
   Future<void> _checkServerStatus() async {
+    if (kIsWeb) return;
     try {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 2);
@@ -45,6 +51,7 @@ class _StreamlitBoardScreenState extends ConsumerState<StreamlitBoardScreen> {
   }
 
   Future<void> _launchStreamlitServer() async {
+    if (kIsWeb) return;
     setState(() {
       _isLaunching = true;
       _statusMessage = 'جاري تشغيل خادم Streamlit...';
@@ -75,6 +82,7 @@ class _StreamlitBoardScreenState extends ConsumerState<StreamlitBoardScreen> {
   }
 
   Future<void> _openInBrowser() async {
+    if (kIsWeb) return;
     try {
       if (Platform.isWindows) {
         await Process.run('cmd', ['/c', 'start', 'http://localhost:8501']);

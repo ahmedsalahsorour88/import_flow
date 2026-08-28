@@ -275,4 +275,17 @@ class TestProductionSyncBackend(unittest.TestCase):
                 sync_service.DEV_DB = original_dev
                 sync_service.PROD_DB = original_prod
 
+    def test_check_remote_update_returns_schema(self):
+        """
+        Verify check_remote_update() executes safely, handles offline/online states,
+        and returns a valid RemoteUpdateCheckResponseSchema instance.
+        """
+        from modules.production_sync.schemas import RemoteUpdateCheckResponseSchema
+        result = self.service.check_remote_update()
+        self.assertIsInstance(result, RemoteUpdateCheckResponseSchema)
+        self.assertIsNotNone(result.current_version)
+        self.assertGreaterEqual(result.current_build, 1)
+        self.assertIn(result.check_status, ["success", "no_update", "offline", "error"])
+
+
 

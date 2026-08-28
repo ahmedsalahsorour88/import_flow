@@ -24,6 +24,12 @@ from modules.import_documentation.schemas import (
     CustomsDeclarationCreate,
     POReconciliationSessionCreate,
     POReconciliationSessionUpdate,
+    DraftBLReviewCreate,
+    DraftBLReviewUpdate,
+    CertificateOfOriginReviewCreate,
+    CertificateOfOriginReviewUpdate,
+    InspectionCertificateReviewCreate,
+    InspectionCertificateReviewUpdate,
 )
 
 

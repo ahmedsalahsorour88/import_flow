@@ -73,3 +73,20 @@ class RestoreBackupResponseSchema(BaseModel):
     restored_from: str
     safety_backup_created: str
     target: str
+
+
+class RemoteUpdateCheckResponseSchema(BaseModel):
+    current_version: str
+    current_build: int
+    latest_version: Optional[str] = None
+    latest_tag: Optional[str] = None
+    update_available: bool = False
+    release_name: Optional[str] = None
+    release_notes: Optional[str] = None
+    published_at: Optional[str] = None
+    installer_download_url: Optional[str] = None
+    portable_zip_download_url: Optional[str] = None
+    html_url: Optional[str] = None
+    check_status: str = "success"
+    error_message: Optional[str] = None
+

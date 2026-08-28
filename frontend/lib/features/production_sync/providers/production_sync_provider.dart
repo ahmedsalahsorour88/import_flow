@@ -89,3 +89,9 @@ final productionSyncNotifierProvider =
   return ProductionSyncNotifier(service, ref);
 });
 
+final remoteUpdateCheckProvider = FutureProvider.autoDispose<RemoteUpdateCheckModel>((ref) async {
+  final service = ref.watch(productionSyncServiceProvider);
+  return await service.checkRemoteUpdate();
+});
+
+

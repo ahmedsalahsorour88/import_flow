@@ -1,0 +1,120 @@
+﻿name: Build & Release Sorour Logistics
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Release Windows Standalone & Installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller pytest
+
+      - name: Run Backend Pytest Suite
+        run: |
+          python -m pytest
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Enable Windows Desktop Support
+        run: |
+          flutter config --enable-windows-desktop
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: |
+          flutter pub get
+
+      - name: Run Frontend Tests
+        working-directory: ./frontend
+        run: |
+          flutter test
+
+      - name: Build Standalone Backend Executable (backend.exe)
+        run: |
+          python build_backend_exe.py
+
+      - name: Build Flutter Windows Desktop Release
+        working-directory: ./frontend
+        run: |
+          flutter build windows --release
+
+      - name: Install Inno Setup Compiler
+        run: |
+          choco install innosetup --no-progress -y
+
+      - name: Package Standalone Portable Bundle & Inno Setup Installer
+        run: |
+          python package_production.py
+
+      - name: Read Current Version
+        id: get_version
+        shell: pwsh
+        run: |
+          $versionJson = Get-Content -Raw -Path version.json | ConvertFrom-Json
+          $ver = $versionJson.version
+          $build = $versionJson.build_number
+          Write-Output "APP_VERSION=$ver" >> $env:GITHUB_ENV
+          Write-Output "APP_BUILD=$build" >> $env:GITHUB_ENV
+          Write-Output "TAG_NAME=v$ver" >> $env:GITHUB_ENV
+          Write-Host "Prepared release tag: v$ver (Build $build)"
+
+      - name: Create GitHub Release & Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: "Sorour Logistics ERP ${{ env.TAG_NAME }} (Build ${{ env.APP_BUILD }})"
+          body: |
+            ## 🚀 Sorour Logistics ERP ${{ env.TAG_NAME }} (Build ${{ env.APP_BUILD }})
+            
+            ### 📦 Release Assets & Downloads
+            - **Setup Installer:** `Sorour_Logistics_Setup_${{ env.TAG_NAME }}.exe`
+            - **Portable Zip:** `Sorour_Logistics_${{ env.TAG_NAME }}_Windows_Portable.zip`
+            - **Version Manifest:** `version.json`
+            
+            ### 🛡️ Safe In-Place Auto-Update
+            This release contains the standalone zero-dependency distribution with embedded Python backend and SQLite schema auto-migration.
+          files: |
+            dist/releases/Sorour_Logistics_Setup_*.exe
+            dist/releases/Sorour_Logistics_*_Windows_Portable.zip
+            version.json
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Build Artifacts (Fallback)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sorour_Logistics_${{ env.TAG_NAME }}_Build_${{ env.APP_BUILD }}
+          path: |
+            dist/releases/*
+            version.json

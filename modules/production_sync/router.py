@@ -14,6 +14,7 @@ from modules.production_sync.schemas import (
     BackupsListResponseSchema,
     BackupItemSchema,
     RestoreBackupResponseSchema,
+    RemoteUpdateCheckResponseSchema,
 )
 
 router = APIRouter(
@@ -85,3 +86,15 @@ def list_backups(db: Session = Depends(get_db)):
 def restore_backup(filename: str, target: str = "prod", db: Session = Depends(get_db)):
     service = ProductionSyncService(db)
     return service.restore_backup(filename=filename, target=target)
+
+
+@router.get(
+    "/check-update",
+    response_model=RemoteUpdateCheckResponseSchema,
+    summary="فحص وجود تحديثات جديدة للنظام من GitHub Releases",
+)
+def check_remote_update(db: Session = Depends(get_db)):
+    service = ProductionSyncService(db)
+    return service.check_remote_update()
+
+

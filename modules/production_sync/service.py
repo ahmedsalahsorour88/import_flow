@@ -20,6 +20,7 @@ from modules.production_sync.schemas import (
     BackupItemSchema,
     BackupsListResponseSchema,
     RestoreBackupResponseSchema,
+    RemoteUpdateCheckResponseSchema,
 )
 from modules.production_sync.validators import validate_db_exists
 
@@ -622,4 +623,107 @@ class ProductionSyncService:
             safety_backup_created=safety_backup.filename if safety_backup else "لم تكن هناك قاعدة بيانات سابقة",
             target=target,
         )
+
+    def check_remote_update(self) -> RemoteUpdateCheckResponseSchema:
+        """
+        Queries GitHub Releases API to check for new published versions and assets.
+        """
+        import json
+        import urllib.request
+        import urllib.error
+
+        # 1. Read local version
+        version_file = ROOT_DIR / "version.json"
+        current_version = "1.0.52"
+        current_build = 53
+        if version_file.exists():
+            try:
+                with open(version_file, "r", encoding="utf-8") as f:
+                    v_data = json.load(f)
+                    current_version = v_data.get("version", current_version)
+                    current_build = v_data.get("build_number", current_build)
+            except Exception:
+                pass
+
+        # 2. Query GitHub Releases API
+        api_url = "https://api.github.com/repos/ahmedsalahsorour88/import_flow/releases/latest"
+        req = urllib.request.Request(
+            api_url,
+            headers={
+                "Accept": "application/vnd.github.v3+json",
+                "User-Agent": "SorourLogisticsERP-Updater",
+            },
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status != 200:
+                    return RemoteUpdateCheckResponseSchema(
+                        current_version=current_version,
+                        current_build=current_build,
+                        check_status="error",
+                        error_message=f"GitHub API returned status code {response.status}",
+                    )
+                release_data = json.loads(response.read().decode("utf-8"))
+
+            latest_tag = release_data.get("tag_name", "")
+            latest_version = latest_tag.lstrip("v").strip()
+            release_name = release_data.get("name", "")
+            release_notes = release_data.get("body", "")
+            published_at = release_data.get("published_at", "")
+            html_url = release_data.get("html_url", "")
+
+            # Find assets
+            installer_url = None
+            portable_url = None
+            for asset in release_data.get("assets", []):
+                name = asset.get("name", "").lower()
+                url = asset.get("browser_download_url", "")
+                if name.endswith(".exe") and "setup" in name:
+                    installer_url = url
+                elif name.endswith(".zip") and "portable" in name:
+                    portable_url = url
+
+            # Version comparison
+            def _parse_version(v_str: str) -> tuple:
+                try:
+                    parts = [int(p) for p in v_str.split(".") if p.isdigit()]
+                    return tuple(parts) if parts else (0, 0, 0)
+                except Exception:
+                    return (0, 0, 0)
+
+            cur_v_tuple = _parse_version(current_version)
+            latest_v_tuple = _parse_version(latest_version)
+            update_available = latest_v_tuple > cur_v_tuple
+
+            return RemoteUpdateCheckResponseSchema(
+                current_version=current_version,
+                current_build=current_build,
+                latest_version=latest_version,
+                latest_tag=latest_tag,
+                update_available=update_available,
+                release_name=release_name,
+                release_notes=release_notes,
+                published_at=published_at,
+                installer_download_url=installer_url,
+                portable_zip_download_url=portable_url,
+                html_url=html_url,
+                check_status="success" if update_available else "no_update",
+            )
+
+        except urllib.error.URLError as e:
+            return RemoteUpdateCheckResponseSchema(
+                current_version=current_version,
+                current_build=current_build,
+                check_status="offline",
+                error_message=f"تعذر الاتصال بخادم التحديثات (الوضع غير متصل بالإنترنت): {str(e.reason)}",
+            )
+        except Exception as e:
+            return RemoteUpdateCheckResponseSchema(
+                current_version=current_version,
+                current_build=current_build,
+                check_status="error",
+                error_message=f"حدث خطأ أثناء فحص التحديثات: {str(e)}",
+            )
+
 

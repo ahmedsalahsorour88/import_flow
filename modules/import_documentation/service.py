@@ -5,6 +5,7 @@ Service Layer & Business Engine for Import Documentation & ACI (Phase 3 - BP-014
 import io
 import re
 from datetime import date, datetime, timezone
+from typing import Any, Dict, List, Optional, Set, Tuple
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -18,28 +19,7 @@ from modules.import_documentation.model import (
     CertificateOfOriginReviewSession,
     InspectionCertificateReviewSession,
 )
-from modules.import_documentation.schemas import (
-    AcidRegistrationCreate,
-    AcidRegistrationUpdate,
-    AcidRegistrationResponse,
-    BankingDocumentCreate,
-    ShipmentDocumentCreate,
-    ShipmentDocumentUpdate,
-    CustomsDeclarationCreate,
-    POReconciliationSessionCreate,
-    POReconciliationSessionUpdate,
-    POReconciliationSessionResponse,
-    COODraftTemplateResponse,
-    COOComparisonRequest,
-    InspectionDraftTemplateResponse,
-    InspectionComparisonRequest,
-    DocumentExtractRequest,
-    DocumentExtractResponse,
-    ThreeWayCrossMatchRequest,
-    ThreeWayCrossMatchResponse,
-    CentralArchiveDocumentSummary,
-    CentralArchiveResponse,
-)
+from modules.import_documentation.schemas import *
 
 from modules.import_documentation.validators import (
     validate_acid_number,

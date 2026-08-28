@@ -260,7 +260,7 @@ def hold_shipment(
 )
 def resume_shipment(
     import_file_id: int,
-    payload: schemas.ResumeShipmentPayload,
+    payload: ResumeShipmentPayload,
     db: Session = Depends(get_db),
 ):
     return service.resume_import_file_service(

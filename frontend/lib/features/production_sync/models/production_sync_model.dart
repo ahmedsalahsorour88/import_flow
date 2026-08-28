@@ -205,3 +205,54 @@ class RestoreBackupResponseModel {
   }
 }
 
+class RemoteUpdateCheckModel {
+  final String currentVersion;
+  final int currentBuild;
+  final String? latestVersion;
+  final String? latestTag;
+  final bool updateAvailable;
+  final String? releaseName;
+  final String? releaseNotes;
+  final String? publishedAt;
+  final String? installerDownloadUrl;
+  final String? portableZipDownloadUrl;
+  final String? htmlUrl;
+  final String checkStatus;
+  final String? errorMessage;
+
+  const RemoteUpdateCheckModel({
+    required this.currentVersion,
+    required this.currentBuild,
+    this.latestVersion,
+    this.latestTag,
+    this.updateAvailable = false,
+    this.releaseName,
+    this.releaseNotes,
+    this.publishedAt,
+    this.installerDownloadUrl,
+    this.portableZipDownloadUrl,
+    this.htmlUrl,
+    this.checkStatus = 'success',
+    this.errorMessage,
+  });
+
+  factory RemoteUpdateCheckModel.fromJson(Map<String, dynamic> json) {
+    return RemoteUpdateCheckModel(
+      currentVersion: json['current_version'] as String? ?? '1.0.0',
+      currentBuild: json['current_build'] as int? ?? 1,
+      latestVersion: json['latest_version'] as String?,
+      latestTag: json['latest_tag'] as String?,
+      updateAvailable: json['update_available'] as bool? ?? false,
+      releaseName: json['release_name'] as String?,
+      releaseNotes: json['release_notes'] as String?,
+      publishedAt: json['published_at'] as String?,
+      installerDownloadUrl: json['installer_download_url'] as String?,
+      portableZipDownloadUrl: json['portable_zip_download_url'] as String?,
+      htmlUrl: json['html_url'] as String?,
+      checkStatus: json['check_status'] as String? ?? 'success',
+      errorMessage: json['error_message'] as String?,
+    );
+  }
+}
+
+

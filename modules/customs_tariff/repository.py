@@ -1,10 +1,10 @@
 from datetime import date
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from .model import CustomsTariff
+from .model import CustomsTariff, PreferentialAgreement
 
 
 # ==================================================

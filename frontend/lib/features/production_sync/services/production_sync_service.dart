@@ -76,5 +76,14 @@ class ProductionSyncService {
     }
     throw Exception('فشل استعادة النسخة الاحتياطية: ${response.statusCode}');
   }
+
+  Future<RemoteUpdateCheckModel> checkRemoteUpdate() async {
+    final response = await _dio.get('${ApiConstants.serverUrl}/api/v1/production-sync/check-update');
+    if (response.statusCode == 200) {
+      return RemoteUpdateCheckModel.fromJson(Map<String, dynamic>.from(response.data as Map));
+    }
+    throw Exception('فشل فحص التحديثات: ${response.statusCode}');
+  }
 }
+
 

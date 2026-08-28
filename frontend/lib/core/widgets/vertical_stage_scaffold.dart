@@ -220,43 +220,52 @@ class VerticalStageScaffold extends StatelessWidget {
                             return Container(
                               margin: const EdgeInsets.only(bottom: 3),
                               decoration: BoxDecoration(
-                                color: isSelected ? headerColor.withOpacity(0.12) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
                                   color: isSelected ? headerColor.withOpacity(0.5) : Colors.transparent,
                                   width: 1.2,
                                 ),
                               ),
-                              child: ListTile(
-                                dense: true,
-                                visualDensity: const VisualDensity(horizontal: -4, vertical: -3),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-                                minLeadingWidth: 16,
-                                leading: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? headerColor : Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Icon(
-                                    tab.icon,
-                                    size: 13,
-                                    color: isSelected ? Colors.white : Colors.grey.shade700,
+                              child: Material(
+                                color: isSelected ? headerColor.withOpacity(0.12) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(6),
+                                  onTap: () => onTabSelected(index),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: BoxDecoration(
+                                            color: isSelected ? headerColor : Colors.grey.shade100,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Icon(
+                                            tab.icon,
+                                            size: 13,
+                                            color: isSelected ? Colors.white : Colors.grey.shade700,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            isRtl ? tab.titleAr : tab.titleEn,
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                              color: isSelected ? headerColor : Colors.grey.shade800,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (tab.badge != null) tab.badge!,
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                title: Text(
-                                  isRtl ? tab.titleAr : tab.titleEn,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                    color: isSelected ? headerColor : Colors.grey.shade800,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                trailing: tab.badge,
-                                onTap: () => onTabSelected(index),
                               ),
                             );
                           },

@@ -734,38 +734,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
         decoration: BoxDecoration(
-          color: const Color(0x08FFFFFF),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: const Color(0x0DFFFFFF)),
         ),
-        child: ExpansionTile(
-          key: isSearching ? UniqueKey() : null,
-          initiallyExpanded: isSearching ? true : initiallyExpanded,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-          childrenPadding: const EdgeInsets.only(bottom: 2),
-          leading: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Color.fromRGBO(
-                  color.red, color.green, color.blue, 0.2),
-              borderRadius: BorderRadius.circular(4),
+        child: Material(
+          color: const Color(0x08FFFFFF),
+          borderRadius: BorderRadius.circular(6),
+          child: ExpansionTile(
+            key: isSearching ? UniqueKey() : null,
+            initiallyExpanded: isSearching ? true : initiallyExpanded,
+            tilePadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+            childrenPadding: const EdgeInsets.only(bottom: 2),
+            leading: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Color.fromRGBO(
+                    color.red, color.green, color.blue, 0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Icon(icon, color: color, size: 14),
             ),
-            child: Icon(icon, color: color, size: 14),
-          ),
-          title: Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.1,
+            title: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.1,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            iconColor: color,
+            collapsedIconColor: Colors.white54,
+            children: children,
           ),
-          iconColor: color,
-          collapsedIconColor: Colors.white54,
-          children: children,
         ),
       ),
     );
@@ -787,36 +790,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
       decoration: BoxDecoration(
-        color: isSelected ? AppTheme.cobaltMedium : Colors.transparent,
         borderRadius: BorderRadius.circular(4),
         border: isSelected
             ? const Border(left: BorderSide(color: AppTheme.cobalt, width: 3))
             : null,
       ),
-      child: ListTile(
-        dense: true,
-        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-        minLeadingWidth: 18,
-        leading: Icon(
-          icon,
-          size: 13.5,
-          color: isSelected
-              ? AppTheme.cobalt
-              : const Color(0xCCECF0F1), // cloudWhite 80%
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: isSelected ? Colors.white : AppTheme.cloudWhite,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-            fontSize: 10.5,
+      child: Material(
+        color: isSelected ? AppTheme.cobaltMedium : Colors.transparent,
+        borderRadius: BorderRadius.circular(4),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: () => selectNavigationIndex(ref, index),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 13.5,
+                  color: isSelected
+                      ? AppTheme.cobalt
+                      : const Color(0xCCECF0F1), // cloudWhite 80%
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : AppTheme.cloudWhite,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      fontSize: 10.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
         ),
-        selected: isSelected,
-        onTap: () => selectNavigationIndex(ref, index),
       ),
     );
   }

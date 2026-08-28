@@ -1443,27 +1443,43 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                     },
                                   ),
                                   const SizedBox(height: 8),
-                                  CheckboxListTile(
-                                    dense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                    title: Text(
-                                      isArabic
-                                          ? 'تضمين ملحق أخطار الحروب والإضرابات (War & Strikes Clauses +0.05%)'
-                                          : 'Include War & Strikes Clauses (+0.05%)',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                    ),
-                                    subtitle: Text(
-                                      isArabic
-                                          ? 'ملحق إلزامي للاعتمادات المستندية والتخليص الجمركي للشحنات'
-                                          : 'Mandatory add-on for Letter of Credit (L/C) compliance',
-                                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                                    ),
-                                    value: _includeWarAndStrikes,
-                                    activeColor: AppTheme.emerald,
-                                    onChanged: (v) {
-                                      setState(() => _includeWarAndStrikes = v ?? true);
+                                  InkWell(
+                                    onTap: () {
+                                      setState(() => _includeWarAndStrikes = !_includeWarAndStrikes);
                                       _runLiveCalculation();
                                     },
+                                    child: Row(
+                                      children: [
+                                        Checkbox(
+                                          value: _includeWarAndStrikes,
+                                          activeColor: AppTheme.emerald,
+                                          onChanged: (v) {
+                                            setState(() => _includeWarAndStrikes = v ?? true);
+                                            _runLiveCalculation();
+                                          },
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                isArabic
+                                                    ? 'تضمين ملحق أخطار الحروب والإضرابات (War & Strikes Clauses +0.05%)'
+                                                    : 'Include War & Strikes Clauses (+0.05%)',
+                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                              ),
+                                              Text(
+                                                isArabic
+                                                    ? 'ملحق إلزامي للاعتمادات المستندية والتخليص الجمركي للشحنات'
+                                                    : 'Mandatory add-on for Letter of Credit (L/C) compliance',
+                                                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),

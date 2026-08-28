@@ -664,7 +664,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          'v1.0.57 (Build 58)',
+                          'v1.0.58 (Build 59)',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(color: Colors.white70, fontSize: 9.5, fontFamily: 'monospace', fontWeight: FontWeight.w600),
@@ -889,15 +889,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-<<<<<<< HEAD
-              _buildInfoRow(Icons.verified, l.systemVersion, 'v1.0.56 (Release)'),
+              _buildInfoRow(Icons.verified, l.systemVersion, 'v1.0.58 (Release)'),
               const Divider(height: 14),
-              _buildInfoRow(Icons.build_circle_outlined, l.buildId, 'Build 1.0.56+57'),
-=======
-              _buildInfoRow(Icons.verified, l.systemVersion, 'v1.0.55 (Release)'),
-              const Divider(height: 14),
-              _buildInfoRow(Icons.build_circle_outlined, l.buildId, 'Build 1.0.55+56'),
->>>>>>> 25064aa (feat(arch-010): implement Standalone Model 3 safe auto-update engine and release v1.0.55)
+              _buildInfoRow(Icons.build_circle_outlined, l.buildId, 'Build 1.0.58+59'),
               const Divider(height: 14),
               _buildInfoRow(Icons.dns_outlined, l.backendEngine, 'FastAPI (Port 28080)'),
               const Divider(height: 14),

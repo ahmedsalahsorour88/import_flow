@@ -1,11 +1,50 @@
 import sqlite3
 from database.database import Base, engine
+from modules.import_companies.model import ImportCompany
+from modules.suppliers.model import Supplier
+from modules.external_service_providers.model import ExternalServiceProvider
+from modules.users.model import User
 from modules.audit_logs.model import AuditLog
-from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
+from modules.incoterms.model import Incoterm, CostItem, IncotermResponsibility
 from modules.customs_tariff.model import CustomsTariff, PreferentialAgreement
+from modules.transport_locations.model import TransportLocation
+from modules.currencies.model import Currency, ExchangeRate
+from modules.projects.model import Project
 from modules.purchase_orders.model import POLineItem, PackingListItem, PurchaseOrder
-from modules.import_requirements.model import ImportRequirementAssessment
+from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
+from modules.shipping_scenarios.model import ShippingEvaluationSession, ShippingScenarioItem
+from modules.customs_consultation.model import CustomsConsultationSession, CustomsChecklistItem
+from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
+from modules.customs_clearance_quotations.model import CustomsClearanceRFQ, CustomsClearanceQuotationItem, ClearanceServicePriceListItem
+from modules.financial_approval.model import PaymentRequestSession, ImportBudgetApproval
+from modules.import_documentation.model import (
+    AcidRegistrationSession,
+    BankingDocumentSession,
+    ShipmentDocumentItem,
+    CustomsDeclarationDraft,
+    POPackingReconciliationSession,
+    DraftBLReviewSession,
+    CertificateOfOriginReviewSession,
+    InspectionCertificateReviewSession,
+)
+from modules.import_files.model import ImportFile
+from modules.freight_booking.model import ShipmentBooking
+from modules.cargo_shipping.model import CargoShippingRecord
+from modules.customs_clearance.model import CustomsClearanceRecord
+from modules.warehouse_receiving.model import WarehouseReceivingRecord
+from modules.financial_settlement.model import LandedCostSettlementRecord
+from modules.file_closure.model import ImportFileClosureRecord
+from modules.notifications.model import SystemNotification
+from modules.smart_tasks.model import SmartTask
+from modules.shipment_updates.model import ShipmentUpdateLog
+from modules.demurrage_detention.model import DemurragePolicy, DemurrageTracking
+from modules.smart_document_upload.model import UploadSession
+from modules.docs_customs_approval.model import CustomsDocumentApproval, DiscrepancyRectificationTicket
+from modules.cargox.model import CargoXEnvelope, CargoXEnvelopeDocument, CargoXStandardInvoiceReviewSession
+from modules.original_documents_collection.model import OriginalDocumentsCollectionSession
 from modules.cargo_insurance.model import CargoInsuranceCertificate
+from modules.import_requirements.model import ImportRequirementAssessment
+
 
 def migrate_db():
     # 1. Create any missing tables
@@ -413,34 +452,37 @@ def migrate_db():
                     print(f"Error adding column {col_name} to import_files: {e}")
 
     # Backfill execution days and sync ACID with linked ImportFiles
-    cursor.execute("""
-        SELECT acid_id, import_file_id, acid_number, requested_date, generated_date, expiry_date
-        FROM acid_registration_sessions
-        WHERE is_active = 1
-    """)
-    rows = cursor.fetchall()
-    for row in rows:
-        acid_id, import_file_id, acid_num, req_date, gen_date, exp_date = row
-        exec_days = None
-        if req_date and gen_date:
-            try:
-                from datetime import datetime
-                d1 = datetime.strptime(str(req_date)[:10], "%Y-%m-%d")
-                d2 = datetime.strptime(str(gen_date)[:10], "%Y-%m-%d")
-                exec_days = max(0, (d2 - d1).days)
-            except Exception:
-                pass
-        
-        if exec_days is not None:
-            cursor.execute("UPDATE acid_registration_sessions SET execution_days = ? WHERE acid_id = ?", (exec_days, acid_id))
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='acid_registration_sessions'")
+    if cursor.fetchone():
+        cursor.execute("""
+            SELECT acid_id, import_file_id, acid_number, requested_date, generated_date, expiry_date
+            FROM acid_registration_sessions
+            WHERE is_active = 1
+        """)
+        rows = cursor.fetchall()
+        for row in rows:
+            acid_id, import_file_id, acid_num, req_date, gen_date, exp_date = row
+            exec_days = None
+            if req_date and gen_date:
+                try:
+                    from datetime import datetime
+                    d1 = datetime.strptime(str(req_date)[:10], "%Y-%m-%d")
+                    d2 = datetime.strptime(str(gen_date)[:10], "%Y-%m-%d")
+                    exec_days = max(0, (d2 - d1).days)
+                except Exception:
+                    pass
+            
+            if exec_days is not None:
+                cursor.execute("UPDATE acid_registration_sessions SET execution_days = ? WHERE acid_id = ?", (exec_days, acid_id))
 
-        if import_file_id and acid_num and acid_num != "PENDING":
-            issue_d = gen_date or req_date
-            cursor.execute("""
-                UPDATE import_files 
-                SET acid_number = ?, acid_request_date = ?, acid_issue_date = ?, acid_expiry_date = ?, acid_execution_days = ?
-                WHERE import_file_id = ?
-            """, (acid_num, req_date, issue_d, exp_date, exec_days, import_file_id))
+            if import_file_id and acid_num and acid_num != "PENDING":
+                issue_d = gen_date or req_date
+                cursor.execute("""
+                    UPDATE import_files 
+                    SET acid_number = ?, acid_request_date = ?, acid_issue_date = ?, acid_expiry_date = ?, acid_execution_days = ?
+                    WHERE import_file_id = ?
+                """, (acid_num, req_date, issue_d, exp_date, exec_days, import_file_id))
+
 
     # Migration for purchase_orders & po_line_items tables
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='purchase_orders'")

@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class DatabaseStatsModel {
   final bool exists;
   final String? path;

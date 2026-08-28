@@ -220,7 +220,7 @@ class CooExportService {
                     ),
                     pw.Align(
                       alignment: pw.Alignment.bottomRight,
-                      child: pw.Text('VERIFY URL: HTTP://CHECK.ECOCCPIT.NET/', style: const pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold)),
+                      child: pw.Text('VERIFY URL: HTTP://CHECK.ECOCCPIT.NET/', style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold)),
                     ),
                   ],
                 ),

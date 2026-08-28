@@ -10,7 +10,8 @@ import '../widgets/sync_console_widget.dart';
 import '../widgets/sync_progress_and_diff_widget.dart';
 
 class ProductionSyncScreen extends ConsumerStatefulWidget {
-  const ProductionSyncScreen({super.key});
+  final LocalProcessSyncService? service;
+  const ProductionSyncScreen({super.key, this.service});
 
   @override
   ConsumerState<ProductionSyncScreen> createState() => _ProductionSyncScreenState();
@@ -19,7 +20,7 @@ class ProductionSyncScreen extends ConsumerStatefulWidget {
 class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final LocalProcessSyncService _service = LocalProcessSyncService();
+  late final LocalProcessSyncService _service;
 
   final List<ConsoleLogLine> _consoleLogs = [];
   bool _isRunning = false;
@@ -34,11 +35,16 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
   @override
   void initState() {
     super.initState();
+    _service = widget.service ?? LocalProcessSyncService();
     _tabController = TabController(length: 2, vsync: this);
-    _refreshLocalData();
+    _initLocalStats();
     Future.microtask(() {
-      _checkDiffsSilently();
-      ref.read(productionSyncNotifierProvider.notifier).checkForUpdates();
+      if (mounted) {
+        ref.invalidate(systemVersionInfoProvider);
+        ref.invalidate(backupsListProvider);
+        _checkDiffsSilently();
+        ref.read(productionSyncNotifierProvider.notifier).checkForUpdates();
+      }
     });
   }
 
@@ -48,11 +54,16 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     super.dispose();
   }
 
+  void _initLocalStats() {
+    _devStats = _service.getDbStats(_service.devDbPath);
+    _prodStats = _service.getDbStats(_service.prodDbPath);
+    _backups = _service.listBackups();
+  }
+
   void _refreshLocalData() {
+    if (!mounted) return;
     setState(() {
-      _devStats = _service.getDbStats(_service.devDbPath);
-      _prodStats = _service.getDbStats(_service.prodDbPath);
-      _backups = _service.listBackups();
+      _initLocalStats();
     });
     ref.invalidate(systemVersionInfoProvider);
     ref.invalidate(backupsListProvider);
@@ -193,18 +204,23 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
               child: const Icon(Icons.system_update_alt_rounded, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 10),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'مركز إدارة التحديثات والنسخ الاحتياطي (System Updates & Backups Hub)',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                Text(
-                  'الترقية التلقائية الآمنة لقاعدة البيانات وإدارة نقاط الاسترجاع وفحص الإصدارات السحابية',
-                  style: TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-              ],
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'مركز إدارة التحديثات والنسخ الاحتياطي (System Updates & Backups Hub)',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'الترقية التلقائية الآمنة لقاعدة البيانات وإدارة نقاط الاسترجاع وفحص الإصدارات السحابية',
+                    style: TextStyle(color: Colors.white70, fontSize: 11),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),

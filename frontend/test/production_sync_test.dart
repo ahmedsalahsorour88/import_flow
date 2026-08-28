@@ -1,5 +1,9 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/production_sync/models/production_sync_model.dart';
+import 'package:frontend/features/production_sync/providers/production_sync_provider.dart';
+import 'package:frontend/features/production_sync/screens/production_sync_screen.dart';
 import 'package:frontend/features/production_sync/services/local_process_sync_service.dart';
 
 void main() {
@@ -284,5 +288,127 @@ void main() {
       expect(t3.isMatch, isTrue);
       expect(t3.hasChanges, isFalse);
     });
+
+    testWidgets('ProductionSyncScreen mounts cleanly without initState inherited widget exceptions', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            productionSyncNotifierProvider.overrideWith((ref) => FakeProductionSyncNotifier()),
+            systemVersionInfoProvider.overrideWith((ref) async => const SystemVersionInfoModel(
+                  systemName: 'ImportFlow ERP - Test',
+                  version: '1.0.52',
+                  buildNumber: 53,
+                  isStandalone: true,
+                  environment: 'standalone',
+                  databasePath: 'test.db',
+                )),
+            backupsListProvider.overrideWith((ref) async => []),
+            updateCheckStateProvider.overrideWith((ref) => const AsyncValue.data(null)),
+          ],
+          child: MaterialApp(
+            home: ProductionSyncScreen(
+              service: FakeLocalProcessSyncService(),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      expect(find.byType(ProductionSyncScreen), findsOneWidget);
+    });
   });
+}
+
+class FakeProductionSyncNotifier extends StateNotifier<AsyncValue<SyncActionResponseModel?>>
+    implements ProductionSyncNotifier {
+  FakeProductionSyncNotifier() : super(const AsyncValue.data(null));
+
+  @override
+  Future<RemoteUpdateCheckResultModel> checkForUpdates({String? remoteUrl}) async {
+    return const RemoteUpdateCheckResultModel(
+      hasUpdate: false,
+      currentVersion: '1.0.52',
+      latestVersion: '1.0.52',
+      message: 'Up to date',
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakeLocalProcessSyncService implements LocalProcessSyncService {
+  @override
+  String get projectRoot => '/mock/root';
+  @override
+  String get devDbPath => '/mock/dev.db';
+  @override
+  String get prodDbPath => '/mock/prod.db';
+  @override
+  String get backupsPath => '/mock/backups';
+
+  @override
+  LocalDbStats getDbStats(String dbPath) => const LocalDbStats(
+        exists: true,
+        dbPath: '/mock/dev.db',
+        sizeKb: 1024,
+        mtime: '2026-08-28 12:00:00',
+      );
+
+  @override
+  List<LocalBackupEntry> listBackups() => [
+        const LocalBackupEntry(
+          filename: 'test_backup.db',
+          filepath: '/mock/backups/test_backup.db',
+          tag: 'dev',
+          mtime: '2026-08-28 12:00:00',
+          sizeKb: 1024,
+        ),
+      ];
+
+  @override
+  Future<int> compareDatabases({
+    required void Function(String line) onOutput,
+    required void Function(String line) onError,
+    void Function(SyncDiffSummary diffSummary)? onDiffSummary,
+  }) async => 0;
+
+  @override
+  Future<int> syncDevToProd({
+    required void Function(String line) onOutput,
+    required void Function(String line) onError,
+    void Function(SyncProgressEvent progress)? onProgress,
+    void Function(SyncDiffSummary diffSummary)? onDiffSummary,
+  }) async => 0;
+
+  @override
+  Future<int> pullProdToDev({
+    required void Function(String line) onOutput,
+    required void Function(String line) onError,
+    void Function(SyncProgressEvent progress)? onProgress,
+  }) async => 0;
+
+  @override
+  Future<int> fullBuildAndSync({
+    required void Function(String line) onOutput,
+    required void Function(String line) onError,
+    void Function(SyncProgressEvent progress)? onProgress,
+    void Function(SyncDiffSummary diffSummary)? onDiffSummary,
+  }) async => 0;
+
+  @override
+  Future<int> launchProductionApp({
+    required void Function(String line) onOutput,
+    required void Function(String line) onError,
+  }) async => 0;
+
+  @override
+  Future<int> createManualBackup({
+    required void Function(String line) onOutput,
+    required void Function(String line) onError,
+  }) async => 0;
 }

@@ -4,7 +4,7 @@
 ; =====================================================================
 
 #define MyAppName "Sorour Logistics"
-#define MyAppVersion "1.0.56"
+#define MyAppVersion "1.0.57"
 #define MyAppPublisher "Sorour Logistics"
 #define MyAppURL "https://sorourlogistics.com"
 #define MyAppExeName "Launch_Sorour_Logistics.vbs"
@@ -22,7 +22,11 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\dist\releases
+<<<<<<< HEAD
 OutputBaseFilename=Sorour_Logistics_Setup_v1.0.56
+=======
+OutputBaseFilename=Sorour_Logistics_Setup_v1.0.55
+>>>>>>> 25064aa (feat(arch-010): implement Standalone Model 3 safe auto-update engine and release v1.0.55)
 SetupIconFile={#AppIconPath}
 Compression=lzma2/max
 SolidCompression=yes

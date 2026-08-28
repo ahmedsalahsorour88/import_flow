@@ -19,6 +19,25 @@ class ProductionSyncService {
               ),
             );
 
+  Future<SystemVersionInfoModel> getSystemVersionInfo() async {
+    final response = await _dio.get('${ApiConstants.serverUrl}/api/v1/production-sync/version-info');
+    if (response.statusCode == 200) {
+      return SystemVersionInfoModel.fromJson(Map<String, dynamic>.from(response.data as Map));
+    }
+    throw Exception('فشل جلب معلومات الإصدار: ${response.statusCode}');
+  }
+
+  Future<RemoteUpdateCheckResultModel> checkForUpdates({String? remoteUrl}) async {
+    final response = await _dio.get(
+      '${ApiConstants.serverUrl}/api/v1/production-sync/check-updates',
+      queryParameters: remoteUrl != null ? {'remote_url': remoteUrl} : null,
+    );
+    if (response.statusCode == 200) {
+      return RemoteUpdateCheckResultModel.fromJson(Map<String, dynamic>.from(response.data as Map));
+    }
+    throw Exception('فشل فحص التحديثات: ${response.statusCode}');
+  }
+
   Future<SyncComparisonResponseModel> getComparison() async {
     final response = await _dio.get('${ApiConstants.serverUrl}/api/v1/production-sync/compare');
     if (response.statusCode == 200) {
@@ -85,5 +104,3 @@ class ProductionSyncService {
     throw Exception('فشل فحص التحديثات: ${response.statusCode}');
   }
 }
-
-

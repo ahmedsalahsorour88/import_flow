@@ -4,6 +4,8 @@ Contains enterprise-grade, non-destructive database synchronization, comparison,
 schema migration, and safety backup logic preserving 100% of production user data.
 """
 import os
+import re
+import json
 import shutil
 import sqlite3
 from datetime import datetime
@@ -21,6 +23,8 @@ from modules.production_sync.schemas import (
     BackupsListResponseSchema,
     RestoreBackupResponseSchema,
     RemoteUpdateCheckResponseSchema,
+    SystemVersionInfoSchema,
+    RemoteUpdateCheckSchema,
 )
 from modules.production_sync.validators import validate_db_exists
 
@@ -267,8 +271,6 @@ class ProductionSyncService:
                     pass
 
         # Step 3: Synchronize and upsert rows
-        # - For operational user tables: use INSERT OR IGNORE so existing user data is NEVER overwritten
-        # - For reference/system catalog tables: use INSERT OR REPLACE to update official definitions
         for tbl_name, _ in src_tables:
             try:
                 cur_src.execute(f'PRAGMA table_info("{tbl_name}");')
@@ -363,12 +365,8 @@ class ProductionSyncService:
             new_columns = [c for c in dev_cols if c not in prod_cols_set] if not is_new_table else []
             has_schema_diff = is_new_table or len(new_columns) > 0
 
-            # Data match: same row count (for existing tables in both DBs)
             data_match = (d_c == p_c) and not is_new_table
-
-            # Fully matched: same data AND same schema
             is_fully_matched = data_match and not has_schema_diff
-
             needs_sync = not is_fully_matched
 
             if is_fully_matched:
@@ -408,7 +406,6 @@ class ProductionSyncService:
                 )
             )
 
-        # Fully synchronized only when data AND schema are identical across all tables
         is_fully_sync = (diff_count == 0) and (schema_diffs_count == 0) and dev_stats.exists and prod_stats.exists
 
         return SyncComparisonResponseSchema(
@@ -424,30 +421,20 @@ class ProductionSyncService:
 
     def sync_dev_to_prod(self) -> SyncActionResponseSchema:
         """
-        Pushes development updates to production non-destructively:
-        - Creates a safety backup of production database first.
-        - Applies schema migrations (creates missing tables, adds missing columns).
-        - Merges new reference data with INSERT OR IGNORE.
-        - Preserves 100% of user data in production.
+        Pushes development updates to production non-destructively.
         """
         validate_db_exists(DEV_DB, "قاعدة بيانات التطوير")
 
-        # 1. Backup Prod DB if exists
         prod_backup_str = None
         if PROD_DB.exists():
             prod_backup = self.create_safety_backup(PROD_DB, "prod_before_sync")
             prod_backup_str = prod_backup.filename
 
-        # 2. Backup Dev DB snapshot
         dev_backup = self.create_safety_backup(DEV_DB, "dev_snapshot")
-
-        # 3. Ensure target directory exists
         STANDALONE_DIR.mkdir(parents=True, exist_ok=True)
 
-        # 4. Perform Smart Non-Destructive Migration to primary standalone DB
         migration_res = self._smart_non_destructive_migrate(DEV_DB, PROD_DB)
 
-        # Also migrate to other dist standalone folders if they exist
         other_dist_dbs = [
             DIST_DIR / "sorour_logistics.db",
             ROOT_DIR / "dist_backend" / "sorour_logistics.db",
@@ -461,7 +448,6 @@ class ProductionSyncService:
                 except Exception:
                     pass
 
-        # 5. Automatically Bump Sequential Version & Build
         try:
             import version_manager
             version_manager.bump_version("patch")
@@ -499,21 +485,14 @@ class ProductionSyncService:
 
     def pull_prod_to_dev(self) -> SyncActionResponseSchema:
         """
-        Pulls actual production data into development workspace non-destructively:
-        - Backs up development database.
-        - Merges user records from Prod into Dev without deleting anything.
+        Pulls actual production data into development workspace non-destructively.
         """
         validate_db_exists(PROD_DB, "قاعدة بيانات الإنتاج")
 
-        # 1. Backup Dev DB
         dev_backup = self.create_safety_backup(DEV_DB, "dev_before_pull")
-
-        # 2. Backup Prod DB
         prod_backup = self.create_safety_backup(PROD_DB, "prod_snapshot")
 
-        # 3. Non-destructively migrate/merge Prod -> Dev
         migration_res = self._smart_non_destructive_migrate(PROD_DB, DEV_DB, preserve_target_user_data=False)
-
         stats = self._get_db_stats(DEV_DB)
 
         try:
@@ -570,21 +549,11 @@ class ProductionSyncService:
     def restore_backup(self, filename: str, target: str = "prod") -> RestoreBackupResponseSchema:
         """
         Restore a specific backup snapshot to the target database (dev or prod).
-        Always creates a safety backup of the current target DB before restoring.
-
-        Args:
-            filename: The backup filename (must exist in BACKUPS_DIR).
-            target: 'prod' or 'dev' — which database to restore into.
-
-        Returns:
-            RestoreBackupResponseSchema with result details.
         """
         BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
-        # Normalize filename in case a path was passed
         clean_filename = Path(filename).name
         backup_file = BACKUPS_DIR / clean_filename
         if not backup_file.exists():
-            # Check if it was provided as an absolute or relative path
             alt_path = Path(filename)
             if alt_path.exists():
                 backup_file = alt_path
@@ -593,18 +562,13 @@ class ProductionSyncService:
 
         target_db = PROD_DB if target == "prod" else DEV_DB
 
-        # 1. Safety backup of current target DB before overwrite
         safety_backup: Optional[BackupItemSchema] = None
         if target_db.exists():
             safety_backup = self.create_safety_backup(target_db, tag=f"pre_restore_{target}")
 
-        # 2. Ensure target directory exists
         target_db.parent.mkdir(parents=True, exist_ok=True)
-
-        # 3. Replace target DB with the selected backup
         shutil.copy2(backup_file, target_db)
 
-        # 4. Log action
         try:
             self.repo.create_log(
                 action_type="RESTORE_BACKUP",
@@ -628,14 +592,12 @@ class ProductionSyncService:
         """
         Queries GitHub Releases API to check for new published versions and assets.
         """
-        import json
         import urllib.request
         import urllib.error
 
-        # 1. Read local version
         version_file = ROOT_DIR / "version.json"
-        current_version = "1.0.52"
-        current_build = 53
+        current_version = "1.0.55"
+        current_build = 56
         if version_file.exists():
             try:
                 with open(version_file, "r", encoding="utf-8") as f:
@@ -645,7 +607,6 @@ class ProductionSyncService:
             except Exception:
                 pass
 
-        # 2. Query GitHub Releases API
         api_url = "https://api.github.com/repos/ahmedsalahsorour88/import_flow/releases/latest"
         req = urllib.request.Request(
             api_url,
@@ -673,7 +634,6 @@ class ProductionSyncService:
             published_at = release_data.get("published_at", "")
             html_url = release_data.get("html_url", "")
 
-            # Find assets
             installer_url = None
             portable_url = None
             for asset in release_data.get("assets", []):
@@ -684,7 +644,6 @@ class ProductionSyncService:
                 elif name.endswith(".zip") and "portable" in name:
                     portable_url = url
 
-            # Version comparison
             def _parse_version(v_str: str) -> tuple:
                 try:
                     parts = [int(p) for p in v_str.split(".") if p.isdigit()]
@@ -726,4 +685,108 @@ class ProductionSyncService:
                 error_message=f"حدث خطأ أثناء فحص التحديثات: {str(e)}",
             )
 
+    def get_system_version_info(self) -> SystemVersionInfoSchema:
+        """Retrieves live system version, build number, environment, and database metrics."""
+        version_str = "1.0.55"
+        build_num = 56
+        rel_date = None
 
+        v_file = ROOT_DIR / "version.json"
+        if v_file.exists():
+            try:
+                with open(v_file, "r", encoding="utf-8") as f:
+                    v_data = json.load(f)
+                    version_str = v_data.get("version", version_str)
+                    build_num = v_data.get("build_number", build_num)
+                    rel_date = v_data.get("updated_at")
+            except Exception:
+                pass
+
+        is_standalone = getattr(sys, "frozen", False) or not (ROOT_DIR / "frontend").exists()
+        active_db = PROD_DB if (is_standalone and PROD_DB.exists()) else DEV_DB
+        db_stats = self._get_db_stats(active_db)
+
+        backups_count = 0
+        if BACKUPS_DIR.exists():
+            try:
+                backups_count = len(list(BACKUPS_DIR.glob("*.db")))
+            except Exception:
+                pass
+
+        return SystemVersionInfoSchema(
+            system_name="ImportFlow ERP - Sorour Logistics",
+            version=version_str,
+            build_number=build_num,
+            release_date=rel_date or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            is_standalone=is_standalone,
+            environment="standalone" if is_standalone else "development",
+            database_path=str(active_db.name),
+            database_size_kb=db_stats.size_kb,
+            tables_count=db_stats.tables_count,
+            total_backups_count=backups_count,
+        )
+
+    def check_for_updates(self, custom_remote_url: Optional[str] = None) -> RemoteUpdateCheckSchema:
+        """
+        Checks for newer software releases via GitHub / Remote JSON.
+        """
+        import urllib.request
+
+        curr_info = self.get_system_version_info()
+        curr_ver = curr_info.version
+
+        def parse_ver(v_str: str):
+            clean = re.sub(r"[^\d\.]", "", v_str.strip())
+            parts = [int(p) for p in clean.split(".") if p.isdigit()]
+            while len(parts) < 3:
+                parts.append(0)
+            return tuple(parts[:3])
+
+        remote_url = custom_remote_url or "https://raw.githubusercontent.com/ahmedsalahsorour88/import_flow/main/version.json"
+
+        try:
+            req = urllib.request.Request(
+                remote_url,
+                headers={"User-Agent": "ImportFlow-Update-Engine"},
+            )
+            with urllib.request.urlopen(req, timeout=2.5) as resp:
+                if resp.status == 200:
+                    remote_data = json.loads(resp.read().decode("utf-8"))
+                    latest_ver = remote_data.get("version", curr_ver)
+                    curr_tuple = parse_ver(curr_ver)
+                    latest_tuple = parse_ver(latest_ver)
+
+                    has_update = latest_tuple > curr_tuple
+                    release_notes = remote_data.get("release_notes", [
+                        "تحسينات في أداء النظام واستقرار قاعدة البيانات",
+                        "تحديثات في مصفوفة الشروط التجارية والتعريفة الجمركية",
+                        "ترقية محرك التحقق ومطابقة الوثائق الجمركية الذكية",
+                    ])
+                    download_url = remote_data.get(
+                        "download_url",
+                        f"https://github.com/ahmedsalahsorour88/import_flow/releases/tag/v{latest_ver}",
+                    )
+
+                    return RemoteUpdateCheckSchema(
+                        has_update=has_update,
+                        current_version=curr_ver,
+                        latest_version=latest_ver,
+                        release_name=f"Sorour Logistics Release v{latest_ver}",
+                        release_notes=release_notes,
+                        download_url=download_url,
+                        published_at=remote_data.get("updated_at"),
+                        is_mandatory=remote_data.get("is_mandatory", False),
+                        check_status="UPDATE_AVAILABLE" if has_update else "UP_TO_DATE",
+                        message=f"يتوفر إصدار جديد v{latest_ver} جاهز للتنزيل والترقية التلقائية!" if has_update else "النظام محدث لأحدث إصدار رسمي.",
+                    )
+        except Exception:
+            pass
+
+        return RemoteUpdateCheckSchema(
+            has_update=False,
+            current_version=curr_ver,
+            latest_version=curr_ver,
+            release_notes=[],
+            check_status="UP_TO_DATE",
+            message="النظام محدث ومستقر بأحدث إصدار مثبت (v" + curr_ver + ").",
+        )

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class DatabaseStatsModel {
   final bool exists;
   final String? path;
@@ -19,7 +21,7 @@ class DatabaseStatsModel {
 
   factory DatabaseStatsModel.fromJson(Map<String, dynamic> json) {
     return DatabaseStatsModel(
-      exists: json['exists'] as bool? ?? true,
+      exists: json['exists'] as bool? ?? false,
       path: json['path'] as String?,
       sizeKb: (json['size_kb'] as num?)?.toDouble() ?? 0.0,
       tablesCount: json['tables_count'] as int? ?? 0,
@@ -37,7 +39,6 @@ class TableComparisonItemModel {
   final int diff;
   final bool isMatch;
   final String status;
-  // ── Schema comparison fields ──────────────────────────────────────────
   final int devColumnsCount;
   final int prodColumnsCount;
   final List<String> newColumns;
@@ -61,16 +62,17 @@ class TableComparisonItemModel {
   });
 
   factory TableComparisonItemModel.fromJson(Map<String, dynamic> json) {
+    final rawCols = json['new_columns'] as List<dynamic>? ?? [];
     return TableComparisonItemModel(
       tableName: json['table_name'] as String? ?? '',
       devCount: json['dev_count'] as int? ?? 0,
       prodCount: json['prod_count'] as int? ?? 0,
       diff: json['diff'] as int? ?? 0,
-      isMatch: json['is_match'] as bool? ?? true,
+      isMatch: json['is_match'] as bool? ?? false,
       status: json['status'] as String? ?? '',
       devColumnsCount: json['dev_columns_count'] as int? ?? 0,
       prodColumnsCount: json['prod_columns_count'] as int? ?? 0,
-      newColumns: (json['new_columns'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      newColumns: rawCols.map((e) => e.toString()).toList(),
       isNewTable: json['is_new_table'] as bool? ?? false,
       hasSchemaDiff: json['has_schema_diff'] as bool? ?? false,
       needsSync: json['needs_sync'] as bool? ?? false,
@@ -100,17 +102,16 @@ class SyncComparisonResponseModel {
   });
 
   factory SyncComparisonResponseModel.fromJson(Map<String, dynamic> json) {
+    final rawTables = json['tables'] as List<dynamic>? ?? [];
     return SyncComparisonResponseModel(
-      devStats: DatabaseStatsModel.fromJson(Map<String, dynamic>.from(json['dev_stats'] as Map? ?? {})),
-      prodStats: DatabaseStatsModel.fromJson(Map<String, dynamic>.from(json['prod_stats'] as Map? ?? {})),
+      devStats: DatabaseStatsModel.fromJson(json['dev_stats'] as Map<String, dynamic>? ?? {}),
+      prodStats: DatabaseStatsModel.fromJson(json['prod_stats'] as Map<String, dynamic>? ?? {}),
       isFullySynchronized: json['is_fully_synchronized'] as bool? ?? false,
       totalTables: json['total_tables'] as int? ?? 0,
       matchedTablesCount: json['matched_tables_count'] as int? ?? 0,
       differingTablesCount: json['differing_tables_count'] as int? ?? 0,
       schemaDiffsCount: json['schema_diffs_count'] as int? ?? 0,
-      tables: (json['tables'] as List<dynamic>? ?? [])
-          .map((item) => TableComparisonItemModel.fromJson(Map<String, dynamic>.from(item as Map)))
-          .toList(),
+      tables: rawTables.map((t) => TableComparisonItemModel.fromJson(t as Map<String, dynamic>)).toList(),
     );
   }
 }
@@ -145,7 +146,7 @@ class SyncActionResponseModel {
       backupFile: json['backup_file'] as String?,
       affectedTablesCount: json['affected_tables_count'] as int? ?? 0,
       totalRecordsSynced: json['total_records_synced'] as int? ?? 0,
-      details: json['details'] != null ? Map<String, dynamic>.from(json['details'] as Map) : null,
+      details: json['details'] as Map<String, dynamic>?,
     );
   }
 }
@@ -255,4 +256,84 @@ class RemoteUpdateCheckModel {
   }
 }
 
+class SystemVersionInfoModel {
+  final String systemName;
+  final String version;
+  final int buildNumber;
+  final String? releaseDate;
+  final bool isStandalone;
+  final String environment;
+  final String databasePath;
+  final double databaseSizeKb;
+  final int tablesCount;
+  final int totalBackupsCount;
 
+  const SystemVersionInfoModel({
+    required this.systemName,
+    required this.version,
+    required this.buildNumber,
+    this.releaseDate,
+    required this.isStandalone,
+    required this.environment,
+    required this.databasePath,
+    this.databaseSizeKb = 0.0,
+    this.tablesCount = 0,
+    this.totalBackupsCount = 0,
+  });
+
+  factory SystemVersionInfoModel.fromJson(Map<String, dynamic> json) {
+    return SystemVersionInfoModel(
+      systemName: json['system_name'] as String? ?? 'ImportFlow ERP - Sorour Logistics',
+      version: json['version'] as String? ?? '1.0.52',
+      buildNumber: json['build_number'] as int? ?? 53,
+      releaseDate: json['release_date'] as String?,
+      isStandalone: json['is_standalone'] as bool? ?? false,
+      environment: json['environment'] as String? ?? 'production',
+      databasePath: json['database_path'] as String? ?? 'sorour_logistics.db',
+      databaseSizeKb: (json['database_size_kb'] as num?)?.toDouble() ?? 0.0,
+      tablesCount: json['tables_count'] as int? ?? 0,
+      totalBackupsCount: json['total_backups_count'] as int? ?? 0,
+    );
+  }
+}
+
+class RemoteUpdateCheckResultModel {
+  final bool hasUpdate;
+  final String currentVersion;
+  final String latestVersion;
+  final String? releaseName;
+  final List<String> releaseNotes;
+  final String? downloadUrl;
+  final String? publishedAt;
+  final bool isMandatory;
+  final String checkStatus;
+  final String message;
+
+  const RemoteUpdateCheckResultModel({
+    required this.hasUpdate,
+    required this.currentVersion,
+    required this.latestVersion,
+    this.releaseName,
+    this.releaseNotes = const [],
+    this.downloadUrl,
+    this.publishedAt,
+    this.isMandatory = false,
+    this.checkStatus = 'UP_TO_DATE',
+    required this.message,
+  });
+
+  factory RemoteUpdateCheckResultModel.fromJson(Map<String, dynamic> json) {
+    return RemoteUpdateCheckResultModel(
+      hasUpdate: json['has_update'] as bool? ?? false,
+      currentVersion: json['current_version'] as String? ?? '1.0.52',
+      latestVersion: json['latest_version'] as String? ?? '1.0.52',
+      releaseName: json['release_name'] as String?,
+      releaseNotes: (json['release_notes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      downloadUrl: json['download_url'] as String?,
+      publishedAt: json['published_at'] as String?,
+      isMandatory: json['is_mandatory'] as bool? ?? false,
+      checkStatus: json['check_status'] as String? ?? 'UP_TO_DATE',
+      message: json['message'] as String? ?? '',
+    );
+  }
+}

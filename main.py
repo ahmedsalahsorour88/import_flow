@@ -117,7 +117,11 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(
     title="ImportFlow ERP API",
     description="Enterprise API for Import Management & Customs Clearance",
+<<<<<<< HEAD
     version="1.0.56",
+=======
+    version="1.0.55",
+>>>>>>> 25064aa (feat(arch-010): implement Standalone Model 3 safe auto-update engine and release v1.0.55)
 )
 
 # ==================================================
@@ -219,43 +223,16 @@ app.include_router(production_sync_router)
 
 
 # ==================================================
-# Create Database Tables
+# Create & Incrementally Upgrade Database Tables Safely
 # ==================================================
 
-Base.metadata.create_all(
-    bind=engine
+from database.schema_upgrade_service import SchemaUpgradeService
+
+# Automated Safe In-Place Schema Upgrade and Master Data Synchronization
+SchemaUpgradeService.execute_safe_startup_upgrade(
+    target_engine=engine,
+    metadata=Base.metadata,
 )
-
-def ensure_sqlite_schema_synced(target_engine, metadata):
-    """
-    Automatic, zero-maintenance schema synchronizer:
-    Introspects SQLite tables on startup and automatically executes ALTER TABLE ADD COLUMN
-    for any new model attributes without destroying or modifying existing user data.
-    """
-    from sqlalchemy import inspect, text
-    try:
-        inspector = inspect(target_engine)
-        existing_tables = set(inspector.get_table_names())
-        with target_engine.connect() as conn:
-            for table_name, table in metadata.tables.items():
-                if table_name not in existing_tables:
-                    continue
-                existing_cols = {c["name"] for c in inspector.get_columns(table_name)}
-                for col in table.columns:
-                    if col.name not in existing_cols:
-                        col_type = col.type.compile(target_engine.dialect)
-                        try:
-                            conn.execute(text(f'ALTER TABLE "{table_name}" ADD COLUMN "{col.name}" {col_type}'))
-                            conn.commit()
-                        except Exception:
-                            pass
-    except Exception:
-        pass
-
-ensure_sqlite_schema_synced(engine, Base.metadata)
-
-from seed import seed_data
-seed_data()
 
 
 
@@ -266,10 +243,9 @@ seed_data()
 
 @app.get("/")
 def dashboard():
-
     return {
         "system": "ImportFlow ERP",
-        "version": "1.0.56",
+        "version": "1.0.55",
         "status": "running",
     }
 
@@ -300,7 +276,11 @@ def health_check():
     return {
         "status": "OK",
         "system": "ImportFlow ERP",
+<<<<<<< HEAD
         "version": "1.0.56",
+=======
+        "version": "1.0.55",
+>>>>>>> 25064aa (feat(arch-010): implement Standalone Model 3 safe auto-update engine and release v1.0.55)
         "database": {
             "connected": db_exists,
             "path": db_path,

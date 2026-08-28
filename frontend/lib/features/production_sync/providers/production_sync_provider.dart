@@ -8,6 +8,11 @@ final productionSyncServiceProvider = Provider<ProductionSyncService>((ref) {
   return ProductionSyncService(dio);
 });
 
+final systemVersionInfoProvider = FutureProvider.autoDispose<SystemVersionInfoModel>((ref) async {
+  final service = ref.watch(productionSyncServiceProvider);
+  return await service.getSystemVersionInfo();
+});
+
 final syncComparisonProvider = FutureProvider.autoDispose<SyncComparisonResponseModel>((ref) async {
   final service = ref.watch(productionSyncServiceProvider);
   return await service.getComparison();
@@ -18,11 +23,27 @@ final backupsListProvider = FutureProvider.autoDispose<List<BackupItemModel>>((r
   return await service.listBackups();
 });
 
+final updateCheckStateProvider = StateProvider<AsyncValue<RemoteUpdateCheckResultModel?>>((ref) {
+  return const AsyncValue.data(null);
+});
+
 class ProductionSyncNotifier extends StateNotifier<AsyncValue<SyncActionResponseModel?>> {
   final ProductionSyncService _service;
   final Ref _ref;
 
   ProductionSyncNotifier(this._service, this._ref) : super(const AsyncValue.data(null));
+
+  Future<RemoteUpdateCheckResultModel> checkForUpdates({String? remoteUrl}) async {
+    _ref.read(updateCheckStateProvider.notifier).state = const AsyncValue.loading();
+    try {
+      final result = await _service.checkForUpdates(remoteUrl: remoteUrl);
+      _ref.read(updateCheckStateProvider.notifier).state = AsyncValue.data(result);
+      return result;
+    } catch (e, st) {
+      _ref.read(updateCheckStateProvider.notifier).state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
 
   Future<SyncActionResponseModel?> syncDevToProd() async {
     state = const AsyncValue.loading();
@@ -31,6 +52,7 @@ class ProductionSyncNotifier extends StateNotifier<AsyncValue<SyncActionResponse
       state = AsyncValue.data(result);
       _ref.invalidate(syncComparisonProvider);
       _ref.invalidate(backupsListProvider);
+      _ref.invalidate(systemVersionInfoProvider);
       return result;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -45,6 +67,7 @@ class ProductionSyncNotifier extends StateNotifier<AsyncValue<SyncActionResponse
       state = AsyncValue.data(result);
       _ref.invalidate(syncComparisonProvider);
       _ref.invalidate(backupsListProvider);
+      _ref.invalidate(systemVersionInfoProvider);
       return result;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -58,6 +81,7 @@ class ProductionSyncNotifier extends StateNotifier<AsyncValue<SyncActionResponse
       final backup = await _service.createManualBackup(target: target);
       state = const AsyncValue.data(null);
       _ref.invalidate(backupsListProvider);
+      _ref.invalidate(systemVersionInfoProvider);
       return backup;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -75,6 +99,7 @@ class ProductionSyncNotifier extends StateNotifier<AsyncValue<SyncActionResponse
       state = const AsyncValue.data(null);
       _ref.invalidate(backupsListProvider);
       _ref.invalidate(syncComparisonProvider);
+      _ref.invalidate(systemVersionInfoProvider);
       return result;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -93,5 +118,3 @@ final remoteUpdateCheckProvider = FutureProvider.autoDispose<RemoteUpdateCheckMo
   final service = ref.watch(productionSyncServiceProvider);
   return await service.checkRemoteUpdate();
 });
-
-

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../models/production_sync_model.dart';
+import '../providers/production_sync_provider.dart';
 import '../services/local_process_sync_service.dart';
 import '../services/production_sync_service.dart';
 import '../widgets/sync_console_widget.dart';
@@ -34,7 +36,10 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _refreshLocalData();
-    Future.microtask(() => _checkDiffsSilently());
+    Future.microtask(() {
+      _checkDiffsSilently();
+      ref.read(productionSyncNotifierProvider.notifier).checkForUpdates();
+    });
   }
 
   @override
@@ -49,6 +54,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
       _prodStats = _service.getDbStats(_service.prodDbPath);
       _backups = _service.listBackups();
     });
+    ref.invalidate(systemVersionInfoProvider);
+    ref.invalidate(backupsListProvider);
   }
 
   Future<void> _checkDiffsSilently() async {
@@ -168,6 +175,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
 
   @override
   Widget build(BuildContext context) {
+    final updateState = ref.watch(updateCheckStateProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -181,18 +190,18 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                 color: AppTheme.cobalt,
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.sync_rounded, color: Colors.white, size: 20),
+              child: const Icon(Icons.system_update_alt_rounded, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 10),
             const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'مركز مزامنة ونقل تحديثات الإنتاج (Production Sync Hub)',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  'مركز إدارة التحديثات والنسخ الاحتياطي (System Updates & Backups Hub)',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 Text(
-                  'إدارة ونقل التعديلات وبناء حزم الإنتاج المباشرة بدون وسيط',
+                  'الترقية التلقائية الآمنة لقاعدة البيانات وإدارة نقاط الاسترجاع وفحص الإصدارات السحابية',
                   style: TextStyle(color: Colors.white70, fontSize: 11),
                 ),
               ],
@@ -202,7 +211,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-            tooltip: 'تحديث حالة الملفات',
+            tooltip: 'تحديث حالة النظام',
             onPressed: _refreshLocalData,
           ),
           const SizedBox(width: 8),
@@ -216,8 +225,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           indicatorColor: AppTheme.cobalt,
           indicatorWeight: 3,
           tabs: const [
-            Tab(icon: Icon(Icons.flash_on_rounded, size: 18), text: 'عمليات المزامنة والتشغيل المباشر'),
-            Tab(icon: Icon(Icons.history_rounded, size: 18), text: 'أرشيف النسخ الاحتياطية'),
+            Tab(icon: Icon(Icons.security_rounded, size: 18), text: 'إدارة التحديثات ونقاط الاسترجاع (Safety Backups)'),
+            Tab(icon: Icon(Icons.code_rounded, size: 18), text: 'أدوات المطور والمقارنة المباشرة (Dev Tools & Diff)'),
           ],
         ),
       ),
@@ -225,39 +234,17 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // DB Status Cards
-            Row(
-              children: [
-                Expanded(
-                  child: _buildDbCard(
-                    title: 'قاعدة بيانات التطوير (Dev DB)',
-                    path: _service.devDbPath,
-                    stats: _devStats,
-                    color: AppTheme.cobalt,
-                    icon: Icons.code_rounded,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildDbCard(
-                    title: 'قاعدة بيانات الإنتاج (Prod DB)',
-                    path: _service.prodDbPath,
-                    stats: _prodStats,
-                    color: AppTheme.emerald,
-                    icon: Icons.desktop_windows_rounded,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+            // ─── Version & Update Status Top Banner ────────────────────────
+            _buildUpdateStatusBanner(updateState),
+            const SizedBox(height: 10),
 
-            // Tab Views
+            // ─── Tab Views ────────────────────────────────────────────────
             Expanded(
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildOperationsTab(),
-                  _buildBackupsTab(),
+                  _buildBackupsAndUpdatesTab(),
+                  _buildDevOperationsTab(),
                 ],
               ),
             ),
@@ -267,235 +254,215 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     );
   }
 
-  Widget _buildOperationsTab() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // Action Buttons Row
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              alignment: WrapAlignment.center,
-              children: [
-                // 1. Sync Dev -> Prod
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.emerald,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                  icon: _isRunning && _currentAction.contains('Dev → Prod')
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.cloud_upload_rounded, size: 18),
-                  label: const Text(
-                    '⚡ مزامنة لقاعدة الإنتاج (Dev → Prod)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                  ),
-                  onPressed: _isRunning
-                      ? null
-                      : () => _executeAction(
-                            'مزامنة لقاعدة الإنتاج (Dev → Prod)',
-                            () => _service.syncDevToProd(
-                              onOutput: (l) => _appendLog(l),
-                              onError: (l) => _appendLog(l, isError: true),
-                              onProgress: (p) {
-                                if (mounted) setState(() => _progress = p);
-                              },
-                              onDiffSummary: (d) {
-                                if (mounted) setState(() => _diffSummary = d);
-                              },
-                            ),
-                          ),
-                ),
+  // ──────────────────────────────────────────────────────────────────────────
+  // Top Banner: Version & Update Status
+  // ──────────────────────────────────────────────────────────────────────────
 
-                // 2. Compare DBs
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.cobalt,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  ),
-                  icon: _isRunning && _currentAction.contains('مقارنة')
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.compare_arrows_rounded, size: 18),
-                  label: const Text(
-                    '🔍 فحص ومقارنة الجداول (Compare)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                  ),
-                  onPressed: _isRunning
-                      ? null
-                      : () => _executeAction(
-                            'فحص ومقارنة الجداول',
-                            () => _service.compareDatabases(
-                              onOutput: (l) => _appendLog(l),
-                              onError: (l) => _appendLog(l, isError: true),
-                              onDiffSummary: (d) {
-                                if (mounted) setState(() => _diffSummary = d);
-                              },
-                            ),
-                          ),
-                ),
-
-                // 3. Pull Prod -> Dev
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.charcoal,
-                    side: const BorderSide(color: AppTheme.charcoal),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  ),
-                  icon: _isRunning && _currentAction.contains('سحب')
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.charcoal))
-                      : const Icon(Icons.download_rounded, size: 18),
-                  label: const Text(
-                    '⬇ سحب الإنتاج للتطوير (Prod → Dev)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  onPressed: _isRunning
-                      ? null
-                      : () => _executeAction(
-                            'سحب بيانات الإنتاج إلى بيئة التطوير (Prod → Dev)',
-                            () => _service.pullProdToDev(
-                              onOutput: (l) => _appendLog(l),
-                              onError: (l) => _appendLog(l, isError: true),
-                              onProgress: (p) {
-                                if (mounted) setState(() => _progress = p);
-                              },
-                            ),
-                          ),
-                ),
-
-                // 4. Full Production Package
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.orange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  ),
-                  icon: _isRunning && _currentAction.contains('بناء كامل')
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.inventory_rounded, size: 18),
-                  label: const Text(
-                    '📦 بناء وحزم الإنتاج بالكامل (Full Build)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  onPressed: _isRunning
-                      ? null
-                      : () => _executeAction(
-                            'بناء وتجميع الإنتاج بالكامل (Full Build & Package)',
-                            () => _service.fullBuildAndSync(
-                              onOutput: (l) => _appendLog(l),
-                              onError: (l) => _appendLog(l, isError: true),
-                              onProgress: (p) {
-                                if (mounted) setState(() => _progress = p);
-                              },
-                              onDiffSummary: (d) {
-                                if (mounted) setState(() => _diffSummary = d);
-                              },
-                            ),
-                          ),
-                ),
-
-                // 5. Launch Standalone App
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6366F1), // Indigo
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  ),
-                  icon: const Icon(Icons.play_circle_filled_rounded, size: 18),
-                  label: const Text(
-                    '🚀 إطلاق تطبيق البرودكشن الآن',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  onPressed: _isRunning
-                      ? null
-                      : () => _executeAction(
-                            'إطلاق تطبيق البرودكشن',
-                            () => _service.launchProductionApp(
-                              onOutput: (l) => _appendLog(l),
-                              onError: (l) => _appendLog(l, isError: true),
-                            ),
-                          ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // ── Visual Progress & Database Changes Diff Inspector ────────────
-          SyncProgressAndDiffWidget(
-            progress: _progress,
-            diffSummary: _diffSummary,
-            isRunning: _isRunning,
-            onCheckDiff: () => _executeAction(
-              'فحص ومقارنة الجداول',
-              () => _service.compareDatabases(
-                onOutput: (l) => _appendLog(l),
-                onError: (l) => _appendLog(l, isError: true),
-                onDiffSummary: (d) {
-                  if (mounted) setState(() => _diffSummary = d);
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Live Console Output
-          SizedBox(
-            height: 220,
-            child: SyncConsoleWidget(
-              logs: _consoleLogs,
-              isRunning: _isRunning,
-              onClear: () => setState(() => _consoleLogs.clear()),
-            ),
-          ),
-        ],
+  Widget _buildUpdateStatusBanner(AsyncValue<RemoteUpdateCheckResultModel?> updateState) {
+    return updateState.when(
+      data: (result) {
+        if (result == null) {
+          return _buildVersionInfoCard(
+            version: '1.0.52',
+            buildNumber: 53,
+            hasUpdate: false,
+            message: 'النظام محدث ومستقر بأحدث إصدار مثبت.',
+          );
+        }
+        return _buildVersionInfoCard(
+          version: result.currentVersion,
+          buildNumber: 53,
+          hasUpdate: result.hasUpdate,
+          latestVersion: result.latestVersion,
+          message: result.message,
+          releaseNotes: result.releaseNotes,
+          downloadUrl: result.downloadUrl,
+        );
+      },
+      loading: () => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.cobalt)),
+            SizedBox(width: 12),
+            Text('جاري فحص الإصدارات الجديدة عبر السحابة...', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+      error: (e, _) => _buildVersionInfoCard(
+        version: '1.0.52',
+        buildNumber: 53,
+        hasUpdate: false,
+        message: 'يعمل النظام في الوضع المحلي المستقل (Offline Mode).',
       ),
     );
   }
 
-  Widget _buildBackupsTab() {
+  Widget _buildVersionInfoCard({
+    required String version,
+    required int buildNumber,
+    required bool hasUpdate,
+    String? latestVersion,
+    required String message,
+    List<String> releaseNotes = const [],
+    String? downloadUrl,
+  }) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: hasUpdate ? const Color(0xFFEFF6FF) : Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: hasUpdate ? AppTheme.cobalt : Colors.grey.shade300, width: hasUpdate ? 1.5 : 1.0),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: hasUpdate ? AppTheme.cobalt : AppTheme.charcoal,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'v$version (Build $buildNumber)',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      hasUpdate ? Icons.system_update_rounded : Icons.check_circle_rounded,
+                      color: hasUpdate ? AppTheme.cobalt : AppTheme.emerald,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        message,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: hasUpdate ? AppTheme.cobalt : AppTheme.charcoal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.cobalt,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.refresh_rounded, size: 14),
+                label: const Text('فحص التحديثات الآن', style: TextStyle(fontSize: 11)),
+                onPressed: () {
+                  ref.read(productionSyncNotifierProvider.notifier).checkForUpdates();
+                },
+              ),
+            ],
+          ),
+          if (hasUpdate && releaseNotes.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+              ),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'أرشيف النسخ الاحتياطية (${_backups.length} نسخة محفوظة)',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
+                    '🌟 المميزات الجديدة في إصدار v$latestVersion:',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                   ),
-                  const Text(
-                    'يتم إنشاء نسخة أمان تلقائية قبل كل عملية مزامنة لضمان عدم فقدان أي بيانات نهائياً',
-                    style: TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
+                  const SizedBox(height: 4),
+                  ...releaseNotes.map((note) => Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(' • ', style: TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                            Expanded(child: Text(note, style: const TextStyle(fontSize: 11.5, color: Colors.black87))),
+                          ],
+                        ),
+                      )),
                 ],
               ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Tab 1: System Updates & Safety Backups
+  // ──────────────────────────────────────────────────────────────────────────
+
+  Widget _buildBackupsAndUpdatesTab() {
+    return Column(
+      children: [
+        // Top Info & Quick Backup Actions
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.emerald.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.verified_user_rounded, color: AppTheme.emerald, size: 28),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'محرك الترقية التراكمي الآمن (In-Place Schema Upgrade Engine)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'يقوم النظام تلقائياً بأخذ لقطة أمان قبل كل ترقية، مع إضافة الجداول والأعمدة الجديدة دون المساس ببيانات التشغيل.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
               ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.emerald,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
                 icon: const Icon(Icons.add_to_photos_rounded, size: 16),
-                label: const Text('📸 لقطة فورية لقاعدة البيانات', style: TextStyle(fontSize: 11.5)),
+                label: const Text('📸 إنشاء نقطة استرجاع فورية (Backup)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 onPressed: _isRunning
                     ? null
                     : () => _executeAction(
-                          'إنشاء نسخة أمان فورية',
+                          'إنشاء نقطة استرجاع فورية',
                           () => _service.createManualBackup(
                             onOutput: (l) => _appendLog(l),
                             onError: (l) => _appendLog(l, isError: true),
@@ -504,70 +471,284 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _backups.isEmpty
-                ? const Center(
-                    child: Text('لا توجد نسخ احتياطية سابقة في مجلد backups/.'),
-                  )
-                : ListView.separated(
-                    itemCount: _backups.length,
-                    separatorBuilder: (ctx, i) => Divider(height: 1, color: Colors.grey.shade200),
-                    itemBuilder: (ctx, idx) {
-                      final b = _backups[idx];
-                      final tagColor = b.tag.contains('prod')
-                          ? AppTheme.emerald
-                          : b.tag.contains('dev')
-                              ? AppTheme.cobalt
-                              : AppTheme.orange;
+        ),
+        const SizedBox(height: 12),
 
-                      return ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.inventory_2_outlined, color: AppTheme.cobalt, size: 20),
-                        title: Text(
-                          b.filename,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace'),
-                        ),
-                        subtitle: Text(
-                          'تاريخ الإنشاء: ${b.mtime}  •  الحجم: ${b.sizeKb} KB',
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: tagColor.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(4),
+        // Backups List View
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'أرشيف النسخ الاحتياطية ونقاط الاسترجاع (${_backups.length} نسخة محفوظة)',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh_rounded, size: 18, color: Colors.grey),
+                      onPressed: _refreshLocalData,
+                      tooltip: 'تحديث القائمة',
+                    ),
+                  ],
+                ),
+                const Divider(),
+                Expanded(
+                  child: _backups.isEmpty
+                      ? const Center(
+                          child: Text('لا توجد نسخ احتياطية سابقة في مجلد backups/.'),
+                        )
+                      : ListView.separated(
+                          itemCount: _backups.length,
+                          separatorBuilder: (ctx, i) => Divider(height: 1, color: Colors.grey.shade200),
+                          itemBuilder: (ctx, idx) {
+                            final b = _backups[idx];
+                            final isAuto = b.filename.startsWith('auto_pre_upgrade');
+                            final tagColor = isAuto
+                                ? AppTheme.cobalt
+                                : b.tag.contains('prod')
+                                    ? AppTheme.emerald
+                                    : AppTheme.orange;
+
+                            return ListTile(
+                              dense: true,
+                              leading: Icon(
+                                isAuto ? Icons.auto_awesome_rounded : Icons.inventory_2_outlined,
+                                color: tagColor,
+                                size: 22,
                               ),
-                              child: Text(
-                                b.tag,
-                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: tagColor),
+                              title: Text(
+                                b.filename,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace'),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.orange,
-                                side: const BorderSide(color: AppTheme.orange),
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                visualDensity: VisualDensity.compact,
+                              subtitle: Text(
+                                'تاريخ الإنشاء: ${b.mtime}  •  الحجم: ${b.sizeKb} KB  •  ${isAuto ? "ترقية تلقائية آمنة" : "نسخة يدوية"}',
+                                style: const TextStyle(fontSize: 11, color: Colors.grey),
                               ),
-                              icon: const Icon(Icons.restore_rounded, size: 14),
-                              label: const Text('استعادة (Rollback)', style: TextStyle(fontSize: 10.5)),
-                              onPressed: _isRunning ? null : () => _confirmAndRestoreBackup(b),
-                            ),
-                          ],
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: tagColor.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      isAuto ? 'تلقائي (Pre-Upgrade)' : b.tag,
+                                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: tagColor),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.orange,
+                                      side: const BorderSide(color: AppTheme.orange),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    icon: const Icon(Icons.restore_rounded, size: 14),
+                                    label: const Text('استعادة (Restore)', style: TextStyle(fontSize: 10.5)),
+                                    onPressed: _isRunning ? null : () => _confirmAndRestoreBackup(b),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Tab 2: Developer Operations & Diff
+  // ──────────────────────────────────────────────────────────────────────────
+
+  Widget _buildDevOperationsTab() {
+    return Column(
+      children: [
+        // DB Status Cards
+        Row(
+          children: [
+            Expanded(
+              child: _buildDbCard(
+                title: 'قاعدة بيانات التطوير (Dev DB)',
+                path: _service.devDbPath,
+                stats: _devStats,
+                color: AppTheme.cobalt,
+                icon: Icons.code_rounded,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDbCard(
+                title: 'قاعدة بيانات الإنتاج (Prod DB)',
+                path: _service.prodDbPath,
+                stats: _prodStats,
+                color: AppTheme.emerald,
+                icon: Icons.desktop_windows_rounded,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Action Buttons Row
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            alignment: WrapAlignment.center,
+            children: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.emerald,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                icon: _isRunning && _currentAction.contains('Dev → Prod')
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.cloud_upload_rounded, size: 16),
+                label: const Text('⚡ مزامنة لقاعدة الإنتاج (Dev → Prod)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                onPressed: _isRunning
+                    ? null
+                    : () => _executeAction(
+                          'مزامنة لقاعدة الإنتاج (Dev → Prod)',
+                          () => _service.syncDevToProd(
+                            onOutput: (l) => _appendLog(l),
+                            onError: (l) => _appendLog(l, isError: true),
+                            onProgress: (p) {
+                              if (mounted) setState(() => _progress = p);
+                            },
+                            onDiffSummary: (d) {
+                              if (mounted) setState(() => _diffSummary = d);
+                            },
+                          ),
+                        ),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.cobalt,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                icon: const Icon(Icons.compare_arrows_rounded, size: 16),
+                label: const Text('🔍 فحص ومقارنة الجداول (Compare)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                onPressed: _isRunning
+                    ? null
+                    : () => _executeAction(
+                          'فحص ومقارنة الجداول',
+                          () => _service.compareDatabases(
+                            onOutput: (l) => _appendLog(l),
+                            onError: (l) => _appendLog(l, isError: true),
+                            onDiffSummary: (d) {
+                              if (mounted) setState(() => _diffSummary = d);
+                            },
+                          ),
+                        ),
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.charcoal,
+                  side: const BorderSide(color: AppTheme.charcoal),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                icon: const Icon(Icons.download_rounded, size: 16),
+                label: const Text('⬇ سحب الإنتاج للتطوير (Prod → Dev)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                onPressed: _isRunning
+                    ? null
+                    : () => _executeAction(
+                          'سحب بيانات الإنتاج إلى بيئة التطوير (Prod → Dev)',
+                          () => _service.pullProdToDev(
+                            onOutput: (l) => _appendLog(l),
+                            onError: (l) => _appendLog(l, isError: true),
+                            onProgress: (p) {
+                              if (mounted) setState(() => _progress = p);
+                            },
+                          ),
+                        ),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                icon: const Icon(Icons.inventory_rounded, size: 16),
+                label: const Text('📦 بناء وحزم الإنتاج (Full Build)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                onPressed: _isRunning
+                    ? null
+                    : () => _executeAction(
+                          'بناء وتجميع الإنتاج بالكامل (Full Build & Package)',
+                          () => _service.fullBuildAndSync(
+                            onOutput: (l) => _appendLog(l),
+                            onError: (l) => _appendLog(l, isError: true),
+                            onProgress: (p) {
+                              if (mounted) setState(() => _progress = p);
+                            },
+                            onDiffSummary: (d) {
+                              if (mounted) setState(() => _diffSummary = d);
+                            },
+                          ),
+                        ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Visual Progress & Diff Inspector
+        SyncProgressAndDiffWidget(
+          progress: _progress,
+          diffSummary: _diffSummary,
+          isRunning: _isRunning,
+          onCheckDiff: () => _executeAction(
+            'فحص ومقارنة الجداول',
+            () => _service.compareDatabases(
+              onOutput: (l) => _appendLog(l),
+              onError: (l) => _appendLog(l, isError: true),
+              onDiffSummary: (d) {
+                if (mounted) setState(() => _diffSummary = d);
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Live Console Terminal Output
+        Expanded(
+          child: SyncConsoleWidget(
+            logs: _consoleLogs,
+            isRunning: _isRunning,
+            onClear: () => setState(() => _consoleLogs.clear()),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Helper: DB Card
+  // ──────────────────────────────────────────────────────────────────────────
 
   Widget _buildDbCard({
     required String title,

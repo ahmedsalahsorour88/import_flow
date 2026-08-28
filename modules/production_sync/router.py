@@ -1,10 +1,10 @@
 """
-Production Sync API Router
-Endpoints for live database comparison, push/pull sync, and backups management.
+Production Sync & System Updates API Router
+Endpoints for live database comparison, updates check, and safety backups management.
 """
-from fastapi import APIRouter, Depends, status
+from typing import Optional
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.orm import Session
-from pathlib import Path
 
 from database.database import get_db
 from modules.production_sync.service import ProductionSyncService, DEV_DB, PROD_DB
@@ -15,12 +15,37 @@ from modules.production_sync.schemas import (
     BackupItemSchema,
     RestoreBackupResponseSchema,
     RemoteUpdateCheckResponseSchema,
+    SystemVersionInfoSchema,
+    RemoteUpdateCheckSchema,
 )
 
 router = APIRouter(
     prefix="/api/v1/production-sync",
     tags=["Production Synchronization & Deployment"],
 )
+
+
+@router.get(
+    "/version-info",
+    response_model=SystemVersionInfoSchema,
+    summary="استرجاع معلومات الإصدار الحالي وحالة النظام وقاعدة البيانات",
+)
+def get_system_version_info(db: Session = Depends(get_db)):
+    service = ProductionSyncService(db)
+    return service.get_system_version_info()
+
+
+@router.get(
+    "/check-updates",
+    response_model=RemoteUpdateCheckSchema,
+    summary="فحص وتدقيق توفر إصدارات جديدة من النظام سحابياً",
+)
+def check_for_system_updates(
+    remote_url: Optional[str] = Query(None, description="رابط مخصص لفحص التحديثات (اختياري)"),
+    db: Session = Depends(get_db),
+):
+    service = ProductionSyncService(db)
+    return service.check_for_updates(custom_remote_url=remote_url)
 
 
 @router.get(
@@ -96,5 +121,3 @@ def restore_backup(filename: str, target: str = "prod", db: Session = Depends(ge
 def check_remote_update(db: Session = Depends(get_db)):
     service = ProductionSyncService(db)
     return service.check_remote_update()
-
-

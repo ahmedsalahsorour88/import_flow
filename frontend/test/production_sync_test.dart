@@ -4,6 +4,53 @@ import 'package:frontend/features/production_sync/services/local_process_sync_se
 
 void main() {
   group('ProductionSyncModel Unit Tests', () {
+    test('SystemVersionInfoModel fromJson should parse correctly', () {
+      final json = {
+        'system_name': 'ImportFlow ERP - Sorour Logistics',
+        'version': '1.0.52',
+        'build_number': 53,
+        'release_date': '2026-08-28 15:30:00',
+        'is_standalone': true,
+        'environment': 'standalone',
+        'database_path': 'sorour_logistics.db',
+        'database_size_kb': 2500.5,
+        'tables_count': 68,
+        'total_backups_count': 12,
+      };
+
+      final model = SystemVersionInfoModel.fromJson(json);
+      expect(model.systemName, 'ImportFlow ERP - Sorour Logistics');
+      expect(model.version, '1.0.52');
+      expect(model.buildNumber, 53);
+      expect(model.isStandalone, isTrue);
+      expect(model.tablesCount, 68);
+      expect(model.totalBackupsCount, 12);
+    });
+
+    test('RemoteUpdateCheckResultModel fromJson should parse update status and notes', () {
+      final json = {
+        'has_update': true,
+        'current_version': '1.0.52',
+        'latest_version': '1.0.53',
+        'release_name': 'Sorour Logistics Release v1.0.53',
+        'release_notes': [
+          'Safe Auto-Update Engine integration',
+          'In-Place Schema Upgrade support',
+        ],
+        'download_url': 'https://github.com/ahmedsalahsorour88/import_flow/releases/tag/v1.0.53',
+        'is_mandatory': false,
+        'check_status': 'UPDATE_AVAILABLE',
+        'message': 'New update ready!',
+      };
+
+      final result = RemoteUpdateCheckResultModel.fromJson(json);
+      expect(result.hasUpdate, isTrue);
+      expect(result.currentVersion, '1.0.52');
+      expect(result.latestVersion, '1.0.53');
+      expect(result.releaseNotes.length, 2);
+      expect(result.checkStatus, 'UPDATE_AVAILABLE');
+    });
+
     test('DatabaseStatsModel fromJson should parse correctly', () {
       final json = {
         'exists': true,

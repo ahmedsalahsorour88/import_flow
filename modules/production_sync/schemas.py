@@ -1,5 +1,5 @@
 """
-Production Sync Pydantic Schemas
+Production Sync & Updates Pydantic Schemas
 """
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field
@@ -90,3 +90,28 @@ class RemoteUpdateCheckResponseSchema(BaseModel):
     check_status: str = "success"
     error_message: Optional[str] = None
 
+
+class SystemVersionInfoSchema(BaseModel):
+    system_name: str = "ImportFlow ERP - Sorour Logistics"
+    version: str = "1.0.55"
+    build_number: int = 56
+    release_date: Optional[str] = None
+    is_standalone: bool = False
+    environment: str = "production"
+    database_path: str = "sorour_logistics.db"
+    database_size_kb: float = 0.0
+    tables_count: int = 0
+    total_backups_count: int = 0
+
+
+class RemoteUpdateCheckSchema(BaseModel):
+    has_update: bool = False
+    current_version: str = "1.0.55"
+    latest_version: str = "1.0.55"
+    release_name: Optional[str] = None
+    release_notes: List[str] = Field(default_factory=list)
+    download_url: Optional[str] = None
+    published_at: Optional[str] = None
+    is_mandatory: bool = False
+    check_status: str = "UP_TO_DATE"  # UP_TO_DATE, UPDATE_AVAILABLE, OFFLINE_CHECK, ERROR
+    message: str = "النظام محدث لأحدث إصدار رسمي."

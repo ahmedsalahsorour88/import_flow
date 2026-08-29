@@ -50,6 +50,7 @@ PRESERVED_TABLES = {
     "package_types",
     "units_of_measure",
     "clearance_expense_types",
+    "external_service_providers",
     "alembic_version",
 }
 

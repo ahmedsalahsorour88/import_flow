@@ -360,6 +360,75 @@ class MasterDataSyncService:
         self.db.commit()
         return added
 
+    def sync_shipping_lines(self) -> int:
+        """Incremental upsert for core international shipping lines."""
+        from modules.external_service_providers.model import ExternalServiceProvider
+
+        shipping_lines_data = [
+            ("MSC (Mediterranean Shipping Company)", "MSCU", "https://www.msc.com/en/track-a-shipment", "https://www.msc.com", "egy-info@msc.com", None, "+20 2 2414 8000 / +20 3 488 4000", "Heliopolis, Cairo / Sultan Hussein St., Alexandria", "Egypt"),
+            ("Maersk Line (A.P. Moller - Maersk)", "MAEU", "https://www.maersk.com/tracking/", "https://www.maersk.com", "egycs@maersk.com", None, "+20 2 2413 8000 / +20 3 487 0000", "Cairo / Alexandria / Port Said", "Egypt"),
+            ("CMA CGM Group", "CMDU", "https://www.cma-cgm.com/ebusiness/tracking", "https://www.cma-cgm.com", "cai.genmbox@cma-cgm.com", None, "+20 2 2269 5000 / +20 3 488 2000", "Heliopolis, Cairo / Alexandria", "Egypt"),
+            ("Hapag-Lloyd AG", "HLCU", "https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html", "https://www.hapag-lloyd.com", "egypt@hlag.com", None, "+20 2 2696 4500", "Citystars Complex, Building 3, Heliopolis, Cairo", "Egypt"),
+            ("Ocean Network Express (ONE)", "ONEY", "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking", "https://www.one-line.com", "eg.customercare@one-line.com", None, "+20 2 2413 5400", "94 Al Marghany St., Heliopolis, Cairo", "Egypt"),
+            ("COSCO SHIPPING Lines", "COSU", "https://elines.coscoshipping.com/ebusiness/cargoTracking", "https://lines.coscoshipping.com", "cs.egypt@coscon.com", None, "+20 2 2417 8100 / +20 3 487 5500", "47 Ramsis St., Downtown / 27 Sultan Hussein St., Alexandria", "Egypt"),
+            ("China United Lines Ltd. (CULines)", "CULI", "https://www.culines.com/en/site/tracking", "https://www.culines.com", "booking@culines.com", None, None, "Shanghai Head Office / Local Liner Agent Egypt", "Egypt"),
+            ("Emirates Shipping Line (ESL)", "ESLU", "https://www.emiratesline.com/tracking/", "https://www.emiratesline.com", "egypt.sales@emiratesline.com", None, "+20 2 2418 0700", "Heliopolis, Cairo", "Egypt"),
+            ("Evergreen Marine Corp.", "EGLV", "https://www.shipmentlink.com/servlet/TTrk_Show", "https://www.evergreen-marine.com", "egyn-biz@evergreen-shipping.com.eg", None, "+20 2 2268 4000 / +20 3 487 7700", "11 El-Bustan St., Downtown, Cairo / Sultan Hussein St., Alexandria", "Egypt"),
+            ("Yang Ming Marine Transport Corp.", "YMLU", "https://www.yangming.com/e-service/Track_Trace/track_trace.aspx", "https://www.yangming.com", "cs@yangming.com.eg", None, "+20 2 2414 7700 / +20 3 484 2200", "Heliopolis, Cairo / Alexandria", "Egypt"),
+            ("ZIM Integrated Shipping Services Ltd.", "ZIMU", "https://www.zim.com/tools/track-a-shipment", "https://www.zim.com", "customer-service@zim.com", None, "+20 3 481 1200", "Alexandria / Cairo (Liner Agency Representation)", "Egypt"),
+            ("Wan Hai Lines Ltd.", "WHLC", "https://www.wanhai.com/views/cargoTrack/CargoTracking.xhtml", "https://www.wanhai.com", "egypt_sales@wanhai.com", None, "+20 2 2269 0000", "Heliopolis, Cairo", "Egypt"),
+            ("Pacific International Lines (Pte) Ltd (PIL)", "PCIU", "https://www.pilship.com/en-our-track-and-trace/120.html", "https://www.pilship.com", "egypt.cs@cai.pilship.com", None, "+20 2 2268 9000 / +20 3 487 0000", "Nasr City, Cairo / Alexandria", "Egypt"),
+            ("HMM Co., Ltd. (Hyundai Merchant Marine)", "HDMU", "https://www.hmm21.com/cms/business/ebiz/trackTrace/trackTrace/index.jsp", "https://www.hmm21.com", "egycs@hmm21.com", None, "+20 2 2418 8800", "Sheraton Heliopolis, Cairo", "Egypt"),
+            ("Tarros Line (Tarros Egypt Shipping Agency)", "GETU", "https://www.tarros.it/en/shipment-tracking/", "https://www.tarros.it", "info@tarros.com.eg", None, "+20 3 487 9000 / +20 2 2417 5000", "12 Salah Salem St., Alexandria / Heliopolis, Cairo", "Egypt"),
+            ("Arkas Line (Arkas Egypt S.A.E.)", "ARKU", "https://www.arkasline.com.tr/en/tracking", "https://www.arkasline.com.tr", "egypt.cs@arkas-egypt.com", None, "+20 2 2269 8888 / +20 3 488 5555", "47 Ramses St., Heliopolis, Cairo / 22 Dr. Mostafa Mosharafa St., Alexandria", "Egypt"),
+            ("Orient Overseas Container Line (OOCL)", "OOLU", "https://www.oocl.com/eng/ourservices/eservices/cargotracking/Pages/cargotracking.aspx", "https://www.oocl.com", "caiibcsv@oocl.com", "alexibcsv@oocl.com", "+20 2 2414 4000 / +20 3 487 3500", "12 Hassan Allam St., Heliopolis, Cairo / Alexandria", "Egypt"),
+            ("Korea Marine Transport Co., Ltd. (KMTC Line)", "KMTC", "https://www.ekmtc.com/", "https://www.ekmtc.com", "kmtcegypt@kmtc.co.kr", None, "+20 2 2269 1100", "Heliopolis, Cairo", "Egypt"),
+            ("SeaLead Shipping", "SEAU", "https://sea-lead.com/tracking/", "https://sea-lead.com", "egypt@sea-lead.com", None, "+20 2 2417 6000", "Sheraton, Cairo", "Egypt"),
+            ("Grimaldi Group (Grimaldi Lines)", "GRIU", "https://www.grimaldi.napoli.it/en/cargo_tracking.html", "https://www.grimaldi.napoli.it", "info@grimaldi.napoli.it", None, "+20 3 487 1234", "Alexandria Port Area / Cairo Office", "Egypt"),
+            ("SITC Container Lines Co., Ltd.", "SITC", "https://www.sitc.com/en/tracking.html", "https://www.sitc.com", "info@sitc.com", None, "+20 2 2268 7700", "Qingdao / Shanghai, China", "China"),
+            ("Ignazio Messina & C. S.p.A.", "LMCU", "https://www.messinaline.it/tracking/", "https://www.messinaline.it", "alexandria@messinaline.it", None, "+20 3 486 9900", "Alexandria Port Area", "Egypt"),
+            ("Turkon Container Transportation & Shipping", "TRKU", "https://www.turkon.com/en/tracking", "https://www.turkon.com", "turkonline@turkon.com", None, "+20 3 487 6622", "Alexandria / Cairo", "Egypt"),
+            ("Pan Marine Shipping Services", "PMRS", "https://www.pan-marine.net/", "https://www.pan-marine.net", "shipping@pan-marine.net", "logistics@pan-marine.net", "+20 3 487 7750 / +20 100 178 8800", "12 Al-Bostan St., Downtown / 9 Al-Ferdaws St., Smouha, Alexandria", "Egypt"),
+            ("Diamond Line GmbH", "DIAL", "https://www.diamondline.de/", "https://www.diamondline.de", "info@diamondline.de", "cs.egypt@coscon.com", "+20 2 2417 8100 / +20 3 487 5500", "47 Ramses St., Heliopolis, Cairo / 27 Sultan Hussein St., Alexandria", "Egypt"),
+            ("Borchard Lines Ltd", "BORU", "https://www.borchardlines.com/tracking/", "https://www.borchardlines.com", "egypt@borchardlines.com", None, "+20 3 487 4000", "Alexandria / Port Said", "Egypt"),
+            ("Shanghai Zhonggu Logistics Co., Ltd.", "ZGSC", "https://www.zhonggushipping.com/", "https://www.zhonggushipping.com", "service@zhonggushipping.com", None, None, "Shanghai, China", "China"),
+            ("Antong Holdings Co., Ltd. (Quanzhou Anji Shipping)", "QASU", "http://www.antong56.com/", "http://www.antong56.com", "sales@antong56.com", None, None, "Quanzhou, Fujian / Shanghai, China", "China"),
+            ("Sinotrans Container Lines Co., Ltd. (Sinolines)", "SNTN", "https://www.sinolines.com/track/", "https://www.sinolines.com", "sinolines@sinotrans.com", None, None, "Beijing / Shanghai, China", "China"),
+            ("Shanghai Jin Jiang Shipping (Group) Co., Ltd.", "JJSC", "https://www.jinjiangshipping.com/", "https://www.jinjiangshipping.com", "service@jinjiangshipping.com", None, None, "Shanghai, China", "China"),
+            ("Taicang Container Lines Co., Ltd. (TCL)", "TCIU", "http://www.tcl-line.com/", "http://www.tcl-line.com", "booking@tcl-line.com", None, None, "Jiangsu / Taicang, China", "China"),
+        ]
+
+        existing_scacs = {p.scac_code for p in self.db.query(ExternalServiceProvider.scac_code).filter(ExternalServiceProvider.scac_code.isnot(None)).all()}
+        max_idx = self.db.query(ExternalServiceProvider).count()
+        added = 0
+
+        for name, scac, track_url, web, mail, sec_mail, ph, addr, ctry in shipping_lines_data:
+            if scac not in existing_scacs:
+                max_idx += 1
+                self.db.add(ExternalServiceProvider(
+                    partner_code=f"ESP-{max_idx:06d}",
+                    partner_name=name,
+                    partner_type="Shipping Line",
+                    scac_code=scac,
+                    tracking_url=track_url,
+                    website=web,
+                    email=mail,
+                    secondary_email=sec_mail,
+                    phone=ph,
+                    address=addr,
+                    country=ctry,
+                    payment_type="Credit",
+                    credit_limit=0.0,
+                    rating=5.0,
+                    is_active=True,
+                    created_by="SYSTEM_SEED",
+                ))
+                existing_scacs.add(scac)
+                added += 1
+        if added > 0:
+            self.db.commit()
+        return added
+
     def sync_all(self) -> Dict[str, Any]:
         """Runs complete master data non-destructive synchronization across all reference domains."""
         users_added = self.sync_system_users()
@@ -367,6 +436,7 @@ class MasterDataSyncService:
         currencies_res = self.sync_currencies()
         customs_res = self.sync_customs_tariff_and_fees()
         clearance_added = self.sync_clearance_expenses()
+        shipping_lines_added = self.sync_shipping_lines()
 
         return {
             "status": "synchronized_cleanly",
@@ -375,4 +445,6 @@ class MasterDataSyncService:
             "currencies": currencies_res,
             "customs": customs_res,
             "clearance_expenses_added": clearance_added,
+            "shipping_lines_added": shipping_lines_added,
         }
+

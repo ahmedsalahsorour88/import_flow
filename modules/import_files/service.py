@@ -592,6 +592,49 @@ def generate_freight_rfq_service(
     if package_breakdowns:
         packages_str += "\n" + "\n".join(f"  • {pb}" for pb in package_breakdowns[:10])
 
+    # 4. Evaluate Stackability (Stackable vs Non-Stackable vs Mixed)
+    stackable_pkgs = 0
+    non_stackable_pkgs = 0
+    has_pl_items = False
+
+    for po in linked_pos:
+        pl_items = getattr(po, 'packing_list_items', [])
+        if pl_items:
+            has_pl_items = True
+            for pl in pl_items:
+                q = int(pl.qty_pkg or 1)
+                if getattr(pl, 'is_stackable', None) is False or getattr(pl, 'is_stackable', None) == 0:
+                    non_stackable_pkgs += q
+                else:
+                    stackable_pkgs += q
+        else:
+            po_stackable = getattr(po, 'is_pallet_stackable', None)
+            po_pkg_count = int(po.total_packages_count or 1)
+            if po_stackable is False:
+                non_stackable_pkgs += po_pkg_count
+            elif po_stackable is True:
+                stackable_pkgs += po_pkg_count
+
+    if not has_pl_items and import_file.packing_lists_data:
+        for p in import_file.packing_lists_data:
+            q = int(p.get("total_packages", 1))
+            if p.get("is_stackable") is False:
+                non_stackable_pkgs += q
+            elif p.get("is_stackable") is True:
+                stackable_pkgs += q
+
+    if stackable_pkgs > 0 and non_stackable_pkgs > 0:
+        stackability_str = f"Mixed ({stackable_pkgs} Pkgs Stackable, {non_stackable_pkgs} Pkgs Non-Stackable)"
+    elif stackable_pkgs > 0 and non_stackable_pkgs == 0:
+        stackability_str = "Stackable (Yes)"
+    elif non_stackable_pkgs > 0 and stackable_pkgs == 0:
+        stackability_str = "Non-Stackable (Do Not Double Stack)"
+    else:
+        if "crate" in packages_str.lower() or "pallet" in packages_str.lower():
+            stackability_str = "Non-Stackable (Do Not Double Stack)"
+        else:
+            stackability_str = "Stackable (Yes)"
+
     special_reqs = import_file.shipping_instructions_notes or f"Must be {free_days} days free time at destination (DET/DEM), direct line preferred, delivery port {pod}."
 
     # 5. Generate Email Body Template
@@ -609,6 +652,7 @@ Could you please provide your best EXW (Ex Works) all-in air freight quotation f
 • Gross Weight: {gross_weight:,.1f} kg | Net Weight: {net_weight:,.1f} kg
 • Chargeable Weight: {chargeable_weight:,.1f} kg (Volumetric Wt: {volumetric_weight_air:,.1f} kg)
 • Number of Packages: {packages_str}
+• Stackability: {stackability_str}
 
 • Pickup Address:
   {import_file.supplier_name}
@@ -642,6 +686,7 @@ Could you please provide your best EXW (Ex Works) all-in freight quotation for t
 • Volume / Mode: {recommended_containers} (Total CBM: {total_cbm:.2f} m³)
 • Gross Weight: {gross_weight:,.1f} kg | Net Weight: {net_weight:,.1f} kg
 • Number of Packages: {packages_str}
+• Stackability: {stackability_str}
 
 • Pickup Address:
   {import_file.supplier_name}
@@ -677,6 +722,8 @@ Kindly share your best {incoterm} freight rates for {recommended_containers} bas
 • POL (Port of Loading / Airport): {pol}
 • POD (Port of Discharge / Airport): {pod}
 {weight_line}
+• Number of Packages: {packages_str}
+• Stackability: {stackability_str}
 • Cargo Ready Date: {ready_date_str}
 • Required Free Time: {free_days} days free time (FT) at destination
 • Service: {service_type}
@@ -703,6 +750,7 @@ Best regards,
 📦 *Commodity:* {commodity_str}
 🏷️ *HS Code(s):* {hs_codes_str}
 📊 *Volume & Weight:* {recommended_containers} | {total_cbm:.2f} CBM | {gross_weight:,.1f} KG{chg_wt_str}
+📦 *Packages & Stackability:* {total_packages} Pkgs | {stackability_str}
 🌐 *Incoterm Rule:* {incoterm}
 📍 *Port / Airport of Loading (POL):* {pol}
 🏁 *Port / Airport of Discharge (POD):* {pod}
@@ -739,6 +787,7 @@ Kindly provide your most competitive all-in rates and earliest departure schedul
         "chargeable_weight_kg": round(chargeable_weight, 2),
         "total_packages": total_packages,
         "packages_breakdown": packages_str,
+        "stackability": stackability_str,
         "pickup_address": pickup_address,
         "port_of_loading": pol,
         "port_of_discharge": pod,

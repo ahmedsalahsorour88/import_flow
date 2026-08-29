@@ -362,6 +362,7 @@ class FreightRfqDataModel {
   final double chargeableWeightKg;
   final int totalPackages;
   final String packagesBreakdown;
+  final String stackability;
   final String pickupAddress;
   final String portOfLoading;
   final String portOfDischarge;
@@ -392,6 +393,7 @@ class FreightRfqDataModel {
     this.chargeableWeightKg = 0.0,
     required this.totalPackages,
     required this.packagesBreakdown,
+    this.stackability = 'Stackable',
     required this.pickupAddress,
     required this.portOfLoading,
     required this.portOfDischarge,
@@ -424,6 +426,7 @@ class FreightRfqDataModel {
       chargeableWeightKg: (json['chargeable_weight_kg'] as num?)?.toDouble() ?? ((json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0),
       totalPackages: (json['total_packages'] as num?)?.toInt() ?? 0,
       packagesBreakdown: json['packages_breakdown'] ?? '',
+      stackability: json['stackability'] ?? 'Stackable',
       pickupAddress: json['pickup_address'] ?? '',
       portOfLoading: json['port_of_loading'] ?? '',
       portOfDischarge: json['port_of_discharge'] ?? '',

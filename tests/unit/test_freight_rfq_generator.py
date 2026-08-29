@@ -401,7 +401,101 @@ def test_freight_rfq_air_shipment_gi_industrial(db_session):
     body = rfq["email_body_template"]
     assert "Chargeable Weight: 49.1 kg" in body or "Chargeable Weight: 49.0 kg" in body
     assert "HS Code(s): 84145925, 85369010" in body
+    assert "Stackability: " in body
     assert "DTHC" in body
     assert "Airport" in body
     assert "OTHC" in body
+
+
+def test_freight_rfq_mixed_stackability(db_session):
+    """
+    Test Mixed Stackability calculation:
+    - 4 Stackable Pallets
+    - 2 Non-Stackable Crates
+    -> Result must state: Mixed (4 Pkgs Stackable, 2 Pkgs Non-Stackable)
+    """
+    supp = Supplier(
+        supplier_id=5,
+        supplier_code="SUP-005",
+        company_name="Siemens AG Germany",
+        supplier_type="Manufacturer",
+        registration_type="Commercial Registration",
+        foreign_exporter_id="DE-REG-5005",
+        foreign_exporter_country="Germany",
+        foreign_exporter_country_code="DE",
+        address="Werner-von-Siemens-Strasse 1, 80333 Munich, Germany",
+    )
+    db_session.add(supp)
+    db_session.commit()
+
+    imp_file = ImportFile(
+        import_file_id=5,
+        import_file_code="IMP-2026-0005",
+        custom_file_number="6701068105",
+        company_id=1,
+        company_name="ECO ASSOCIATES",
+        supplier_id=5,
+        supplier_name="Siemens AG Germany",
+        incoterm_code="FOB",
+        shipment_mode="Sea FCL",
+        port_of_loading="Hamburg Port",
+        port_of_discharge="Alexandria Port",
+        cargo_ready_date=date(2026, 9, 10),
+        target_free_days=21,
+    )
+    db_session.add(imp_file)
+    db_session.commit()
+
+    po = PurchaseOrder(
+        po_id=5,
+        po_number="PO-SIEMENS-2026",
+        import_file_id=5,
+        project_id=1,
+        company_id=1,
+        supplier_id=5,
+        incoterm_id=1,
+        currency_id=1,
+        total_cbm=12.5,
+        total_gross_weight_kg=4500.0,
+        total_net_weight_kg=4000.0,
+        total_packages_count=6,
+    )
+    db_session.add(po)
+    db_session.commit()
+
+    pl1 = PackingListItem(
+        po_id=5,
+        item_code="DRIVE-01",
+        hs_code="85044090",
+        qty_pkg=4,
+        package_type="Pallet",
+        is_stackable=True,
+        length_cm=120.0,
+        width_cm=80.0,
+        height_cm=100.0,
+        total_gross_weight_kg=2500.0,
+        total_net_weight_kg=2200.0,
+    )
+    pl2 = PackingListItem(
+        po_id=5,
+        item_code="PANEL-02",
+        hs_code="85371091",
+        qty_pkg=2,
+        package_type="Crate",
+        is_stackable=False,
+        length_cm=160.0,
+        width_cm=120.0,
+        height_cm=140.0,
+        total_gross_weight_kg=2000.0,
+        total_net_weight_kg=1800.0,
+    )
+    db_session.add_all([pl1, pl2])
+    db_session.commit()
+
+    rfq = generate_freight_rfq_service(db_session, import_file_id=5, recipient_name="Hapag-Lloyd Line")
+
+    assert rfq["stackability"] == "Mixed (4 Pkgs Stackable, 2 Pkgs Non-Stackable)"
+    assert "• Stackability: Mixed (4 Pkgs Stackable, 2 Pkgs Non-Stackable)" in rfq["email_body_template"]
+    assert "Mixed (4 Pkgs Stackable, 2 Pkgs Non-Stackable)" in rfq["whatsapp_text_template"]
+
 

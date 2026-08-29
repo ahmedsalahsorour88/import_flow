@@ -180,7 +180,7 @@ class FreightRfqGeneratorService {
                 _buildTableRow('Chargeable Weight', '${rfq.chargeableWeightKg.toStringAsFixed(1)} KG', 'Gross / Net Wt', '${rfq.grossWeightKg.toStringAsFixed(1)} / ${rfq.netWeightKg.toStringAsFixed(1)} KG')
               else
                 _buildTableRow('Gross Weight', '${rfq.grossWeightKg.toStringAsFixed(1)} KG', 'Net Weight', '${rfq.netWeightKg.toStringAsFixed(1)} KG'),
-              _buildTableRow('Total Packages', '${rfq.totalPackages} Pkgs', 'Service Type', rfq.serviceType),
+              _buildTableRow('Total Packages', '${rfq.totalPackages} Pkgs', 'Stackability', rfq.stackability),
               _buildTableRow('Port / Airport (POL)', rfq.portOfLoading, 'Port / Airport (POD)', rfq.portOfDischarge),
               _buildTableRow('Cargo Ready Date', rfq.cargoReadyDate, 'Required Free Time', '${rfq.targetFreeDays} Days FT at POD'),
             ],

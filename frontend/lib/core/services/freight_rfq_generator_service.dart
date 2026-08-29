@@ -63,12 +63,11 @@ class FreightRfqGeneratorService {
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
-                      'طلب عرض أسعار نولون شحن دولي وبحري',
+                      'International Freight Inquiry & Shipping Specifications',
                       style: const pw.TextStyle(
                         color: PdfColor.fromInt(0xFFBDC3C7),
-                        fontSize: 12,
+                        fontSize: 11,
                       ),
-                      textDirection: pw.TextDirection.rtl,
                     ),
                   ],
                 ),
@@ -162,7 +161,7 @@ class FreightRfqGeneratorService {
           pw.SizedBox(height: 16),
 
           // Shipment Key Metrics Table
-          pw.Text('1. SHIPMENT SPECIFICATIONS (بيانات وتفاصيل الشحنة)',
+          pw.Text('1. SHIPMENT SPECIFICATIONS',
               style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: primaryColor)),
           pw.SizedBox(height: 8),
           pw.Table(
@@ -190,7 +189,7 @@ class FreightRfqGeneratorService {
 
           // Pickup Address (for EXW)
           if (rfq.incotermCode.toUpperCase() == 'EXW') ...[
-            pw.Text('2. PICKUP & FACTORY LOCATION (موقع استلام البضاعة من المصنع)',
+            pw.Text('2. PICKUP & FACTORY LOCATION',
                 style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: primaryColor)),
             pw.SizedBox(height: 6),
             pw.Container(
@@ -215,7 +214,7 @@ class FreightRfqGeneratorService {
 
           // Packages & Dimensions Breakdown
           if (rfq.packagesBreakdown.isNotEmpty) ...[
-            pw.Text('3. PACKAGING & PALLET DIMENSIONS (تفاصيل الطرود وأبعاد البالتات)',
+            pw.Text('3. PACKAGING & PALLET DIMENSIONS',
                 style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: primaryColor)),
             pw.SizedBox(height: 6),
             pw.Container(
@@ -235,7 +234,7 @@ class FreightRfqGeneratorService {
           ],
 
           // Required Quotation Inclusions
-          pw.Text('4. REQUIRED QUOTATION BREAKDOWN (المطلوب تفصيله في العرض المقدم)',
+          pw.Text('4. REQUIRED QUOTATION BREAKDOWN',
               style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: primaryColor)),
           pw.SizedBox(height: 6),
           pw.Container(
@@ -281,7 +280,7 @@ class FreightRfqGeneratorService {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('SPECIAL OPERATIONAL REQUIREMENTS (اشتراطات خاصة):',
+                  pw.Text('SPECIAL OPERATIONAL REQUIREMENTS:',
                       style: pw.TextStyle(color: accentColor, fontWeight: pw.FontWeight.bold, fontSize: 10)),
                   pw.SizedBox(height: 4),
                   pw.Text(rfq.specialRequirements, style: const pw.TextStyle(fontSize: 10, color: PdfColors.black)),

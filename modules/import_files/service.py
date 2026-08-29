@@ -695,26 +695,26 @@ Best regards,
 {import_file.company_name} - Logistics & Import Dept.
 """
 
-    # 6. Generate WhatsApp Text Template
-    chg_wt_str = f" | الوزن المحتسب: {chargeable_weight:,.1f} KG" if is_air else ""
-    whatsapp_text = f"""🚢 *طلب أسعار نولون شحن / Freight RFQ*
+    # 6. Generate WhatsApp Text Template (100% Professional English)
+    chg_wt_str = f" | Chg Wt: {chargeable_weight:,.1f} KG" if is_air else ""
+    whatsapp_text = f"""🚢 *FREIGHT QUOTATION INQUIRY (RFQ)*
 ━━━━━━━━━━━━━━━━━━
-🏢 *الشركة المستوردة:* {import_file.company_name}
-📦 *البضاعة:* {commodity_str}
-🏷️ *بند التعريفة (HS Code):* {hs_codes_str}
-📊 *الحجم والوزن:* {recommended_containers} | {total_cbm:.2f} CBM | {gross_weight:,.1f} KG{chg_wt_str}
-🌐 *شرط الشحن (Incoterm):* {incoterm}
-📍 *ميناء الشحن (POL):* {pol}
-🏁 *ميناء الوصول (POD):* {pod}
-📅 *تاريخ الجاهزية (Ready Date):* {ready_date_str}
-⏳ *فترة السماح المطلوبة:* {free_days} Days Free Time
-⚡ *الخدمة المطلوبة:* {service_type} Direct Line
+🏢 *Requester / Importer:* {import_file.company_name}
+📦 *Commodity:* {commodity_str}
+🏷️ *HS Code(s):* {hs_codes_str}
+📊 *Volume & Weight:* {recommended_containers} | {total_cbm:.2f} CBM | {gross_weight:,.1f} KG{chg_wt_str}
+🌐 *Incoterm Rule:* {incoterm}
+📍 *Port / Airport of Loading (POL):* {pol}
+🏁 *Port / Airport of Discharge (POD):* {pod}
+📅 *Cargo Ready Date:* {ready_date_str}
+⏳ *Required Free Time:* {free_days} Days Free Time (FT at destination)
+⚡ *Service Preference:* {service_type} Direct Line
 
-{"📍 *عنوان الاستلام (Pickup Address):*\n" + pickup_address + "\n" if incoterm.upper() == 'EXW' else ""}
-📝 *ملاحظات واشتراطات:*
+{"📍 *Pickup / Factory Address:*\n" + pickup_address + "\n" if incoterm.upper() == 'EXW' else ""}
+📝 *Special Instructions:*
 {special_reqs}
 ━━━━━━━━━━━━━━━━━━
-برجاء إرسال أفضل عرض سعر متاح وجدول أقرب شحنة شاكرين تعاونكم."""
+Kindly provide your most competitive all-in rates and earliest departure schedule. Thank you."""
 
     file_title = import_file.custom_file_number or import_file.import_file_code
     email_subject = f"Freight Rate Inquiry - {file_title} | {import_file.supplier_name} | {import_file.company_name} | {incoterm} | {recommended_containers}"

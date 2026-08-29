@@ -138,7 +138,7 @@ def test_freight_rfq_example_1_suzhou_acoustic_panels(db_session):
     assert "Dear Marian" in rfq["email_body_template"]
     assert "EXW (Ex Works)" in rfq["email_body_template"]
     assert "21 days free time" in rfq["email_body_template"]
-    assert "طلب أسعار نولون شحن" in rfq["whatsapp_text_template"]
+    assert "FREIGHT QUOTATION INQUIRY" in rfq["whatsapp_text_template"]
     # Subject contains File name + Supplier + Importer + Incoterm + Container Fleet
     assert "6701068101" in rfq["email_subject"]
     assert "Suzhou Yuheng Textile" in rfq["email_subject"]

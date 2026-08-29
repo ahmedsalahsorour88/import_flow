@@ -167,7 +167,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'txt', 'csv', 'xlsx', 'docx', 'doc', 'xls'],
+        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'tif', 'tiff', 'txt', 'csv', 'xlsx', 'docx', 'doc', 'xls'],
         withData: true,
       );
 

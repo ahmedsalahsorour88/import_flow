@@ -43,6 +43,9 @@ class _InvoiceBLMatcherTabState extends ConsumerState<InvoiceBLMatcherTab> {
   Uint8List? _invoiceFileBytes;
   Uint8List? _blFileBytes;
   Uint8List? _packingFileBytes;
+  List<PlatformFile> _invoiceFiles = [];
+  List<PlatformFile> _blFiles = [];
+  List<PlatformFile> _packingFiles = [];
   bool _showPackingList = true;
   bool _isLoading = false;
   bool _isSyncing = false;
@@ -136,53 +139,58 @@ Total Items: 31 Total: 20,030.000 kgs.
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'txt', 'csv', 'doc', 'docx', 'xlsx', 'xls'],
+        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'tif', 'tiff', 'txt', 'csv', 'doc', 'docx', 'xlsx', 'xls'],
+        allowMultiple: true,
         withData: true,
       );
 
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
+        final count = result.files.length;
         final ext = (file.name.split('.').last).toLowerCase();
         final isTextFormat = ['txt', 'csv', 'json', 'xml', 'log'].contains(ext);
 
         if (!mounted) return;
         setState(() {
           if (docType == 'invoice') {
-            _invoiceFileName = file.name;
+            _invoiceFiles = result.files;
+            _invoiceFileName = count == 1 ? file.name : '${file.name} (+$count صفحات/ملفات)';
             _invoiceFileBytes = file.bytes;
-            if (isTextFormat && file.bytes != null) {
+            if (isTextFormat && file.bytes != null && count == 1) {
               try {
                 _invoiceTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
               } catch (_) {
                 _invoiceTextCtrl.text = '';
               }
             } else {
-              _invoiceTextCtrl.text = '[تم تحميل ملف رقمي: ${file.name} — سيتم استخراج ومطابقة محتواه آلياً عند الضغط على زر المطابقة]';
+              _invoiceTextCtrl.text = '[تم تحميل $count ملفات/صفحات للفاتورة: ${result.files.map((f) => f.name).join(", ")} — سيتم استخراج ومطابقة جميع الأصناف والبيانات عبر كافة الصفحات آلياً]';
             }
           } else if (docType == 'packing') {
             _showPackingList = true;
-            _packingFileName = file.name;
+            _packingFiles = result.files;
+            _packingFileName = count == 1 ? file.name : '${file.name} (+$count صفحات/ملفات)';
             _packingFileBytes = file.bytes;
-            if (isTextFormat && file.bytes != null) {
+            if (isTextFormat && file.bytes != null && count == 1) {
               try {
                 _packingTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
               } catch (_) {
                 _packingTextCtrl.text = '';
               }
             } else {
-              _packingTextCtrl.text = '[تم تحميل كشف تعبئة رقمي: ${file.name} — سيتم استخراج الأوزان والأحجام والطرود آلياً عند المطابقة]';
+              _packingTextCtrl.text = '[تم تحميل $count ملفات/صفحات لكشف التعبئة: ${result.files.map((f) => f.name).join(", ")} — سيتم استخراج الأوزان والأحجام والطرود آلياً عند المطابقة]';
             }
           } else {
-            _blFileName = file.name;
+            _blFiles = result.files;
+            _blFileName = count == 1 ? file.name : '${file.name} (+$count صفحات/ملفات)';
             _blFileBytes = file.bytes;
-            if (isTextFormat && file.bytes != null) {
+            if (isTextFormat && file.bytes != null && count == 1) {
               try {
                 _blTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
               } catch (_) {
                 _blTextCtrl.text = '';
               }
             } else {
-              _blTextCtrl.text = '[تم تحميل ملف رقمي: ${file.name} — سيتم استخراج ومطابقة محتواه آلياً عند الضغط على زر المطابقة]';
+              _blTextCtrl.text = '[تم تحميل $count ملفات/صفحات للبوليصة: ${result.files.map((f) => f.name).join(", ")} — سيتم استخراج ومطابقة محتواها آلياً عند الضغط على زر المطابقة]';
             }
           }
         });
@@ -190,7 +198,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('تم اختيار ملف ${file.name} بنجاح'),
+              content: Text('تم اختيار $count ملف/صفحة بنجاح (${result.files.map((f) => f.name).join(", ")})'),
               backgroundColor: AppTheme.emerald,
               behavior: SnackBarBehavior.floating,
             ),
@@ -218,6 +226,9 @@ Total Items: 31 Total: 20,030.000 kgs.
       _blFileName = 'MSC_Draft_BL_MEDURE910647.txt';
       _invoiceFileBytes = null;
       _blFileBytes = null;
+      _invoiceFiles = [];
+      _blFiles = [];
+      _packingFiles = [];
     });
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -231,9 +242,9 @@ Total Items: 31 Total: 20,030.000 kgs.
   }
 
   Future<void> _runCrossMatching() async {
-    final hasInvoiceFile = _invoiceFileBytes != null;
-    final hasBlFile = _blFileBytes != null;
-    final hasPackingFile = _packingFileBytes != null;
+    final hasInvoiceFile = _invoiceFiles.isNotEmpty || _invoiceFileBytes != null;
+    final hasBlFile = _blFiles.isNotEmpty || _blFileBytes != null;
+    final hasPackingFile = _packingFiles.isNotEmpty || _packingFileBytes != null;
     final invText = _invoiceTextCtrl.text.trim();
     final blText = _blTextCtrl.text.trim();
     final plText = _packingTextCtrl.text.trim();
@@ -268,7 +279,16 @@ Total Items: 31 Total: 20,030.000 kgs.
           formData.fields.add(MapEntry('import_file_id', _activeFileId.toString()));
         }
 
-        if (hasInvoiceFile) {
+        if (_invoiceFiles.isNotEmpty) {
+          for (final f in _invoiceFiles) {
+            if (f.bytes != null) {
+              formData.files.add(MapEntry(
+                'invoice_files',
+                MultipartFile.fromBytes(f.bytes!, filename: f.name),
+              ));
+            }
+          }
+        } else if (_invoiceFileBytes != null) {
           formData.files.add(MapEntry(
             'invoice_file',
             MultipartFile.fromBytes(_invoiceFileBytes!, filename: _invoiceFileName ?? 'invoice.pdf'),
@@ -277,7 +297,16 @@ Total Items: 31 Total: 20,030.000 kgs.
           formData.fields.add(MapEntry('invoice_text', invText));
         }
 
-        if (hasPackingFile) {
+        if (_packingFiles.isNotEmpty) {
+          for (final f in _packingFiles) {
+            if (f.bytes != null) {
+              formData.files.add(MapEntry(
+                'packing_list_files',
+                MultipartFile.fromBytes(f.bytes!, filename: f.name),
+              ));
+            }
+          }
+        } else if (_packingFileBytes != null) {
           formData.files.add(MapEntry(
             'packing_list_file',
             MultipartFile.fromBytes(_packingFileBytes!, filename: _packingFileName ?? 'packing_list.pdf'),
@@ -286,7 +315,16 @@ Total Items: 31 Total: 20,030.000 kgs.
           formData.fields.add(MapEntry('packing_list_text', plText));
         }
 
-        if (hasBlFile) {
+        if (_blFiles.isNotEmpty) {
+          for (final f in _blFiles) {
+            if (f.bytes != null) {
+              formData.files.add(MapEntry(
+                'bl_files',
+                MultipartFile.fromBytes(f.bytes!, filename: f.name),
+              ));
+            }
+          }
+        } else if (_blFileBytes != null) {
           formData.files.add(MapEntry(
             'bl_file',
             MultipartFile.fromBytes(_blFileBytes!, filename: _blFileName ?? 'bl.pdf'),

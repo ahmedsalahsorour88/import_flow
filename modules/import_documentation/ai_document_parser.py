@@ -894,21 +894,27 @@ def _parse_flexible_number(val: Any) -> float:
     s = str(val).strip()
     if not s:
         return 0.0
-    s = re.sub(r'[$€£¥a-zA-Z\s]', '', s)
+    # Strip currency symbols and letters
+    s = re.sub(r'[$€£¥a-zA-Z]', '', s).strip()
+    # Normalize OCR whitespace inside formatted numbers e.g. "37. 204, 75" -> "37.204,75"
+    s = re.sub(r'([.,])\s+(\d+)', r'\1\2', s)
+    s = re.sub(r'(\d+)\s+([.,])', r'\1\2', s)
+    s = s.replace(' ', '')
     if not s:
         return 0.0
     
     if '.' in s and ',' in s:
         if s.rfind(',') > s.rfind('.'):
-            # European format: 37.741,00 or 2.254,000 -> 37741.00, 2254.0
+            # European format: 37.741,00 or 18.602,37500 -> 37741.00, 18602.375
             s = s.replace('.', '').replace(',', '.')
         else:
             # US format: 37,741.00 -> 37741.00
             s = s.replace(',', '')
     elif ',' in s and '.' not in s:
         parts = s.split(',')
-        if len(parts) == 2 and len(parts[1]) in [1, 2, 3]:
-            s = s.replace(',', '.')
+        if len(parts) == 2:
+            # European decimal comma e.g. "268,12500" -> "268.12500", "536,25" -> "536.25", "2,000" -> "2.000"
+            s = parts[0] + '.' + parts[1]
         else:
             s = s.replace(',', '')
     elif '.' in s and ',' not in s:
@@ -922,57 +928,94 @@ def _parse_flexible_number(val: Any) -> float:
         return 0.0
 
 
+COMMON_INVOICE_WORDS_TO_IGNORE = {
+    "STANDARD", "DELIVERY", "COMMERCIAL", "INVOICE", "EXPORTER", "IMPORTER", "CONFIRMATION",
+    "DESCRIPTION", "COMMODITY", "REVISED", "NOTIFY", "OPERAZIONB", "COMPLEMENTARY", "ADVANCED",
+    "PACKAGES", "SHIPPING", "ORIGIN", "COUNTRY", "REPUBLIC", "PRODUCTS", "EUROPEAN", "UNION",
+    "PAYMENT", "DIRECT", "MESSERS", "AGENT", "BANK", "SWIFT", "ORDER", "PHONE", "CLIENT",
+    "TOTAL", "AMOUNT", "GOODS", "DUE", "DATE", "EXEMPTION", "CODE", "PRICE"
+}
+
+
+def _is_valid_item_code(token: str) -> bool:
+    if not token or len(token) < 3:
+        return False
+    t_up = token.upper()
+    if t_up in COMMON_INVOICE_WORDS_TO_IGNORE:
+        return False
+    if t_up.isalpha() and len(token) > 5 and t_up in COMMON_INVOICE_WORDS_TO_IGNORE:
+        return False
+    if t_up.isdigit() and (len(t_up) in [9, 19] or t_up.startswith(('0020', '200183', '019825'))):
+        return False
+    return bool(re.search(r'\d', t_up) or re.search(r'[-/]', t_up) or len(t_up) >= 6)
+
+
 # ==============================================================================
-# 2. SMART COMMERCIAL INVOICE EXTRACTOR (AI + Heuristics)
+# 2. SMART COMMERCIAL INVOICE EXTRACTOR (AI + Heuristics + Multi-Page Engine)
 # ==============================================================================
 
 def extract_commercial_invoice_data(raw_text: str) -> dict:
     """
     Extracts structured fields and line items from Commercial Invoices & Final Packing Lists.
-    Supports European (Italian, German, French), American, Asian, and Egyptian trade invoices.
+    Supports Multi-Page European (Italian, German, French), American, Asian, and Egyptian trade invoices.
     """
     if not raw_text or not raw_text.strip():
         return {}
 
     parsed: Dict[str, Any] = {
         "document_type": "Commercial Invoice",
+        "items": [],
     }
 
-    # 1. ACID Number (19 digits)
-    m_acid = re.search(r'(?:ACID|ACI\s+NO|ADVANCE\s+CARGO\s+INFO|ACID:\s*|ACID\s+#|ACID\s+NR\.?)[:\s#]*(\d{19})', raw_text, re.IGNORECASE)
-    if not m_acid:
-        m_acid = re.search(r'\b(\d{19})\b', raw_text)
+    # 1. ACID Number (19 digits, handle OCR 'L'/'I' for 1, 'O' for 0)
+    acid_pat = r'(?:ACID|ACI\s+NO|ADVANCE\s+CARGO\s+INFO|ACID:\s*|ACID\s+#|ACID\s+NR\.?|ACID\s+HR\.?|ACID\s+NO\.?)[:\s#,-]*([0-9a-zA-Z]{19})'
+    m_acid = re.search(acid_pat, raw_text, re.IGNORECASE)
     if m_acid:
-        parsed["acid_number"] = m_acid.group(1).strip()
+        cand = m_acid.group(1).upper().replace('L', '1').replace('I', '1').replace('O', '0')
+        if cand.isdigit() and len(cand) == 19:
+            parsed["acid_number"] = cand
+    if "acid_number" not in parsed:
+        m_19 = re.search(r'\b(\d{19})\b', raw_text)
+        if m_19:
+            parsed["acid_number"] = m_19.group(1).strip()
 
     # 2. Importer Tax ID (9 digits)
-    m_tax = re.search(r'(?:Tax\s+ID|VAT\s+ID|VAT\s+No|TAX\s+REG|EGYPTIAN\s+IMPORTER\s+TAX\s+ID|IMPORTER\s+TAX\s+ID)[:\s#]*(\d{3}[-\s]?\d{3}[-\s]?\d{3}|\d{9})', raw_text, re.IGNORECASE)
+    m_tax = re.search(
+        r'(?:IMPORTER\s+TAX\s+ID|TAX\s+ID|VAT\s+ID|VAT\s+No|TAX\s+REG|EGYPTIAN\s+IMPORTER\s+TAX\s+ID)[:\s#]*(\d{3}[-\s]?\d{3}[-\s]?\d{3}|\d{9})',
+        raw_text,
+        re.IGNORECASE,
+    )
     if not m_tax:
         m_tax = re.search(r'(?:V\.A\.T\.\s+ID\s+Number|Client\s+id\.\s+no\.?)[:\s\n]*(\d{9})', raw_text, re.IGNORECASE)
     if m_tax:
         parsed["importer_tax_id"] = re.sub(r'[\s-]', '', m_tax.group(1).strip())
 
     # 3. Exporter Registration Number (Foreign Tax / VAT / Reg No)
-    m_exp_reg = re.search(r'(?:EXPORTER\s+REGISTRATION\s+NUMBER|EXPORTER\s+ID|AUTHORIZATION\s+NO\.?)[:\s#]+([A-Z0-9/_-]+)', raw_text, re.IGNORECASE)
+    m_exp_reg = re.search(
+        r'(?:EXPORTER\s+REGISTRATION\s+(?:NUMBER|MUMBER)|EXPORTER\s+ID|AUTHORIZATION\s+NO\.?)[:\s#]+([A-Z0-9/_-]+)',
+        raw_text,
+        re.IGNORECASE,
+    )
     if not m_exp_reg:
-        m_exp_reg = re.search(r'(?:P\.IVA|P\.IVA\s+IT|VAT\s+Number)[:\s#]*([A-Z0-9]+)', raw_text, re.IGNORECASE)
+        m_exp_reg = re.search(r'(?:P\.IVA|P\.IVA\s+IT|P\.NA\s+IT|VAT\s+Number)[:\s#]*([A-Z0-9]+)', raw_text, re.IGNORECASE)
     if m_exp_reg:
         parsed["exporter_registration_no"] = m_exp_reg.group(1).strip()
 
     # 4. Invoice Number / Order Number
-    m_inv = re.search(r'(?:Invoice\s+Number|Invoice\s+No\.?|Order\s+Number|Order\s+No\.?|INV\s*#)[:\s]*([A-Z0-9/_-]+)', raw_text, re.IGNORECASE)
+    m_inv = re.search(r'(?:COMMERCIAL\s+INVOICE\s+)?(V\d+/\s*\d+)', raw_text, re.IGNORECASE)
     if not m_inv:
-        m_inv = re.search(r'\b(V\d+/\s*\d+)\b', raw_text)
+        m_inv = re.search(r'(?:Invoice\s+Number|Invoice\s+No\.?|Order\s+Number|Order\s+No\.?|INV\s*#)[:\s]*([A-Z0-9/_-]+)', raw_text, re.IGNORECASE)
     if not m_inv:
         m_inv = re.search(r'(?:COMMERCIAL\s+INVOICE[^\n]*\n+)(?:[^\n]*Page[^\n]*\n+)?\s*(V\d+/\s*\d+|[A-Z0-9/_-]{3,20})', raw_text, re.IGNORECASE)
     if m_inv:
         inv_str = m_inv.group(1).strip()
-        if inv_str.lower() not in ["date", "page", "client"]:
+        if inv_str.lower() not in ["date", "page", "client", "delivery"]:
             parsed["invoice_number"] = inv_str
 
-
     # 5. Invoice Date / Order Date
-    m_date = re.search(r'(?:Date|Order\s+Date|Invoice\s+Date)[:\s]+(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})', raw_text, re.IGNORECASE)
+    m_date = re.search(r'(?:COMMERCIAL\s+INVOICE[^\n]*\s+)(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})', raw_text, re.IGNORECASE)
+    if not m_date:
+        m_date = re.search(r'(?:Invoice\s+Date|Date|Order\s+Date)[:\s]+(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})', raw_text, re.IGNORECASE)
     if m_date:
         parsed["invoice_date"] = m_date.group(1).strip()
 
@@ -982,25 +1025,30 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
         parsed["purchase_order"] = m_po.group(1).strip()
 
     # 7. Currency & Totals
-    m_curr = re.search(r'(?:Currency)[:\s]+([A-Z]{3})', raw_text, re.IGNORECASE)
-    if m_curr:
-        parsed["currency"] = m_curr.group(1).strip().upper()
+    if "EUR" in raw_text or "€" in raw_text:
+        parsed["currency"] = "EUR"
+    elif "$" in raw_text or "USD" in raw_text:
+        parsed["currency"] = "USD"
+    elif "£" in raw_text or "GBP" in raw_text:
+        parsed["currency"] = "GBP"
     else:
-        if "EUR" in raw_text or "€" in raw_text:
-            parsed["currency"] = "EUR"
-        elif "$" in raw_text or "USD" in raw_text:
-            parsed["currency"] = "USD"
-        elif "£" in raw_text or "GBP" in raw_text:
-            parsed["currency"] = "GBP"
-        else:
-            parsed["currency"] = "EUR"
+        m_curr = re.search(r'(?:Currency)[:\s]+([A-Z]{3})', raw_text, re.IGNORECASE)
+        parsed["currency"] = m_curr.group(1).strip().upper() if m_curr else "EUR"
 
-    m_tot = re.search(r'(?:TOTAL\s+INVOICE\s+AMOUNT|Total\s+goods|Order\s+Total|Total\s+Amount|Invoice\s+Total|Line\s+Total|Total)[:\s]*[$€£]?\s*([\d.,]+(?:\s*[A-Z]{3})?)', raw_text, re.IGNORECASE)
+    m_tot = re.search(
+        r'(?:TOTAL\s+INVOICE\s+AMOUNT|Total\s+goods|Order\s+Total|Total\s+Amount|Invoice\s+Total|Line\s+Total)[:\s]*[$€£]?\s*([\d.,\s]+(?:\s*[A-Z]{3})?)',
+        raw_text,
+        re.IGNORECASE,
+    )
     if m_tot:
         parsed["total_amount"] = _parse_flexible_number(m_tot.group(1))
 
     # 8. Incoterms & Location
-    m_inco = re.search(r'(?:INCOTERMS[®\s\d]*|Incoterms|Inco\s+Terms)[:\s\n]*(EX\s*WORKS|EXW|FOB|CFR|CIF|DAP|DDP|FCA|CPT|CIP)', raw_text, re.IGNORECASE)
+    m_inco = re.search(
+        r'(?:INCOTERMS[®\s\d]*|Incoterms|Inco\s+Terms|Shipping\s*-\s*Delivery\s*terms)[:\s\n-]*(EX\s*WORKS|EXW|FOB|CFR|CIF|DAP|DDP|FCA|CPT|CIP)',
+        raw_text,
+        re.IGNORECASE,
+    )
     if m_inco:
         term = m_inco.group(1).strip().upper()
         parsed["incoterm"] = "EXW" if "EX" in term else term
@@ -1009,19 +1057,27 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
         parsed["incoterm_location"] = m_inco_loc.group(1).strip()
 
     # 9. Shipper / Exporter
-    m_shp = re.search(r'(?:G\.I\.\s*INDUSTRIAL\s+HOLDING\s+SPA|Shaw\s+Europe\s+Limited|ShawContract|[A-Za-z0-9\s.,-]+(?:Limited|Ltd|S\.p\.A|SPA|LLC|GmbH|GMBH))', raw_text, re.IGNORECASE)
+    m_shp = re.search(
+        r'(?:G\.I\.\s*INDUSTRIAL\s+HOLDING\s+SPA|Shaw\s+Europe\s+Limited|ShawContract|[A-Za-z0-9\s.,-]+(?:Limited|Ltd|S\.p\.A|SPA|LLC|GmbH|GMBH))',
+        raw_text,
+        re.IGNORECASE,
+    )
     if m_shp:
-        parsed["shipper"] = m_shp.group(0).strip()
+        clean_shp = m_shp.group(0).strip()
+        clean_shp = re.sub(r'^(?:---\s*(?:PAGE|INVOICE\s*PAGE|INVOICE\s*FILE)\s*\d+[^\n]*---\s*)', '', clean_shp, flags=re.IGNORECASE).strip()
+        parsed["shipper"] = clean_shp
     else:
         lines = [ln.strip() for ln in raw_text.split('\n') if ln.strip() and len(ln.strip()) > 3]
         if lines:
-            parsed["shipper"] = lines[0]
+            parsed["shipper"] = re.sub(r'^(?:---\s*(?:PAGE|INVOICE\s*PAGE|INVOICE\s*FILE)\s*\d+[^\n]*---\s*)', '', lines[0], flags=re.IGNORECASE).strip()
 
-    # 10. Consignee / Importer (Messrs / Bill To / Ship To)
-    m_csg = re.search(r'(?:Messers|Messrs|Bill\s+To|Ship\s+To)[:\s\n]+([^\n\r]+(?:\n[^\n\r]+){0,2})', raw_text, re.IGNORECASE)
+    # 10. Consignee / Importer (Messrs / Bill To / Ship To / Notify)
+    m_csg = re.search(r'(?:Messers|Messrs|Bill\s+To|Ship\s+To|NOTIFY)[:\s\n]+([A-Z0-9\s.,&-]{3,60})', raw_text, re.IGNORECASE)
     if m_csg:
         clean_c = m_csg.group(1).strip()
-        parsed["consignee"] = re.sub(r'(?:7 HOSNI|44 Street|Maadi|Cairo|Egypt|Egitto|DUNS|Tax ID).*', '', clean_c, flags=re.IGNORECASE).strip()
+        clean_c = re.sub(r'(?:7 HOSNI|44 Street|Maadi|Cairo|Egypt|Egitto|DUNS|Tax ID).*', '', clean_c, flags=re.IGNORECASE).strip()
+        if len(clean_c) > 3 and not any(kw in clean_c.upper() for kw in ["AREA MANAGER", "PAYMENT CONDITION", "DIRECT SALE"]):
+            parsed["consignee"] = clean_c
 
     # 11. Containers & Seals
     m_cntr = re.search(r'(?:Container:?\s*([A-Z]{4}\d{7}))(?:\s*Seal:?\s*([A-Z0-9]+))?', raw_text, re.IGNORECASE)
@@ -1031,13 +1087,20 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
         parsed["containers"] = [{"container_no": c_no, "seal_no": s_no}]
         parsed["container_summary"] = f"{c_no}{' (Seal: ' + s_no + ')' if s_no else ''}"
 
-    # 12. Weights & Packages
-    m_gw = re.search(r'(?:Gross\s+weight\s*(?:kg)?|TOTAL\s+GROSS\s+WEIGHT)[:\s]*([\d.,]+)\s*(?:kg|kgs)?', raw_text, re.IGNORECASE)
-    if m_gw:
-        parsed["total_gross_weight_kg"] = _parse_flexible_number(m_gw.group(1))
-    m_nw = re.search(r'(?:Net\s+weight\s*(?:kg)?|TOTAL\s+NET\s+WEIGHT)[:\s]*([\d.,]+)\s*(?:kg|kgs)?', raw_text, re.IGNORECASE)
-    if m_nw:
-        parsed["total_net_weight_kg"] = _parse_flexible_number(m_nw.group(1))
+    # 12. Weights & Packages (often on Page 2 or summary section)
+    gw_matches = re.findall(r'(?:Gross\s+weight|Gros\s+weight|TOTAL\s+GROSS\s+WEIGHT)(?:\s*kgs?|\s*kg|kg)?[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
+    for m in gw_matches:
+        val = _parse_flexible_number(m)
+        if val > 0:
+            parsed["total_gross_weight_kg"] = val
+            break
+
+    nw_matches = re.findall(r'(?:Net\s+weight|Ndt\s+weighk|TOTAL\s+NET\s+WEIGHT)(?:\s*kgs?|\s*kg|kg)?[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
+    for m in nw_matches:
+        val = _parse_flexible_number(m)
+        if val > 0:
+            parsed["total_net_weight_kg"] = val
+            break
 
     m_pkg_pal = re.search(r'(\d+)\s*(?:boxes|cartons|pkgs)\s*/\s*(\d+)\s*(?:pallets?|pallet\(s\))', raw_text, re.IGNORECASE)
     if m_pkg_pal:
@@ -1046,42 +1109,160 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
         parsed["qty_pkg"] = int(m_pkg_pal.group(2))
         parsed["package_type"] = "Pallets"
     else:
-        m_pkg = re.search(r'(?:Packages|TOTAL\s+PACKAGES)[:\s]*(\d+)', raw_text, re.IGNORECASE)
-        if m_pkg:
-            parsed["qty_pkg"] = int(m_pkg.group(1))
-            parsed["package_type"] = "Packages"
+        pkg_matches = re.findall(r'(?:Packages|TOTAL\s+PACKAGES)[:\s]*(\d+)', raw_text, re.IGNORECASE)
+        for m in pkg_matches:
+            val = int(m)
+            if val > 0:
+                parsed["qty_pkg"] = val
+                parsed["package_type"] = "Packages"
+                break
 
+    # 13. Multi-Page Line Items Extraction (Across Page 1, Page 2, ..., Page N)
+    raw_lines = [ln.strip() for ln in raw_text.split('\n') if ln.strip()]
+    items: List[Dict[str, Any]] = []
 
-    # 13. Extract Line Items Table
-    items = []
-    # Match patterns like: Code Description Commodity/HS Qty UnitPrice TotalPrice
-    # E.g.: CYK4R6018210001 RTAXT/K/EC/MS 182 ... 84158200 2,000 NR 18.602,37500 37.204,75
-    # E.g.: QCR12026802R AG - RUBBER SHOCK ABSORBERS ... 2,000 NR 268,12500 536,25
-    item_blocks = re.findall(
-        r'([A-Z0-9]{8,20})\s+([^\n\r]+?)\s+(?:(\d{8,10})\s+)?(\d+[.,]?\d*)\s*(?:NR|PCE|PCS|BOX|UNITS?)?\s+([\d.,]+)\s+([\d.,]+)',
-        raw_text,
-        re.IGNORECASE
+    # Regex for an item row with quantities and prices
+    item_row_re = re.compile(
+        r'(?:(\b\d{8,10}\b)\s+)?' # Optional HS Code (8-10 digits)
+        r'(\b\d{1,4}(?:[.,]\d{1,4})?)\s*' # Qty (e.g. 2,000 or 960 or 2 or 10.5)
+        r'(NR|PCE|PCS|BOX|UNITS?|SET|KG|M|L|PAC|PKGS?)?\s+' # UOM
+        r'(\b\d{1,3}(?:[.,\s]\d{2,5})+\b)\s+' # Unit price (e.g. 18.602,37500 or 268,12500)
+        r'(\b\d{1,3}(?:[.,\s]\d{1,5})*(?:[.,]\d{2})?\b)' # Total price (e.g. 37. 204, 75 or 536,25)
     )
-    for block in item_blocks:
-        code, desc, hs, qty_s, price_s, tot_s = block
-        items.append({
-            "item_code": code.strip(),
-            "description": desc.strip(),
-            "hs_code": hs.strip() if hs else "",
-            "quantity": _parse_flexible_number(qty_s),
-            "unit_price": _parse_flexible_number(price_s),
-            "total_price": _parse_flexible_number(tot_s),
-        })
+
+    for idx, line in enumerate(raw_lines):
+        # Ignore obvious summary/header rows
+        if any(h in line.upper() for h in [
+            "TOTAL INVOICE", "TOTAL GOODS", "V.A.T. EXEMPTION", "ADVANCED PAYMENTS",
+            "DUE DATE", "CLIENT ID", "PHONE 0020", "GROSS WEIGHT", "NET WEIGHT"
+        ]):
+            continue
+
+        # Normalize spaces inside numbers for this line
+        cleaned_line = re.sub(r'([.,])\s+(\d+)', r'\1\2', line)
+        cleaned_line = re.sub(r'(\d+)\s+([.,])', r'\1\2', cleaned_line)
+
+        m = item_row_re.search(cleaned_line)
+        if m:
+            hs_code, qty_str, uom, unit_price_str, total_price_str = m.groups()
+
+            # Find item code and multi-line description
+            item_code = ""
+            desc_parts: List[str] = []
+
+            # Check candidate text in current line and previous 1-5 lines
+            prefix = line[:m.start()].strip() if m.start() < len(line) else ""
+            candidate_lines: List[str] = []
+            start_back = max(0, idx - 5)
+            for back_i in range(start_back, idx):
+                prev_l = raw_lines[back_i]
+                if any(hdr in prev_l.upper() for hdr in [
+                    "COMMERCIAL INVOICE", "DELIVERY ADDRESS", "MESSERS", "BANK", "SWIFT",
+                    "PAYMENT CONDITION", "SHIPPING - DELIVERY", "CODE DESCRIPTION", "--- PAGE", "--- INVOICE"
+                ]):
+                    continue
+                candidate_lines.append(prev_l)
+            if prefix:
+                candidate_lines.append(prefix)
+
+            # Find best alphanumeric item code (searching from closest lines upwards)
+            for cand in reversed(candidate_lines):
+                for tok in cand.split():
+                    clean_tok = re.sub(r'[^A-Z0-9/_-]', '', tok.upper())
+                    if (
+                        len(clean_tok) >= 6
+                        and re.search(r'\d', clean_tok)
+                        and re.search(r'[A-Z]', clean_tok)
+                        and not any(bad in tok.lower() for bad in ["@", ".com", ".con", "mail", "eco/", "ri/0/", "h264"])
+                        and not clean_tok.startswith(('0020', '200183', '019825', '30/06', '05/03'))
+                    ):
+                        item_code = clean_tok
+                        break
+                if item_code:
+                    break
+
+            # Priority 2: Pure numeric code if looks like product/HS code
+            if not item_code:
+                for cand in reversed(candidate_lines):
+                    for tok in cand.split():
+                        clean_tok = re.sub(r'[^0-9]', '', tok)
+                        if len(clean_tok) in [8, 10] and not clean_tok.startswith(('0020', '200183', '019825')):
+                            item_code = clean_tok
+                            break
+                    if item_code:
+                        break
+
+            # Priority 3: Fallback to HS code if available
+            if not item_code and hs_code:
+                item_code = hs_code
+
+            # Collect description
+            for cand in candidate_lines:
+                c_clean = cand
+                if item_code:
+                    c_clean = c_clean.replace(item_code, '')
+                c_clean = re.sub(
+                    r'\b(Code|Description|Commodity code|Q\.ty|U\.M\.|Unit price|Total price|VAT|VATe)\b',
+                    '',
+                    c_clean,
+                    flags=re.IGNORECASE,
+                ).strip()
+                if c_clean and len(c_clean) > 2 and not c_clean.startswith('---'):
+                    desc_parts.append(c_clean)
+
+            desc = " ".join(desc_parts).strip()
+            desc = re.sub(r'\s+', ' ', desc)
+
+            qty = _parse_flexible_number(qty_str)
+            u_price = _parse_flexible_number(unit_price_str)
+            t_price = _parse_flexible_number(total_price_str)
+
+            # Validation check to prevent noise lines
+            if qty > 0 and (u_price > 0 or t_price > 0):
+                items.append({
+                    "item_code": item_code or f"ITEM-{len(items) + 1}",
+                    "description": desc or f"Product Item {len(items) + 1}",
+                    "hs_code": hs_code or "",
+                    "quantity": qty,
+                    "unit": uom or "NR",
+                    "unit_price": u_price,
+                    "total_price": t_price,
+                })
+
+    # Fallback to single-line regex if table row regex didn't find items
+    if not items:
+        item_blocks = re.findall(
+            r'([A-Z0-9]{6,25})\s+([^\n\r]+?)\s+(?:(\d{8,10})\s+)?(\d+[.,]?\d*)\s*(?:NR|PCE|PCS|BOX|UNITS?|SET|KG|M|L)?\s+([\d.,\s]+)\s+([\d.,\s]+)',
+            raw_text,
+            re.IGNORECASE,
+        )
+        for block in item_blocks:
+            code, desc, hs, qty_s, price_s, tot_s = block
+            if _is_valid_item_code(code):
+                items.append({
+                    "item_code": code.strip(),
+                    "description": desc.strip(),
+                    "hs_code": hs.strip() if hs else "",
+                    "quantity": _parse_flexible_number(qty_s),
+                    "unit": "NR",
+                    "unit_price": _parse_flexible_number(price_s),
+                    "total_price": _parse_flexible_number(tot_s),
+                })
+
     parsed["items"] = items
 
     # 14. HS Codes
-    hs_matches = re.findall(r'\b(\d{10}|\d{8})\b', raw_text)
-    if hs_matches:
-        valid_hs = [h for h in set(hs_matches) if not h.startswith('20018') and not h.startswith('75955') and len(h) in [8, 10]]
-        if valid_hs:
-            parsed["hs_codes"] = valid_hs
+    all_hs = [it["hs_code"] for it in items if it.get("hs_code")]
+    if not all_hs:
+        hs_matches = re.findall(r'\b(\d{10}|\d{8})\b', raw_text)
+        all_hs = [
+            h for h in set(hs_matches)
+            if not h.startswith('20018') and not h.startswith('019825') and not h.startswith('0020') and len(h) in [8, 10]
+        ]
+    parsed["hs_codes"] = list(set(all_hs))
 
     return parsed
+
 
 
 # ==============================================================================

@@ -1060,13 +1060,14 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
         if lower.endswith(".pdf"):
             import pypdfium2 as pdfium
             pdf = pdfium.PdfDocument(content_bytes)
-            max_pages = min(len(pdf), 5)
+            max_pages = min(len(pdf), 50)
             for i in range(max_pages):
                 page = pdf.get_page(i)
                 pil_img = page.render(scale=1.5).to_pil()
                 ocr_res, _ = engine(np.array(pil_img))
                 if ocr_res:
                     page_lines = _group_ocr_boxes_into_lines(ocr_res)
+                    extracted_lines.append(f"--- PAGE {i+1} ---")
                     extracted_lines.extend(page_lines)
 
         elif lower.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):

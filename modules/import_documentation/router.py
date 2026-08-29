@@ -735,8 +735,11 @@ def extract_and_match_invoice_bl(
 )
 async def extract_invoice_bl_files_and_match(
     invoice_file: Optional[UploadFile] = File(None),
+    invoice_files: Optional[List[UploadFile]] = File(None),
     bl_file: Optional[UploadFile] = File(None),
+    bl_files: Optional[List[UploadFile]] = File(None),
     packing_list_file: Optional[UploadFile] = File(None),
+    packing_list_files: Optional[List[UploadFile]] = File(None),
     import_file_id: Optional[int] = Form(None),
     invoice_text: Optional[str] = Form(None),
     bl_text: Optional[str] = Form(None),
@@ -744,25 +747,52 @@ async def extract_invoice_bl_files_and_match(
     db: Session = Depends(get_db),
 ):
     """
-    Accepts uploaded Invoice, Packing List (additional file), and/or B/L files (PDF, Word, Excel, Text)
-    and executes automated cross-matching.
+    Accepts uploaded Invoice, Packing List, and/or B/L files (Single or Multi-Page / Multi-File)
+    and executes automated multi-page extraction and cross-matching.
     """
-    inv_raw = invoice_text or ""
-    bl_raw = bl_text or ""
-    pl_raw = packing_list_text or ""
+    inv_raw_parts = [invoice_text] if invoice_text else []
+    bl_raw_parts = [bl_text] if bl_text else []
+    pl_raw_parts = [packing_list_text] if packing_list_text else []
 
-    if invoice_file:
-        content = await invoice_file.read()
-        inv_raw, _ = service.extract_text_and_boxes_from_uploaded_file(invoice_file.filename, content)
+    all_inv_files = []
+    if invoice_files:
+        all_inv_files.extend(invoice_files)
+    if invoice_file and invoice_file not in all_inv_files:
+        all_inv_files.append(invoice_file)
 
-    if bl_file:
-        content = await bl_file.read()
-        bl_raw, _ = service.extract_text_and_boxes_from_uploaded_file(bl_file.filename, content)
+    for idx, f in enumerate(all_inv_files):
+        content = await f.read()
+        extracted, _ = service.extract_text_and_boxes_from_uploaded_file(f.filename, content)
+        if extracted:
+            inv_raw_parts.append(f"--- INVOICE FILE {idx+1}: {f.filename} ---\n{extracted}")
 
-    if packing_list_file:
-        content = await packing_list_file.read()
-        pl_raw, _ = service.extract_text_and_boxes_from_uploaded_file(packing_list_file.filename, content)
+    all_bl_files = []
+    if bl_files:
+        all_bl_files.extend(bl_files)
+    if bl_file and bl_file not in all_bl_files:
+        all_bl_files.append(bl_file)
 
+    for idx, f in enumerate(all_bl_files):
+        content = await f.read()
+        extracted, _ = service.extract_text_and_boxes_from_uploaded_file(f.filename, content)
+        if extracted:
+            bl_raw_parts.append(f"--- BL FILE {idx+1}: {f.filename} ---\n{extracted}")
+
+    all_pl_files = []
+    if packing_list_files:
+        all_pl_files.extend(packing_list_files)
+    if packing_list_file and packing_list_file not in all_pl_files:
+        all_pl_files.append(packing_list_file)
+
+    for idx, f in enumerate(all_pl_files):
+        content = await f.read()
+        extracted, _ = service.extract_text_and_boxes_from_uploaded_file(f.filename, content)
+        if extracted:
+            pl_raw_parts.append(f"--- PACKING LIST FILE {idx+1}: {f.filename} ---\n{extracted}")
+
+    inv_raw = "\n\n".join(inv_raw_parts)
+    bl_raw = "\n\n".join(bl_raw_parts)
+    pl_raw = "\n\n".join(pl_raw_parts)
 
     req = InvoiceBLExtractAndMatchRequest(
         import_file_id=import_file_id,

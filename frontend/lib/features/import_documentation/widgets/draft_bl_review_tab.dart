@@ -1265,7 +1265,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                   children: [
                                     Expanded(
                                       child: TextFormField(
-                                        key: ValueKey('draft_${itm.fieldKey}_${itm.draftValue}'),
+                                        key: ValueKey('draft_${itm.fieldKey}'),
                                         initialValue: itm.draftValue?.toString() ?? '',
                                         decoration: InputDecoration(
                                           isDense: true,

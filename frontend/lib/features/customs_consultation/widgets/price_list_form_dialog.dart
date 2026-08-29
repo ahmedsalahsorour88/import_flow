@@ -344,7 +344,7 @@ void showPriceListFormDialog(
                                   SizedBox(
                                     width: 130,
                                     child: TextFormField(
-                                      key: ValueKey('dlg_price_${itm['expense_type_id']}_$standardPrice'),
+                                      key: ValueKey('dlg_price_${itm["expense_type_id"]}'),
                                       initialValue: standardPrice == 0.0 ? '' : standardPrice.toString(),
                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                       decoration: InputDecoration(

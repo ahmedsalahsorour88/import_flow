@@ -47,7 +47,7 @@ Widget buildBrokerCostRow({
         Expanded(
           flex: 2,
           child: TextFormField(
-            key: ValueKey('price_${item.expenseTypeId ?? item.expenseName}_${item.unitPrice}'),
+            key: ValueKey('broker_price_${item.expenseTypeId ?? item.expenseName}'),
             initialValue: item.unitPrice == 0.0 ? '' : item.unitPrice.toString(),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
@@ -89,7 +89,7 @@ Widget buildBrokerCostRow({
         Expanded(
           flex: 1,
           child: TextFormField(
-            key: ValueKey('qty_${item.expenseTypeId ?? item.expenseName}_${item.qty}'),
+            key: ValueKey('broker_qty_${item.expenseTypeId ?? item.expenseName}'),
             initialValue: item.qty == 0.0 ? '1' : (item.qty == item.qty.roundToDouble() ? item.qty.toInt().toString() : item.qty.toString()),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(

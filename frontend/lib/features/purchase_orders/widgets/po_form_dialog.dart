@@ -1566,7 +1566,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                               final isMismatched = itemHs.isNotEmpty && mismatchedHsCodes.contains(itemHs);
 
                               return Card(
-                                key: ValueKey('card_${idx}_${item.itemCode}_${item.descriptionAr}_${_dialogItems.length}'),
+                                key: ValueKey('po_line_item_card_$idx'),
                                 color: isMismatched ? Colors.red.shade50.withOpacity(0.4) : Colors.grey.shade50,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
@@ -1588,7 +1588,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 2,
                                             child: TextFormField(
-                                              key: ValueKey('code_${idx}_${item.itemCode}'),
+                                              key: ValueKey('po_item_code_$idx'),
                                               initialValue: item.itemCode,
                                               decoration: const InputDecoration(labelText: 'Item Code (كود البند)', isDense: true),
                                               onChanged: (v) => _dialogItems[idx] = _dialogItems[idx].copyWith(itemCode: v.trim().isEmpty ? null : v.trim()),
@@ -1598,7 +1598,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 3,
                                             child: TextFormField(
-                                              key: ValueKey('desc_${idx}_${item.descriptionAr}'),
+                                              key: ValueKey('po_item_desc_$idx'),
                                               initialValue: item.descriptionAr,
                                               decoration: const InputDecoration(labelText: 'Arabic Description *', isDense: true),
                                               validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
@@ -1668,7 +1668,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 3,
                                             child: TextFormField(
-                                              key: ValueKey('qty_${idx}_${item.quantity}'),
+                                              key: ValueKey('po_item_qty_$idx'),
                                               initialValue: item.quantity.toString(),
                                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                               decoration: const InputDecoration(labelText: 'Qty (الكمية/العدد)', isDense: true),
@@ -1699,7 +1699,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: TextFormField(
-                                              key: ValueKey('price_${idx}_${item.unitPrice}'),
+                                              key: ValueKey('po_item_price_$idx'),
                                               initialValue: item.unitPrice.toString(),
                                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                               decoration: const InputDecoration(labelText: 'Unit Price (سعر الوحده)', isDense: true),
@@ -2393,7 +2393,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           final isMismatched = p.hsCode.isNotEmpty && mismatchedHsCodes.contains(p.hsCode);
 
                                           return Card(
-                                            key: ValueKey('packing_card_${idx}_${p.itemCode}'),
+                                            key: ValueKey('po_pkg_card_$idx'),
                                             color: isMismatched ? Colors.red.shade50.withOpacity(0.4) : Colors.white,
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
@@ -2445,7 +2445,6 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                              ),
                                                              child: Text(
                                                                p.hsCode.isNotEmpty ? p.hsCode : l.selectTariffItemHint,
-                                                               key: ValueKey('pkg_desc_${idx}_${p.description ?? ''}'),
                                                                style: TextStyle(
                                                                  fontWeight: p.hsCode.isNotEmpty ? FontWeight.bold : FontWeight.normal,
                                                                  color: isMismatched ? Colors.red.shade900 : (p.hsCode.isNotEmpty ? AppTheme.cobalt : Colors.grey.shade600),
@@ -2460,7 +2459,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   Expanded(
                                                     flex: 2,
                                                     child: TextFormField(
-                                                      key: ValueKey('pkg_code_${idx}_${p.itemCode}'),
+                                                      key: ValueKey('po_pkg_code_$idx'),
                                                       initialValue: p.itemCode,
                                                       decoration: InputDecoration(labelText: l.itemCodeLabel, isDense: true),
                                                       validator: (v) => v == null || v.trim().isEmpty ? context.l10n.fieldRequired : null,
@@ -2473,7 +2472,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   Expanded(
                                                     flex: 4,
                                                     child: TextFormField(
-                                                       key: ValueKey('pkg_desc_${idx}_${p.description ?? ""}'),
+                                                       key: ValueKey('po_pkg_desc_$idx'),
                                                       initialValue: p.description ?? '',
                                                       decoration: InputDecoration(
                                                         labelText: l.itemDescriptionLabel,

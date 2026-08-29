@@ -6,9 +6,9 @@
   "build_number": 82,
   "updated_at": "2026-08-29 19:54:36",
   "release_notes": [
-    "Upgrade Packing List Extractor for Italian Packing and Weight Lists",
-    "Upgrade Purchase Order Extractor for Italian Proforma Invoices & Noise Immunity",
-    "Master Shipping Lines Preservation & Database Sync Fix",
-    "Full Production Build & Release v1.0.75"
+    "تطوير وترقية محرك قراءة واستخراج بيانات بيان التعبئة والأوزان (_extract_packing_list_items و extract_packing_list_data) لدعم كشوف التعبئة الإيطالية المعقدة مثل G.I. INDUSTRIAL - LISTA DEI COLLI E DEI PESI (Packing and Weight List).",
+    "قراءة أبعاد الطرود الصريحة بالأبعاد المليمترية وتحويلها التلقائي إلى سم (4600x800x2270 mm -> 460.0 cm × 80.0 cm × 227.0 cm).",
+    "حساب الحجم الإجمالي CBM بدقة متناهية (8.354 m³).",
+    "استخراج الوزن القائم الإجمالي الصافي (TOTAL GROSS: 498.0 kg) والوزن الصافي (TOTAL NET: 208.0 kg) وعدد الطرود (Pallet nr 1 / TOTAL: 1)."
   ]
 }

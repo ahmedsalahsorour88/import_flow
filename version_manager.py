@@ -45,9 +45,9 @@ def extract_recent_release_notes():
     history_dir = ROOT_DIR / "history"
     if not history_dir.exists():
         return [
-            "تحسينات شاملة في أداء النظام واستقرار قاعدة البيانات",
-            "تحديثات في محرك استخراج وثائق الشحن والجمارك",
-            "ترقية وتطوير واجهات الاستيراد ومطابقة البيانات",
+            "تحسينات شاملة في أداء واستقرار النظام وقاعدة البيانات",
+            "ترقية وتطوير محرك استخراج وثائق الشحن والجمارك الذكي",
+            "تحسينات في واجهات الاستيراد ومطابقة البيانات",
         ]
     
     files = sorted(history_dir.glob("*.md"), reverse=True)
@@ -55,13 +55,18 @@ def extract_recent_release_notes():
     for f in files:
         try:
             content = f.read_text(encoding="utf-8")
-            matches = re.findall(r"##\s*📝\s*\[[^\]]+\]\s*-\s*Completed\s+Task:\s*([^\n\r]+)", content, re.IGNORECASE)
-            for m in reversed(matches):
-                clean_title = m.strip()
-                # Clean any task codes like (AI-EXTRACT-003) or (BP-001) for cleaner display
-                clean_title = re.sub(r"\([A-Z0-9\-_/]+\)", "", clean_title).strip()
-                if clean_title and clean_title not in notes:
-                    notes.append(clean_title)
+            task_blocks = re.split(r"##\s*📝\s*\[", content)
+            for block in reversed(task_blocks[1:]):
+                lines = [
+                    l.strip().lstrip("-*• ").replace("**", "").replace("`", "").strip()
+                    for l in block.splitlines()
+                    if l.strip().startswith("-") and "Description:" not in l and "Task Code:" not in l and "Files Changed:" not in l
+                ]
+                for l in lines:
+                    if len(l) > 20 and any("\u0600" <= c <= "\u06FF" for c in l) and l not in notes:
+                        notes.append(l)
+                        if len(notes) >= 4:
+                            break
                 if len(notes) >= 4:
                     break
         except Exception:
@@ -71,9 +76,9 @@ def extract_recent_release_notes():
 
     if not notes:
         return [
-            "تحسينات شاملة في أداء النظام واستقرار قاعدة البيانات",
-            "تحديثات في محرك استخراج وثائق الشحن والجمارك",
-            "ترقية وتطوير واجهات الاستيراد ومطابقة البيانات",
+            "تحسينات شاملة في أداء واستقرار النظام وقاعدة البيانات",
+            "ترقية وتطوير محرك استخراج وثائق الشحن والجمارك الذكي",
+            "تحسينات في واجهات الاستيراد ومطابقة البيانات",
         ]
     return notes
 

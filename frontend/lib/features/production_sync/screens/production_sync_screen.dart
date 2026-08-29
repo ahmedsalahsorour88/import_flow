@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../models/production_sync_model.dart';
 import '../providers/production_sync_provider.dart';
+import '../services/auto_updater_service.dart';
 import '../services/local_process_sync_service.dart';
 import '../services/production_sync_service.dart';
 import '../widgets/sync_console_widget.dart';
@@ -312,6 +313,9 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           message: result.message,
           releaseNotes: result.releaseNotes,
           downloadUrl: result.downloadUrl,
+          installerUrl: result.installerUrl,
+          installerFilename: result.installerFilename,
+          installerSizeMb: result.installerSizeMb,
         );
       },
       loading: () => Container(
@@ -346,7 +350,16 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     required String message,
     List<String> releaseNotes = const [],
     String? downloadUrl,
+    String? installerUrl,
+    String? installerFilename,
+    double installerSizeMb = 0.0,
   }) {
+    final downloadState = ref.watch(downloadProgressProvider);
+    final isDownloading = downloadState.state == AutoUpdateState.downloading;
+    final isDone = downloadState.state == AutoUpdateState.done;
+    final isError = downloadState.state == AutoUpdateState.error;
+    final isLaunching = downloadState.state == AutoUpdateState.launching;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -393,22 +406,180 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                   ],
                 ),
               ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  visualDensity: VisualDensity.compact,
+              const SizedBox(width: 8),
+              // ── Install Update Button (when update available) ──────────────
+              if (hasUpdate && installerUrl != null && !isDownloading && !isDone && !isLaunching)
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.emerald,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                  icon: const Icon(Icons.download_rounded, size: 15),
+                  label: Text(
+                    'تثبيت v$latestVersion الآن',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  onPressed: () => _confirmAndStartUpdate(
+                    installerUrl: installerUrl,
+                    installerFilename: installerFilename ?? 'Sorour_Logistics_Setup.exe',
+                    latestVersion: latestVersion ?? '',
+                    installerSizeMb: installerSizeMb,
+                  ),
                 ),
-                icon: const Icon(Icons.refresh_rounded, size: 14),
-                label: const Text('فحص التحديثات الآن', style: TextStyle(fontSize: 11)),
-                onPressed: () {
-                  ref.read(productionSyncNotifierProvider.notifier).checkForUpdates();
-                },
-              ),
+              // ── Done → Launch installer ────────────────────────────────────
+              if (isDone)
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.emerald,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                  icon: const Icon(Icons.rocket_launch_rounded, size: 15),
+                  label: const Text('تشغيل المثبّت الآن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  onPressed: () => ref.read(downloadProgressProvider.notifier).launchAndExit(),
+                ),
+              // ── Launching ─────────────────────────────────────────────────
+              if (isLaunching)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.emerald)),
+                      SizedBox(width: 8),
+                      Text('جاري التثبيت...', style: TextStyle(fontSize: 12, color: AppTheme.emerald)),
+                    ],
+                  ),
+                ),
+              const SizedBox(width: 8),
+              // ── Check for Updates Button ───────────────────────────────────
+              if (!isDownloading && !isDone && !isLaunching)
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.cobalt,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: const Icon(Icons.refresh_rounded, size: 14),
+                  label: const Text('فحص التحديثات', style: TextStyle(fontSize: 11)),
+                  onPressed: () {
+                    ref.read(productionSyncNotifierProvider.notifier).checkForUpdates();
+                  },
+                ),
+              // ── Cancel download button ─────────────────────────────────────
+              if (isDownloading)
+                TextButton.icon(
+                  style: TextButton.styleFrom(foregroundColor: AppTheme.crimson),
+                  icon: const Icon(Icons.cancel_rounded, size: 15),
+                  label: const Text('إلغاء', style: TextStyle(fontSize: 12)),
+                  onPressed: () => ref.read(downloadProgressProvider.notifier).cancelDownload(),
+                ),
             ],
           ),
-          if (hasUpdate && releaseNotes.isNotEmpty) ...[
+
+          // ── Download Progress Bar ────────────────────────────────────────
+          if (isDownloading) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.download_rounded, color: AppTheme.cobalt, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'جاري تنزيل التحديث... ${(downloadState.progress * 100).toStringAsFixed(0)}%'
+                          '  (${downloadState.downloadedMb} / ${downloadState.totalMb} MB)',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.cobalt),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: downloadState.progress,
+                      minHeight: 8,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.cobalt),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '⚡ سيتم إغلاق التطبيق تلقائياً عند اكتمال التنزيل لتطبيق التحديث.',
+                    style: TextStyle(fontSize: 10.5, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // ── Download Complete Banner ─────────────────────────────────────
+          if (isDone) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.emerald.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '✅ اكتمل تنزيل التحديث! اضغط "تشغيل المثبّت الآن" لتثبيت الإصدار الجديد.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // ── Error Banner ─────────────────────────────────────────────────
+          if (isError) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.crimson.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.crimson.withOpacity(0.4)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_rounded, color: AppTheme.crimson, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      downloadState.errorMessage ?? 'فشل التنزيل. يرجى المحاولة مرة أخرى.',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.crimson),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => ref.read(downloadProgressProvider.notifier).reset(),
+                    child: const Text('إعادة المحاولة'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // ── Release Notes ────────────────────────────────────────────────
+          if (hasUpdate && releaseNotes.isNotEmpty && !isDownloading) ...[
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(10),
@@ -442,6 +613,87 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         ],
       ),
     );
+  }
+
+  /// Shows a confirmation dialog then starts the in-app update download.
+  Future<void> _confirmAndStartUpdate({
+    required String installerUrl,
+    required String installerFilename,
+    required String latestVersion,
+    double installerSizeMb = 0,
+  }) async {
+    final sizeMbStr = installerSizeMb > 0 ? '${installerSizeMb.toStringAsFixed(0)} MB' : 'تنزيل';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: AppTheme.emerald.withOpacity(0.12), shape: BoxShape.circle),
+              child: const Icon(Icons.system_update_rounded, color: AppTheme.emerald, size: 22),
+            ),
+            const SizedBox(width: 10),
+            Text('تثبيت الإصدار v$latestVersion', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'سيتم تنزيل ($sizeMbStr) وتثبيت الإصدار الجديد تلقائياً.',
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.emerald.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('✅ لن تُفقد أي بيانات — قاعدة البيانات محمية', style: TextStyle(fontSize: 12, color: AppTheme.emerald)),
+                  SizedBox(height: 3),
+                  Text('✅ سيغلق التطبيق تلقائياً أثناء التثبيت', style: TextStyle(fontSize: 12, color: AppTheme.emerald)),
+                  SizedBox(height: 3),
+                  Text('✅ يستغرق التثبيت حوالي 10 ثوانٍ', style: TextStyle(fontSize: 12, color: AppTheme.emerald)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('لاحقاً', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.emerald,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            icon: const Icon(Icons.download_rounded, size: 16),
+            label: const Text('تنزيل وتثبيت الآن', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      ref.read(downloadProgressProvider.notifier).startDownload(
+        installerUrl: installerUrl,
+        installerFilename: installerFilename,
+        installerSizeMb: installerSizeMb,
+      );
+    }
   }
 
   // ──────────────────────────────────────────────────────────────────────────

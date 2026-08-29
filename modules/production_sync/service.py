@@ -729,6 +729,7 @@ class ProductionSyncService:
     def check_for_updates(self, custom_remote_url: Optional[str] = None) -> RemoteUpdateCheckSchema:
         """
         Checks for newer software releases via GitHub / Remote JSON.
+        Also fetches installer_url for in-app auto-update.
         """
         import urllib.request
 
@@ -755,6 +756,7 @@ class ProductionSyncService:
                     latest_ver = remote_data.get("version", curr_ver)
                     curr_tuple = parse_ver(curr_ver)
                     latest_tuple = parse_ver(latest_ver)
+                    has_update = latest_tuple > curr_tuple
 
                     release_notes = remote_data.get("release_notes")
                     if not release_notes:
@@ -767,10 +769,22 @@ class ProductionSyncService:
                                 "تحديثات في محرك استخراج وثائق الشحن والجمارك",
                                 "ترقية وتطوير واجهات الاستيراد ومطابقة البيانات",
                             ]
+
                     download_url = remote_data.get(
                         "download_url",
                         f"https://github.com/ahmedsalahsorour88/import_flow/releases/tag/v{latest_ver}",
                     )
+
+                    # Installer metadata for in-app auto-update
+                    installer_url = remote_data.get(
+                        "installer_url",
+                        f"https://github.com/ahmedsalahsorour88/import_flow/releases/download/v{latest_ver}/Sorour_Logistics_Setup_v{latest_ver}.exe",
+                    )
+                    installer_filename = remote_data.get(
+                        "installer_filename",
+                        f"Sorour_Logistics_Setup_v{latest_ver}.exe",
+                    )
+                    installer_size_mb = float(remote_data.get("installer_size_mb", 0.0))
 
                     return RemoteUpdateCheckSchema(
                         has_update=has_update,
@@ -779,6 +793,9 @@ class ProductionSyncService:
                         release_name=f"Sorour Logistics Release v{latest_ver}",
                         release_notes=release_notes,
                         download_url=download_url,
+                        installer_url=installer_url,
+                        installer_filename=installer_filename,
+                        installer_size_mb=installer_size_mb,
                         published_at=remote_data.get("updated_at"),
                         is_mandatory=remote_data.get("is_mandatory", False),
                         check_status="UPDATE_AVAILABLE" if has_update else "UP_TO_DATE",
@@ -794,4 +811,71 @@ class ProductionSyncService:
             release_notes=[],
             check_status="UP_TO_DATE",
             message="النظام محدث ومستقر بأحدث إصدار مثبت (v" + curr_ver + ").",
+        )
+
+    def get_latest_installer_info(self) -> "InstallerInfoSchema":
+        """
+        Fetches the latest installer metadata from the remote version.json on GitHub.
+        Returns installer_url, installer_filename, and installer_size_mb for in-app auto-update.
+        """
+        from modules.production_sync.schemas import InstallerInfoSchema
+        import urllib.request
+
+        remote_url = "https://raw.githubusercontent.com/ahmedsalahsorour88/import_flow/main/version.json"
+        try:
+            req = urllib.request.Request(
+                remote_url,
+                headers={"User-Agent": "ImportFlow-AutoUpdater"},
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    version = data.get("version", "1.0.0")
+                    installer_url = data.get(
+                        "installer_url",
+                        f"https://github.com/ahmedsalahsorour88/import_flow/releases/download/v{version}/Sorour_Logistics_Setup_v{version}.exe",
+                    )
+                    installer_filename = data.get(
+                        "installer_filename",
+                        f"Sorour_Logistics_Setup_v{version}.exe",
+                    )
+                    installer_size_mb = float(data.get("installer_size_mb", 0.0))
+                    return InstallerInfoSchema(
+                        version=version,
+                        installer_url=installer_url,
+                        installer_filename=installer_filename,
+                        installer_size_mb=installer_size_mb,
+                        is_available=True,
+                    )
+        except Exception:
+            pass
+
+        # Fallback: read from local version.json
+        try:
+            v_file = ROOT_DIR / "version.json"
+            if v_file.exists():
+                with open(v_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    version = data.get("version", "1.0.0")
+                    installer_url = data.get("installer_url", "")
+                    installer_filename = data.get("installer_filename", f"Sorour_Logistics_Setup_v{version}.exe")
+                    installer_size_mb = float(data.get("installer_size_mb", 0.0))
+                    if installer_url:
+                        return InstallerInfoSchema(
+                            version=version,
+                            installer_url=installer_url,
+                            installer_filename=installer_filename,
+                            installer_size_mb=installer_size_mb,
+                            is_available=True,
+                        )
+        except Exception:
+            pass
+
+        return InstallerInfoSchema(
+            version="unknown",
+            installer_url="",
+            installer_filename="",
+            installer_size_mb=0.0,
+            is_available=False,
+            error="تعذّر الاتصال بخادم التحديثات. يرجى التحقق من الاتصال بالإنترنت.",
         )

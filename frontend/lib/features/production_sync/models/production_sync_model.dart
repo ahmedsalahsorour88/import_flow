@@ -302,6 +302,9 @@ class RemoteUpdateCheckResultModel {
   final String? releaseName;
   final List<String> releaseNotes;
   final String? downloadUrl;
+  final String? installerUrl;
+  final String? installerFilename;
+  final double installerSizeMb;
   final String? publishedAt;
   final bool isMandatory;
   final String checkStatus;
@@ -314,6 +317,9 @@ class RemoteUpdateCheckResultModel {
     this.releaseName,
     this.releaseNotes = const [],
     this.downloadUrl,
+    this.installerUrl,
+    this.installerFilename,
+    this.installerSizeMb = 0.0,
     this.publishedAt,
     this.isMandatory = false,
     this.checkStatus = 'UP_TO_DATE',
@@ -328,10 +334,43 @@ class RemoteUpdateCheckResultModel {
       releaseName: json['release_name'] as String?,
       releaseNotes: (json['release_notes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       downloadUrl: json['download_url'] as String?,
+      installerUrl: json['installer_url'] as String?,
+      installerFilename: json['installer_filename'] as String?,
+      installerSizeMb: (json['installer_size_mb'] as num?)?.toDouble() ?? 0.0,
       publishedAt: json['published_at'] as String?,
       isMandatory: json['is_mandatory'] as bool? ?? false,
       checkStatus: json['check_status'] as String? ?? 'UP_TO_DATE',
       message: json['message'] as String? ?? '',
+    );
+  }
+}
+
+
+class InstallerInfoModel {
+  final String version;
+  final String installerUrl;
+  final String installerFilename;
+  final double installerSizeMb;
+  final bool isAvailable;
+  final String? error;
+
+  const InstallerInfoModel({
+    required this.version,
+    required this.installerUrl,
+    required this.installerFilename,
+    this.installerSizeMb = 0.0,
+    this.isAvailable = true,
+    this.error,
+  });
+
+  factory InstallerInfoModel.fromJson(Map<String, dynamic> json) {
+    return InstallerInfoModel(
+      version: json['version'] as String? ?? 'unknown',
+      installerUrl: json['installer_url'] as String? ?? '',
+      installerFilename: json['installer_filename'] as String? ?? '',
+      installerSizeMb: (json['installer_size_mb'] as num?)?.toDouble() ?? 0.0,
+      isAvailable: json['is_available'] as bool? ?? false,
+      error: json['error'] as String?,
     );
   }
 }

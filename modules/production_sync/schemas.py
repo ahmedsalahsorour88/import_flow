@@ -111,7 +111,20 @@ class RemoteUpdateCheckSchema(BaseModel):
     release_name: Optional[str] = None
     release_notes: List[str] = Field(default_factory=list)
     download_url: Optional[str] = None
+    installer_url: Optional[str] = None          # direct link to Setup.exe on GitHub Releases
+    installer_filename: Optional[str] = None     # e.g. Sorour_Logistics_Setup_v1.0.89.exe
+    installer_size_mb: float = 0.0               # MB size for progress display
     published_at: Optional[str] = None
     is_mandatory: bool = False
     check_status: str = "UP_TO_DATE"  # UP_TO_DATE, UPDATE_AVAILABLE, OFFLINE_CHECK, ERROR
     message: str = "النظام محدث لأحدث إصدار رسمي."
+
+
+class InstallerInfoSchema(BaseModel):
+    """Metadata about the latest downloadable installer for in-app auto-update."""
+    version: str
+    installer_url: str
+    installer_filename: str
+    installer_size_mb: float = 0.0
+    is_available: bool = True
+    error: Optional[str] = None

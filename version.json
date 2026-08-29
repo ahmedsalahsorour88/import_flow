@@ -1,14 +1,17 @@
 {
   "major": 1,
   "minor": 0,
-  "patch": 88,
-  "version": "1.0.88",
-  "build_number": 89,
-  "updated_at": "2026-08-29 21:00:17",
+  "patch": 90,
+  "version": "1.0.90",
+  "build_number": 91,
+  "updated_at": "2026-08-29 22:49:19",
+  "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.90/Sorour_Logistics_Setup_v1.0.90.exe",
+  "installer_filename": "Sorour_Logistics_Setup_v1.0.90.exe",
+  "installer_size_mb": 202.14,
   "release_notes": [
-    "تطوير محرك استخراج الفواتير التجارية والمبدئية الإيطالية لدعم جداول الأعمدة المكدسة عمودياً (Column-Stacked Vertical Segmented Tables) في فواتير G.I. INDUSTRIAL مثل الفاتورة V1/ 3083.",
-    "التعرف الآلي واستخراج جميع البنود المتعددة بدقة تامة:",
-    "معالجة وإلغاء التقاط نصوص تذييل الوزن الصافي والقائم (Net weight kg 25,000 و Gross weight kg 37,000) كإجمالي مالي للفاتورة.",
-    "دعم كشف التعبئة والأوزان المرافق 800x800x460 mm بحجم CBM دقيق 0.294 m³ ووزن 37 kg و 25 kg."
+    "version.json — Modified: إضافة installer_url, installer_filename, installer_size_mb",
+    "modules/production_sync/schemas.py — Modified: إضافة InstallerInfoSchema وإضافة installer fields لـ RemoteUpdateCheckSchema",
+    "modules/production_sync/service.py — Modified: تحديث check_for_updates() بالـ installer fields وإضافة get_latest_installer_info()",
+    "modules/production_sync/router.py — Modified: إضافة GET /api/v1/production-sync/installer-info endpoint"
   ]
 }

@@ -315,6 +315,34 @@ def compile_installer_and_zip(version_info: dict):
         json.dump(release_info, f, indent=2, ensure_ascii=False)
     print(f"      [SUCCESS] Updated {releases_dir / 'latest_release.json'}")
 
+    # 4. Update version.json with installer_url for in-app auto-update
+    installer_path = releases_dir / setup_name
+    installer_size_mb = 0.0
+    if installer_path.exists():
+        installer_size_mb = round(installer_path.stat().st_size / (1024 * 1024), 2)
+
+    version_json_path = ROOT_DIR / "version.json"
+    if version_json_path.exists():
+        with open(version_json_path, "r", encoding="utf-8") as f:
+            version_data = json.load(f)
+
+        version_data["installer_url"] = (
+            f"https://github.com/ahmedsalahsorour88/import_flow/releases/download/v{version}/{setup_name}"
+        )
+        version_data["installer_filename"] = setup_name
+        version_data["installer_size_mb"] = installer_size_mb
+
+        with open(version_json_path, "w", encoding="utf-8") as f:
+            json.dump(version_data, f, indent=2, ensure_ascii=False)
+        print(f"      [SUCCESS] Updated version.json with installer_url for v{version} ({installer_size_mb} MB)")
+
+        # Also update the copy inside dist/Sorour_Logistics_Standalone/
+        standalone_version_json = STANDALONE_DEST / "version.json"
+        if standalone_version_json.exists():
+            with open(standalone_version_json, "w", encoding="utf-8") as f:
+                json.dump(version_data, f, indent=2, ensure_ascii=False)
+            print(f"      [SUCCESS] Updated dist/Sorour_Logistics_Standalone/version.json with installer_url")
+
 
 def main():
     # Automatically bump version unless --no-bump is explicitly provided

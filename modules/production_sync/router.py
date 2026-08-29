@@ -17,6 +17,7 @@ from modules.production_sync.schemas import (
     RemoteUpdateCheckResponseSchema,
     SystemVersionInfoSchema,
     RemoteUpdateCheckSchema,
+    InstallerInfoSchema,
 )
 
 router = APIRouter(
@@ -121,3 +122,17 @@ def restore_backup(filename: str, target: str = "prod", db: Session = Depends(ge
 def check_remote_update(db: Session = Depends(get_db)):
     service = ProductionSyncService(db)
     return service.check_remote_update()
+
+
+@router.get(
+    "/installer-info",
+    response_model=InstallerInfoSchema,
+    summary="استرجاع رابط وبيانات آخر Installer متاح للتنزيل التلقائي داخل التطبيق",
+)
+def get_latest_installer_info(db: Session = Depends(get_db)):
+    """
+    Returns the installer_url, installer_filename, and installer_size_mb
+    for the latest production release. Used by the Flutter in-app auto-updater.
+    """
+    service = ProductionSyncService(db)
+    return service.get_latest_installer_info()

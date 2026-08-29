@@ -105,7 +105,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   final TextEditingController _secondaryEmailCtrl = TextEditingController();
   final TextEditingController _websiteCtrl = TextEditingController();
   final TextEditingController _addressCtrl = TextEditingController();
-  final TextEditingController _countryCtrl = TextEditingController(text: 'China');
+  final TextEditingController _countryCtrl = TextEditingController(text: 'China (CN)');
   final TextEditingController _countryCodeCtrl = TextEditingController(text: 'CN');
 
   final TextEditingController _cargoxIdCtrl = TextEditingController();
@@ -113,59 +113,47 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   final TextEditingController _brandsCtrl = TextEditingController();
   String _supplierRegType = 'Commercial Register';
 
-  final TextEditingController _importerCountryCtrl = TextEditingController(text: 'Egypt');
   final TextEditingController _taxIdCtrl = TextEditingController();
   final TextEditingController _commercialRegisterCtrl = TextEditingController();
   final TextEditingController _importerCardCtrl = TextEditingController();
   final TextEditingController _nafezaTokenCtrl = TextEditingController();
-  DateTime _importerIdExpiry = DateTime.now().add(const Duration(days: 365 * 3));
-  DateTime _vatIdExpiry = DateTime.now().add(const Duration(days: 365 * 3));
-  DateTime _registrationExpiry = DateTime.now().add(const Duration(days: 365 * 3));
-
-  final TextEditingController _scacCodeCtrl = TextEditingController();
-  final TextEditingController _trackingUrlCtrl = TextEditingController();
+  final DateTime _importerIdExpiry = DateTime.now().add(const Duration(days: 365));
+  final DateTime _vatIdExpiry = DateTime.now().add(const Duration(days: 365 * 3));
+  final DateTime _registrationExpiry = DateTime.now().add(const Duration(days: 365 * 2));
 
   final TextEditingController _brokerLicenseCtrl = TextEditingController();
-  final TextEditingController _portsCtrl = TextEditingController(text: 'Alexandria Port, Sokhna Port');
-
-  final TextEditingController _servicesScopeCtrl = TextEditingController(text: 'Ocean FCL/LCL, Air Freight, Customs Clearance');
-
-  final TextEditingController _fleetTypesCtrl = TextEditingController(text: 'Container Chassis, Flatbed Trailers');
-
-  final TextEditingController _inspectionScopeCtrl = TextEditingController(text: 'Pre-Shipment Inspection (PSI), VOC, GOIEC Testing');
-
-  final TextEditingController _policyTermsCtrl = TextEditingController(text: 'Institute Cargo Clauses (A) - All Risks');
+  final TextEditingController _portsCtrl = TextEditingController();
+  final TextEditingController _scacCodeCtrl = TextEditingController();
+  final TextEditingController _trackingUrlCtrl = TextEditingController();
+  final TextEditingController _servicesScopeCtrl = TextEditingController();
+  final TextEditingController _fleetTypesCtrl = TextEditingController();
+  final TextEditingController _inspectionScopeCtrl = TextEditingController();
+  final TextEditingController _policyTermsCtrl = TextEditingController();
 
   final TextEditingController _swiftCodeCtrl = TextEditingController();
-  final TextEditingController _branchNameCtrl = TextEditingController(text: 'Main Branch');
+  final TextEditingController _branchNameCtrl = TextEditingController();
   final TextEditingController _bankAccountCtrl = TextEditingController();
 
-  String? _selectedFileName;
   double _confidenceScore = 0.0;
+  String? _selectedFileName;
 
-  static const List<Map<String, String>> _countryList = [
-    {'code': 'CN', 'name': 'China (CN)'},
-    {'code': 'DE', 'name': 'Germany (DE)'},
-    {'code': 'IT', 'name': 'Italy (IT)'},
-    {'code': 'TR', 'name': 'Turkey (TR)'},
-    {'code': 'US', 'name': 'United States (US)'},
-    {'code': 'GB', 'name': 'United Kingdom (GB)'},
-    {'code': 'ES', 'name': 'Spain (ES)'},
-    {'code': 'FR', 'name': 'France (FR)'},
-    {'code': 'IN', 'name': 'India (IN)'},
-    {'code': 'JP', 'name': 'Japan (JP)'},
-    {'code': 'KR', 'name': 'South Korea (KR)'},
-    {'code': 'AE', 'name': 'United Arab Emirates (AE)'},
-    {'code': 'SA', 'name': 'Saudi Arabia (SA)'},
-    {'code': 'EG', 'name': 'Egypt (EG)'},
-    {'code': 'BR', 'name': 'Brazil (BR)'},
-    {'code': 'RU', 'name': 'Russia (RU)'},
-    {'code': 'VN', 'name': 'Vietnam (VN)'},
-    {'code': 'NL', 'name': 'Netherlands (NL)'},
-    {'code': 'CH', 'name': 'Switzerland (CH)'},
-    {'code': 'BE', 'name': 'Belgium (BE)'},
-    {'code': 'PL', 'name': 'Poland (PL)'},
-    {'code': 'LT', 'name': 'Lithuania (LT)'},
+  final List<Map<String, String>> _countryList = [
+    {'name': 'China (CN)', 'code': 'CN'},
+    {'name': 'Egypt (EG)', 'code': 'EG'},
+    {'name': 'United States (US)', 'code': 'US'},
+    {'name': 'Germany (DE)', 'code': 'DE'},
+    {'name': 'Italy (IT)', 'code': 'IT'},
+    {'name': 'Turkey (TR)', 'code': 'TR'},
+    {'name': 'United Arab Emirates (AE)', 'code': 'AE'},
+    {'name': 'Saudi Arabia (SA)', 'code': 'SA'},
+    {'name': 'India (IN)', 'code': 'IN'},
+    {'name': 'United Kingdom (GB)', 'code': 'GB'},
+    {'name': 'Spain (ES)', 'code': 'ES'},
+    {'name': 'France (FR)', 'code': 'FR'},
+    {'name': 'Japan (JP)', 'code': 'JP'},
+    {'name': 'South Korea (KR)', 'code': 'KR'},
+    {'name': 'Russia (RU)', 'code': 'RU'},
+    {'name': 'Brazil (BR)', 'code': 'BR'},
   ];
 
   @override
@@ -176,17 +164,23 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   }
 
   void _setupInitialDefaults() {
-    if (_selectedTarget == EntityTarget.company ||
-        _selectedTarget == EntityTarget.customsBroker ||
-        _selectedTarget == EntityTarget.shippingLine ||
-        _selectedTarget == EntityTarget.inlandTransport ||
-        _selectedTarget == EntityTarget.insuranceCompany ||
-        _selectedTarget == EntityTarget.bank) {
-      _countryCtrl.text = 'Egypt';
-      _countryCodeCtrl.text = 'EG';
-    } else {
-      _countryCtrl.text = 'China';
-      _countryCodeCtrl.text = 'CN';
+    switch (_selectedTarget) {
+      case EntityTarget.supplier:
+        _countryCtrl.text = 'China (CN)';
+        _countryCodeCtrl.text = 'CN';
+        break;
+      case EntityTarget.company:
+      case EntityTarget.customsBroker:
+      case EntityTarget.inlandTransport:
+      case EntityTarget.bank:
+      case EntityTarget.partner:
+        _countryCtrl.text = 'Egypt (EG)';
+        _countryCodeCtrl.text = 'EG';
+        break;
+      default:
+        _countryCtrl.text = 'Egypt (EG)';
+        _countryCodeCtrl.text = 'EG';
+        break;
     }
   }
 
@@ -204,7 +198,6 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     _addressCtrl.dispose();
     _countryCtrl.dispose();
     _countryCodeCtrl.dispose();
-    _importerCountryCtrl.dispose();
     _cargoxIdCtrl.dispose();
     _foreignTaxIdCtrl.dispose();
     _brandsCtrl.dispose();
@@ -212,10 +205,10 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     _commercialRegisterCtrl.dispose();
     _importerCardCtrl.dispose();
     _nafezaTokenCtrl.dispose();
-    _scacCodeCtrl.dispose();
-    _trackingUrlCtrl.dispose();
     _brokerLicenseCtrl.dispose();
     _portsCtrl.dispose();
+    _scacCodeCtrl.dispose();
+    _trackingUrlCtrl.dispose();
     _servicesScopeCtrl.dispose();
     _fleetTypesCtrl.dispose();
     _inspectionScopeCtrl.dispose();
@@ -226,12 +219,38 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     super.dispose();
   }
 
+  String _targetName(BuildContext context, EntityTarget t) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+    switch (t) {
+      case EntityTarget.supplier:
+        return isArabic ? 'المورد الأجنبي' : 'Foreign Supplier';
+      case EntityTarget.company:
+        return isArabic ? 'الشركة المستوردة' : 'Importing Company';
+      case EntityTarget.customsBroker:
+        return isArabic ? 'المخلص الجمركي' : 'Customs Broker';
+      case EntityTarget.shippingLine:
+        return isArabic ? 'الخط الملاحي' : 'Shipping Line';
+      case EntityTarget.freightForwarder:
+        return isArabic ? 'شركة الشحن الدولي' : 'Freight Forwarder';
+      case EntityTarget.inlandTransport:
+        return isArabic ? 'الناقل البري' : 'Inland Transport';
+      case EntityTarget.inspectionAgency:
+        return isArabic ? 'جهة الفحص والمعاينة' : 'Inspection Agency';
+      case EntityTarget.insuranceCompany:
+        return isArabic ? 'شركة التأمين' : 'Insurance Company';
+      case EntityTarget.bank:
+        return isArabic ? 'البنك المصرفي' : 'Authorized Bank';
+      case EntityTarget.partner:
+        return isArabic ? 'الشريك اللوجستي' : 'Logistics Partner';
+    }
+  }
+
   String _getModuleForTarget(EntityTarget t) {
     switch (t) {
       case EntityTarget.supplier:
         return 'supplier-entity';
       case EntityTarget.company:
-        return 'importer-entity';
+        return 'import-company-entity';
       case EntityTarget.customsBroker:
         return 'customs-broker-entity';
       case EntityTarget.shippingLine:
@@ -255,11 +274,12 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     final text = _rawTextCtrl.text.trim();
     if (text.isEmpty) return;
 
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
     final progressCtrl = ExtractionProgressController();
     progressCtrl.update(
       percent: 0.15,
-      status: 'جاري فحص النص وتحليل الحقول التخصصية...',
-      stepLabel: 'المرحلة 1 من 4: تحليل النص',
+      status: isArabic ? 'جاري فحص النص وتحليل الحقول التخصصية...' : 'Analyzing text and extracting specialized fields...',
+      stepLabel: isArabic ? 'المرحلة 1 من 4: تحليل النص' : 'Step 1 of 4: Text Analysis',
       currentStep: 1,
     );
 
@@ -268,8 +288,10 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     if (mounted) {
       ExtractionProgressDialog.show(
         context: context,
-        title: 'جاري استخراج بيانات ${_targetArabicName(_selectedTarget)}',
-        fileName: 'النص المنسوخ (${text.length} حرف)',
+        title: isArabic
+            ? 'جاري استخراج بيانات ${_targetName(context, _selectedTarget)}'
+            : 'Extracting ${_targetName(context, _selectedTarget)} Profile',
+        fileName: isArabic ? 'النص المنسوخ (${text.length} حرف)' : 'Pasted Text (${text.length} characters)',
         controller: progressCtrl,
       );
     }
@@ -298,8 +320,12 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     } catch (e) {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
+        final isArabic = Directionality.of(context) == TextDirection.rtl;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في استخراج النص: $e'), backgroundColor: AppTheme.crimson),
+          SnackBar(
+            content: Text(isArabic ? 'خطأ في استخراج البيانات: $e' : 'Extraction Error: $e'),
+            backgroundColor: AppTheme.crimson,
+          ),
         );
       }
     } finally {
@@ -307,110 +333,57 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     }
   }
 
-  String _targetArabicName(EntityTarget t) {
-    switch (t) {
-      case EntityTarget.supplier:
-        return 'المورد الأجنبي';
-      case EntityTarget.company:
-        return 'الشركة المستوردة';
-      case EntityTarget.customsBroker:
-        return 'المخلص الجمركي';
-      case EntityTarget.shippingLine:
-        return 'الخط الملاحي';
-      case EntityTarget.freightForwarder:
-        return 'شركة الشحن الدولي';
-      case EntityTarget.inlandTransport:
-        return 'الناقل البري';
-      case EntityTarget.inspectionAgency:
-        return 'شركة الفحص والمعاينة';
-      case EntityTarget.insuranceCompany:
-        return 'شركة التأمين';
-      case EntityTarget.bank:
-        return 'البنك المصرفي';
-      case EntityTarget.partner:
-        return 'الشريك اللوجستي';
-    }
-  }
-
-  String _targetEnglishName(EntityTarget t) {
-    switch (t) {
-      case EntityTarget.supplier:
-        return 'Foreign Supplier';
-      case EntityTarget.company:
-        return 'Importing Company';
-      case EntityTarget.customsBroker:
-        return 'Customs Broker';
-      case EntityTarget.shippingLine:
-        return 'Shipping Line';
-      case EntityTarget.freightForwarder:
-        return 'Freight Forwarder';
-      case EntityTarget.inlandTransport:
-        return 'Inland Transport';
-      case EntityTarget.inspectionAgency:
-        return 'Inspection Agency';
-      case EntityTarget.insuranceCompany:
-        return 'Insurance Company';
-      case EntityTarget.bank:
-        return 'Commercial Bank';
-      case EntityTarget.partner:
-        return 'Logistics Partner';
-    }
-  }
-
   Future<void> _pickAndExtractFile() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'xlsx', 'xls', 'docx', 'doc', 'png', 'jpg', 'jpeg', 'txt'],
-      withData: true,
-    );
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'xlsx', 'xls', 'docx', 'doc', 'txt'],
+        withData: true,
+      );
 
-    if (result == null || result.files.isEmpty) return;
+      if (result == null || result.files.isEmpty) return;
 
-    final file = result.files.first;
-    if (file.bytes == null) {
+      final file = result.files.first;
+      setState(() => _selectedFileName = file.name);
+
+      final progressCtrl = ExtractionProgressController();
+      progressCtrl.update(
+        percent: 0.2,
+        status: isArabic ? 'جاري قراءة الملف ومعالجة المستند...' : 'Reading file and processing document...',
+        stepLabel: isArabic ? 'المرحلة 1 من 4: قراءة المستند' : 'Step 1 of 4: Document Reading',
+        currentStep: 1,
+      );
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تعذر قراءة محتوى الملف المختَار.'), backgroundColor: AppTheme.crimson),
+        ExtractionProgressDialog.show(
+          context: context,
+          title: isArabic
+              ? 'جاري استخراج بيانات ${_targetName(context, _selectedTarget)}'
+              : 'Extracting ${_targetName(context, _selectedTarget)} Profile',
+          fileName: file.name,
+          controller: progressCtrl,
         );
       }
-      return;
-    }
 
-    final fileSizeFormatted = file.size > 1024 * 1024
-        ? '${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB'
-        : '${(file.size / 1024).toStringAsFixed(0)} KB';
+      setState(() => _isExtracting = true);
 
-    final progressCtrl = ExtractionProgressController();
-    progressCtrl.update(
-      percent: 0.10,
-      status: 'جاري قراءة واستخراج ملف ${file.name} ($fileSizeFormatted)...',
-      stepLabel: 'المرحلة 1 من 4: قراءة الملف',
-      currentStep: 1,
-    );
-
-    setState(() {
-      _selectedFileName = file.name;
-      _isExtracting = true;
-    });
-
-    if (mounted) {
-      ExtractionProgressDialog.show(
-        context: context,
-        title: 'استخراج بيانات ${_targetArabicName(_selectedTarget)} من الملف',
-        fileName: file.name,
-        controller: progressCtrl,
-      );
-    }
-
-    progressCtrl.startAutoAdvance(targetPercent: 0.90, duration: const Duration(seconds: 4));
-
-    try {
       final dio = Dio();
-      final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(file.bytes!, filename: file.name),
-      });
-
       final moduleName = _getModuleForTarget(_selectedTarget);
+      FormData formData;
+
+      if (file.bytes != null) {
+        formData = FormData.fromMap({
+          'file': MultipartFile.fromBytes(file.bytes!, filename: file.name),
+        });
+      } else if (file.path != null) {
+        formData = FormData.fromMap({
+          'file': await MultipartFile.fromFile(file.path!, filename: file.name),
+        });
+      } else {
+        throw Exception('Unable to read file content');
+      }
+
       final resp = await dio.post(
         '${ApiConstants.baseUrl}/smart-upload/upload/$moduleName',
         data: formData,
@@ -425,14 +398,17 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
 
       if (resp.statusCode == 200 && resp.data != null) {
         final extracted = resp.data['extracted_fields'] as Map<String, dynamic>? ?? {};
-        final score = (resp.data['confidence_score'] as num?)?.toDouble() ?? 0.85;
+        final score = (resp.data['confidence_score'] as num?)?.toDouble() ?? 0.90;
         _populateFields(extracted, score);
       }
     } catch (e) {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في استخراج الملف: $e'), backgroundColor: AppTheme.crimson),
+          SnackBar(
+            content: Text(isArabic ? 'خطأ في معالجة واستخراج الملف: $e' : 'File Processing Error: $e'),
+            backgroundColor: AppTheme.crimson,
+          ),
         );
       }
     } finally {
@@ -444,73 +420,79 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     setState(() {
       _confidenceScore = score;
 
-      if (ext['company_name'] != null && ext['company_name'].toString().trim().isNotEmpty) {
-        _companyNameCtrl.text = ext['company_name'].toString().trim();
-      }
-      if (ext['arabic_name'] != null) _arabicNameCtrl.text = ext['arabic_name'].toString().trim();
-      if (ext['contact_person'] != null) _contactPersonCtrl.text = ext['contact_person'].toString().trim();
-      if (ext['phone_number'] != null) _phoneCtrl.text = ext['phone_number'].toString().trim();
-      if (ext['mobile_number'] != null) _mobileCtrl.text = ext['mobile_number'].toString().trim();
-      if (ext['email'] != null) _emailCtrl.text = ext['email'].toString().trim();
-      if (ext['website'] != null) _websiteCtrl.text = ext['website'].toString().trim();
-      if (ext['address'] != null) _addressCtrl.text = ext['address'].toString().trim();
-
-      if (ext['country_code'] != null) {
-        final code = ext['country_code'].toString().toUpperCase().trim();
-        final match = _countryList.firstWhere((c) => c['code'] == code, orElse: () => {});
-        if (match.isNotEmpty) {
-          _countryCodeCtrl.text = code;
-          _countryCtrl.text = match['name'] ?? code;
-        } else {
-          _countryCodeCtrl.text = code;
-          _countryCtrl.text = code;
-        }
+      if (ext['company_name'] != null && ext['company_name'].toString().isNotEmpty) {
+        _companyNameCtrl.text = ext['company_name'].toString();
+      } else if (ext['name_en'] != null && ext['name_en'].toString().isNotEmpty) {
+        _companyNameCtrl.text = ext['name_en'].toString();
+      } else if (ext['partner_name'] != null && ext['partner_name'].toString().isNotEmpty) {
+        _companyNameCtrl.text = ext['partner_name'].toString();
       }
 
-      if (ext['scac_code'] != null) _scacCodeCtrl.text = ext['scac_code'].toString().toUpperCase().trim();
-      if (ext['tracking_url'] != null) _trackingUrlCtrl.text = ext['tracking_url'].toString().trim();
-      if (ext['clearance_license_number'] != null || ext['license_number'] != null) {
-        _brokerLicenseCtrl.text = (ext['clearance_license_number'] ?? ext['license_number']).toString().trim();
+      if (ext['name_ar'] != null && ext['name_ar'].toString().isNotEmpty) {
+        _arabicNameCtrl.text = ext['name_ar'].toString();
       }
-      if (ext['fleet_types'] != null) _fleetTypesCtrl.text = ext['fleet_types'].toString().trim();
-      if (ext['inspection_scope'] != null) _inspectionScopeCtrl.text = ext['inspection_scope'].toString().trim();
-      if (ext['insurance_terms'] != null) _policyTermsCtrl.text = ext['insurance_terms'].toString().trim();
-      if (ext['ports'] != null) _portsCtrl.text = ext['ports'].toString().trim();
 
-      if (ext['cargox_id'] != null) _cargoxIdCtrl.text = ext['cargox_id'].toString().trim();
-      if (ext['vat_tax_id'] != null || ext['foreign_exporter_id'] != null) {
-        final tax = (ext['vat_tax_id'] ?? ext['foreign_exporter_id']).toString().trim();
-        _foreignTaxIdCtrl.text = tax;
-        _taxIdCtrl.text = tax;
+      if (ext['contact_person'] != null) _contactPersonCtrl.text = ext['contact_person'].toString();
+      if (ext['phone'] != null) _phoneCtrl.text = ext['phone'].toString();
+      if (ext['mobile'] != null) _mobileCtrl.text = ext['mobile'].toString();
+      if (ext['email'] != null) _emailCtrl.text = ext['email'].toString();
+      if (ext['secondary_email'] != null) _secondaryEmailCtrl.text = ext['secondary_email'].toString();
+      if (ext['website'] != null) _websiteCtrl.text = ext['website'].toString();
+      if (ext['address'] != null) _addressCtrl.text = ext['address'].toString();
+
+      if (ext['country'] != null && ext['country'].toString().isNotEmpty) {
+        final c = ext['country'].toString();
+        _countryCtrl.text = c;
+        final match = _countryList.firstWhere(
+          (item) => item['name']!.toLowerCase().contains(c.toLowerCase()) || item['code']!.toLowerCase() == c.toLowerCase(),
+          orElse: () => {'name': c, 'code': 'CN'},
+        );
+        _countryCodeCtrl.text = match['code']!;
       }
-      if (ext['commercial_register'] != null) {
-        _commercialRegisterCtrl.text = ext['commercial_register'].toString().trim();
+
+      if (ext['cargox_id'] != null) _cargoxIdCtrl.text = ext['cargox_id'].toString();
+      if (ext['foreign_exporter_id'] != null) {
+        _foreignTaxIdCtrl.text = ext['foreign_exporter_id'].toString();
+      } else if (ext['foreign_tax_id'] != null) {
+        _foreignTaxIdCtrl.text = ext['foreign_tax_id'].toString();
+      }
+      if (ext['brands'] != null) _brandsCtrl.text = ext['brands'].toString();
+      if (ext['registration_type'] != null) _supplierRegType = ext['registration_type'].toString();
+
+      if (ext['vat_id'] != null) {
+        _taxIdCtrl.text = ext['vat_id'].toString();
+      } else if (ext['tax_id'] != null) {
+        _taxIdCtrl.text = ext['tax_id'].toString();
+      }
+      if (ext['registration_number'] != null) {
+        _commercialRegisterCtrl.text = ext['registration_number'].toString();
+      } else if (ext['commercial_register'] != null) {
+        _commercialRegisterCtrl.text = ext['commercial_register'].toString();
       }
       if (ext['importer_id'] != null) {
-        _importerCardCtrl.text = ext['importer_id'].toString().replaceAll('-', '').replaceAll(' ', '').trim();
+        _importerCardCtrl.text = ext['importer_id'].toString();
+      } else if (ext['importer_card_number'] != null) {
+        _importerCardCtrl.text = ext['importer_card_number'].toString();
       }
-      if (ext['swift_code'] != null) _swiftCodeCtrl.text = ext['swift_code'].toString().trim();
-      if (ext['bank_account'] != null || ext['iban'] != null) {
-        _bankAccountCtrl.text = (ext['bank_account'] ?? ext['iban']).toString().trim();
-      }
-      if (ext['industry_description'] != null) _brandsCtrl.text = ext['industry_description'].toString().trim();
+      if (ext['nafeza_token_id'] != null) _nafezaTokenCtrl.text = ext['nafeza_token_id'].toString();
 
-      if (ext['importer_id_expiry'] != null) {
-        final d = DateTime.tryParse(ext['importer_id_expiry'].toString());
-        if (d != null) _importerIdExpiry = d;
-      }
-      if (ext['vat_id_expiry'] != null) {
-        final d = DateTime.tryParse(ext['vat_id_expiry'].toString());
-        if (d != null) _vatIdExpiry = d;
-      }
-      if (ext['registration_expiry'] != null) {
-        final d = DateTime.tryParse(ext['registration_expiry'].toString());
-        if (d != null) _registrationExpiry = d;
-      }
+      if (ext['clearance_license_number'] != null) _brokerLicenseCtrl.text = ext['clearance_license_number'].toString();
+      if (ext['ports'] != null) _portsCtrl.text = ext['ports'].toString();
+      if (ext['scac_code'] != null) _scacCodeCtrl.text = ext['scac_code'].toString();
+      if (ext['tracking_url'] != null) _trackingUrlCtrl.text = ext['tracking_url'].toString();
+      if (ext['services_scope'] != null) _servicesScopeCtrl.text = ext['services_scope'].toString();
+      if (ext['fleet_types'] != null) _fleetTypesCtrl.text = ext['fleet_types'].toString();
+      if (ext['inspection_scope'] != null) _inspectionScopeCtrl.text = ext['inspection_scope'].toString();
+      if (ext['policy_terms'] != null) _policyTermsCtrl.text = ext['policy_terms'].toString();
+
+      if (ext['swift_code'] != null) _swiftCodeCtrl.text = ext['swift_code'].toString();
+      if (ext['branch_name'] != null) _branchNameCtrl.text = ext['branch_name'].toString();
+      if (ext['bank_account'] != null) _bankAccountCtrl.text = ext['bank_account'].toString();
     });
   }
 
   Future<void> _saveEntityToDatabase() async {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
     final name = _companyNameCtrl.text.trim();
     final arabicName = _arabicNameCtrl.text.trim();
     final effectiveName = name.isNotEmpty ? name : arabicName;
@@ -521,7 +503,10 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
 
     if (effectiveName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ اسم الشركة / الشريك مطلوب لإتمام التكويد.'), backgroundColor: AppTheme.orange),
+        SnackBar(
+          content: Text(isArabic ? 'اسم الكيان أو الشركة مطلوب لإتمام الحفظ والتسجيل' : 'Entity / Company name is required.'),
+          backgroundColor: AppTheme.orange,
+        ),
       );
       return;
     }
@@ -599,14 +584,12 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             'partner_type': 'Shipping Line',
             'scac_code': scac.isNotEmpty ? scac : 'LINE',
             'tracking_url': _trackingUrlCtrl.text.trim().isNotEmpty ? _trackingUrlCtrl.text.trim() : null,
-            'contact_person': _contactPersonCtrl.text.trim(),
-            'phone': _phoneCtrl.text.trim(),
-            'mobile': _mobileCtrl.text.trim(),
-            'email': _emailCtrl.text.trim(),
+            'website': _websiteCtrl.text.trim().isNotEmpty ? _websiteCtrl.text.trim() : null,
+            'email': _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
             'secondary_email': _secondaryEmailCtrl.text.trim().isNotEmpty ? _secondaryEmailCtrl.text.trim() : null,
-            'website': _websiteCtrl.text.trim(),
-            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Egypt Local Agency',
-            'country': 'Egypt',
+            'phone': _phoneCtrl.text.trim(),
+            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Egypt',
+            'country': _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'Egypt',
           };
           break;
 
@@ -615,15 +598,14 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           payload = {
             'partner_name': name,
             'partner_type': 'Freight Forwarder',
-            'notes': _servicesScopeCtrl.text.trim().isNotEmpty ? 'Services: ${_servicesScopeCtrl.text.trim()}' : null,
+            'commercial_register': _commercialRegisterCtrl.text.trim(),
+            'notes': _servicesScopeCtrl.text.trim().isNotEmpty ? 'Scope: ${_servicesScopeCtrl.text.trim()}' : null,
             'contact_person': _contactPersonCtrl.text.trim(),
             'phone': _phoneCtrl.text.trim(),
-            'mobile': _mobileCtrl.text.trim(),
             'email': _emailCtrl.text.trim(),
             'website': _websiteCtrl.text.trim(),
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Egypt',
             'country': 'Egypt',
-            'commercial_register': _commercialRegisterCtrl.text.trim(),
           };
           break;
 
@@ -632,12 +614,12 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           payload = {
             'partner_name': name,
             'partner_type': 'Inland Transport',
+            'clearance_license_number': _brokerLicenseCtrl.text.trim().isNotEmpty ? _brokerLicenseCtrl.text.trim() : null,
             'notes': _fleetTypesCtrl.text.trim().isNotEmpty ? 'Fleet: ${_fleetTypesCtrl.text.trim()}' : null,
             'contact_person': _contactPersonCtrl.text.trim(),
             'phone': _phoneCtrl.text.trim(),
-            'mobile': _mobileCtrl.text.trim(),
             'email': _emailCtrl.text.trim(),
-            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Egypt Fleet Garage',
+            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Egypt Hub',
             'country': 'Egypt',
           };
           break;
@@ -711,7 +693,11 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ تم تكويد وحفظ ${_targetArabicName(_selectedTarget)} "$effectiveName" بنجاح!'),
+            content: Text(
+              isArabic
+                  ? 'تم تكويد وحفظ ${_targetName(context, _selectedTarget)} "$effectiveName" بنجاح'
+                  : 'Successfully registered ${_targetName(context, _selectedTarget)} "$effectiveName"',
+            ),
             backgroundColor: AppTheme.emerald,
             behavior: SnackBarBehavior.floating,
           ),
@@ -726,7 +712,10 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           msg = e.response?.data['detail']?.toString() ?? msg;
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء الحفظ: $msg'), backgroundColor: AppTheme.crimson),
+          SnackBar(
+            content: Text(isArabic ? 'خطأ أثناء الحفظ: $msg' : 'Error saving record: $msg'),
+            backgroundColor: AppTheme.crimson,
+          ),
         );
       }
     }
@@ -734,6 +723,8 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -753,8 +744,8 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         ),
         child: Column(
           children: [
-            _buildDialogHeader(),
-            if (!widget.lockTarget) _buildTargetSelectorBar(),
+            _buildDialogHeader(isArabic),
+            if (!widget.lockTarget) _buildTargetSelectorBar(isArabic),
             Expanded(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -765,19 +756,21 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.grey.shade50,
-                        border: Border(left: BorderSide(color: Colors.grey.shade200)),
+                        border: isArabic
+                            ? Border(left: BorderSide(color: Colors.grey.shade200))
+                            : Border(right: BorderSide(color: Colors.grey.shade200)),
                       ),
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildInputModeSwitcher(),
+                          _buildInputModeSwitcher(isArabic),
                           const SizedBox(height: 12),
                           Expanded(
-                            child: _inputModeTab == 0 ? _buildRawTextInputArea() : _buildFileUploadArea(),
+                            child: _inputModeTab == 0 ? _buildRawTextInputArea(isArabic) : _buildFileUploadArea(isArabic),
                           ),
                           const SizedBox(height: 12),
-                          _buildExtractActionButton(),
+                          _buildExtractActionButton(isArabic),
                         ],
                       ),
                     ),
@@ -801,7 +794,9 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                                     Icon(_getTargetIcon(_selectedTarget), color: AppTheme.cobalt, size: 20),
                                     const SizedBox(width: 8),
                                     Text(
-                                      'بيانات تكويد ${_targetArabicName(_selectedTarget)} (${_targetEnglishName(_selectedTarget)})',
+                                      isArabic
+                                          ? 'بيانات تكويد ${_targetName(context, _selectedTarget)}'
+                                          : '${_targetName(context, _selectedTarget)} Registration Profile',
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
                                     ),
                                   ],
@@ -814,7 +809,9 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
-                                      'دقة التحليل: ${(_confidenceScore * 100).toStringAsFixed(0)}%',
+                                      isArabic
+                                          ? 'دقة التحليل: ${(_confidenceScore * 100).toStringAsFixed(0)}%'
+                                          : 'Extraction Accuracy: ${(_confidenceScore * 100).toStringAsFixed(0)}%',
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
@@ -827,11 +824,11 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                             const Divider(height: 20),
                             Expanded(
                               child: SingleChildScrollView(
-                                child: _buildTargetSpecificFields(),
+                                child: _buildTargetSpecificFields(isArabic),
                               ),
                             ),
                             const SizedBox(height: 12),
-                            _buildSaveActionButton(),
+                            _buildSaveActionButton(isArabic),
                           ],
                         ),
                       ),
@@ -846,7 +843,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     );
   }
 
-  Widget _buildDialogHeader() {
+  Widget _buildDialogHeader(bool isArabic) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: const BoxDecoration(
@@ -864,11 +861,16 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'أداة التكويد والاستخراج الذكي: ${_targetArabicName(_selectedTarget)}',
+                    isArabic
+                        ? 'أداة التكويد والاستخراج الذكي: ${_targetName(context, _selectedTarget)}'
+                        : 'AI Entity Extractor & Registration: ${_targetName(context, _selectedTarget)}',
                     style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
+                  const SizedBox(height: 2),
                   Text(
-                    'AI-Powered ${_targetEnglishName(_selectedTarget)} Extractor & Auto-Registration Engine',
+                    isArabic
+                        ? 'محرك التحليل الذكي للوثائق والتكويد الفوري لقواعد البيانات'
+                        : 'Intelligent Document Parsing & Master Data Onboarding Engine',
                     style: const TextStyle(color: Colors.white70, fontSize: 11),
                   ),
                 ],
@@ -878,32 +880,34 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           IconButton(
             icon: const Icon(Icons.close_rounded, color: Colors.white70),
             onPressed: () => Navigator.of(context).pop(),
-            tooltip: 'إغلاق',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTargetSelectorBar() {
+  Widget _buildTargetSelectorBar(bool isArabic) {
     return Container(
-      color: Colors.grey.shade100,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Colors.grey.shade100,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            const Text('الكيان المستهدف: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
-            const SizedBox(width: 8),
-            _targetChip(EntityTarget.supplier, 'مورد أجنبي', Icons.public),
-            _targetChip(EntityTarget.company, 'شركة مستوردة', Icons.domain),
-            _targetChip(EntityTarget.customsBroker, 'مخلص جمركي', Icons.badge_rounded),
-            _targetChip(EntityTarget.shippingLine, 'خط ملاحي', Icons.directions_boat_rounded),
-            _targetChip(EntityTarget.freightForwarder, 'شحن دولي', Icons.local_shipping_rounded),
-            _targetChip(EntityTarget.inlandTransport, 'ناقل بري', Icons.fire_truck_rounded),
-            _targetChip(EntityTarget.inspectionAgency, 'فحص ومعاينة', Icons.fact_check_rounded),
-            _targetChip(EntityTarget.insuranceCompany, 'شركة تأمين', Icons.security_rounded),
-            _targetChip(EntityTarget.bank, 'بنك معتمد', Icons.account_balance),
+            Text(
+              isArabic ? 'توجيه التكويد المباشر إلى:' : 'Direct Entity Target:',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+            ),
+            const SizedBox(width: 12),
+            _targetChip(EntityTarget.supplier, isArabic ? 'مورد أجنبي' : 'Foreign Supplier', Icons.public),
+            _targetChip(EntityTarget.company, isArabic ? 'شركة مستوردة' : 'Importing Company', Icons.business_rounded),
+            _targetChip(EntityTarget.customsBroker, isArabic ? 'مخلص جمركي' : 'Customs Broker', Icons.badge_rounded),
+            _targetChip(EntityTarget.shippingLine, isArabic ? 'خط ملاحي' : 'Shipping Line', Icons.directions_boat_rounded),
+            _targetChip(EntityTarget.freightForwarder, isArabic ? 'شحن دولي' : 'Freight Forwarder', Icons.local_shipping_rounded),
+            _targetChip(EntityTarget.inlandTransport, isArabic ? 'ناقل بري' : 'Inland Transport', Icons.fire_truck_rounded),
+            _targetChip(EntityTarget.inspectionAgency, isArabic ? 'فحص ومعاينة' : 'Inspection Agency', Icons.fact_check_rounded),
+            _targetChip(EntityTarget.insuranceCompany, isArabic ? 'شركة تأمين' : 'Insurance Company', Icons.security_rounded),
+            _targetChip(EntityTarget.bank, isArabic ? 'بنك معتمد' : 'Authorized Bank', Icons.account_balance),
           ],
         ),
       ),
@@ -913,10 +917,17 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   Widget _targetChip(EntityTarget target, String label, IconData icon) {
     final isSelected = _selectedTarget == target;
     return Padding(
-      padding: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 3),
       child: ChoiceChip(
         avatar: Icon(icon, size: 16, color: isSelected ? Colors.white : AppTheme.cobalt),
-        label: Text(label, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : AppTheme.charcoal)),
+        label: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? Colors.white : AppTheme.charcoal,
+          ),
+        ),
         selected: isSelected,
         selectedColor: AppTheme.cobalt,
         backgroundColor: Colors.white,
@@ -932,7 +943,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     );
   }
 
-  Widget _buildInputModeSwitcher() {
+  Widget _buildInputModeSwitcher(bool isArabic) {
     return Row(
       children: [
         Expanded(
@@ -951,7 +962,10 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                 children: [
                   Icon(Icons.content_paste_rounded, size: 16, color: _inputModeTab == 0 ? Colors.white : AppTheme.charcoal),
                   const SizedBox(width: 6),
-                  Text('لصق نص حر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: _inputModeTab == 0 ? Colors.white : AppTheme.charcoal)),
+                  Text(
+                    isArabic ? 'لصق نص حر' : 'Paste Free Text',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: _inputModeTab == 0 ? Colors.white : AppTheme.charcoal),
+                  ),
                 ],
               ),
             ),
@@ -974,7 +988,10 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                 children: [
                   Icon(Icons.attach_file_rounded, size: 16, color: _inputModeTab == 1 ? Colors.white : AppTheme.charcoal),
                   const SizedBox(width: 6),
-                  Text('صورة / PDF / Excel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: _inputModeTab == 1 ? Colors.white : AppTheme.charcoal)),
+                  Text(
+                    isArabic ? 'مستند أو صورة أو ملف' : 'Document or Image File',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: _inputModeTab == 1 ? Colors.white : AppTheme.charcoal),
+                  ),
                 ],
               ),
             ),
@@ -984,7 +1001,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     );
   }
 
-  Widget _buildRawTextInputArea() {
+  Widget _buildRawTextInputArea(bool isArabic) {
     return Column(
       children: [
         Expanded(
@@ -994,7 +1011,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             expands: true,
             style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
             decoration: InputDecoration(
-              hintText: _getPlaceholderForTarget(_selectedTarget),
+              hintText: _getPlaceholderForTarget(_selectedTarget, isArabic),
               hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade500),
               filled: true,
               fillColor: Colors.white,
@@ -1007,7 +1024,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     );
   }
 
-  Widget _buildFileUploadArea() {
+  Widget _buildFileUploadArea(bool isArabic) {
     return InkWell(
       onTap: _isExtracting ? null : _pickAndExtractFile,
       child: Container(
@@ -1024,19 +1041,22 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             const Icon(Icons.cloud_upload_outlined, size: 48, color: AppTheme.cobalt),
             const SizedBox(height: 12),
             Text(
-              _selectedFileName ?? 'اضغط لاختيار ملف أو سحب مستند الفاتورة / الكارت',
+              _selectedFileName ?? (isArabic ? 'اضغط لاختيار ملف أو سحب مستند الفاتورة أو الكارت' : 'Click to select file or drag document / business card'),
               style: TextStyle(fontWeight: FontWeight.bold, color: _selectedFileName != null ? AppTheme.charcoal : Colors.grey.shade600, fontSize: 12),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
-            const Text('يدعم: PDF, Images (PNG/JPG), Excel, Word', style: TextStyle(color: Colors.grey, fontSize: 11)),
+            Text(
+              isArabic ? 'يدعم ملفات: PDF, PNG, JPG, Excel, Word' : 'Supported formats: PDF, Images (PNG/JPG), Excel, Word',
+              style: const TextStyle(color: Colors.grey, fontSize: 11),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildExtractActionButton() {
+  Widget _buildExtractActionButton(bool isArabic) {
     return SizedBox(
       width: double.infinity,
       height: 42,
@@ -1044,7 +1064,11 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         icon: _isExtracting
             ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
             : const Icon(Icons.auto_awesome, size: 18),
-        label: Text(_isExtracting ? 'جاري التحليل والاستخراج...' : 'استخراج وتحليل البيانات تلقائياً ✨'),
+        label: Text(
+          _isExtracting
+              ? (isArabic ? 'جاري التحليل والاستخراج...' : 'Analyzing & Extracting Data...')
+              : (isArabic ? 'استخراج وتحليل البيانات تلقائياً ✨' : 'Smart Extract & Auto-Analyze ✨'),
+        ),
         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
         onPressed: _isExtracting
             ? null
@@ -1059,7 +1083,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     );
   }
 
-  Widget _buildSaveActionButton() {
+  Widget _buildSaveActionButton(bool isArabic) {
     return SizedBox(
       width: double.infinity,
       height: 44,
@@ -1067,46 +1091,54 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         icon: _isSaving
             ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
             : const Icon(Icons.check_circle_rounded, size: 20),
-        label: Text('حفظ وتكويد ${_targetArabicName(_selectedTarget)} في قاعدة البيانات 💾', style: const TextStyle(fontWeight: FontWeight.bold)),
+        label: Text(
+          isArabic
+              ? 'حفظ وتكويد ${_targetName(context, _selectedTarget)} في قاعدة البيانات 💾'
+              : 'Save & Register ${_targetName(context, _selectedTarget)} in Database 💾',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
         onPressed: (_isSaving || _isExtracting) ? null : _saveEntityToDatabase,
       ),
     );
   }
 
-  Widget _buildTargetSpecificFields() {
+  Widget _buildTargetSpecificFields(bool isArabic) {
     switch (_selectedTarget) {
       case EntityTarget.supplier:
-        return _buildSupplierFields();
+        return _buildSupplierFields(isArabic);
       case EntityTarget.company:
-        return _buildImporterFields();
+        return _buildImporterFields(isArabic);
       case EntityTarget.customsBroker:
-        return _buildCustomsBrokerFields();
+        return _buildCustomsBrokerFields(isArabic);
       case EntityTarget.shippingLine:
-        return _buildShippingLineFields();
+        return _buildShippingLineFields(isArabic);
       case EntityTarget.freightForwarder:
-        return _buildFreightForwarderFields();
+        return _buildFreightForwarderFields(isArabic);
       case EntityTarget.inlandTransport:
-        return _buildInlandTransportFields();
+        return _buildInlandTransportFields(isArabic);
       case EntityTarget.inspectionAgency:
-        return _buildInspectionAgencyFields();
+        return _buildInspectionAgencyFields(isArabic);
       case EntityTarget.insuranceCompany:
-        return _buildInsuranceCompanyFields();
+        return _buildInsuranceCompanyFields(isArabic);
       case EntityTarget.bank:
-        return _buildBankFields();
+        return _buildBankFields(isArabic);
       case EntityTarget.partner:
-        return _buildFreightForwarderFields();
+        return _buildFreightForwarderFields(isArabic);
     }
   }
 
-  Widget _buildSupplierFields() {
+  Widget _buildSupplierFields(bool isArabic) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextFormField(
           controller: _companyNameCtrl,
-          decoration: const InputDecoration(labelText: 'اسم المورد الأجنبي بالإنجليزية *', prefixIcon: Icon(Icons.business_rounded, size: 18)),
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم المورد مطلوب' : null,
+          decoration: InputDecoration(
+            labelText: isArabic ? 'اسم المورد الأجنبي بالإنجليزية *' : 'Foreign Supplier Name *',
+            prefixIcon: const Icon(Icons.business_rounded, size: 18),
+          ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'اسم المورد مطلوب' : 'Supplier name is required') : null,
         ),
         const SizedBox(height: 10),
         Row(
@@ -1115,7 +1147,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               flex: 3,
               child: SearchableDropdownField<String>(
                 value: _countryCtrl.text.isNotEmpty ? _countryCtrl.text : 'China (CN)',
-                labelText: 'دولة المنشأ / المقر *',
+                labelText: isArabic ? 'دولة المقر والمنشأ *' : 'Country of Origin & HQ *',
                 items: _countryList.map((c) => SearchableDropdownItem(value: c['name']!, label: c['name']!)).toList(),
                 onChanged: (v) {
                   if (v != null) {
@@ -1133,7 +1165,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               flex: 3,
               child: SearchableDropdownField<String>(
                 value: _supplierRegType,
-                labelText: 'نوع السجل الأجنبي *',
+                labelText: isArabic ? 'نوع السجل الأجنبي *' : 'Registration Type *',
                 items: const [
                   SearchableDropdownItem(value: 'Commercial Register', label: 'Commercial Register'),
                   SearchableDropdownItem(value: 'Tax Number', label: 'Tax Number'),
@@ -1154,15 +1186,21 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextFormField(
                 controller: _foreignTaxIdCtrl,
-                decoration: const InputDecoration(labelText: 'رقم السجل / التعريف الضريبي *', prefixIcon: Icon(Icons.badge_rounded, size: 18)),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'رقم السجل مطلوب' : null,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم السجل والتعريف الضريبي *' : 'Foreign Tax & Reg Number *',
+                  prefixIcon: const Icon(Icons.badge_rounded, size: 18),
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'رقم السجل مطلوب' : 'Registration number is required') : null,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
                 controller: _cargoxIdCtrl,
-                decoration: const InputDecoration(labelText: 'معرف بلوكتشين كارجو اكس (CargoX ID)', prefixIcon: Icon(Icons.hub_rounded, size: 18, color: Colors.blue)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'معرف منصة كارجو إكس' : 'CargoX Blockchain ID',
+                  prefixIcon: const Icon(Icons.hub_rounded, size: 18, color: Colors.blue),
+                ),
               ),
             ),
           ],
@@ -1170,50 +1208,107 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         const SizedBox(height: 10),
         TextFormField(
           controller: _addressCtrl,
-          decoration: const InputDecoration(labelText: 'عنوان المصنع / المقر الرئيسي *', prefixIcon: Icon(Icons.location_on_rounded, size: 18)),
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'العنوان مطلوب' : null,
+          decoration: InputDecoration(
+            labelText: isArabic ? 'عنوان المصنع والمقر الرئيسي *' : 'Factory & HQ Address *',
+            prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
+          ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'العنوان مطلوب' : 'Address is required') : null,
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: TextFormField(controller: _contactPersonCtrl, decoration: const InputDecoration(labelText: 'مسؤول التواصل / المبيعات', prefixIcon: Icon(Icons.person_outline, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _contactPersonCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'مسؤول التواصل والمبيعات' : 'Contact Person & Sales',
+                  prefixIcon: const Icon(Icons.person_outline, size: 18),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: TextFormField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'رقم الهاتف / الواتساب', prefixIcon: Icon(Icons.phone_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _phoneCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم الهاتف والواتساب' : 'Phone & WhatsApp Number',
+                  prefixIcon: const Icon(Icons.phone_rounded, size: 18),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: TextFormField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'البريد الإلكتروني', prefixIcon: Icon(Icons.email_outlined, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _emailCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'البريد الإلكتروني' : 'Email Address',
+                  prefixIcon: const Icon(Icons.email_outlined, size: 18),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: TextFormField(controller: _websiteCtrl, decoration: const InputDecoration(labelText: 'الموقع الإلكتروني', prefixIcon: Icon(Icons.language_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _websiteCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'الموقع الإلكتروني' : 'Website URL',
+                  prefixIcon: const Icon(Icons.language_rounded, size: 18),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: TextFormField(controller: _swiftCodeCtrl, decoration: const InputDecoration(labelText: 'كود السويفت البنكي (SWIFT)', prefixIcon: Icon(Icons.swap_horiz_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _swiftCodeCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'كود السويفت البنكي' : 'Bank SWIFT Code',
+                  prefixIcon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: TextFormField(controller: _brandsCtrl, decoration: const InputDecoration(labelText: 'العلامات التجارية والنشاط الصناعي', prefixIcon: Icon(Icons.category_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _brandsCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'العلامات التجارية والمنتجات' : 'Brands & Products',
+                  prefixIcon: const Icon(Icons.category_rounded, size: 18),
+                ),
+              ),
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildImporterFields() {
+  Widget _buildImporterFields(bool isArabic) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextFormField(
           controller: _companyNameCtrl,
-          decoration: const InputDecoration(labelText: 'اسم الشركة المستوردة بالإنجليزية *', prefixIcon: Icon(Icons.domain_rounded, size: 18)),
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'الاسم بالإنجليزية مطلوب' : null,
+          decoration: InputDecoration(
+            labelText: isArabic ? 'اسم الشركة المستوردة بالإنجليزية *' : 'Importing Company Name (English) *',
+            prefixIcon: const Icon(Icons.domain_rounded, size: 18),
+          ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'الاسم بالإنجليزية مطلوب' : 'English name is required') : null,
         ),
         const SizedBox(height: 10),
         TextFormField(
           controller: _arabicNameCtrl,
-          decoration: const InputDecoration(labelText: 'اسم الشركة المستوردة بالعربية *', prefixIcon: Icon(Icons.translate_rounded, size: 18)),
+          decoration: InputDecoration(
+            labelText: isArabic ? 'اسم الشركة المستوردة بالعربية *' : 'Importing Company Name (Arabic) *',
+            prefixIcon: const Icon(Icons.translate_rounded, size: 18),
+          ),
         ),
         const SizedBox(height: 10),
         Row(
@@ -1221,16 +1316,22 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextFormField(
                 controller: _taxIdCtrl,
-                decoration: const InputDecoration(labelText: 'الرقم الضريبي المصري (9 أرقام) *', prefixIcon: Icon(Icons.pin_rounded, size: 18)),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'الرقم الضريبي مطلوب' : null,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'الرقم الضريبي المصري (9 أرقام) *' : 'Egyptian Tax ID (9 Digits) *',
+                  prefixIcon: const Icon(Icons.pin_rounded, size: 18),
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'الرقم الضريبي مطلوب' : 'Tax ID is required') : null,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
                 controller: _commercialRegisterCtrl,
-                decoration: const InputDecoration(labelText: 'رقم السجل التجاري *', prefixIcon: Icon(Icons.badge_rounded, size: 18)),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'السجل التجاري مطلوب' : null,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم السجل التجاري *' : 'Commercial Registration Number *',
+                  prefixIcon: const Icon(Icons.badge_rounded, size: 18),
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'السجل التجاري مطلوب' : 'Commercial register is required') : null,
               ),
             ),
           ],
@@ -1241,15 +1342,21 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextFormField(
                 controller: _importerCardCtrl,
-                decoration: const InputDecoration(labelText: 'رقم البطاقة الاستيرادية *', prefixIcon: Icon(Icons.credit_card_rounded, size: 18)),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'البطاقة الاستيرادية مطلوبة' : null,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم البطاقة الاستيرادية *' : 'Importer Card Number *',
+                  prefixIcon: const Icon(Icons.credit_card_rounded, size: 18),
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'البطاقة الاستيرادية مطلوبة' : 'Importer card is required') : null,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
                 controller: _nafezaTokenCtrl,
-                decoration: const InputDecoration(labelText: 'معرف التوكن بنافذة (Nafeza Token ID)', prefixIcon: Icon(Icons.vpn_key_rounded, size: 18, color: Colors.blue)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'معرف توكن نافذة الإلكتروني' : 'Nafeza E-Token ID',
+                  prefixIcon: const Icon(Icons.vpn_key_rounded, size: 18, color: Colors.blue),
+                ),
               ),
             ),
           ],
@@ -1257,29 +1364,51 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         const SizedBox(height: 10),
         TextFormField(
           controller: _addressCtrl,
-          decoration: const InputDecoration(labelText: 'عنوان المقر الرئيسي / المسجل *', prefixIcon: Icon(Icons.location_on_rounded, size: 18)),
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'العنوان مطلوب' : null,
+          decoration: InputDecoration(
+            labelText: isArabic ? 'عنوان المقر المسجل للشركة *' : 'Registered Company Address *',
+            prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
+          ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'العنوان مطلوب' : 'Address is required') : null,
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: TextFormField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'رقم الهاتف', prefixIcon: Icon(Icons.phone_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _phoneCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'الهاتف الرئيسي' : 'Primary Phone',
+                  prefixIcon: const Icon(Icons.phone_rounded, size: 18),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: TextFormField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'البريد الرسمي', prefixIcon: Icon(Icons.email_outlined, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _emailCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'البريد الإلكتروني الرسمي' : 'Official Email Address',
+                  prefixIcon: const Icon(Icons.email_outlined, size: 18),
+                ),
+              ),
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildCustomsBrokerFields() {
+  Widget _buildCustomsBrokerFields(bool isArabic) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextFormField(
           controller: _companyNameCtrl,
-          decoration: const InputDecoration(labelText: 'اسم مكتب / شركة التخليص الجمركي بالإنجليزية *', prefixIcon: Icon(Icons.badge_rounded, size: 18)),
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم المستخلص مطلوب' : null,
+          decoration: InputDecoration(
+            labelText: isArabic ? 'اسم مكتب أو شركة التخليص الجمركي *' : 'Customs Brokerage Firm Name *',
+            prefixIcon: const Icon(Icons.badge_rounded, size: 18),
+          ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'اسم المستخلص مطلوب' : 'Broker name is required') : null,
         ),
         const SizedBox(height: 10),
         Row(
@@ -1287,15 +1416,21 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextFormField(
                 controller: _brokerLicenseCtrl,
-                decoration: const InputDecoration(labelText: 'رقم رخصة التخليص الجمركي *', prefixIcon: Icon(Icons.assignment_ind_rounded, size: 18, color: Colors.blue)),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'رقم الرخصة مطلوب' : null,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم رخصة التخليص الجمركي *' : 'Customs Broker License Number *',
+                  prefixIcon: const Icon(Icons.assignment_ind_rounded, size: 18, color: Colors.blue),
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'رقم الرخصة مطلوب' : 'License number is required') : null,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
                 controller: _portsCtrl,
-                decoration: const InputDecoration(labelText: 'موانئ ومواقع العمل الجمركي *', prefixIcon: Icon(Icons.anchor_rounded, size: 18)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'موانئ ومواقع العمل الجمركي *' : 'Operating Ports & Customs Zones *',
+                  prefixIcon: const Icon(Icons.anchor_rounded, size: 18),
+                ),
               ),
             ),
           ],
@@ -1306,14 +1441,20 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextFormField(
                 controller: _taxIdCtrl,
-                decoration: const InputDecoration(labelText: 'الرقم الضريبي', prefixIcon: Icon(Icons.pin_rounded, size: 18)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'الرقم الضريبي' : 'Tax ID',
+                  prefixIcon: const Icon(Icons.pin_rounded, size: 18),
+                ),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
                 controller: _commercialRegisterCtrl,
-                decoration: const InputDecoration(labelText: 'السجل التجاري', prefixIcon: Icon(Icons.receipt_long_rounded, size: 18)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'السجل التجاري' : 'Commercial Register',
+                  prefixIcon: const Icon(Icons.receipt_long_rounded, size: 18),
+                ),
               ),
             ),
           ],
@@ -1321,33 +1462,58 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         const SizedBox(height: 10),
         TextFormField(
           controller: _addressCtrl,
-          decoration: const InputDecoration(labelText: 'عنوان المكتب والمقر الرئيسي', prefixIcon: Icon(Icons.location_on_rounded, size: 18)),
+          decoration: InputDecoration(
+            labelText: isArabic ? 'عنوان المكتب والمقر الرئيسي' : 'Office Address & Headquarters',
+            prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
+          ),
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: TextFormField(controller: _contactPersonCtrl, decoration: const InputDecoration(labelText: 'المخلص الجمركي المعتمد / المسؤول', prefixIcon: Icon(Icons.person_outline, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _contactPersonCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'المخلص الجمركي المعتمد والمسؤول' : 'Certified Customs Specialist',
+                  prefixIcon: const Icon(Icons.person_outline, size: 18),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: TextFormField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'رقم الهاتف / المحمول', prefixIcon: Icon(Icons.phone_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _phoneCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم الهاتف والمحمول' : 'Phone & Mobile Number',
+                  prefixIcon: const Icon(Icons.phone_rounded, size: 18),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 10),
         TextFormField(
           controller: _emailCtrl,
-          decoration: const InputDecoration(labelText: 'البريد الإلكتروني للعمليات', prefixIcon: Icon(Icons.email_outlined, size: 18)),
+          decoration: InputDecoration(
+            labelText: isArabic ? 'البريد الإلكتروني للعمليات' : 'Operations Email Address',
+            prefixIcon: const Icon(Icons.email_outlined, size: 18),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildShippingLineFields() {
+  Widget _buildShippingLineFields(bool isArabic) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextFormField(
           controller: _companyNameCtrl,
-          decoration: const InputDecoration(labelText: 'اسم الخط الملاحي بالإنجليزية (Carrier Name) *', prefixIcon: Icon(Icons.directions_boat_rounded, size: 18)),
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم الخط الملاحي مطلوب' : null,
+          decoration: InputDecoration(
+            labelText: isArabic ? 'اسم الخط الملاحي بالإنجليزية *' : 'Shipping Line Carrier Name *',
+            prefixIcon: const Icon(Icons.directions_boat_rounded, size: 18),
+          ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'اسم الخط الملاحي مطلوب' : 'Shipping line name is required') : null,
         ),
         const SizedBox(height: 10),
         Row(
@@ -1356,8 +1522,11 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               flex: 2,
               child: TextFormField(
                 controller: _scacCodeCtrl,
-                decoration: const InputDecoration(labelText: 'كود الناقل الملاحي (SCAC Code) *', prefixIcon: Icon(Icons.qr_code_rounded, size: 18, color: Colors.blue)),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'كود SCAC مطلوب' : null,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'كود الناقل الملاحي (SCAC) *' : 'SCAC Carrier Code *',
+                  prefixIcon: const Icon(Icons.qr_code_rounded, size: 18, color: Colors.blue),
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'كود SCAC مطلوب' : 'SCAC code is required') : null,
               ),
             ),
             const SizedBox(width: 10),
@@ -1365,7 +1534,10 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               flex: 4,
               child: TextFormField(
                 controller: _trackingUrlCtrl,
-                decoration: const InputDecoration(labelText: 'رابط التتبع الحي للشحنات (Tracking Web URL) *', prefixIcon: Icon(Icons.travel_explore_rounded, size: 18, color: Colors.blue)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رابط التتبع الحي للشحنات *' : 'Cargo Tracking Website URL *',
+                  prefixIcon: const Icon(Icons.travel_explore_rounded, size: 18, color: Colors.blue),
+                ),
               ),
             ),
           ],
@@ -1376,14 +1548,20 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextFormField(
                 controller: _websiteCtrl,
-                decoration: const InputDecoration(labelText: 'الموقع الإلكتروني الرسمي (Website URL)', prefixIcon: Icon(Icons.language_rounded, size: 18)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'الموقع الإلكتروني الرسمي' : 'Official Website URL',
+                  prefixIcon: const Icon(Icons.language_rounded, size: 18),
+                ),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
                 controller: _emailCtrl,
-                decoration: const InputDecoration(labelText: 'البريد الإلكتروني لخدمة العملاء والعمليات *', prefixIcon: Icon(Icons.email_outlined, size: 18)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'بريد العمليات وخدمة العملاء *' : 'Operations & Customer Service Email *',
+                  prefixIcon: const Icon(Icons.email_outlined, size: 18),
+                ),
               ),
             ),
           ],
@@ -1394,14 +1572,20 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextFormField(
                 controller: _secondaryEmailCtrl,
-                decoration: const InputDecoration(labelText: 'بريد الحجوزات الثانوي (Booking Email)', prefixIcon: Icon(Icons.alternate_email_rounded, size: 18)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'بريد الحجوزات الثانوي' : 'Secondary / Booking Email',
+                  prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
+                ),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
                 controller: _phoneCtrl,
-                decoration: const InputDecoration(labelText: 'أرقام هواتف وخدمة عملاء الوكيل المحلي', prefixIcon: Icon(Icons.phone_rounded, size: 18)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'أرقام هواتف وخدمة عملاء الوكيل' : 'Agency Customer Service & Phone',
+                  prefixIcon: const Icon(Icons.phone_rounded, size: 18),
+                ),
               ),
             ),
           ],
@@ -1409,20 +1593,26 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         const SizedBox(height: 10),
         TextFormField(
           controller: _addressCtrl,
-          decoration: const InputDecoration(labelText: 'عناوين مقرات الوكيل الملاحي في مصر (القاهرة / الإسكندرية)', prefixIcon: Icon(Icons.location_on_rounded, size: 18)),
+          decoration: InputDecoration(
+            labelText: isArabic ? 'عناوين مقرات الوكيل الملاحي في مصر' : 'Agency & Office Addresses',
+            prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildFreightForwarderFields() {
+  Widget _buildFreightForwarderFields(bool isArabic) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextFormField(
           controller: _companyNameCtrl,
-          decoration: const InputDecoration(labelText: 'اسم شركة الشحن الدولي بالإنجليزية (Freight Forwarder) *', prefixIcon: Icon(Icons.local_shipping_rounded, size: 18)),
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم شركة الشحن مطلوب' : null,
+          decoration: InputDecoration(
+            labelText: isArabic ? 'اسم شركة الشحن الدولي بالإنجليزية *' : 'Freight Forwarding Company Name *',
+            prefixIcon: const Icon(Icons.local_shipping_rounded, size: 18),
+          ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'اسم شركة الشحن مطلوب' : 'Forwarder name is required') : null,
         ),
         const SizedBox(height: 10),
         Row(
@@ -1430,14 +1620,20 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextFormField(
                 controller: _commercialRegisterCtrl,
-                decoration: const InputDecoration(labelText: 'السجل التجاري / رخصة الفياتا (FIATA / CR)', prefixIcon: Icon(Icons.badge_rounded, size: 18)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رخصة الفياتا والسجل التجاري' : 'FIATA License & Commercial Register',
+                  prefixIcon: const Icon(Icons.badge_rounded, size: 18),
+                ),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
                 controller: _servicesScopeCtrl,
-                decoration: const InputDecoration(labelText: 'مجالات الشحن والخدمات المغطاة', prefixIcon: Icon(Icons.alt_route_rounded, size: 18)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'مجالات وخطوط الشحن المغطاة' : 'Covered Freight Modes & Trade Lanes',
+                  prefixIcon: const Icon(Icons.alt_route_rounded, size: 18),
+                ),
               ),
             ),
           ],
@@ -1445,36 +1641,74 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         const SizedBox(height: 10),
         TextFormField(
           controller: _addressCtrl,
-          decoration: const InputDecoration(labelText: 'عنوان المكتب والمقر الرئيسي', prefixIcon: Icon(Icons.location_on_rounded, size: 18)),
+          decoration: InputDecoration(
+            labelText: isArabic ? 'عنوان المكتب والمقر الرئيسي' : 'Office Address & Headquarters',
+            prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
+          ),
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: TextFormField(controller: _contactPersonCtrl, decoration: const InputDecoration(labelText: 'مسؤول التسعير والعمليات', prefixIcon: Icon(Icons.person_outline, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _contactPersonCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'مسؤول التسعير والعمليات' : 'Pricing & Operations Lead',
+                  prefixIcon: const Icon(Icons.person_outline, size: 18),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: TextFormField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'رقم الهاتف / المحمول', prefixIcon: Icon(Icons.phone_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _phoneCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم الهاتف والمحمول' : 'Phone & Mobile Number',
+                  prefixIcon: const Icon(Icons.phone_rounded, size: 18),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: TextFormField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'بريد عروض الأسعار والعمليات *', prefixIcon: Icon(Icons.email_outlined, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _emailCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'بريد عروض الأسعار والعمليات *' : 'Pricing & Operations Email *',
+                  prefixIcon: const Icon(Icons.email_outlined, size: 18),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: TextFormField(controller: _websiteCtrl, decoration: const InputDecoration(labelText: 'الموقع الإلكتروني', prefixIcon: Icon(Icons.language_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _websiteCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'الموقع الإلكتروني' : 'Website URL',
+                  prefixIcon: const Icon(Icons.language_rounded, size: 18),
+                ),
+              ),
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildInlandTransportFields() {
+  Widget _buildInlandTransportFields(bool isArabic) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextFormField(
           controller: _companyNameCtrl,
-          decoration: const InputDecoration(labelText: 'اسم شركة النقل البري بالإنجليزية *', prefixIcon: Icon(Icons.fire_truck_rounded, size: 18)),
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم شركة النقل مطلوب' : null,
+          decoration: InputDecoration(
+            labelText: isArabic ? 'اسم شركة النقل البري بالإنجليزية *' : 'Inland Transport Company Name *',
+            prefixIcon: const Icon(Icons.fire_truck_rounded, size: 18),
+          ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'اسم شركة النقل مطلوب' : 'Transport company name is required') : null,
         ),
         const SizedBox(height: 10),
         Row(
@@ -1482,14 +1716,20 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextFormField(
                 controller: _brokerLicenseCtrl,
-                decoration: const InputDecoration(labelText: 'رقم ترخيص النقل البري / السجل', prefixIcon: Icon(Icons.badge_rounded, size: 18)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم ترخيص النقل البري والسجل' : 'Transport License & Reg Number',
+                  prefixIcon: const Icon(Icons.badge_rounded, size: 18),
+                ),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
                 controller: _fleetTypesCtrl,
-                decoration: const InputDecoration(labelText: 'أنواع الأسطول وتجهيزات الشاحنات *', prefixIcon: Icon(Icons.view_carousel_rounded, size: 18, color: Colors.blue)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'أنواع وتجهيزات أسطول الشاحنات *' : 'Fleet Types & Truck Equipment *',
+                  prefixIcon: const Icon(Icons.view_carousel_rounded, size: 18, color: Colors.blue),
+                ),
               ),
             ),
           ],
@@ -1497,33 +1737,58 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         const SizedBox(height: 10),
         TextFormField(
           controller: _addressCtrl,
-          decoration: const InputDecoration(labelText: 'عنوان الجراج والمستودع الرئيسي ومناطق التغطية', prefixIcon: Icon(Icons.location_on_rounded, size: 18)),
+          decoration: InputDecoration(
+            labelText: isArabic ? 'عنوان الجراج والمستودع الرئيسي ومناطق التغطية' : 'Central Garage & Depot Location',
+            prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
+          ),
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: TextFormField(controller: _contactPersonCtrl, decoration: const InputDecoration(labelText: 'مسؤول الحركة والتشغيل', prefixIcon: Icon(Icons.person_outline, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _contactPersonCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'مسؤول الحركة والتشغيل' : 'Fleet & Dispatch Coordinator',
+                  prefixIcon: const Icon(Icons.person_outline, size: 18),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: TextFormField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'هاتف الطوارئ والتتبع 24/7 *', prefixIcon: Icon(Icons.phone_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _phoneCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'هاتف الطوارئ والتتبع 24/7 *' : '24/7 Emergency & Tracking Phone *',
+                  prefixIcon: const Icon(Icons.phone_rounded, size: 18),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 10),
         TextFormField(
           controller: _emailCtrl,
-          decoration: const InputDecoration(labelText: 'البريد الإلكتروني للتشغيل', prefixIcon: Icon(Icons.email_outlined, size: 18)),
+          decoration: InputDecoration(
+            labelText: isArabic ? 'البريد الإلكتروني للتشغيل' : 'Operations Email Address',
+            prefixIcon: const Icon(Icons.email_outlined, size: 18),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildInspectionAgencyFields() {
+  Widget _buildInspectionAgencyFields(bool isArabic) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextFormField(
           controller: _companyNameCtrl,
-          decoration: const InputDecoration(labelText: 'اسم شركة الفحص والمعاينة بالإنجليزية (e.g. SGS, Bureau Veritas) *', prefixIcon: Icon(Icons.fact_check_rounded, size: 18)),
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم جهة الفحص مطلوب' : null,
+          decoration: InputDecoration(
+            labelText: isArabic ? 'اسم شركة الفحص والمعاينة بالإنجليزية *' : 'Inspection & Testing Agency Name *',
+            prefixIcon: const Icon(Icons.fact_check_rounded, size: 18),
+          ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'اسم جهة الفحص مطلوب' : 'Inspection agency name is required') : null,
         ),
         const SizedBox(height: 10),
         Row(
@@ -1531,14 +1796,20 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextFormField(
                 controller: _brokerLicenseCtrl,
-                decoration: const InputDecoration(labelText: 'رقم الاعتماد والتسجيل بالرقابة على الصادرات', prefixIcon: Icon(Icons.verified_user_rounded, size: 18, color: Colors.blue)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم الاعتماد والتسجيل بالرقابة على الصادرات' : 'GOIEC Accreditation & ISO Number',
+                  prefixIcon: const Icon(Icons.verified_user_rounded, size: 18, color: Colors.blue),
+                ),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
                 controller: _inspectionScopeCtrl,
-                decoration: const InputDecoration(labelText: 'نطاق الفحص والاختبارات المعتمدة (Scope of Work) *', prefixIcon: Icon(Icons.biotech_rounded, size: 18, color: Colors.blue)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'نطاق الفحص والاختبارات المعتمدة *' : 'Accredited Inspection Scope & Tests *',
+                  prefixIcon: const Icon(Icons.biotech_rounded, size: 18, color: Colors.blue),
+                ),
               ),
             ),
           ],
@@ -1546,36 +1817,74 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         const SizedBox(height: 10),
         TextFormField(
           controller: _addressCtrl,
-          decoration: const InputDecoration(labelText: 'عنوان المعامل والمقر الإقليمي', prefixIcon: Icon(Icons.location_on_rounded, size: 18)),
+          decoration: InputDecoration(
+            labelText: isArabic ? 'عنوان المعامل والمقر الإقليمي' : 'Laboratories & Regional Address',
+            prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
+          ),
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: TextFormField(controller: _contactPersonCtrl, decoration: const InputDecoration(labelText: 'مسؤول المعاينة / المدير الفني', prefixIcon: Icon(Icons.person_outline, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _contactPersonCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'مسؤول المعاينة والمدير الفني' : 'Technical Director & Lead Inspector',
+                  prefixIcon: const Icon(Icons.person_outline, size: 18),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: TextFormField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'رقم الهاتف', prefixIcon: Icon(Icons.phone_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _phoneCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم الهاتف' : 'Phone Number',
+                  prefixIcon: const Icon(Icons.phone_rounded, size: 18),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: TextFormField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'البريد الإلكتروني للشهادات والتقارير *', prefixIcon: Icon(Icons.email_outlined, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _emailCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'البريد الإلكتروني للشهادات والتقارير *' : 'Certificates & Reports Email *',
+                  prefixIcon: const Icon(Icons.email_outlined, size: 18),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: TextFormField(controller: _websiteCtrl, decoration: const InputDecoration(labelText: 'الموقع الإلكتروني', prefixIcon: Icon(Icons.language_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _websiteCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'الموقع الإلكتروني' : 'Website URL',
+                  prefixIcon: const Icon(Icons.language_rounded, size: 18),
+                ),
+              ),
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildInsuranceCompanyFields() {
+  Widget _buildInsuranceCompanyFields(bool isArabic) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextFormField(
           controller: _companyNameCtrl,
-          decoration: const InputDecoration(labelText: 'اسم شركة التأمين بالإنجليزية (e.g. Misr Insurance, GIG, Allianz) *', prefixIcon: Icon(Icons.security_rounded, size: 18)),
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم شركة التأمين مطلوب' : null,
+          decoration: InputDecoration(
+            labelText: isArabic ? 'اسم شركة التأمين بالإنجليزية *' : 'Marine Insurance Company Name *',
+            prefixIcon: const Icon(Icons.security_rounded, size: 18),
+          ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'اسم شركة التأمين مطلوب' : 'Insurance company name is required') : null,
         ),
         const SizedBox(height: 10),
         Row(
@@ -1583,14 +1892,20 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextFormField(
                 controller: _brokerLicenseCtrl,
-                decoration: const InputDecoration(labelText: 'رقم ترخيص هيئة الرقابة المالية (FRA License)', prefixIcon: Icon(Icons.verified_rounded, size: 18, color: Colors.blue)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم ترخيص هيئة الرقابة المالية' : 'FRA Insurance License Number',
+                  prefixIcon: const Icon(Icons.verified_rounded, size: 18, color: Colors.blue),
+                ),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
                 controller: _policyTermsCtrl,
-                decoration: const InputDecoration(labelText: 'شروط ووثائق التأمين البحري المغطاة *', prefixIcon: Icon(Icons.shield_outlined, size: 18, color: Colors.blue)),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'شروط ووثائق التأمين البحري المغطاة *' : 'Marine Cargo Coverage & Policy Terms *',
+                  prefixIcon: const Icon(Icons.shield_outlined, size: 18, color: Colors.blue),
+                ),
               ),
             ),
           ],
@@ -1598,36 +1913,74 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         const SizedBox(height: 10),
         TextFormField(
           controller: _addressCtrl,
-          decoration: const InputDecoration(labelText: 'عنوان المقر الرئيسي وفروع التأمين البحري', prefixIcon: Icon(Icons.location_on_rounded, size: 18)),
+          decoration: InputDecoration(
+            labelText: isArabic ? 'عنوان المقر الرئيسي وفروع التأمين البحري' : 'Headquarters & Marine Branches Address',
+            prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
+          ),
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: TextFormField(controller: _contactPersonCtrl, decoration: const InputDecoration(labelText: 'مسؤول الاكتتاب البحري / التعويضات', prefixIcon: Icon(Icons.person_outline, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _contactPersonCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'مسؤول الاكتتاب البحري والتعويضات' : 'Marine Underwriter & Claims Officer',
+                  prefixIcon: const Icon(Icons.person_outline, size: 18),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: TextFormField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'الخط الساخن / الهاتف', prefixIcon: Icon(Icons.phone_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _phoneCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'الخط الساخن ورقم الهاتف' : 'Hotline & Phone Number',
+                  prefixIcon: const Icon(Icons.phone_rounded, size: 18),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: TextFormField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'البريد الإلكتروني للوثائق والمطالبات *', prefixIcon: Icon(Icons.email_outlined, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _emailCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'البريد الإلكتروني للوثائق والمطالبات *' : 'Policies & Claims Email *',
+                  prefixIcon: const Icon(Icons.email_outlined, size: 18),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: TextFormField(controller: _websiteCtrl, decoration: const InputDecoration(labelText: 'الموقع الإلكتروني', prefixIcon: Icon(Icons.language_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _websiteCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'الموقع الإلكتروني' : 'Website URL',
+                  prefixIcon: const Icon(Icons.language_rounded, size: 18),
+                ),
+              ),
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildBankFields() {
+  Widget _buildBankFields(bool isArabic) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextFormField(
           controller: _companyNameCtrl,
-          decoration: const InputDecoration(labelText: 'اسم البنك المصرفي بالإنجليزية *', prefixIcon: Icon(Icons.account_balance_rounded, size: 18)),
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم البنك مطلوب' : null,
+          decoration: InputDecoration(
+            labelText: isArabic ? 'اسم البنك المصرفي بالإنجليزية *' : 'Bank Name *',
+            prefixIcon: const Icon(Icons.account_balance_rounded, size: 18),
+          ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'اسم البنك مطلوب' : 'Bank name is required') : null,
         ),
         const SizedBox(height: 10),
         Row(
@@ -1635,15 +1988,23 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextFormField(
                 controller: _swiftCodeCtrl,
-                decoration: const InputDecoration(labelText: 'كود السويفت الدولي (SWIFT / BIC) *', prefixIcon: Icon(Icons.swap_horiz_rounded, size: 18, color: Colors.blue), hintText: 'e.g. CIBEGGCAXXX'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'كود السويفت مطلوب' : null,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'كود السويفت الدولي *' : 'International SWIFT / BIC Code *',
+                  prefixIcon: const Icon(Icons.swap_horiz_rounded, size: 18, color: Colors.blue),
+                  hintText: 'e.g. CIBEGGCAXXX',
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'كود السويفت مطلوب' : 'SWIFT code is required') : null,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
                 controller: _branchNameCtrl,
-                decoration: const InputDecoration(labelText: 'اسم الفرع المعتمد *', prefixIcon: Icon(Icons.store_rounded, size: 18), hintText: 'Main Branch'),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'اسم الفرع المعتمد *' : 'Authorized Branch Name *',
+                  prefixIcon: const Icon(Icons.store_rounded, size: 18),
+                  hintText: isArabic ? 'الفرع الرئيسي للشركات' : 'Main Corporate Branch',
+                ),
               ),
             ),
           ],
@@ -1651,14 +2012,33 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         const SizedBox(height: 10),
         TextFormField(
           controller: _addressCtrl,
-          decoration: const InputDecoration(labelText: 'عنوان المقر / الفرع', prefixIcon: Icon(Icons.location_on_rounded, size: 18)),
+          decoration: InputDecoration(
+            labelText: isArabic ? 'عنوان المقر والفرع' : 'Branch & Headquarters Address',
+            prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
+          ),
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: TextFormField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'هاتف الاعتمادات المستندية', prefixIcon: Icon(Icons.phone_rounded, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _phoneCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'هاتف الاعتمادات المستندية' : 'Trade Finance & LC Phone',
+                  prefixIcon: const Icon(Icons.phone_rounded, size: 18),
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: TextFormField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'البريد الإلكتروني للفرع', prefixIcon: Icon(Icons.email_outlined, size: 18)))),
+            Expanded(
+              child: TextFormField(
+                controller: _emailCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'البريد الإلكتروني للفرع' : 'Branch Operations Email',
+                  prefixIcon: const Icon(Icons.email_outlined, size: 18),
+                ),
+              ),
+            ),
           ],
         ),
       ],
@@ -1670,7 +2050,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
       case EntityTarget.supplier:
         return Icons.public;
       case EntityTarget.company:
-        return Icons.domain;
+        return Icons.domain_rounded;
       case EntityTarget.customsBroker:
         return Icons.badge_rounded;
       case EntityTarget.shippingLine:
@@ -1690,29 +2070,53 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     }
   }
 
-  String _getPlaceholderForTarget(EntityTarget target) {
-    switch (target) {
-      case EntityTarget.supplier:
-        return 'الصق هنا ترويسة الفاتورة المبدئية أو كارت المورد الأجنبي:\n\nمثال:\nSuzhou Yuheng Textile Co., Ltd\nFactory Address: No.16, Kangsheng Road, Changshu, Jiangsu, China\nVAT Number: 91320581MA1X7... CargoX ID: 0x71C8a9...\nTel: +86-512-52889988\nEmail: export@yuheng.com\nSWIFT: BKCHCNBJ920';
-      case EntityTarget.company:
-        return 'الصق هنا بيانات الشركة المستوردة أو السجل التجاري والبطاقة الضريبية:\n\nمثال:\nشركة النيل للاستيراد والتصدير ش.م.م\nNile Import & Export SAE\nالعنوان: 15 شارع مصدق، الدقي، الجيزة، مصر\nالسجل التجاري: 184520 | البطاقة الاستيرادية: 489201\nالرقم الضريبي: 200-183-044\nالهاتف: +20 2 3762 1000 | البريد: info@nile-import.com\nتوكن نافذة: NFT-88921-EG';
-      case EntityTarget.customsBroker:
-        return 'الصق هنا كارت أو بيانات مكتب التخليص الجمركي:\n\nمثال:\nAl-Ahram Customs Clearance & Logistics Office\nAddress: 14 El-Sultan Hussein St., Alexandria, Egypt\nCustoms License No: 14820/2021 | Tax ID: 312-884-912\nOperating Ports: Alexandria Port, Dekheila, Sokhna, Damietta\nContact: Customs Specialist Tarek Mahmoud (+20 100 123 4567)\nEmail: clearance@ahram-customs.com | Tel: +20 3 487 6000';
-      case EntityTarget.shippingLine:
-        return 'الصق هنا بيانات الخط الملاحي والناقل البحري:\n\nمثال:\nHapag-Lloyd AG\nSCAC Code: HLCU\nTracking URL: https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html\nWebsite: https://www.hapag-lloyd.com\nEmail: egypt@hlag.com | Tel: +20 2 2696 4500\nAddress: Citystars Complex, Building 3, Heliopolis, Cairo, Egypt';
-      case EntityTarget.freightForwarder:
-        return 'الصق هنا بيانات شركة الشحن الدولي:\n\nمثال:\nApex Global Freight Forwarding Ltd\nCommercial Register: 294810 | FIATA ID: EG-7721\nServices: Ocean FCL/LCL, Air Cargo, Multimodal Transport\nContact: Pricing Manager Karim Nabil (+20 122 345 6789)\nEmail: pricing@apex-freight.com | Web: https://www.apex-freight.com\nAddress: 22 Hassan Allam St., Heliopolis, Cairo, Egypt';
-      case EntityTarget.inlandTransport:
-        return 'الصق هنا بيانات شركة النقل البري والأسطول:\n\nمثال:\nAl-Rowad Heavy Inland Transport & Fleet Services\nTransport License: TR-88412 | Tax ID: 412-990-123\nFleet Types: Container Chassis, 40ft Flatbed, Lowbed, Refrigerated\nOperations Dispatcher: Mostafa Gamal (+20 111 888 9999 - 24/7)\nEmail: dispatch@rowad-transport.com\nGarage & Hub: Plot 4, 10th of Ramadan Industrial Zone, Egypt';
-      case EntityTarget.inspectionAgency:
-        return 'الصق هنا بيانات شركة الفحص والمعاينة الدولية:\n\nمثال:\nSGS Egypt International Inspection & Testing\nAccreditation No: GOIEC-REG-4412 / ISO 17020\nScope: Pre-Shipment Inspection (PSI), Verification of Conformity (VOC), Chemical Testing\nContact: Eng. Hossam Farouk (+20 102 555 4433)\nEmail: egypt.industrial@sgs.com | Web: https://www.sgs.com\nAddress: Alexandria Port Free Zone / Cairo Industrial Hub';
-      case EntityTarget.insuranceCompany:
-        return 'الصق هنا بيانات شركة التأمين البحري:\n\nمثال:\nMisr Insurance Company - Marine Hull & Cargo Department\nFRA Authority License: INS-001 | Tax ID: 100-200-300\nMarine Underwriting Specialist: Ayman Helmy (+20 100 777 6655)\nHotline: 19990 | Marine Email: marine.cargo@misr-ins.com.eg\nWeb: https://www.misr-ins.com.eg\nCoverage: Institute Cargo Clauses (A) - All Risks, War & Strikes\nAddress: 7 Talaat Harb St., Downtown, Cairo, Egypt';
-      case EntityTarget.bank:
-        return 'الصق هنا بيانات البنك المصرفي والسويفت كود:\n\nمثال:\nNational Bank of Egypt (NBE)\nSWIFT / BIC Code: NBEGEGCX001\nBank Code: NBE-001 | Branch: Corporate Main Branch\nContact: Trade Finance Officer Ahmed Salem\nPhone: +20 2 2594 5000 | Email: corporate@nbe.com.eg\nAddress: 1187 Corniche El-Nil, Cairo, Egypt';
-      case EntityTarget.partner:
-        return 'الصق هنا بيانات الشريك اللوجستي...';
+  String _getPlaceholderForTarget(EntityTarget target, bool isArabic) {
+    if (isArabic) {
+      switch (target) {
+        case EntityTarget.supplier:
+          return 'الصق هنا ترويسة الفاتورة المبدئية أو كارت المورد الأجنبي:\n\nمثال:\nSuzhou Yuheng Textile Co., Ltd\nFactory Address: No.16, Kangsheng Road, Changshu, Jiangsu, China\nVAT Number: 91320581MA1X7... CargoX ID: 0x71C8a9...\nTel: +86-512-52889988\nEmail: export@yuheng.com\nSWIFT: BKCHCNBJ920';
+        case EntityTarget.company:
+          return 'الصق هنا بيانات الشركة المستوردة أو السجل التجاري والبطاقة الضريبية:\n\nمثال:\nشركة النيل للاستيراد والتصدير ش.م.م\nالعنوان: 15 شارع مصدق، الدقي، الجيزة، مصر\nالسجل التجاري: 184520 | البطاقة الاستيرادية: 489201\nالرقم الضريبي: 200-183-044\nالهاتف: +20 2 3762 1000 | البريد: info@nile-import.com\nتوكن نافذة: NFT-88921-EG';
+        case EntityTarget.customsBroker:
+          return 'الصق هنا كارت أو بيانات مكتب التخليص الجمركي:\n\nمثال:\nمكتب الأهرام للتخليص الجمركي والخدمات اللوجستية\nالعنوان: 14 شارع السلطان حسين، الإسكندرية، مصر\nرقم رخصة التخليص: 14820/2021 | الرقم الضريبي: 312-884-912\nموانئ العمل: ميناء الإسكندرية، الدخيلة، السخنة، دمياط\nمسؤول التخليص: طارق محمود (01001234567)\nالبريد: clearance@ahram-customs.com | الهاتف: 034876000';
+        case EntityTarget.shippingLine:
+          return 'الصق هنا بيانات الخط الملاحي والناقل البحري:\n\nمثال:\nHapag-Lloyd AG\nكود SCAC: HLCU\nرابط التتبع: https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html\nالموقع: https://www.hapag-lloyd.com\nالبريد: egypt@hlag.com | الهاتف: +20 2 2696 4500\nالعنوان: مجمع سيتي ستارز، مبنى 3، مصر الجديدة، القاهرة';
+        case EntityTarget.freightForwarder:
+          return 'الصق هنا بيانات شركة الشحن الدولي:\n\nمثال:\nApex Global Freight Forwarding Ltd\nالسجل التجاري: 294810 | رخصة فياتا: EG-7721\nخدمات الشحن: شحن بحري كلي وجزئي، شحن جوي، نقل متعدد الوسائط\nمسؤول التسعير: كريم نبيل (01223456789)\nالبريد: pricing@apex-freight.com | الموقع: https://www.apex-freight.com\nالعنوان: 22 شارع حسن علام، مصر الجديدة، القاهرة';
+        case EntityTarget.inlandTransport:
+          return 'الصق هنا بيانات شركة النقل البري والأسطول:\n\nمثال:\nشركة الرواد للنقل الثقيل وخدمات الأسطول\nترخيص النقل: TR-88412 | الرقم الضريبي: 412-990-123\nأنواع الأسطول: تريلات حاويات، سطحات 40 قدم، لوابد، مبردات\nمسؤول الحركة: مصطفى جمال (01118889999 - 24/7)\nالبريد: dispatch@rowad-transport.com\nالجراج: قطعة 4، المنطقة الصناعية، العاشر من رمضان';
+        case EntityTarget.inspectionAgency:
+          return 'الصق هنا بيانات شركة الفحص والمعاينة:\n\nمثال:\nSGS Egypt International Inspection & Testing\nرقم الاعتماد: GOIEC-REG-4412 / ISO 17020\nنطاق الفحص: فحص ما قبل الشحن (PSI)، شهادات المطابقة (VOC)، تحاليل كيميائية\nمسؤول المعاينة: م. حسام فاروق (01025554433)\nالبريد: egypt.industrial@sgs.com | الموقع: https://www.sgs.com\nالعنوان: المنطقة الحرة، ميناء الإسكندرية';
+        case EntityTarget.insuranceCompany:
+          return 'الصق هنا بيانات شركة التأمين البحري:\n\nمثال:\nشركة مصر للتأمين - قطاع التأمين البحري وجسم السفن\nترخيص الرقابة المالية: INS-001 | الرقم الضريبي: 100-200-300\nمسؤول الاكتتاب: أيمن حلمي (01007776655)\nالخط الساخن: 19990 | البريد: marine.cargo@misr-ins.com.eg\nالموقع: https://www.misr-ins.com.eg\nالتغطية: شروط مجمع مكتتبي التأمين في لندن (أ) - كافة الأخطار والحروب والإضرابات\nالعنوان: 7 شارع طلعت حرب، وسط البلد، القاهرة';
+        case EntityTarget.bank:
+          return 'الصق هنا بيانات البنك المصرفي والسويفت كود:\n\nمثال:\nالبنك الأهلي المصري (NBE)\nكود السويفت: NBEGEGCX001\nكود البنك: NBE-001 | الفرع: فرع الشركات الرئيسي\nمسؤول العمليات: أحمد سالم\nالهاتف: +20 2 2594 5000 | البريد: corporate@nbe.com.eg\nالعنوان: 1187 كورنيش النيل، القاهرة، مصر';
+        case EntityTarget.partner:
+          return 'الصق هنا بيانات الشريك اللوجستي...';
+      }
+    } else {
+      switch (target) {
+        case EntityTarget.supplier:
+          return 'Paste proforma invoice header or supplier business card text here:\n\nExample:\nSuzhou Yuheng Textile Co., Ltd\nFactory Address: No.16, Kangsheng Road, Changshu, Jiangsu, China\nVAT Number: 91320581MA1X7... CargoX ID: 0x71C8a9...\nTel: +86-512-52889988\nEmail: export@yuheng.com\nSWIFT: BKCHCNBJ920';
+        case EntityTarget.company:
+          return 'Paste importing company registration or tax card text here:\n\nExample:\nNile Import & Export SAE\nAddress: 15 Mossadak St., Dokki, Giza, Egypt\nCommercial Reg: 184520 | Importer Card: 489201\nTax ID: 200-183-044\nPhone: +20 2 3762 1000 | Email: info@nile-import.com\nNafeza Token: NFT-88921-EG';
+        case EntityTarget.customsBroker:
+          return 'Paste customs broker card or agency details here:\n\nExample:\nAl-Ahram Customs Clearance & Logistics Office\nAddress: 14 El-Sultan Hussein St., Alexandria, Egypt\nCustoms License No: 14820/2021 | Tax ID: 312-884-912\nOperating Ports: Alexandria Port, Dekheila, Sokhna, Damietta\nContact: Customs Specialist Tarek Mahmoud (+20 100 123 4567)\nEmail: clearance@ahram-customs.com | Tel: +20 3 487 6000';
+        case EntityTarget.shippingLine:
+          return 'Paste shipping line or carrier details here:\n\nExample:\nHapag-Lloyd AG\nSCAC Code: HLCU\nTracking URL: https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html\nWebsite: https://www.hapag-lloyd.com\nEmail: egypt@hlag.com | Tel: +20 2 2696 4500\nAddress: Citystars Complex, Building 3, Heliopolis, Cairo, Egypt';
+        case EntityTarget.freightForwarder:
+          return 'Paste freight forwarder company details here:\n\nExample:\nApex Global Freight Forwarding Ltd\nCommercial Register: 294810 | FIATA ID: EG-7721\nServices: Ocean FCL/LCL, Air Cargo, Multimodal Transport\nContact: Pricing Manager Karim Nabil (+20 122 345 6789)\nEmail: pricing@apex-freight.com | Web: https://www.apex-freight.com\nAddress: 22 Hassan Allam St., Heliopolis, Cairo, Egypt';
+        case EntityTarget.inlandTransport:
+          return 'Paste inland transport & fleet company details here:\n\nExample:\nAl-Rowad Heavy Inland Transport & Fleet Services\nTransport License: TR-88412 | Tax ID: 412-990-123\nFleet Types: Container Chassis, 40ft Flatbed, Lowbed, Refrigerated\nOperations Dispatcher: Mostafa Gamal (+20 111 888 9999 - 24/7)\nEmail: dispatch@rowad-transport.com\nGarage & Hub: Plot 4, 10th of Ramadan Industrial Zone, Egypt';
+        case EntityTarget.inspectionAgency:
+          return 'Paste inspection & testing agency details here:\n\nExample:\nSGS Egypt International Inspection & Testing\nAccreditation No: GOIEC-REG-4412 / ISO 17020\nScope: Pre-Shipment Inspection (PSI), Verification of Conformity (VOC), Chemical Testing\nContact: Eng. Hossam Farouk (+20 102 555 4433)\nEmail: egypt.industrial@sgs.com | Web: https://www.sgs.com\nAddress: Alexandria Port Free Zone / Cairo Industrial Hub';
+        case EntityTarget.insuranceCompany:
+          return 'Paste marine cargo insurance company details here:\n\nExample:\nMisr Insurance Company - Marine Hull & Cargo Department\nFRA Authority License: INS-001 | Tax ID: 100-200-300\nMarine Underwriting Specialist: Ayman Helmy (+20 100 777 6655)\nHotline: 19990 | Marine Email: marine.cargo@misr-ins.com.eg\nWeb: https://www.misr-ins.com.eg\nCoverage: Institute Cargo Clauses (A) - All Risks, War & Strikes\nAddress: 7 Talaat Harb St., Downtown, Cairo, Egypt';
+        case EntityTarget.bank:
+          return 'Paste bank & SWIFT code details here:\n\nExample:\nNational Bank of Egypt (NBE)\nSWIFT / BIC Code: NBEGEGCX001\nBank Code: NBE-001 | Branch: Corporate Main Branch\nContact: Trade Finance Officer Ahmed Salem\nPhone: +20 2 2594 5000 | Email: corporate@nbe.com.eg\nAddress: 1187 Corniche El-Nil, Cairo, Egypt';
+        case EntityTarget.partner:
+          return 'Paste partner data here...';
+      }
     }
   }
 }
-

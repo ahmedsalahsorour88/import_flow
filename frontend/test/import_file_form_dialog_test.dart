@@ -11,7 +11,6 @@ import 'package:frontend/features/import_files/widgets/import_file_form_dialog.d
 import 'package:frontend/features/suppliers/models/supplier_model.dart';
 import 'package:frontend/features/suppliers/providers/suppliers_provider.dart';
 import 'package:frontend/features/projects/providers/projects_provider.dart';
-import 'package:frontend/features/projects/models/project_model.dart';
 import 'package:frontend/features/external_service_providers/providers/partners_provider.dart';
 import 'package:frontend/features/incoterms/providers/incoterms_provider.dart';
 import 'package:frontend/features/currencies/providers/currencies_provider.dart';

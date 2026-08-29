@@ -1438,19 +1438,26 @@
   - Optimized sidebar header action layout and footer version info with responsive `Flexible`/`Expanded` to prevent RenderFlex overflows.
   - Created automated test suite `frontend/test/sidebar_localization_test.dart` (2/2 passing) verifying Arabic mode displays pure Arabic titles with zero stacked English subtitles and English mode displays pure English titles with zero stacked Arabic subtitles.
 
+
 ---
 
-**Master Status:** **ALL 65 SCREENS (0 to 64) + AUTH / LOGIN + NAVIGATION SHELL / SIDEBAR + ALL SUB-MODALS ARE 100% COMPLETE & VERIFIED!**  
+### Session: Universal AI Extractor Dialog Localization & Anti-Stacked Review — 2026-08-29
+
+#### 1. Components Fully Reviewed & Fixed
+- **Universal AI Extractor Dialog (`frontend/lib/core/widgets/universal_entity_extractor_dialog.dart`):**
+  - Completely refactored `UniversalEntityExtractorDialog` to eliminate all stacked Arabic+English text, bilingual brackets, and mixed subtitles.
+  - Implemented dynamic locale-sensitive rendering:
+    - **Header & Subtitle:** In Arabic mode renders `"أداة التكويد والاستخراج الذكي: [الكيان]"` with subtitle `"محرك التحليل الذكي للوثائق والتكويد الفوري لقواعد البيانات"`. In English mode renders `"AI Entity Extractor & Registration: [Entity]"` with subtitle `"Intelligent Document Parsing & Master Data Onboarding Engine"`.
+    - **Form & Input Switcher:** Tab labels dynamically switch between `"لصق نص حر"` / `"مستند أو صورة أو ملف"` (Arabic) vs `"Paste Free Text"` / `"Document or Image File"` (English).
+    - **All Form Field Builders (9 Entities):** Eliminated all parenthetical Latin labels (e.g. `(Customs Broker)`, `(Carrier Name)`, `(Tracking Web URL)`, `(Scope of Work)`). All field labels, hints, section headers, and validation error messages render 100% in pure Arabic in Arabic mode and 100% in pure English in English mode.
+    - **Extraction Placeholders & Status Indicators:** Context-sensitive placeholders provide pure Arabic examples when Arabic is selected and pure English examples when English is selected.
+    - **Action Buttons & Progress Modals:** Localized progress dialogs, extraction loaders, and save buttons (`"استخراج وتحليل البيانات تلقائياً ✨"` / `"حفظ وتكويد [الكيان] في قاعدة البيانات 💾"` vs `"Smart Extract & Auto-Analyze ✨"` / `"Save & Register [Entity] in Database 💾"`).
+  - Maintained dedicated static launchers (`showSupplierExtractor`, `showImporterExtractor`, `showCustomsBrokerExtractor`, `showShippingLineExtractor`, `showFreightForwarderExtractor`, `showInlandTransportExtractor`, `showInspectionAgencyExtractor`, `showInsuranceCompanyExtractor`, `showBankExtractor`).
+
+---
+
+**Master Status:** **ALL SCREENS, CORE COMPONENTS & AI EXTRACTOR DIALOGS ARE 100% COMPLETE & VERIFIED!**  
 - Zero stacked Arabic/English text in any screen, navigation bar, or modal across the entire application.
 - Pure Arabic translations in Arabic mode, pure English translations in English mode.
-- All Flutter and Backend tests passing 100% (419 pytest tests + Flutter unit/widget tests).
-- Flutter static analysis clean with 0 issues.
-
-
-
-
-
-
-
-
-
+- All Flutter (281 tests) and Backend (442 pytest tests) passing 100%.
+- Flutter static analysis clean with 0 errors.

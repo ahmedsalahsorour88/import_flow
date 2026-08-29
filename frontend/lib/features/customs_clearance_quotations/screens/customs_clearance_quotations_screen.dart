@@ -1205,7 +1205,6 @@ class _CustomsClearanceQuotationsScreenState
   }
 
   Widget _buildInlineClearanceQuotationsExtractorWidget() {
-    final l10n = context.l10n;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,

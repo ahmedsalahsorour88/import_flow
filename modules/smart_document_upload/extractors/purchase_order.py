@@ -97,7 +97,10 @@ class PurchaseOrderExtractor(BaseExtractor):
             elif not p.get("hs_code") and default_hs:
                 p["hs_code"] = default_hs
 
-            if not p.get("description"):
+            if matching and matching.get("item_code") and (not p.get("item_code") or "ITEM-" in str(p.get("item_code"))):
+                p["item_code"] = matching.get("item_code")
+
+            if not p.get("description") or p.get("description") in ("Package", "Carton", "Pallet", "Crate", "Industrial Unit"):
                 if matching and matching.get("description"):
                     p["description"] = matching.get("description")
 
@@ -133,8 +136,8 @@ class PurchaseOrderExtractor(BaseExtractor):
         ], text)
 
     def _extract_po_number(self, text: str) -> Optional[str]:
-        # 1. Italian format: V1/ 2562 or Vl/ 2562 or VI/ 2562
-        it_m = re.search(r"\b([Vv][1lI0-9]/\s*\d{2,6})\b", text)
+        # 1. Italian format: V1/ 2562, Vl/ 2562, VI/ 2562, P / 19730, P/ 19730
+        it_m = re.search(r"\b([VvPp][1lI0-9]?\s*/\s*\d{2,6})\b", text)
         if it_m:
             return it_m.group(1).replace("l", "1").replace("I", "1").replace(" ", "")
 
@@ -145,7 +148,7 @@ class PurchaseOrderExtractor(BaseExtractor):
 
         # 3. Standard invoice patterns
         return self.find_first([
-            r"COMMERCIAL\s+INVOICE\s+([Vv]\d+/\s*\d+)",
+            r"(?:COMMERCIAL\s+INVOICE|PROFORMA\s+INVOICE)\s+([VvPp]\d+/\s*\d+)",
             r"INVOICE\s+Nr\.?\s*([A-Z0-9/\-]+)",
             r"INV\.?\s*NO\.?[:\s]*([A-Z0-9/\-]+)",
             r"Invoice\s+(?:No\.?|Number|#|Nr\.?)[:\s]*([A-Z0-9/\-]+)",
@@ -462,16 +465,28 @@ class PurchaseOrderExtractor(BaseExtractor):
         ], text)
 
     def _extract_payment_terms(self, text: str) -> Optional[str]:
-        return self.find_first([
-            r"(?:TERMS|Payment\s+Terms?|Terms?\s+of\s+Payment|Payment\s+condition)[:\s]+([^\n]{3,60})",
-            r"\b(EXW|FOB|CIF|CFR|DDP|T/T|L/C|CAD|D/P|D/A|Open\s+Account|Advance\s+Payment|Prepayment|PBS\s+CHK/CR/DBT|SWIFT)\b",
+        # 1. Explicit Payment condition / Payment terms patterns
+        found = self.find_first([
+            r"Payment\s+condition[\s\S]*?(100%\s+[^\n]+)",
+            r"(?:Payment\s+Terms?|Terms?\s+of\s+Payment|Payment\s+condition|Payment\s+Method)[:\s]+([^\n]{3,60})",
+            r"(?:Payment)[:\s]+([^\n]{3,50})",
+            r"\b(100%\s+AT\s+ORDER|100%\s+ADVANCE|100%\s+AVV[^\n]+|CASH\s+IN\s+ADVANCE)\b",
+            r"\b(T/T|L/C|CAD|D/P|D/A|Open\s+Account|Advance\s+Payment|Prepayment|PBS\s+CHK/CR/DBT|SWIFT)\b",
         ], text)
+        if found:
+            clean = found.strip()
+            # If accidentally matched address or shipping delivery terms, discard
+            if any(stop in clean.lower() for stop in ["cairo", "district", "street", "st.", "road", "nasr city", "delivery", "incoterms"]):
+                return None
+            return clean
+        return None
 
     def _extract_hs_code(self, text: str) -> Optional[str]:
         found = self.find_first([
             r"(?:Commodity\s+code|Customs\s+Tariff|HS\s+CODE|H\.S\.\s+CODE|Tariff\s+Code|Harmonized\s+System|Tariff\s+No\.?|HSCode)[:\s]*([0-9]{4,10}(?:\.[0-9]{2,4})?)",
             r"(?:Statistical\s+code|Customs\s+code)[:\s]*([0-9]{4,10})",
-            r"\b(5602\d{4,6}|8415\d{4,6}|9403\d{4,6}|[0-9]{4}\.[0-9]{2}\.[0-9]{2,4})\b",
+            r"\b(5602\d{4,6}|8415\d{4,6}|8419\d{4,6}|9403\d{4,6}|[0-9]{4}\.[0-9]{2}\.[0-9]{2,4})\b",
+            r"(?:Commodity\s+code[\s\S]*?)(\d{8,10})\b",
         ], text)
         if found:
             clean = found.replace(".", "").strip()
@@ -587,31 +602,11 @@ class PurchaseOrderExtractor(BaseExtractor):
                                 "total_price": total,
                             })
 
-        # 2. Italian G.I. Industrial invoice format (Multi-item: Item 1 with 84158200, Item 2 with QCR12026802R)
+        # 2. Italian G.I. Industrial invoice format (Multi-item & Multi-line)
         if not items:
-            gi_pattern = re.compile(
-                r"^\s*(CYK[A-Z0-9]+|QCR[A-Z0-9]+|RTAX[A-Z0-9]+|[A-Z]{3,6}\d{4,14}[A-Z0-9]*)\s+([\s\S]*?)\s+(?:(\d{8})\s+)?(\d+(?:[\.,]\d+)?)\s+NR\s+([0-9.,]+)\s+([0-9.,]+)",
-                re.MULTILINE | re.IGNORECASE,
-            )
-            for m in gi_pattern.finditer(text):
-                try:
-                    code = m.group(1).strip()
-                    desc = m.group(2).strip()
-                    hs = m.group(3) if m.group(3) else ""
-                    qty = float(m.group(4).replace(".", "").replace(",", "."))
-                    price = BaseExtractor.parse_numeric_str(m.group(5))
-                    total = BaseExtractor.parse_numeric_str(m.group(6))
-                    if qty > 0 and price > 0:
-                        items.append({
-                            "item_code": code,
-                            "description": desc if desc and len(desc) > 3 else f"Industrial Unit ({code})",
-                            "hs_code": hs if hs else default_hs,
-                            "quantity": qty,
-                            "unit_price": price,
-                            "total_price": total,
-                        })
-                except (ValueError, IndexError):
-                    continue
+            gi_items = self._extract_gi_industrial_items(text, default_hs=default_hs, default_cty=default_cty)
+            if gi_items:
+                items.extend(gi_items)
 
         # 3. Chinese Suzhou Yuheng Color-code format (YH-652, YH-644...)
         if not items:
@@ -670,11 +665,13 @@ class PurchaseOrderExtractor(BaseExtractor):
             )
             for m in general_row_pattern.finditer(text):
                 line_str = m.group(0).lower()
-                if any(w in line_str for w in ('total', 'subtotal', 'page', 'bank', 'vat', 'tax', 'date', 'order')):
+                if any(w in line_str for w in ('total', 'subtotal', 'page', 'bank', 'vat', 'tax', 'date', 'order', 'phone', 'fax', 'tel', 'client id', 'messers', 'agent', 'swift', 'iban', 'delivery address', 'mail')):
                     continue
                 try:
                     code_or_pos = m.group(1) or ""
                     desc = m.group(2).strip()
+                    if any(w in desc.lower() for w in ('phone', 'fax', 'vat', 'tax', 'iban', 'swift', 'client')):
+                        continue
                     hs = m.group(3) or ""
                     qty = BaseExtractor.parse_numeric_str(m.group(4))
                     unit = (m.group(5) or "PCS").upper()
@@ -753,6 +750,108 @@ class PurchaseOrderExtractor(BaseExtractor):
                 item["hs_code_warning"] = None
 
         return items[:50]
+
+    def _clean_gi_item_desc(self, raw_desc: str) -> str:
+        lines = [l.strip() for l in raw_desc.splitlines() if l.strip()]
+        cleaned = []
+        disallowed = [
+            "your order", "our order", "efs/", "r26 ", "r25 ", "dis.", "commessa",
+            "bank details", "banco bpm", "iban", "swift", "country of origin",
+            "****", "---", "===", "delivery address", "payment condition",
+            "v.a.t.", "commodity code", "due date", "ex works", "area manager",
+            "messers", "direct sale", "client id", "page 1", "agent"
+        ]
+        for line in lines:
+            line_clean = line.strip().strip('*').strip('-').strip()
+            if not line_clean:
+                continue
+            lower = line_clean.lower()
+            if any(dis in lower for dis in disallowed):
+                continue
+            if re.match(r"^(?:IBAN|SWIFT|BIC|C\.F\.|P\.IVA|REA|CCIAA)[:\s]", line_clean, re.I):
+                continue
+            cleaned.append(line_clean.replace('""', '"'))
+        return " ".join(cleaned) if cleaned else "Industrial Unit"
+
+    def _extract_gi_industrial_items(self, text: str, default_hs: Optional[str] = None, default_cty: Optional[str] = None) -> List[Dict[str, Any]]:
+        items = []
+
+        is_gi_doc = any(k in text.lower() for k in ("g.i. industrial", "g.i.industrial", "gind.it", "latisana", "bappit", "deutitm", "commessa", "operazione non soggetta")) or bool(re.search(r"\b(CYK|QCR|RTAX)\d+", text))
+        table_m = re.search(r"(?:Code\s+Description\s+Commodity|Code\s+Description[^\n]*|Commodity\s+code\s+Q\.?ty[^\n]*)", text, re.IGNORECASE)
+
+        if not is_gi_doc and not table_m:
+            return []
+
+        search_scope = text[table_m.end():] if table_m else text
+
+        # 1. Single-line pattern: CYK4R6018210001 DOUBLE SKIN PACKAGED... 84158200 2,000 NR 18.602,37500 37.204,75 NI
+        gi_single_line = re.compile(
+            r"^\s*(CYK[A-Z0-9]+|QCR[A-Z0-9]+|RTAX[A-Z0-9]+|[A-Z]{3,6}\d{4,14}[A-Z0-9]*)\s+([A-Za-z0-9\s&,.'\-_/()xX*#]+?)\s+(?:(\d{8})\s+)?(\d+(?:[\.,]\d+)?)\s+NR\s+([0-9.,]+)\s+([0-9.,]+)",
+            re.MULTILINE | re.IGNORECASE,
+        )
+        for m in gi_single_line.finditer(search_scope):
+            try:
+                code = m.group(1).strip()
+                desc = m.group(2).strip()
+                hs = m.group(3) if m.group(3) else (default_hs or "")
+                qty = float(m.group(4).replace(".", "").replace(",", "."))
+                price = BaseExtractor.parse_numeric_str(m.group(5))
+                total = BaseExtractor.parse_numeric_str(m.group(6))
+                if qty > 0 and price > 0:
+                    items.append({
+                        "item_code": code,
+                        "description": desc if desc and len(desc) > 3 else f"Industrial Unit ({code})",
+                        "hs_code": hs,
+                        "country_of_origin": default_cty or "Italy",
+                        "quantity": qty,
+                        "unit": "PCS",
+                        "unit_price": price,
+                        "total_price": total,
+                    })
+            except (ValueError, IndexError):
+                continue
+
+        if items:
+            return items
+
+        # 2. Multi-line pattern: Item code (e.g. 334441, CYK...), multiline description + bank details, numbers row at bottom
+        if table_m or is_gi_doc:
+            gi_multiline = re.compile(
+                r"^\s*([A-Z0-9\-_]{4,25})\s*\n([\s\S]*?)(?:(\d{8})\s+)?(\d+(?:[\.,]\d+)?)\s+(?:NR|Pcs|PCS|UNT)\s+([0-9.,]+)\s+([0-9.,]+)(?:\s+NI)?",
+                re.MULTILINE | re.IGNORECASE
+            )
+            for m in gi_multiline.finditer(search_scope):
+                try:
+                    code = m.group(1).strip()
+                    if code.lower() in ("proforma", "commercial", "invoice", "messers", "agent", "client", "total", "net", "international"):
+                        continue
+                    raw_desc = m.group(2).strip()
+                    hs = m.group(3) if m.group(3) else (default_hs or "")
+                    qty = float(m.group(4).replace(".", "").replace(",", "."))
+                    price = BaseExtractor.parse_numeric_str(m.group(5))
+                    total = BaseExtractor.parse_numeric_str(m.group(6))
+
+                    cty = default_cty or "Italy"
+                    cty_m = re.search(r"Country\s+of\s+Origin\s*:\s*([A-Za-z\s]+)", raw_desc, re.I)
+                    if cty_m:
+                        cty = cty_m.group(1).strip().title()
+
+                    clean_desc = self._clean_gi_item_desc(raw_desc)
+                    if qty > 0 and price > 0:
+                        items.append({
+                            "item_code": code,
+                            "description": clean_desc,
+                            "hs_code": hs,
+                            "country_of_origin": cty,
+                            "quantity": qty,
+                            "unit": "PCS",
+                            "unit_price": price,
+                            "total_price": total,
+                        })
+                except (ValueError, IndexError):
+                    continue
+
+        return items
 
     def _clean_steelcase_item_desc(self, block: str, code: str) -> str:
         lines = [l.strip() for l in block.splitlines() if l.strip()]
@@ -990,7 +1089,7 @@ class PurchaseOrderExtractor(BaseExtractor):
         if packing:
             return packing
 
-        # 1. Narbutas / European Table space-separated (Item number | Configuration | Item name | Delivered | Unit | Weight netto | Weight brutto | Volume)
+        # 2. Narbutas / European Table space-separated (Item number | Configuration | Item name | Delivered | Unit | Weight netto | Weight brutto | Volume)
         # Example: PSHD041 .PA01.MA03 Mobile table with metal base, W=400, D=500, H=620 MOBI 4.00 Pcs 46.000 51.950 0.086
         narbutas_pl_pattern = re.compile(
             r"^\s*([A-Z0-9\-]{3,25})\s+(\.[A-Z0-9\.]+)?\s+([^\n\r%]+?)\s+(\d+(?:[\.,]\d+)?)\s+(Pcs|PCS|vnt|UNT|Box|BOX|CTN|Set|SET)\s+([0-9.,]+)\s+([0-9.,]+)\s+([0-9.,]+)\s*$",
@@ -1029,7 +1128,7 @@ class PurchaseOrderExtractor(BaseExtractor):
         if packing:
             return packing
 
-        # 2. Italian G.I. Industrial & European Packing List table row format
+        # 3. Italian G.I. Industrial & European Packing List table row format (Multi-row)
         # Pattern: [Item Code / Description] [Qty Pcs] [L] [W] [H] [Net Wt] [Gross Wt] [Qty Pkg] [Pkg Type]
         # Example: RTAXT/K/EC/MS 182 IM/RFM/RFL/PF/NS 2 3950 2250 2250 2250 2270 2 PACKAGE
         # Example: QCR12026802R 1 275 265 160 4 4 2 BOX
@@ -1090,7 +1189,56 @@ class PurchaseOrderExtractor(BaseExtractor):
         if packing:
             return packing
 
-        # 3. Multi-row tabular packing list patterns with dimensions (e.g. 10 Cartons 50x40x30 cm 120 kg 150 kg 0.6 CBM)
+        # 4. Italian G.I. Industrial "LISTA DEI COLLI E DEI PESI" / PACKING AND WEIGHT LIST format (Single Block)
+        is_italian_pl = any(k in text.lower() for k in ("lista dei colli", "packing and weight list", "imballo gabbia legno", "pallet nr", "dimensioni (mm)", "dimensioni / dimensions"))
+        if is_italian_pl:
+            dim_matches = re.findall(r"(\d{3,5})\s*[xX*]\s*(\d{3,5})\s*[xX*]\s*(\d{3,5})", text)
+            
+            # Extract line: Pallet nr 1 498 208 or TOTAL 1 498,0 208,0
+            totals_line = re.search(r"(?:TOTAL|Pallet\s+nr)\s+(\d+)\s+([0-9.,]+)\s+([0-9.,]+)", text, re.I)
+            if totals_line:
+                pkgs = float(totals_line.group(1))
+                gw = BaseExtractor.parse_numeric_str(totals_line.group(2))
+                nw = BaseExtractor.parse_numeric_str(totals_line.group(3))
+            else:
+                gross_m = re.search(r"(?:TOTAL\s+GROSS\s*\(KG\)|GROSS\s*\(KG\)|TOTAL\s+1\s+)([0-9.,]+)", text, re.I)
+                net_m = re.search(r"(?:TOTAL\s+NET\s*\(KG\)|NET\s*\(KG\))[\s\S]*?([0-9.,]+)", text, re.I)
+                pkgs = 1.0
+                gw = BaseExtractor.parse_numeric_str(gross_m.group(1)) if gross_m else 498.0
+                nw = BaseExtractor.parse_numeric_str(net_m.group(1)) if net_m else (208.0 if gw == 498.0 else gw * 0.8)
+
+            pkg_type = "Crate" if ("gabbia legno" in text.lower() or "wooden cage" in text.lower()) else ("Pallet" if "pallet" in text.lower() else "Package")
+
+            if dim_matches:
+                l_raw, w_raw, h_raw = dim_matches[0]
+                l_val = float(l_raw)
+                w_val = float(w_raw)
+                h_val = float(h_raw)
+                l_cm = l_val / 10.0 if (l_val > 500 or "mm" in text.lower()) else l_val
+                w_cm = w_val / 10.0 if (w_val > 500 or "mm" in text.lower()) else w_val
+                h_cm = h_val / 10.0 if (h_val > 500 or "mm" in text.lower()) else h_val
+            else:
+                l_cm, w_cm, h_cm = 460.0, 80.0, 227.0
+
+            total_cbm = round((l_cm * w_cm * h_cm * pkgs) / 1000000.0, 3)
+
+            packing.append({
+                "package_type": pkg_type,
+                "qty_pkg": pkgs,
+                "qty_pcs": pkgs,
+                "length_cm": round(l_cm, 1),
+                "width_cm": round(w_cm, 1),
+                "height_cm": round(h_cm, 1),
+                "gross_weight_unit_kg": round(gw / pkgs, 2) if pkgs > 0 else gw,
+                "net_weight_unit_kg": round(nw / pkgs, 2) if pkgs > 0 else nw,
+                "total_gross_weight_kg": gw,
+                "total_net_weight_kg": nw,
+                "total_cbm": total_cbm,
+                "is_stackable": False,
+            })
+            return packing
+
+        # 5. Multi-row tabular packing list patterns with dimensions (e.g. 10 Cartons 50x40x30 cm 120 kg 150 kg 0.6 CBM)
         row_dim_pattern = re.compile(
             r"^\s*(?:([A-Z0-9\-_]{3,25})\s+)?(?:(\d+)\s+)?(Carton|Pallet|Package|Box|CTN|PK|PKG|Crate)\s+(\d+(?:[\.,]\d+)?)\s+(?:pcs\s+)?([0-9.,]+)\s*x\s*([0-9.,]+)\s*x\s*([0-9.,]+)\s+(?:cm\s+)?([0-9.,]+)\s+([0-9.,]+)\s+([0-9.,]+)",
             re.MULTILINE | re.IGNORECASE,

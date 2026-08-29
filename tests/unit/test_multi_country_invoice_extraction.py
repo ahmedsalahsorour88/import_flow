@@ -158,3 +158,99 @@ SAY TOTAL USD FORTY-THREE THOUSAND SEVEN HUNDRED AND FOUR ONLY.
     assert pack["total_gross_weight_kg"] == 10510.0
     assert pack["total_net_weight_kg"] == 10080.0
     assert pack["total_cbm"] == 66.0
+
+
+def test_italian_proforma_invoice_coil_gi_industrial():
+    proforma_ocr_text = """
+4.609,00 EUR
+P / 19730 08/04/2026 1
+PROFORMA INVOICE Date Page Delivery address
+Client id. no.
+801765
+V.A.T. ID Number
+200183044
+Phone
+0020 22 6779167
+Fax
+0020 22 6779074
+Agent
+DIRECT SALE
+Area manager
+Messers
+ECO ASSOCIATES
+7 HOSNI OSMAN ST. SEFARAT DISTRICT
+11471 NASR CITY, CAIRO
+Egitto
+Payment condition
+100% AT ORDER
+ Bank IT86J0310402002000000820442
+ SWIFT : DEUTITM1793
+Shipping - Delivery terms - As per INCOTERMS® 2020
+EX WORKS EXTRA UE
+Mail
+m.scarello@ecoasso.com
+V.A.T. exemption code Amount V.A.T. amount
+N.I.ART.8 1 A/B DPR 633
+Total goods
+4.609,00
+Complementary services
+OPERAZIONE NON SOGGETTA Advanced payments Total V.A.T.
+Total
+4.609,00
+Payment discount
+Due date Amounts Due date Amounts
+8/04/26 Total INVOICE AMOUNT
+Net weight kg Gross weight kg Volume mc Packages
+NI 4.609,00
+4.609,00
+Code Description Commodity code Q.ty U.M. Unit price Total price V.A.T
+334441
+Your order
+EFS/16/2026/REV0
+Our order confirmation
+R26 717 date 8/04/26
+BATT COND 3/8"" 4200X1770X3R PA2.1
+44A DX T.RIG.
+DIS.221220/01 REV.00
+Commessa 24/166332
+***********************************
+***********************************
+BANK DETAILS EURO ACCOUNT
+BANCO BPM S.p.A.
+IBAN: IT30Z0503412301000000005586
+SWIFT: BAPPIT22
+Country of Origin: ITALY
+84195080 1,000 NR 4.609,00000 4.609,00 NI
+"""
+    extractor = PurchaseOrderExtractor()
+    result = extractor.extract(proforma_ocr_text, {})
+
+    # Proforma Invoice Number & Date
+    assert result["po_number"] == "P/19730"
+    assert result["order_date"] == "2026-04-08"
+    assert result["currency"] == "EUR"
+    assert result["incoterms"] == "EXW"
+    assert result["country_of_origin"] == "Italy"
+    assert result["total_amount"] == 4609.00
+    assert result["hs_code"] == "84195080"
+    assert result["payment_terms"] == "100% AT ORDER"
+
+    # Importer
+    assert result["importer_name"] == "ECO ASSOCIATES"
+    assert result["importer_tax_id"] == "200183044"
+    assert result["importer_email"] == "m.scarello@ecoasso.com"
+
+    # Line Item
+    assert len(result["items"]) == 1
+    item = result["items"][0]
+    assert item["item_code"] == "334441"
+    assert "BATT COND 3/8" in item["description"]
+    assert "4200X1770X3R" in item["description"]
+    assert "200183044" not in item["description"]  # Ensure tax id / phone is NOT in description
+    assert "Phone" not in item["description"]
+    assert item["hs_code"] == "84195080"
+    assert item["quantity"] == 1.0
+    assert item["unit_price"] == 4609.00
+    assert item["total_price"] == 4609.00
+    assert item["country_of_origin"] == "Italy"
+

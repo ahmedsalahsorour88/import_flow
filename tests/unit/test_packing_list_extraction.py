@@ -51,3 +51,45 @@ Number of pallets 13
     assert third_item["item_code"] == "G3B0079"
     assert "Metal base" in third_item["description"]
     assert third_item["total_cbm"] == 0.056
+
+
+def test_italian_gi_industrial_lista_dei_colli_extraction():
+    packing_ocr_text = """
+NOSTRO ORDINE / OUR ORDER R26 717
+COMMESSA 24/166332
+VOSTRO ORDINE / YOUR ORDER EFS/16/2026/REV0
+(TYPE) (NO)
+TOTAL GROSS
+(KG)
+TOTAL NET
+(KG)
+Pallet nr 1 498 208
+TOTAL 1 498,0 208,0
+(*) LATO DI CARICO MULETTO / FORKLIFT LOADING SIDE
+(**) IMBALLO GABBIA LEGNO / WOODEN CAGE PACKAGE
+LISTA DEI COLLI E DEI PESI
+ECO ASSOCIATES
+7 HOSNI OSMAN ST. SEFARAT DISTRICT
+11471 NASR CITY, CAIRO 
+EG Egitto
+PACKING AND WEIGHT LIST
+DESCRIZIONE
+DESCRIPTION
+IMBALLO / PACKING
+DIMENSIONI / DIMENSIONS (mm)
+4600x800x2270
+"""
+    extractor = PurchaseOrderExtractor()
+    result = extractor.extract(packing_ocr_text, {})
+
+    assert len(result["packing_list_items"]) == 1
+    item = result["packing_list_items"][0]
+    assert item["package_type"] in ("Crate", "Pallet")
+    assert item["qty_pkg"] == 1.0
+    assert item["length_cm"] == 460.0
+    assert item["width_cm"] == 80.0
+    assert item["height_cm"] == 227.0
+    assert item["total_gross_weight_kg"] == 498.0
+    assert item["total_net_weight_kg"] == 208.0
+    assert round(item["total_cbm"], 3) == 8.354
+

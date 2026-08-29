@@ -51,6 +51,7 @@ import '../warehouse_receiving/screens/goods_in_transit_screen.dart';
 import '../warehouse_receiving/screens/warehouse_received_report_screen.dart';
 import '../production_sync/screens/production_sync_screen.dart';
 import '../production_sync/widgets/production_sync_hub_dialog.dart';
+import '../production_sync/providers/production_sync_provider.dart';
 
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -654,46 +655,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             color: Colors.black.withOpacity(0.28),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Expanded(
-                  child: Row(
-                    children: [
-                      Icon(Icons.verified_outlined, color: AppTheme.cobalt, size: 12),
-                      SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          'v1.0.65 (Build 66)',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: Colors.white70, fontSize: 9.5, fontFamily: 'monospace', fontWeight: FontWeight.w600),
-                        ),
+            child: Consumer(
+              builder: (context, r, _) {
+                final versionAsync = r.watch(systemVersionInfoProvider);
+                final versionText = versionAsync.when(
+                  data: (info) => 'v${info.version} (Build ${info.buildNumber})',
+                  loading: () => 'v... (Loading)',
+                  error: (_, __) => 'v1.0.73 (Build 74)',
+                );
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.verified_outlined, color: AppTheme.cobalt, size: 12),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              versionText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.white70, fontSize: 9.5, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                  decoration: BoxDecoration(
-                    color: AppTheme.emerald.withOpacity(0.18),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: AppTheme.emerald.withOpacity(0.4), width: 0.8),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.circle, color: AppTheme.emerald, size: 5),
-                      SizedBox(width: 3.5),
-                      Text(
-                        'Port: 28080',
-                        style: TextStyle(color: AppTheme.emerald, fontSize: 8.5, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: AppTheme.emerald.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.emerald.withOpacity(0.4), width: 0.8),
                       ),
-                    ],
-                  ),
-                ),
-              ],
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.circle, color: AppTheme.emerald, size: 5),
+                          SizedBox(width: 3.5),
+                          Text(
+                            'Port: 28080',
+                            style: TextStyle(color: AppTheme.emerald, fontSize: 8.5, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -838,103 +849,110 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final l = context.l10n;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        titlePadding: EdgeInsets.zero,
-        title: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          decoration: const BoxDecoration(
-            color: AppTheme.charcoal,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.cobalt,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.local_shipping_rounded,
-                    color: Colors.white, size: 22),
+      builder: (ctx) => Consumer(
+        builder: (context, r, _) {
+          final versionAsync = r.watch(systemVersionInfoProvider);
+          final version = versionAsync.whenOrNull(data: (i) => i.version) ?? '1.0.73';
+          final buildNum = versionAsync.whenOrNull(data: (i) => i.buildNumber) ?? 74;
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            titlePadding: EdgeInsets.zero,
+            title: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: const BoxDecoration(
+                color: AppTheme.charcoal,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'ImportFlow ERP',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    Text(
-                      l.appSubtitle,
-                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                    child: const Icon(Icons.local_shipping_rounded,
+                        color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'ImportFlow ERP',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16),
+                        ),
+                        Text(
+                          l.appSubtitle,
+                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+            ),
+            content: SizedBox(
+              width: 480,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildInfoRow(Icons.verified, l.systemVersion, 'v$version (Release)'),
+                  const Divider(height: 14),
+                  _buildInfoRow(Icons.build_circle_outlined, l.buildId, 'Build $version+$buildNum'),
+                  const Divider(height: 14),
+                  _buildInfoRow(Icons.dns_outlined, l.backendEngine, 'FastAPI (Port 28080)'),
+                  const Divider(height: 14),
+                  _buildInfoRow(Icons.storage_outlined, l.database, 'SQLite (sorour_logistics.db)'),
+                  const Divider(height: 14),
+                  _buildInfoRow(Icons.offline_pin_outlined, l.operatingMode,
+                      'Standalone Offline / Local Engine'),
+                  const Divider(height: 14),
+                  _buildInfoRow(Icons.shield_outlined, l.licenseAndRights,
+                      '© 2026 Sorour Logistics. All rights reserved.'),
+                ],
+              ),
+            ),
+            actionsPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            actions: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.emerald,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                icon: const Icon(Icons.sync_rounded, size: 16),
+                label: Text(l.syncHub,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  ProductionSyncHubDialog.show(context);
+                },
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.cobalt,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
                 onPressed: () => Navigator.of(ctx).pop(),
+                child: Text(l.close,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
-          ),
-        ),
-        content: SizedBox(
-          width: 480,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildInfoRow(Icons.verified, l.systemVersion, 'v1.0.65 (Release)'),
-              const Divider(height: 14),
-              _buildInfoRow(Icons.build_circle_outlined, l.buildId, 'Build 1.0.65+66'),
-              const Divider(height: 14),
-              _buildInfoRow(Icons.dns_outlined, l.backendEngine, 'FastAPI (Port 28080)'),
-              const Divider(height: 14),
-              _buildInfoRow(Icons.storage_outlined, l.database, 'SQLite (sorour_logistics.db)'),
-              const Divider(height: 14),
-              _buildInfoRow(Icons.offline_pin_outlined, l.operatingMode,
-                  'Standalone Offline / Local Engine'),
-              const Divider(height: 14),
-              _buildInfoRow(Icons.shield_outlined, l.licenseAndRights,
-                  '© 2026 Sorour Logistics. All rights reserved.'),
-            ],
-          ),
-        ),
-        actionsPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        actions: [
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            icon: const Icon(Icons.sync_rounded, size: 16),
-            label: Text(l.syncHub,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              ProductionSyncHubDialog.show(context);
-            },
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.cobalt,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(l.close,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

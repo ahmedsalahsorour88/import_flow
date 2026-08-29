@@ -295,16 +295,18 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     return updateState.when(
       data: (result) {
         if (result == null) {
+          final versionInfo = ref.watch(systemVersionInfoProvider);
           return _buildVersionInfoCard(
-            version: '1.0.52',
-            buildNumber: 53,
+            version: versionInfo.whenOrNull(data: (i) => i.version) ?? '1.0.73',
+            buildNumber: versionInfo.whenOrNull(data: (i) => i.buildNumber) ?? 74,
             hasUpdate: false,
             message: 'النظام محدث ومستقر بأحدث إصدار مثبت.',
           );
         }
+        final versionInfo = ref.watch(systemVersionInfoProvider);
         return _buildVersionInfoCard(
           version: result.currentVersion,
-          buildNumber: 53,
+          buildNumber: versionInfo.whenOrNull(data: (i) => i.buildNumber) ?? 74,
           hasUpdate: result.hasUpdate,
           latestVersion: result.latestVersion,
           message: result.message,

@@ -40,6 +40,44 @@ def save_version_info(info):
         json.dump(info, f, indent=2, ensure_ascii=False)
 
 
+def extract_recent_release_notes():
+    """Extracts top 3-5 latest feature highlights and task completions from history/."""
+    history_dir = ROOT_DIR / "history"
+    if not history_dir.exists():
+        return [
+            "تحسينات شاملة في أداء النظام واستقرار قاعدة البيانات",
+            "تحديثات في محرك استخراج وثائق الشحن والجمارك",
+            "ترقية وتطوير واجهات الاستيراد ومطابقة البيانات",
+        ]
+    
+    files = sorted(history_dir.glob("*.md"), reverse=True)
+    notes = []
+    for f in files:
+        try:
+            content = f.read_text(encoding="utf-8")
+            matches = re.findall(r"##\s*📝\s*\[[^\]]+\]\s*-\s*Completed\s+Task:\s*([^\n\r]+)", content, re.IGNORECASE)
+            for m in reversed(matches):
+                clean_title = m.strip()
+                # Clean any task codes like (AI-EXTRACT-003) or (BP-001) for cleaner display
+                clean_title = re.sub(r"\([A-Z0-9\-_/]+\)", "", clean_title).strip()
+                if clean_title and clean_title not in notes:
+                    notes.append(clean_title)
+                if len(notes) >= 4:
+                    break
+        except Exception:
+            continue
+        if len(notes) >= 4:
+            break
+
+    if not notes:
+        return [
+            "تحسينات شاملة في أداء النظام واستقرار قاعدة البيانات",
+            "تحديثات في محرك استخراج وثائق الشحن والجمارك",
+            "ترقية وتطوير واجهات الاستيراد ومطابقة البيانات",
+        ]
+    return notes
+
+
 def bump_version(bump_type="patch"):
     info = get_current_version_info()
     old_version = info.get("version", "1.0.0")
@@ -60,6 +98,7 @@ def bump_version(bump_type="patch"):
     info["build_number"] = old_build + 1
     new_version = f"{info['major']}.{info['minor']}.{info['patch']}"
     info["version"] = new_version
+    info["release_notes"] = extract_recent_release_notes()
     info["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     save_version_info(info)

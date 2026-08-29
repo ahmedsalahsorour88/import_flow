@@ -756,12 +756,17 @@ class ProductionSyncService:
                     curr_tuple = parse_ver(curr_ver)
                     latest_tuple = parse_ver(latest_ver)
 
-                    has_update = latest_tuple > curr_tuple
-                    release_notes = remote_data.get("release_notes", [
-                        "تحسينات في أداء النظام واستقرار قاعدة البيانات",
-                        "تحديثات في مصفوفة الشروط التجارية والتعريفة الجمركية",
-                        "ترقية محرك التحقق ومطابقة الوثائق الجمركية الذكية",
-                    ])
+                    release_notes = remote_data.get("release_notes")
+                    if not release_notes:
+                        try:
+                            from version_manager import extract_recent_release_notes
+                            release_notes = extract_recent_release_notes()
+                        except Exception:
+                            release_notes = [
+                                "تحسينات شاملة في أداء النظام واستقرار قاعدة البيانات",
+                                "تحديثات في محرك استخراج وثائق الشحن والجمارك",
+                                "ترقية وتطوير واجهات الاستيراد ومطابقة البيانات",
+                            ]
                     download_url = remote_data.get(
                         "download_url",
                         f"https://github.com/ahmedsalahsorour88/import_flow/releases/tag/v{latest_ver}",

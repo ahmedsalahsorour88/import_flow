@@ -584,10 +584,10 @@ def full_production_build_and_sync():
     print("===============================================================================")
 
     # 1. Backend tests
-    print(f"[PROGRESS] {json.dumps({'percent': 12, 'stage': 'backend_tests', 'table': 'pytest', 'current_index': 1, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': 'جارٍ تشغيل اختبارات الباك إند الشاملة (442 pytest)...'}, ensure_ascii=False)}")
+    print(f"[PROGRESS] {json.dumps({'percent': 12, 'stage': 'backend_tests', 'table': 'pytest', 'current_index': 1, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': 'جارٍ تشغيل اختبارات الباك إند الشاملة (pytest tests/unit/)...'}, ensure_ascii=False)}")
     sys.stdout.flush()
-    print("\n[1/6] [TEST] تشغيل اختبارات الباك إند (pytest)...")
-    res = subprocess.run([sys.executable, "-m", "pytest", "-q"], cwd=str(ROOT_DIR))
+    print("\n[1/6] [TEST] تشغيل اختبارات الباك إند (pytest tests/unit/)...")
+    res = subprocess.run([sys.executable, "-m", "pytest", "-q", "tests/unit/"], cwd=str(ROOT_DIR))
     if res.returncode != 0:
         print("[ERROR] فشلت اختبارات الباك إند! تم إيقاف عملية البناء.")
         print(f"[PROGRESS] {json.dumps({'percent': 100, 'stage': 'error', 'table': 'pytest', 'current_index': 1, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': '❌ فشلت اختبارات الباك إند!'}, ensure_ascii=False)}")

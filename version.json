@@ -1,8 +1,14 @@
 {
   "major": 1,
   "minor": 0,
-  "patch": 79,
-  "version": "1.0.79",
-  "build_number": 80,
-  "updated_at": "2026-08-29 19:33:57"
+  "patch": 81,
+  "version": "1.0.81",
+  "build_number": 82,
+  "updated_at": "2026-08-29 19:54:36",
+  "release_notes": [
+    "Upgrade Packing List Extractor for Italian Packing and Weight Lists",
+    "Upgrade Purchase Order Extractor for Italian Proforma Invoices & Noise Immunity",
+    "Master Shipping Lines Preservation & Database Sync Fix",
+    "Full Production Build & Release v1.0.75"
+  ]
 }

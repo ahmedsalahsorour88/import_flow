@@ -581,8 +581,17 @@ def seed_data():
             ("Korea Marine Transport Co., Ltd. (KMTC Line)", "KMTC", "https://www.ekmtc.com/", "https://www.ekmtc.com", "kmtcegypt@kmtc.co.kr", None, "+20 2 2269 1100", "Heliopolis, Cairo", "Egypt"),
             ("SeaLead Shipping", "SEAU", "https://sea-lead.com/tracking/", "https://sea-lead.com", "egypt@sea-lead.com", None, "+20 2 2417 6000", "Sheraton, Cairo", "Egypt"),
             ("Grimaldi Group (Grimaldi Lines)", "GRIU", "https://www.grimaldi.napoli.it/en/cargo_tracking.html", "https://www.grimaldi.napoli.it", "info@grimaldi.napoli.it", None, "+20 3 487 1234", "Alexandria Port Area / Cairo Office", "Egypt"),
-            ("SITC International Holdings Co., Ltd.", "SITC", "https://www.sitc.com/en/tracking.html", "https://www.sitc.com", "info@sitc.com", None, "+20 2 2268 7700", "Cairo / Alexandria", "Egypt"),
-            ("Ignazio Messina & C. S.p.A.", "LMCU", "https://www.messinaline.it/tracking/", "https://www.messinaline.it", "egypt@messinaline.com", None, "+20 3 486 9900", "El-Sultan Hussein St., Alexandria", "Egypt"),
+            ("SITC Container Lines Co., Ltd.", "SITC", "https://www.sitc.com/en/tracking.html", "https://www.sitc.com", "info@sitc.com", None, "+20 2 2268 7700", "Qingdao / Shanghai, China", "China"),
+            ("Ignazio Messina & C. S.p.A.", "LMCU", "https://www.messinaline.it/tracking/", "https://www.messinaline.it", "alexandria@messinaline.it", None, "+20 3 486 9900", "Alexandria Port Area", "Egypt"),
+            ("Turkon Container Transportation & Shipping", "TRKU", "https://www.turkon.com/en/tracking", "https://www.turkon.com", "turkonline@turkon.com", None, "+20 3 487 6622", "Alexandria / Cairo", "Egypt"),
+            ("Pan Marine Shipping Services", "PMRS", "https://www.pan-marine.net/", "https://www.pan-marine.net", "shipping@pan-marine.net", "logistics@pan-marine.net", "+20 3 487 7750 / +20 100 178 8800", "12 Al-Bostan St., Downtown / 9 Al-Ferdaws St., Smouha, Alexandria", "Egypt"),
+            ("Diamond Line GmbH", "DIAL", "https://www.diamondline.de/", "https://www.diamondline.de", "info@diamondline.de", "cs.egypt@coscon.com", "+20 2 2417 8100 / +20 3 487 5500", "47 Ramses St., Heliopolis, Cairo / 27 Sultan Hussein St., Alexandria", "Egypt"),
+            ("Borchard Lines Ltd", "BORU", "https://www.borchardlines.com/tracking/", "https://www.borchardlines.com", "egypt@borchardlines.com", None, "+20 3 487 4000", "Alexandria / Port Said", "Egypt"),
+            ("Shanghai Zhonggu Logistics Co., Ltd.", "ZGSC", "https://www.zhonggushipping.com/", "https://www.zhonggushipping.com", "service@zhonggushipping.com", None, None, "Shanghai, China", "China"),
+            ("Antong Holdings Co., Ltd. (Quanzhou Anji Shipping)", "QASU", "http://www.antong56.com/", "http://www.antong56.com", "sales@antong56.com", None, None, "Quanzhou, Fujian / Shanghai, China", "China"),
+            ("Sinotrans Container Lines Co., Ltd. (Sinolines)", "SNTN", "https://www.sinolines.com/track/", "https://www.sinolines.com", "sinolines@sinotrans.com", None, None, "Beijing / Shanghai, China", "China"),
+            ("Shanghai Jin Jiang Shipping (Group) Co., Ltd.", "JJSC", "https://www.jinjiangshipping.com/", "https://www.jinjiangshipping.com", "service@jinjiangshipping.com", None, None, "Shanghai, China", "China"),
+            ("Taicang Container Lines Co., Ltd. (TCL)", "TCIU", "http://www.tcl-line.com/", "http://www.tcl-line.com", "booking@tcl-line.com", None, None, "Jiangsu / Taicang, China", "China"),
         ]
 
         existing_providers = db.query(ExternalServiceProvider).all()

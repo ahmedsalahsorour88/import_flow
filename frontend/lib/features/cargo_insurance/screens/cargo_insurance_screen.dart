@@ -8,6 +8,7 @@ import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
+import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../cargo_shipping/providers/cargo_shipping_provider.dart';
 import '../../currencies/providers/currencies_provider.dart';
@@ -128,6 +129,21 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
         }
       },
       headerActions: [
+        ElevatedButton.icon(
+          icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+          label: Text(isArabic ? 'تكويد شركة تأمين بالذكاء الاصطناعي ✨' : 'AI Insurance Co Extractor ✨'),
+          onPressed: () => UniversalEntityExtractorDialog.showInsuranceCompanyExtractor(
+            context,
+            onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.emerald,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        const SizedBox(width: 8),
         SmartUploadButton(
           module: SmartUploadModule.cargoShipping,
           label: isArabic ? 'رفع واستخراج وثيقة التأمين / البوليصة الذكي' : 'Smart Upload & AI Extractor',

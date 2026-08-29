@@ -7,6 +7,7 @@ import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -103,6 +104,36 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
         }
       },
       headerActions: [
+        ElevatedButton.icon(
+          icon: const Icon(Icons.directions_boat_rounded, size: 16),
+          label: const Text('تكويد خط ملاحي بالذكاء الاصطناعي ✨'),
+          onPressed: () => UniversalEntityExtractorDialog.showShippingLineExtractor(
+            context,
+            onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.emerald,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        const SizedBox(width: 8),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.local_shipping_rounded, size: 16),
+          label: const Text('تكويد شركة شحن بالذكاء الاصطناعي ✨'),
+          onPressed: () => UniversalEntityExtractorDialog.showFreightForwarderExtractor(
+            context,
+            onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.cobalt,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
           tooltip: l.freightBookingBtnLiveReload,

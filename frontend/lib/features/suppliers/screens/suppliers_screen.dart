@@ -115,10 +115,9 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                      label: Text(l10n.aiExtractorAndCodingBtn),
-                      onPressed: () => UniversalEntityExtractorDialog.show(
+                      label: const Text('تكويد المورد بالذكاء الاصطناعي ✨'),
+                      onPressed: () => UniversalEntityExtractorDialog.showSupplierExtractor(
                         context,
-                        initialTarget: EntityTarget.supplier,
                         onSaved: () => ref.read(suppliersProvider.notifier).fetchSuppliers(),
                       ),
                       style: ElevatedButton.styleFrom(

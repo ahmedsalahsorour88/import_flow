@@ -5,6 +5,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
+import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -302,6 +303,22 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       titleEn: 'Port Operations & Customs Clearance Hub',
       headerIcon: Icons.gavel_rounded,
       headerColor: Colors.purple,
+      headerActions: [
+        ElevatedButton.icon(
+          icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+          label: const Text('تكويد مستخلص جمركي بالذكاء الاصطناعي ✨'),
+          onPressed: () => UniversalEntityExtractorDialog.showCustomsBrokerExtractor(
+            context,
+            onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.emerald,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      ],
       selectedIndex: _selectedTab,
       onTabSelected: (idx) => setState(() => _selectedTab = idx),
       tabs: const [

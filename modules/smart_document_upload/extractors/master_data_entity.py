@@ -49,6 +49,13 @@ class MasterDataEntityExtractor(BaseExtractor):
             "vat_id_expiry": self._clean_val(self._extract_vat_expiry(text)),
             "cargox_id": self._clean_val(self._extract_cargox_id(text)),
             "license_number": self._clean_val(self._extract_broker_license(text)),
+            "clearance_license_number": self._clean_val(self._extract_broker_license(text)),
+            "scac_code": self._clean_val(self._extract_scac_code(text)),
+            "tracking_url": self._clean_val(self._extract_tracking_url(text)),
+            "fleet_types": self._clean_val(self._extract_fleet_types(text)),
+            "inspection_scope": self._clean_val(self._extract_inspection_scope(text)),
+            "insurance_terms": self._clean_val(self._extract_insurance_terms(text)),
+            "ports": self._clean_val(self._extract_ports(text)),
             "swift_code": self._clean_val(self._extract_swift(text)),
             "bank_account": self._clean_val(self._extract_iban(text)),
             "iban": self._clean_val(self._extract_iban(text)),
@@ -454,4 +461,111 @@ class MasterDataEntityExtractor(BaseExtractor):
             r"(?:IBAN|Account\s+No\.?|Account\s+Number|Account|الآيبان|الحساب|رقم\s+الحساب)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Z0-9\s]{10,34})",
             r"\b(EG\d{27})\b",
         ], text)
+
+    def _extract_scac_code(self, text: str) -> Optional[str]:
+        explicit = self.find_first([
+            r"(?:SCAC\s+Code|SCAC|Carrier\s+Code|Liner\s+Code|كود\s+الخط|كود\s+الناقل)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9]{2,6})",
+        ], text)
+        if explicit:
+            return explicit.upper().strip()
+
+        # Known SCAC list
+        known_scacs = [
+            "HLCU", "ONEY", "COSU", "CULI", "ESLU", "EGLV", "YMLU", "ZIMU",
+            "WHLC", "PCIU", "HDMU", "GETU", "ARKU", "OOLU", "KMTC", "SEAU",
+            "GRIU", "SITC", "LMCU", "MSCU", "MEDU", "MAEU", "MSKU", "CMDU"
+        ]
+        for scac in known_scacs:
+            if re.search(r"\b" + scac + r"\b", text.upper()):
+                return scac
+        return None
+
+    def _extract_tracking_url(self, text: str) -> Optional[str]:
+        explicit = self.find_first([
+            r"(?:Tracking\s+Web\s+URL|Tracking\s+URL|Tracking\s+Link|Tracking|Track\s+&\s+Trace|رابط\s+التتبع|تتبع\s+الشحنة)[^\S\r\n]*[:=]?[^\S\r\n]*(https?://[^\s]+)",
+        ], text)
+        if explicit:
+            return explicit.strip()
+
+        # Find any URL with tracking keywords
+        m = re.search(r"\b(https?://[^\s]+(?:track|trace|tracking|shipmentlink|elines|cargoTrack)[^\s]*)\b", text, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+        return None
+
+    def _extract_fleet_types(self, text: str) -> Optional[str]:
+        found = self.find_first([
+            r"(?:Fleet\s+Types|Fleet|Truck\s+Types|Trucks|أنواع\s+الأسطول|الأسطول|الشاحنات|المعدات)[^\S\r\n]*[:=]?[^\S\r\n]*([^\r\n]{3,100})",
+        ], text)
+        if found:
+            return found.strip()
+        upper = text.upper()
+        fleet_items = []
+        if "FLATBED" in upper or "مسطح" in text:
+            fleet_items.append("Flatbed Trailers")
+        if "LOWBED" in upper or "لوبد" in text:
+            fleet_items.append("Lowbed Trailers")
+        if "CONTAINER" in upper or "حاويات" in text:
+            fleet_items.append("Container Chassis")
+        if "REEFER" in upper or "مبرد" in text or "براد" in text:
+            fleet_items.append("Refrigerated Trucks")
+        if "TIPPER" in upper or "قلاب" in text:
+            fleet_items.append("Tippers / Dump Trucks")
+        return ", ".join(fleet_items) if fleet_items else None
+
+    def _extract_inspection_scope(self, text: str) -> Optional[str]:
+        found = self.find_first([
+            r"(?:Inspection\s+Scope|Scope\s+of\s+Work|Testing\s+Scope|Certifications|مجال\s+الفحص|نطاق\s+الفحص|المعاينة)[^\S\r\n]*[:=]?[^\S\r\n]*([^\r\n]{3,100})",
+        ], text)
+        if found:
+            return found.strip()
+        upper = text.upper()
+        scopes = []
+        if "PRE-SHIPMENT" in upper or "قبل الشحن" in text:
+            scopes.append("Pre-Shipment Inspection (PSI)")
+        if "VOC" in upper or "مطابقة" in text:
+            scopes.append("Verification of Conformity (VOC)")
+        if "GOIEC" in upper or "صادرات وواردات" in text:
+            scopes.append("GOIEC Testing & Certification")
+        if "CHEMICAL" in upper or "كيميائي" in text:
+            scopes.append("Chemical Analysis")
+        return ", ".join(scopes) if scopes else None
+
+    def _extract_insurance_terms(self, text: str) -> Optional[str]:
+        found = self.find_first([
+            r"(?:Insurance\s+Policy|Policy\s+Terms|Coverage|Cover\s+Type|شروط\s+التأمين|نوع\s+الوثيقة|التغطية\s+التأمينية)[^\S\r\n]*[:=]?[^\S\r\n]*([^\r\n]{3,100})",
+        ], text)
+        if found:
+            return found.strip()
+        upper = text.upper()
+        if "CLAUSE (A)" in upper or "CLAUSES (A)" in upper or "ICC (A)" in upper or "شامل" in text:
+            return "Institute Cargo Clauses (A) - All Risks"
+        if "CLAUSE (B)" in upper or "ICC (B)" in upper:
+            return "Institute Cargo Clauses (B)"
+        if "CLAUSE (C)" in upper or "ICC (C)" in upper:
+            return "Institute Cargo Clauses (C)"
+        return None
+
+    def _extract_ports(self, text: str) -> Optional[str]:
+        found = self.find_first([
+            r"(?:Operating\s+Ports|Ports|Customs\s+Offices|موانئ\s+العمل|الموانئ|المنافذ\s+الجمركية)[^\S\r\n]*[:=]?[^\S\r\n]*([^\r\n]{3,100})",
+        ], text)
+        if found:
+            return found.strip()
+        upper = text.upper()
+        ports = []
+        if "ALEXANDRIA" in upper or "الإسكندرية" in text:
+            ports.append("Alexandria Port")
+        if "SOKHNA" in upper or "السخنة" in text:
+            ports.append("Sokhna Port")
+        if "DAMMETTA" in upper or "DAMMIETTA" in upper or "دمياط" in text:
+            ports.append("Damietta Port")
+        if "PORT SAID" in upper or "بورسعيد" in text:
+            ports.append("Port Said")
+        if "CAIRO AIRPORT" in upper or "مطار القاهرة" in text:
+            ports.append("Cairo Airport Cargo")
+        if "DEKHEILA" in upper or "الدخيلة" in text:
+            ports.append("Dekheila Port")
+        return ", ".join(ports) if ports else None
+
 

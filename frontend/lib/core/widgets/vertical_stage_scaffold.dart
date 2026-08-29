@@ -135,7 +135,15 @@ class VerticalStageScaffold extends StatelessWidget {
                 ],
 
                 if (headerActions != null) ...[
-                  ...headerActions!,
+                  Flexible(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: headerActions!,
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 10),
                 ],
                 const BackToDashboardButton(),

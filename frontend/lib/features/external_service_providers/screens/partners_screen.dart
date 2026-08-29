@@ -8,6 +8,7 @@ import '../../../core/widgets/custom_text_field.dart';
 
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
+import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
 import '../widgets/partner_details_dialog.dart';
@@ -33,6 +34,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     'Freight Forwarder',
     'Inland Transport',
     'Inspection Agency',
+    'Insurance Company',
   ];
 
   String _getCategoryLabel(BuildContext context, String cat) {
@@ -52,8 +54,64 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
         return l10n.partnerCatInlandTransport;
       case 'Inspection Agency':
         return l10n.partnerCatInspectionAgency;
+      case 'Insurance Company':
+        return 'شركة تأمين';
       default:
         return cat;
+    }
+  }
+
+  void _openExtractorForCategory(BuildContext context, String category) {
+    switch (category) {
+      case 'Shipping Line':
+        UniversalEntityExtractorDialog.showShippingLineExtractor(
+          context,
+          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+        );
+        break;
+      case 'Customs Broker':
+        UniversalEntityExtractorDialog.showCustomsBrokerExtractor(
+          context,
+          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+        );
+        break;
+      case 'Freight Forwarder':
+        UniversalEntityExtractorDialog.showFreightForwarderExtractor(
+          context,
+          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+        );
+        break;
+      case 'Inland Transport':
+        UniversalEntityExtractorDialog.showInlandTransportExtractor(
+          context,
+          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+        );
+        break;
+      case 'Inspection Agency':
+        UniversalEntityExtractorDialog.showInspectionAgencyExtractor(
+          context,
+          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+        );
+        break;
+      case 'Insurance Company':
+        UniversalEntityExtractorDialog.showInsuranceCompanyExtractor(
+          context,
+          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+        );
+        break;
+      case 'Bank':
+        UniversalEntityExtractorDialog.showBankExtractor(
+          context,
+          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+        );
+        break;
+      default:
+        UniversalEntityExtractorDialog.show(
+          context,
+          initialTarget: EntityTarget.customsBroker,
+          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+        );
+        break;
     }
   }
 
@@ -106,6 +164,22 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                 Row(
                   children: [
                     const BackToDashboardButton(),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                      label: Text(
+                        selectedCategory == 'All'
+                            ? 'تكويد شريك بالذكاء الاصطناعي ✨'
+                            : 'تكويد ${_getCategoryLabel(context, selectedCategory)} بالذكاء الاصطناعي ✨',
+                      ),
+                      onPressed: () => _openExtractorForCategory(context, selectedCategory),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.emerald,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.add, size: 18),

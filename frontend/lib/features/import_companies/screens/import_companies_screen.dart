@@ -8,6 +8,7 @@ import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/row_context_menu.dart';
+import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../models/import_company_model.dart';
 import '../providers/import_companies_provider.dart';
 import '../widgets/import_company_details_dialog.dart';
@@ -88,7 +89,22 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                      label: const Text('تكويد الشركة بالذكاء الاصطناعي ✨'),
+                      onPressed: () => UniversalEntityExtractorDialog.showImporterExtractor(
+                        context,
+                        onSaved: () => ref.read(importCompaniesProvider.notifier).fetchCompanies(),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.emerald,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.add_business, size: 18),
                       label: Text(l10n.addImporterCompanyBtn),

@@ -188,6 +188,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
   Widget build(BuildContext context) {
     final updateState = ref.watch(updateCheckStateProvider);
 
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -204,19 +206,23 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
               child: const Icon(Icons.system_update_alt_rounded, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'مركز إدارة التحديثات والنسخ الاحتياطي (System Updates & Backups Hub)',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    isArabic
+                        ? 'مركز إدارة التحديثات والنسخ الاحتياطي'
+                        : 'System Updates & Backups Hub',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    'الترقية التلقائية الآمنة لقاعدة البيانات وإدارة نقاط الاسترجاع وفحص الإصدارات السحابية',
-                    style: TextStyle(color: Colors.white70, fontSize: 11),
+                    isArabic
+                        ? 'الترقية التلقائية الآمنة لقاعدة البيانات وإدارة نقاط الاسترجاع وفحص الإصدارات السحابية'
+                        : 'Automated safe database upgrade, recovery snapshots, and cloud version checking',
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -227,7 +233,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-            tooltip: 'تحديث حالة النظام',
+            tooltip: isArabic ? 'تحديث حالة النظام' : 'Refresh System Status',
             onPressed: _refreshLocalData,
           ),
           const SizedBox(width: 8),
@@ -240,9 +246,15 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           unselectedLabelColor: Colors.white60,
           indicatorColor: AppTheme.cobalt,
           indicatorWeight: 3,
-          tabs: const [
-            Tab(icon: Icon(Icons.security_rounded, size: 18), text: 'إدارة التحديثات ونقاط الاسترجاع (Safety Backups)'),
-            Tab(icon: Icon(Icons.code_rounded, size: 18), text: 'أدوات المطور والمقارنة المباشرة (Dev Tools & Diff)'),
+          tabs: [
+            Tab(
+              icon: const Icon(Icons.security_rounded, size: 18),
+              text: isArabic ? 'إدارة التحديثات ونقاط الاسترجاع' : 'Updates & Safety Backups',
+            ),
+            Tab(
+              icon: const Icon(Icons.code_rounded, size: 18),
+              text: isArabic ? 'أدوات المطور والمقارنة المباشرة' : 'Dev Tools & Live Diff',
+            ),
           ],
         ),
       ),

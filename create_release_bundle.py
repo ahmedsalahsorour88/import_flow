@@ -12,7 +12,9 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent
 DIST_DIR = ROOT_DIR / "dist"
-STANDALONE_DIR = DIST_DIR / "ImportFlow_Standalone"
+_STANDALONE_PRIMARY = DIST_DIR / "Sorour_Logistics_Standalone"
+_STANDALONE_LEGACY = DIST_DIR / "ImportFlow_Standalone"
+STANDALONE_DIR = _STANDALONE_PRIMARY if _STANDALONE_PRIMARY.exists() else _STANDALONE_LEGACY
 RELEASES_DIR = DIST_DIR / "releases"
 
 

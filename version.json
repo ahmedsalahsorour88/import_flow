@@ -1,10 +1,10 @@
 {
   "major": 1,
   "minor": 0,
-  "patch": 85,
-  "version": "1.0.85",
-  "build_number": 86,
-  "updated_at": "2026-08-29 20:11:58",
+  "patch": 86,
+  "version": "1.0.86",
+  "build_number": 87,
+  "updated_at": "2026-08-29 20:16:20",
   "release_notes": [
     "تطوير وترقية محرك قراءة واستخراج بيانات بيان التعبئة والأوزان (_extract_packing_list_items و extract_packing_list_data) لدعم كشوف التعبئة الإيطالية المعقدة مثل G.I. INDUSTRIAL - LISTA DEI COLLI E DEI PESI (Packing and Weight List).",
     "قراءة أبعاد الطرود الصريحة بالأبعاد المليمترية وتحويلها التلقائي إلى سم (4600x800x2270 mm -> 460.0 cm × 80.0 cm × 227.0 cm).",

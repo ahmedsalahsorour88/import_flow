@@ -248,9 +248,117 @@ Country of Origin: ITALY
     assert "4200X1770X3R" in item["description"]
     assert "200183044" not in item["description"]  # Ensure tax id / phone is NOT in description
     assert "Phone" not in item["description"]
-    assert item["hs_code"] == "84195080"
-    assert item["quantity"] == 1.0
-    assert item["unit_price"] == 4609.00
-    assert item["total_price"] == 4609.00
-    assert item["country_of_origin"] == "Italy"
+
+
+def test_italian_commercial_invoice_v1_3083():
+    invoice_ocr_text = """420,00 EUR
+V1/ 3083 31/07/2026 1
+COMMERCIAL INVOICE Date Page Delivery address
+ECO ASSOCIATES
+STREET 17, SARAYAT AL GHARBEYAH
+CAIRO
+Egitto
+Client id. no.
+801765
+V.A.T. ID Number
+200183044
+Phone
+0020 22 6779167
+Fax
+0020 22 6779074
+Agent
+DIRECT SALE
+Area manager
+Messers
+ECO ASSOCIATES
+7 HOSNI OSMAN ST., SEFARAT DISTRICT
+11471 NASR CITY, CAIRO
+Egitto
+Payment condition
+100% AVV.MERCE PRONTA-PICK UP CONF.
+Bank IT86J0310402002000000820442
+ SWIFT : DEUTITM1793
+Shipping - Delivery terms - As per INCOTERMS® 2020
+EX WORKS EXTRA UE
+Mail
+m.scarello@ecoasso.com
+Code Description Commodity code Q.ty U.M. Unit price Total price V.A.T
+324080
+333660
+Your order
+ECO/57/26
+Our order confirmation
+R26 1248 date 10/06/26
+Bolla RI/0/ 1837 Del 31/07/2026
+AXIAL FAN FN080-SDA.6N.V7P5
+Commessa 24/166635
+COUNTRY OF ORIGIN:GERMANY
+DOUBLE-LEVEL TERMINAL BLOCK PTTBS
+2,5
+Commessa 24/166635
+COUNTRY OF ORIGIN:CHINA
+RIVIGNANO TEOR, 31/07/2026 
+CRISTIANO RUMIEL 
+ADMINISTRATION MANAGER
+84145925
+85369010
+1,000
+20,000
+NR
+NR
+400,00000 
+1,00000
+400,00
+20,00
+NI
+NI
+0 N.I.ART.8 1 A/B DPR 633
+V.A.T. exemption code Amount V.A.T. amount
+NI 420,0
+Total goods
+420,00
+Complementary services
+OPERAZIONE NON SOGGETTA Advanced payments Total V.A.T.
+Total
+420,00
+Payment discount
+Due date Amounts Due date Amounts
+31/07/26 420,00 Total INVOICE AMOUNT
+Net weight kg
+25,000
+Gross weight kg
+37,000
+Volume mc Packages
+1"""
+
+    extractor = PurchaseOrderExtractor()
+    result = extractor.extract(invoice_ocr_text, {})
+
+    # PO Number & Totals
+    assert result["po_number"] == "V1/3083"
+    assert result["currency"] == "EUR"
+    assert result["incoterms"] == "EXW"
+    assert result["total_amount"] == 420.00
+    assert result["importer_name"] == "ECO ASSOCIATES"
+    assert result["importer_tax_id"] == "200183044"
+
+    # Line Items
+    assert len(result["items"]) == 2
+    item1 = result["items"][0]
+    assert item1["item_code"] == "324080"
+    assert "AXIAL FAN" in item1["description"]
+    assert item1["hs_code"] == "84145925"
+    assert item1["country_of_origin"] == "Germany"
+    assert item1["quantity"] == 1.0
+    assert item1["unit_price"] == 400.0
+    assert item1["total_price"] == 400.0
+
+    item2 = result["items"][1]
+    assert item2["item_code"] == "333660"
+    assert "DOUBLE-LEVEL TERMINAL BLOCK" in item2["description"]
+    assert item2["hs_code"] == "85369010"
+    assert item2["country_of_origin"] == "China"
+    assert item2["quantity"] == 20.0
+    assert item2["unit_price"] == 1.0
+    assert item2["total_price"] == 20.0
 

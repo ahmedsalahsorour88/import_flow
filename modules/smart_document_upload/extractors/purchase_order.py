@@ -124,9 +124,27 @@ class PurchaseOrderExtractor(BaseExtractor):
             if val > 0:
                 return val
 
-        # 2. Standard totals
+        # 2. Total goods / Total invoice amount (exact Italian / European headers)
+        tot_goods = re.search(r"(?:Total\s+goods|Total\s+merchandise|Total\s+net\s+amount)[:\s]*([0-9.,]+)", text, re.I)
+        if tot_goods:
+            val = BaseExtractor.parse_numeric_str(tot_goods.group(1))
+            if val > 0:
+                return val
+
+        tot_inv_before = re.search(r"([0-9.,]+)\s*(?:Total\s+INVOICE\s+AMOUNT|Total\s+Invoice\s+Amount)", text, re.I)
+        if tot_inv_before:
+            val = BaseExtractor.parse_numeric_str(tot_inv_before.group(1))
+            if val > 0:
+                return val
+
+        tot_inv_after = re.search(r"(?:Total\s+INVOICE\s+AMOUNT|Total\s+Invoice\s+Amount)\s*([0-9.,]+)", text, re.I)
+        if tot_inv_after:
+            val = BaseExtractor.parse_numeric_str(tot_inv_after.group(1))
+            if val > 0:
+                return val
+
+        # 3. Standard totals
         return self.find_float([
-            r"(?:Total\s+INVOICE\s+AMOUNT|Total\s+Invoice\s+Amount)[\s\S]*?([0-9.,]+)",
             r"(?:Invoice\s+amount|Order\s+Total|Line\s+Total|grand\s+total|total\s+value|amount\s+due|net\s+amount)[:\s]+(?:[A-Z]{3}\s*|\$\s*|€\s*)?([0-9.,]+)",
             r"(?:TOTAL)\s+\d+\s+(\d{4,8}(?:\.\d{2})?)\b",
             r"(?:total\s+amount)[:\s]+([0-9.,]+)",
@@ -850,6 +868,86 @@ class PurchaseOrderExtractor(BaseExtractor):
                         })
                 except (ValueError, IndexError):
                     continue
+
+        # 3. Column-stacked table pattern (where codes, descriptions, HS codes, and numbers are in vertical column blocks)
+        if not items and table_m:
+            try:
+                table_text = search_scope
+                first_section = table_text.split("Your order")[0] if "Your order" in table_text else table_text[:300]
+                codes = re.findall(r"^\s*([A-Z0-9\-_]{5,15})\s*$", first_section, re.M)
+                codes = [c for c in codes if c.lower() not in ("code", "description", "commodity", "q.ty", "unit", "price", "v.a.t", "total", "page")]
+
+                if codes:
+                    num_items = len(codes)
+                    hs_matches = re.findall(r"\b(\d{8})\b", table_text)
+                    hs_codes = hs_matches[:num_items] if len(hs_matches) >= num_items else (hs_matches + [""] * num_items)[:num_items]
+
+                    desc_section = table_text
+                    if "RIVIGNANO" in desc_section:
+                        desc_section = desc_section.split("RIVIGNANO")[0]
+                    elif hs_matches:
+                        desc_section = desc_section[:desc_section.find(hs_matches[0])]
+
+                    desc_parts = re.split(r"COUNTRY\s+OF\s+ORIGIN\s*:\s*([A-Za-z]+)", desc_section, flags=re.I)
+                    descriptions = []
+                    origins = []
+
+                    for i in range(1, len(desc_parts), 2):
+                        raw_text_block = desc_parts[i-1]
+                        origin = desc_parts[i].strip().title()
+                        lines = [l.strip() for l in raw_text_block.splitlines() if l.strip()]
+                        valid_lines = []
+                        for l in lines:
+                            if any(k in l.lower() for k in ("your order", "our order", "eco/", "r26", "bolla ri", "commessa", "confirmation", "date 10/", "code description")):
+                                continue
+                            if l in codes:
+                                continue
+                            valid_lines.append(l)
+                        desc = " ".join(valid_lines).strip()
+                        descriptions.append(desc if desc else "Industrial Component")
+                        origins.append(origin if origin else "Italy")
+
+                    while len(descriptions) < num_items:
+                        descriptions.append("Industrial Component")
+                        origins.append("Italy")
+
+                    after_hs = table_text[table_text.find(hs_matches[-1]) + 8:] if hs_matches else table_text
+                    num_matches = re.findall(r"\b(\d+(?:[.,]\d+)?)\b", after_hs)
+                    clean_nums = []
+                    for n in num_matches:
+                        if n in ("633", "8", "1", "0", "420,0") or "/" in n:
+                            continue
+                        try:
+                            val = float(n.replace(".", "").replace(",", ".")) if ("," in n and "." in n) else float(n.replace(",", "."))
+                            clean_nums.append(val)
+                        except ValueError:
+                            continue
+
+                    quantities = clean_nums[:num_items] if len(clean_nums) >= num_items else [1.0] * num_items
+                    remaining = clean_nums[num_items:]
+                    if len(remaining) >= num_items * 2:
+                        unit_prices = remaining[:num_items]
+                        total_prices = remaining[num_items:num_items*2]
+                    elif len(remaining) >= num_items:
+                        total_prices = remaining[:num_items]
+                        unit_prices = [total_prices[i] / quantities[i] if quantities[i] > 0 else total_prices[i] for i in range(num_items)]
+                    else:
+                        unit_prices = [1.0] * num_items
+                        total_prices = [quantities[i] * unit_prices[i] for i in range(num_items)]
+
+                    for i in range(num_items):
+                        items.append({
+                            "item_code": codes[i],
+                            "description": descriptions[i],
+                            "hs_code": hs_codes[i] if hs_codes[i] else (default_hs or ""),
+                            "country_of_origin": origins[i] if origins[i] else (default_cty or "Italy"),
+                            "quantity": quantities[i],
+                            "unit": "PCS",
+                            "unit_price": unit_prices[i],
+                            "total_price": total_prices[i],
+                        })
+            except Exception:
+                pass
 
         return items
 

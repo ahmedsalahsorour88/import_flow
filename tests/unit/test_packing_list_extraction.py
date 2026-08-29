@@ -93,3 +93,66 @@ DIMENSIONI / DIMENSIONS (mm)
     assert item["total_net_weight_kg"] == 208.0
     assert round(item["total_cbm"], 3) == 8.354
 
+
+def test_italian_gi_industrial_packing_list_800x800x460():
+    packing_ocr_text = """
+NOSTRO ORDINE / OUR ORDER R26 1248
+COMMESSA 24/166635
+VOSTRO ORDINE / YOUR ORDER ECO/57/26
+(TYPE) (NO)
+TOTAL GROSS
+(KG)
+TOTAL NET
+(KG)
+Pallet nr 1 37 25
+0 0
+0 0
+0 0
+0 0
+0 0
+0 0
+0 0
+0 0
+0 0
+0 0
+0 0
+TOTAL 1 37,0 25,0
+(*) LATO DI CARICO MULETTO / FORKLIFT LOADING SIDE
+(**) IMBALLO GABBIA LEGNO / WOODEN CAGE PACKAGE
+LISTA DEI COLLI E DEI PESI
+ECO ASSOCIATES
+STREET 17, SARAYAT AL GHARBEYAH
+ CAIRO 
+EG Egitto
+PACKING AND WEIGHT LIST
+0
+DESCRIZIONE
+DESCRIPTION
+IMBALLO / PACKING
+DIMENSIONI / DIMENSIONS (mm)
+800x800x460
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0"""
+    extractor = PurchaseOrderExtractor()
+    result = extractor.extract(packing_ocr_text, {})
+
+    assert len(result["packing_list_items"]) == 1
+    item = result["packing_list_items"][0]
+    assert item["package_type"] in ("Crate", "Pallet")
+    assert item["qty_pkg"] == 1.0
+    assert item["length_cm"] == 80.0
+    assert item["width_cm"] == 80.0
+    assert item["height_cm"] == 46.0
+    assert item["total_gross_weight_kg"] == 37.0
+    assert item["total_net_weight_kg"] == 25.0
+    assert round(item["total_cbm"], 3) == 0.294
+
+

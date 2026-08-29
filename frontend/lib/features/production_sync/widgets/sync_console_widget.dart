@@ -27,7 +27,7 @@ class SyncConsoleWidget extends StatefulWidget {
 
 class _SyncConsoleWidgetState extends State<SyncConsoleWidget> {
   final ScrollController _scrollController = ScrollController();
-  bool _autoScroll = true;
+  final bool _autoScroll = true;
 
   @override
   void didUpdateWidget(covariant SyncConsoleWidget oldWidget) {

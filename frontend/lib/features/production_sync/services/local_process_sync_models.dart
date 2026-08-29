@@ -45,12 +45,12 @@ class SyncProgressEvent {
 
   const SyncProgressEvent({
     required this.percent,
-    required this.stage,
-    required this.table,
-    required this.currentIndex,
-    required this.totalTables,
-    required this.recordsSynced,
-    required this.totalSynced,
+    this.stage = 'syncing',
+    this.table = '',
+    this.currentIndex = 0,
+    this.totalTables = 0,
+    this.recordsSynced = 0,
+    this.totalSynced = 0,
     required this.message,
   });
 

@@ -139,6 +139,9 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     }
   }
 
+  Future<void> _executeAction(String actionName, Future<int> Function() task) async {
+    if (_isRunning) return;
+
     setState(() {
       _isRunning = true;
       _currentAction = actionName;

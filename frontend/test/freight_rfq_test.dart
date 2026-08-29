@@ -60,6 +60,27 @@ void main() {
       expect(pdfBytes.length, greaterThan(100));
     });
 
+    test('FreightRfqGeneratorService generates PDF byte document for Air shipment', () async {
+      final airJson = Map<String, dynamic>.from(sampleRfqJson);
+      airJson['shipment_mode'] = 'Air Freight';
+      airJson['is_air'] = true;
+      airJson['hs_codes_str'] = '84145925, 85369010';
+      airJson['chargeable_weight_kg'] = 49.0;
+      airJson['port_of_discharge'] = 'Cairo International Airport';
+
+      final model = FreightRfqDataModel.fromJson(airJson);
+      expect(model.isAir, true);
+      expect(model.hsCodes, '84145925, 85369010');
+      expect(model.chargeableWeightKg, 49.0);
+
+      final pdfBytes = await FreightRfqGeneratorService.generateFreightRfqPdf(
+        rfq: model,
+        recipientName: 'Ahmed Forwarder',
+      );
+      expect(pdfBytes, isNotNull);
+      expect(pdfBytes.length, greaterThan(100));
+    });
+
     testWidgets('FreightRfqDialog renders header and structure', (WidgetTester tester) async {
       await tester.pumpWidget(
         const ProviderScope(

@@ -174,13 +174,16 @@ class FreightRfqGeneratorService {
               3: pw.FlexColumnWidth(3),
             },
             children: [
-              _buildTableRow('Commodity', rfq.commodity, 'Incoterm Rule', rfq.incotermCode),
-              _buildTableRow('Shipment Mode', rfq.shipmentMode, 'Container Equipment', rfq.recommendedContainers),
-              _buildTableRow('Total Volume', '${rfq.totalCbm.toStringAsFixed(2)} CBM', 'Gross Weight', '${rfq.grossWeightKg.toStringAsFixed(1)} KG'),
-              _buildTableRow('Net Weight', '${rfq.netWeightKg.toStringAsFixed(1)} KG', 'Total Packages', '${rfq.totalPackages} Pkgs'),
-              _buildTableRow('Port of Loading', rfq.portOfLoading, 'Port of Discharge', rfq.portOfDischarge),
+              _buildTableRow('Commodity', rfq.commodity, 'HS Code(s)', rfq.hsCodes.isNotEmpty ? rfq.hsCodes : 'To be declared'),
+              _buildTableRow('Incoterm Rule', rfq.incotermCode, 'Shipment Mode', rfq.shipmentMode),
+              _buildTableRow('Container / Mode', rfq.recommendedContainers, 'Total Volume', '${rfq.totalCbm.toStringAsFixed(2)} CBM'),
+              if (rfq.isAir)
+                _buildTableRow('Chargeable Weight', '${rfq.chargeableWeightKg.toStringAsFixed(1)} KG', 'Gross / Net Wt', '${rfq.grossWeightKg.toStringAsFixed(1)} / ${rfq.netWeightKg.toStringAsFixed(1)} KG')
+              else
+                _buildTableRow('Gross Weight', '${rfq.grossWeightKg.toStringAsFixed(1)} KG', 'Net Weight', '${rfq.netWeightKg.toStringAsFixed(1)} KG'),
+              _buildTableRow('Total Packages', '${rfq.totalPackages} Pkgs', 'Service Type', rfq.serviceType),
+              _buildTableRow('Port / Airport (POL)', rfq.portOfLoading, 'Port / Airport (POD)', rfq.portOfDischarge),
               _buildTableRow('Cargo Ready Date', rfq.cargoReadyDate, 'Required Free Time', '${rfq.targetFreeDays} Days FT at POD'),
-              _buildTableRow('Service Type', rfq.serviceType, 'Supplier / Shipper', rfq.supplierName),
             ],
           ),
           pw.SizedBox(height: 16),
@@ -244,15 +247,24 @@ class FreightRfqGeneratorService {
             ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                _buildBulletPoint('1. Ocean Freight Rate per container (or LCL w/m rate) in USD.'),
-                if (rfq.incotermCode.toUpperCase() == 'EXW')
-                  _buildBulletPoint('2. EXW All-in charges (Trucking from factory + Local Port Terminal + Export Customs Clearance).'),
-                _buildBulletPoint('3. Origin & Destination Terminal Handling Charges (OTHC / DTHC).'),
-                _buildBulletPoint('4. Transit time in days & direct vessel schedule details.'),
-                _buildBulletPoint('5. Free time confirmation: Must be at least ${rfq.targetFreeDays} days free time (Demurrage + Detention) at destination.'),
-                _buildBulletPoint('6. Earliest ETD date and booking cutoff date.'),
-              ],
+              children: rfq.isAir
+                  ? [
+                      _buildBulletPoint('1. Air Freight Rate per KG / All-in in USD.'),
+                      if (rfq.incotermCode.toUpperCase() == 'EXW')
+                        _buildBulletPoint('2. EXW All-in charges (Trucking from factory + Origin Airport Handling / OTHC + Export Customs Clearance).'),
+                      _buildBulletPoint('3. Destination Terminal Handling & D/O fees (DTHC) for ${rfq.portOfDischarge}.'),
+                      _buildBulletPoint('4. Flight transit time & flight schedule details.'),
+                      _buildBulletPoint('5. Earliest flight departure (ETD date) and booking cutoff.'),
+                    ]
+                  : [
+                      _buildBulletPoint('1. Ocean Freight Rate per container (or LCL w/m rate) in USD.'),
+                      if (rfq.incotermCode.toUpperCase() == 'EXW')
+                        _buildBulletPoint('2. EXW All-in charges (Trucking from factory + Local Origin Port Terminal / OTHC + Export Customs Clearance).'),
+                      _buildBulletPoint('3. Destination Terminal Handling Charges (DTHC for ${rfq.portOfDischarge}).'),
+                      _buildBulletPoint('4. Transit time in days & direct vessel schedule details.'),
+                      _buildBulletPoint('5. Free time confirmation: Must be at least ${rfq.targetFreeDays} days free time (Demurrage + Detention) at destination.'),
+                      _buildBulletPoint('6. Earliest ETD date and booking cutoff date.'),
+                    ],
             ),
           ),
           pw.SizedBox(height: 14),

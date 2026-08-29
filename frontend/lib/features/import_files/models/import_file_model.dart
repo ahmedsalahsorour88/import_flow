@@ -351,11 +351,15 @@ class FreightRfqDataModel {
   final String supplierName;
   final String incotermCode;
   final String commodity;
+  final String hsCodes;
   final String shipmentMode;
+  final bool isAir;
   final String recommendedContainers;
   final double totalCbm;
   final double grossWeightKg;
   final double netWeightKg;
+  final double volumetricWeightKg;
+  final double chargeableWeightKg;
   final int totalPackages;
   final String packagesBreakdown;
   final String pickupAddress;
@@ -377,11 +381,15 @@ class FreightRfqDataModel {
     required this.supplierName,
     required this.incotermCode,
     required this.commodity,
+    this.hsCodes = '',
     required this.shipmentMode,
+    this.isAir = false,
     required this.recommendedContainers,
     required this.totalCbm,
     required this.grossWeightKg,
     required this.netWeightKg,
+    this.volumetricWeightKg = 0.0,
+    this.chargeableWeightKg = 0.0,
     required this.totalPackages,
     required this.packagesBreakdown,
     required this.pickupAddress,
@@ -405,11 +413,15 @@ class FreightRfqDataModel {
       supplierName: json['supplier_name'] ?? '',
       incotermCode: json['incoterm_code'] ?? 'EXW',
       commodity: json['commodity'] ?? '',
+      hsCodes: json['hs_codes_str'] ?? (json['hs_codes'] is List ? (json['hs_codes'] as List).join(', ') : ''),
       shipmentMode: json['shipment_mode'] ?? 'Sea FCL',
+      isAir: json['is_air'] ?? (json['shipment_mode']?.toString().toLowerCase().contains('air') == true),
       recommendedContainers: json['recommended_containers'] ?? '',
       totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
       grossWeightKg: (json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
       netWeightKg: (json['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      volumetricWeightKg: (json['volumetric_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      chargeableWeightKg: (json['chargeable_weight_kg'] as num?)?.toDouble() ?? ((json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0),
       totalPackages: (json['total_packages'] as num?)?.toInt() ?? 0,
       packagesBreakdown: json['packages_breakdown'] ?? '',
       pickupAddress: json['pickup_address'] ?? '',

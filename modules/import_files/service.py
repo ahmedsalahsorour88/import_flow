@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
@@ -437,8 +438,29 @@ def generate_freight_rfq_service(
         (PurchaseOrder.po_number == (import_file.po_number or "---"))
     ).all()
 
-    # 2. Extract Commodity & Descriptions
+    # Helper function to clean noise from commodity description
+    def _clean_commodity_item(txt: str) -> str:
+        if not txt:
+            return ""
+        noise_patterns = [
+            r"weight\s+kg", r"gross\s+weight(?:\s+kg)?", r"net\s+weight(?:\s+kg)?",
+            r"volume\s+mc", r"packages", r"country\s+of\s+origin\s*:\s*[A-Za-z]+",
+            r"commessa\s+[0-9/\-]+", r"your\s+order[^\n]*", r"our\s+order[^\n]*",
+            r"bolla\s+[^\n]*", r"dis\.\s*[0-9/\-]+", r"rev\.\s*[0-9/\-]+",
+            r"n\.i\.art\.[^\n]*", r"dpr\s+633[^\n]*", r"v\.a\.t\.[^\n]*",
+            r"bank\s+details[^\n]*", r"iban\s*:[^\n]*", r"swift\s*:[^\n]*",
+            r"payment\s+condition[^\n]*", r"delivery\s+address[^\n]*",
+            r"administration\s+manager[^\n]*",
+        ]
+        cleaned = txt
+        for pat in noise_patterns:
+            cleaned = re.sub(pat, "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip(" ,;|/-")
+        return cleaned
+
+    # 2. Extract Commodity, HS Codes & Descriptions
     commodities = set()
+    hs_codes_set = set()
     total_cbm = 0.0
     gross_weight = 0.0
     net_weight = 0.0
@@ -456,10 +478,25 @@ def generate_freight_rfq_service(
         if po.total_packages_count:
             total_packages += int(po.total_packages_count)
 
+        po_hs = getattr(po, 'hs_code', None)
+        if po_hs:
+            clean_hs = re.sub(r"[^0-9]", "", str(po_hs).strip())
+            if clean_hs:
+                hs_codes_set.add(clean_hs)
+
         for line in getattr(po, 'line_items', []):
             desc = line.description_en or line.description_ar
             if desc:
-                commodities.add(desc.strip())
+                cleaned_desc = _clean_commodity_item(desc.strip())
+                if cleaned_desc:
+                    commodities.add(cleaned_desc)
+            line_hs = getattr(line, 'hs_code', None)
+            if not line_hs and getattr(line, 'tariff', None):
+                line_hs = getattr(line.tariff, 'hs_code', None)
+            if line_hs:
+                clean_hs = re.sub(r"[^0-9]", "", str(line_hs).strip())
+                if clean_hs:
+                    hs_codes_set.add(clean_hs)
 
         for pl_item in getattr(po, 'packing_list_items', []):
             qty = int(pl_item.qty_pkg) if pl_item.qty_pkg else 1
@@ -468,6 +505,10 @@ def generate_freight_rfq_service(
             h_val = float(pl_item.height_cm or 0)
             dims = f"{qty} {pl_item.package_type or 'pkg'} @ {l_val:g} x {w_val:g} x {h_val:g} cm"
             package_breakdowns.append(dims)
+            if getattr(pl_item, 'hs_code', None):
+                clean_hs = re.sub(r"[^0-9]", "", str(pl_item.hs_code).strip())
+                if clean_hs:
+                    hs_codes_set.add(clean_hs)
 
     # Fallback to packing_lists_data from ImportFile if PO aggregates were 0
     if total_cbm == 0.0 and import_file.packing_lists_data:
@@ -476,21 +517,16 @@ def generate_freight_rfq_service(
             gross_weight += float(p.get("gross_weight_kg", 0.0))
             total_packages += int(p.get("total_packages", 0))
 
-    commodity_str = " | ".join(sorted(commodities)) if commodities else (import_file.notes or "General Imported Cargo")
-    
-    # 3. Calculate Recommended Containers
-    if total_cbm >= 60:
-        recommended_containers = "1 CTNR * 40HC + 1 CTNR * 20GP"
-    elif total_cbm >= 30:
-        recommended_containers = "1 CTNR * 40HC (40' High Cube)"
-    elif total_cbm >= 15:
-        recommended_containers = "1 CTNR * 20GP (20' General Purpose)"
-    elif total_cbm > 0:
-        recommended_containers = f"LCL ({total_cbm:.2f} CBM) / 20GP"
-    else:
-        recommended_containers = "40'HC / 20'GP"
+    imp_hs = getattr(import_file, 'hs_code', None)
+    if imp_hs:
+        clean_hs = re.sub(r"[^0-9]", "", str(imp_hs).strip())
+        if clean_hs:
+            hs_codes_set.add(clean_hs)
 
-    # 4. Logistics Details
+    commodity_str = " | ".join(sorted(commodities)) if commodities else (import_file.notes or "General Imported Cargo")
+    hs_codes_str = ", ".join(sorted(hs_codes_set)) if hs_codes_set else "As per invoice / To be declared"
+    
+    # 3. Logistics Details & Air Freight Detection
     supplier = import_file.supplier
     supplier_address_parts = []
     if supplier:
@@ -512,7 +548,43 @@ def generate_freight_rfq_service(
     incoterm = import_file.incoterm_code or "EXW"
     free_days = import_file.target_free_days or 21
     service_type = import_file.service_type_preference or "Direct"
-    
+
+    # Detect if Air Freight
+    mode_str = (import_file.shipment_mode or "").lower()
+    pol_lower = (pol or "").lower()
+    pod_lower = (pod or "").lower()
+    is_air = ("air" in mode_str or "airport" in pol_lower or "airport" in pod_lower or "مطار" in pol_lower or "مطار" in pod_lower or "جوي" in mode_str)
+
+    # Calculate Volumetric & Chargeable Weight for Air
+    volumetric_weight_air = total_cbm * 166.67 if total_cbm > 0 else 0.0
+    pl_vol_weight = 0.0
+    for po in linked_pos:
+        for pl_item in getattr(po, 'packing_list_items', []):
+            qty = float(pl_item.qty_pkg or 1)
+            l = float(pl_item.length_cm or 0)
+            w = float(pl_item.width_cm or 0)
+            h = float(pl_item.height_cm or 0)
+            if l > 0 and w > 0 and h > 0:
+                pl_vol_weight += ((l * w * h) / 6000.0) * qty
+    if pl_vol_weight > volumetric_weight_air:
+        volumetric_weight_air = pl_vol_weight
+
+    chargeable_weight = max(gross_weight, volumetric_weight_air) if is_air else gross_weight
+
+    # Calculate Recommended Containers / Mode Description
+    if is_air:
+        recommended_containers = f"Air Freight ({total_cbm:.2f} CBM | Chg Wt: {chargeable_weight:,.1f} kg)"
+    elif total_cbm >= 60:
+        recommended_containers = "1 CTNR * 40HC + 1 CTNR * 20GP"
+    elif total_cbm >= 30:
+        recommended_containers = "1 CTNR * 40HC (40' High Cube)"
+    elif total_cbm >= 15:
+        recommended_containers = "1 CTNR * 20GP (20' General Purpose)"
+    elif total_cbm > 0:
+        recommended_containers = f"LCL ({total_cbm:.2f} CBM) / 20GP"
+    else:
+        recommended_containers = "40'HC / 20'GP"
+
     ready_date_str = import_file.cargo_ready_date.strftime("%d %B %Y") if import_file.cargo_ready_date else "End of Current Month"
     recipient = recipient_name.strip() if recipient_name and recipient_name.strip() else "Shipping Line / Forwarder"
 
@@ -520,17 +592,53 @@ def generate_freight_rfq_service(
     if package_breakdowns:
         packages_str += "\n" + "\n".join(f"  • {pb}" for pb in package_breakdowns[:10])
 
-    special_reqs = import_file.shipping_instructions_notes or f"Must be {free_days} days free time at destination (DET/DEM), direct line preferred, delivery port El Dekheila (avoid TMT terminal)."
+    special_reqs = import_file.shipping_instructions_notes or f"Must be {free_days} days free time at destination (DET/DEM), direct line preferred, delivery port {pod}."
 
     # 5. Generate Email Body Template
     if incoterm.upper() == "EXW":
-        email_body = f"""Dear {recipient},
+        if is_air:
+            email_body = f"""Dear {recipient},
+
+Good day.
+Could you please provide your best EXW (Ex Works) all-in air freight quotation for the below shipment:
+
+• Incoterm: EXW (Ex Works)
+• Commodity: "{commodity_str}"
+• HS Code(s): {hs_codes_str}
+• Shipment Mode: Air Freight (Total Volume: {total_cbm:.2f} CBM)
+• Gross Weight: {gross_weight:,.1f} kg | Net Weight: {net_weight:,.1f} kg
+• Chargeable Weight: {chargeable_weight:,.1f} kg (Volumetric Wt: {volumetric_weight_air:,.1f} kg)
+• Number of Packages: {packages_str}
+
+• Pickup Address:
+  {import_file.supplier_name}
+  {pickup_address}
+
+• Airport of Departure (Preferred): {pol}
+• Airport of Destination: {pod}
+• Service: {service_type}
+• Cargo Ready Date: {ready_date_str}
+
+Kindly include:
+1. EXW All-in Rate (Trucking from factory + Origin Airport Handling / OTHC + Export Customs Clearance + Air Freight)
+2. Destination Terminal Handling & D/O fees (DTHC) for {pod}
+3. Flight Schedule & Transit Time (T/T in days)
+4. Earliest Flight Departure & ETD Date
+5. Destination Storage / Free Time confirmation (if applicable)
+
+We look forward to receiving your quotation ASAP.
+Best regards,
+{import_file.company_name} - Logistics & Import Dept.
+"""
+        else:
+            email_body = f"""Dear {recipient},
 
 Good day.
 Could you please provide your best EXW (Ex Works) all-in freight quotation for the below shipment:
 
 • Incoterm: EXW (Ex Works)
 • Commodity: "{commodity_str}"
+• HS Code(s): {hs_codes_str}
 • Volume / Mode: {recommended_containers} (Total CBM: {total_cbm:.2f} m³)
 • Gross Weight: {gross_weight:,.1f} kg | Net Weight: {net_weight:,.1f} kg
 • Number of Packages: {packages_str}
@@ -546,8 +654,8 @@ Could you please provide your best EXW (Ex Works) all-in freight quotation for t
 • Required Free Time: Must be {free_days} days free time at destination (DET/DEM)
 
 Kindly include:
-1. EXW All-in Rate (Trucking + Local Port Fees + Export Customs Clearance + Ocean Freight)
-2. OTHC / DTHC for {pod}
+1. EXW All-in Rate (Trucking + Local Origin Port Fees / OTHC + Export Customs Clearance + Ocean Freight)
+2. DTHC for {pod}
 3. Transit Time (T/T in days)
 4. Earliest Vessel Schedule & ETD Date
 5. Free time at destination (DET/DEM) - Must be {free_days} days free time.
@@ -557,6 +665,7 @@ Best regards,
 {import_file.company_name} - Logistics & Import Dept.
 """
     else:
+        weight_line = f"• Total Volume: {total_cbm:.2f} m³ | Gross Weight: {gross_weight:,.1f} kg | Chargeable Weight: {chargeable_weight:,.1f} kg" if is_air else f"• Total Volume: {total_cbm:.2f} m³ | Total Gross Weight: {gross_weight:,.1f} kg"
         email_body = f"""Dear {recipient},
 
 Good day.
@@ -564,27 +673,36 @@ Kindly share your best {incoterm} freight rates for {recommended_containers} bas
 
 • Incoterm: {incoterm}
 • Commodity: "{commodity_str}"
-• POL (Port of Loading): {pol}
-• POD (Port of Discharge): {pod}
-• Total Volume: {total_cbm:.2f} m³ | Total Gross Weight: {gross_weight:,.1f} kg
+• HS Code(s): {hs_codes_str}
+• POL (Port of Loading / Airport): {pol}
+• POD (Port of Discharge / Airport): {pod}
+{weight_line}
 • Cargo Ready Date: {ready_date_str}
 • Required Free Time: {free_days} days free time (FT) at destination
 • Service: {service_type}
 
+Kindly include:
+1. Freight Rate ({incoterm} to {pod})
+2. DTHC for {pod}
+3. Transit Time & Earliest Schedule (ETD)
+4. Free Time confirmation ({free_days} days FT at destination)
+
 Special Instructions:
 {special_reqs}
 
-Thanks to share the competitive rates and earliest vessel schedule ASAP.
+Thanks to share the competitive rates and earliest schedule ASAP.
 Best regards,
 {import_file.company_name} - Logistics & Import Dept.
 """
 
     # 6. Generate WhatsApp Text Template
+    chg_wt_str = f" | الوزن المحتسب: {chargeable_weight:,.1f} KG" if is_air else ""
     whatsapp_text = f"""🚢 *طلب أسعار نولون شحن / Freight RFQ*
 ━━━━━━━━━━━━━━━━━━
 🏢 *الشركة المستوردة:* {import_file.company_name}
 📦 *البضاعة:* {commodity_str}
-📊 *الحجم والوزن:* {recommended_containers} | {total_cbm:.2f} CBM | {gross_weight:,.1f} KG
+🏷️ *بند التعريفة (HS Code):* {hs_codes_str}
+📊 *الحجم والوزن:* {recommended_containers} | {total_cbm:.2f} CBM | {gross_weight:,.1f} KG{chg_wt_str}
 🌐 *شرط الشحن (Incoterm):* {incoterm}
 📍 *ميناء الشحن (POL):* {pol}
 🏁 *ميناء الوصول (POD):* {pod}
@@ -596,7 +714,7 @@ Best regards,
 📝 *ملاحظات واشتراطات:*
 {special_reqs}
 ━━━━━━━━━━━━━━━━━━
-برجاء إرسال أفضل عرض سعر متاح وجدول أقرب مركب شاكرين تعاونكم."""
+برجاء إرسال أفضل عرض سعر متاح وجدول أقرب شحنة شاكرين تعاونكم."""
 
     file_title = import_file.custom_file_number or import_file.import_file_code
     email_subject = f"Freight Rate Inquiry - {file_title} | {import_file.supplier_name} | {import_file.company_name} | {incoterm} | {recommended_containers}"
@@ -609,11 +727,16 @@ Best regards,
         "supplier_name": import_file.supplier_name,
         "incoterm_code": incoterm,
         "commodity": commodity_str,
-        "shipment_mode": import_file.shipment_mode,
+        "hs_codes": list(hs_codes_set),
+        "hs_codes_str": hs_codes_str,
+        "shipment_mode": "Air Freight" if is_air else (import_file.shipment_mode or "Sea FCL"),
+        "is_air": is_air,
         "recommended_containers": recommended_containers,
         "total_cbm": round(total_cbm, 3),
         "gross_weight_kg": round(gross_weight, 2),
         "net_weight_kg": round(net_weight, 2),
+        "volumetric_weight_kg": round(volumetric_weight_air, 2),
+        "chargeable_weight_kg": round(chargeable_weight, 2),
         "total_packages": total_packages,
         "packages_breakdown": packages_str,
         "pickup_address": pickup_address,

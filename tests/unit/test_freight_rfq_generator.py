@@ -280,3 +280,128 @@ def test_freight_rfq_example_3_shaw_carpets_pallets_breakdown(db_session):
     assert "London Gateway" in rfq["port_of_loading"]
     assert "Blackaddie Road" in rfq["pickup_address"]
     assert rfq["target_free_days"] == 21
+
+
+def test_freight_rfq_air_shipment_gi_industrial(db_session):
+    """
+    Test Air Freight RFQ:
+    - Chargeable weight calculation (CBM * 166.67 = 49 kg > 37 kg gross)
+    - Cleaned concise commodity (removes OCR noise words like 'weight kg', etc.)
+    - Formats all distinct HS codes: 84145925, 85369010
+    - DTHC and Airport inclusions
+    """
+    supp = Supplier(
+        supplier_id=4,
+        supplier_code="SUP-004",
+        company_name="G.I. Industrial Holding S.p.A.",
+        supplier_type="Manufacturer",
+        registration_type="Commercial Registration",
+        foreign_exporter_id="IT-REG-4004",
+        foreign_exporter_country="Italy",
+        foreign_exporter_country_code="IT",
+        address="Via G. Agnelli, 733053, Rivignano Teor, Italy",
+    )
+    db_session.add(supp)
+    db_session.commit()
+
+    imp_file = ImportFile(
+        import_file_id=4,
+        import_file_code="IMP-2026-0004",
+        custom_file_number="6701068104",
+        company_id=1,
+        company_name="ECO ASSOCIATES",
+        supplier_id=4,
+        supplier_name="G.I. Industrial Holding S.p.A.",
+        incoterm_code="EXW",
+        shipment_mode="Air",
+        port_of_loading="Genoa Port / Milan Airport",
+        port_of_discharge="Cairo International Airport",
+        pickup_address="Via G. Agnelli, 733053, ITALY",
+        cargo_ready_date=date(2026, 8, 24),
+        target_free_days=7,
+        service_type_preference="Direct",
+    )
+    db_session.add(imp_file)
+    db_session.commit()
+
+    po = PurchaseOrder(
+        po_id=4,
+        po_number="V1/3083",
+        import_file_id=4,
+        project_id=1,
+        company_id=1,
+        supplier_id=4,
+        incoterm_id=1,
+        currency_id=1,
+        total_cbm=0.294,
+        total_gross_weight_kg=37.0,
+        total_net_weight_kg=25.0,
+        total_packages_count=1,
+    )
+    db_session.add(po)
+    db_session.commit()
+
+    line1 = POLineItem(
+        po_id=4,
+        item_code="324080",
+        description_ar="مروحة محورية",
+        description_en="AXIAL FAN FN080-SDA.6N.V7P5 | Commessa 24/166635 COUNTRY OF ORIGIN:GERMANY",
+        total_price=400.0,
+    )
+    line2 = POLineItem(
+        po_id=4,
+        item_code="333660",
+        description_ar="روزتة دبل",
+        description_en="DOUBLE-LEVEL TERMINAL BLOCK PTTBS 2,5 | weight kg Gross weight kg Volume mc Packages",
+        total_price=20.0,
+    )
+    pl1 = PackingListItem(
+        po_id=4,
+        item_code="324080",
+        hs_code="84145925",
+        qty_pkg=1,
+        package_type="Crate",
+        length_cm=80.0,
+        width_cm=80.0,
+        height_cm=46.0,
+        total_gross_weight_kg=37.0,
+        total_net_weight_kg=25.0,
+    )
+    pl2 = PackingListItem(
+        po_id=4,
+        item_code="333660",
+        hs_code="85369010",
+        qty_pkg=0,
+        package_type="Crate",
+        total_gross_weight_kg=0.0,
+        total_net_weight_kg=0.0,
+    )
+    db_session.add_all([line1, line2, pl1, pl2])
+    db_session.commit()
+
+    rfq = generate_freight_rfq_service(db_session, import_file_id=4, recipient_name="Shipping Forwarder")
+
+    # Verify is_air and weights
+    assert rfq["is_air"] is True
+    assert rfq["gross_weight_kg"] == 37.0
+    assert rfq["net_weight_kg"] == 25.0
+    assert rfq["chargeable_weight_kg"] >= 49.0  # (80*80*46/6000 = 49.06 kg)
+
+    # Verify cleaned commodity does NOT contain 'weight kg' or 'Gross weight'
+    assert "weight kg" not in rfq["commodity"].lower()
+    assert "Gross weight" not in rfq["commodity"]
+    assert "AXIAL FAN" in rfq["commodity"]
+    assert "DOUBLE-LEVEL TERMINAL BLOCK" in rfq["commodity"]
+
+    # Verify HS codes
+    assert "84145925" in rfq["hs_codes_str"]
+    assert "85369010" in rfq["hs_codes_str"]
+
+    # Verify Email Body text
+    body = rfq["email_body_template"]
+    assert "Chargeable Weight: 49.1 kg" in body or "Chargeable Weight: 49.0 kg" in body
+    assert "HS Code(s): 84145925, 85369010" in body
+    assert "DTHC" in body
+    assert "Airport" in body
+    assert "OTHC" in body
+

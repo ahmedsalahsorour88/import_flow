@@ -139,12 +139,14 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     }
   }
 
-  Future<void> _executeAction(String actionName, Future<int> Function() task) async {
-    if (_isRunning) return;
-
     setState(() {
       _isRunning = true;
       _currentAction = actionName;
+      _progress = SyncProgressEvent(
+        percent: 5,
+        stage: 'init',
+        message: 'جارٍ بدء عملية: $actionName...',
+      );
       _consoleLogs.add(ConsoleLogLine('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
       _consoleLogs.add(ConsoleLogLine('🚀 بدء عملية: $actionName'));
     });

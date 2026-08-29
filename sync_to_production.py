@@ -584,46 +584,69 @@ def full_production_build_and_sync():
     print("===============================================================================")
 
     # 1. Backend tests
+    print(f"[PROGRESS] {json.dumps({'percent': 12, 'stage': 'backend_tests', 'table': 'pytest', 'current_index': 1, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': 'جارٍ تشغيل اختبارات الباك إند الشاملة (442 pytest)...'}, ensure_ascii=False)}")
+    sys.stdout.flush()
     print("\n[1/6] [TEST] تشغيل اختبارات الباك إند (pytest)...")
     res = subprocess.run([sys.executable, "-m", "pytest", "-q"], cwd=str(ROOT_DIR))
     if res.returncode != 0:
         print("[ERROR] فشلت اختبارات الباك إند! تم إيقاف عملية البناء.")
+        print(f"[PROGRESS] {json.dumps({'percent': 100, 'stage': 'error', 'table': 'pytest', 'current_index': 1, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': '❌ فشلت اختبارات الباك إند!'}, ensure_ascii=False)}")
+        sys.stdout.flush()
         return False
     print("   [PASS] اختبارات الباك إند اجتيزت بنجاح (100% Passing).")
 
     # 2. Frontend tests
+    print(f"[PROGRESS] {json.dumps({'percent': 28, 'stage': 'frontend_tests', 'table': 'flutter_test', 'current_index': 2, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': 'جارٍ تشغيل اختبارات واجهة المستخدم (281 flutter tests)...'}, ensure_ascii=False)}")
+    sys.stdout.flush()
     print("\n[2/6] [TEST] تشغيل اختبارات الفرونت إند (flutter test)...")
     frontend_dir = ROOT_DIR / "frontend"
     res = subprocess.run(["flutter", "test"], cwd=str(frontend_dir), shell=True)
     if res.returncode != 0:
         print("[ERROR] فشلت اختبارات الفرونت إند! تم إيقاف عملية البناء.")
+        print(f"[PROGRESS] {json.dumps({'percent': 100, 'stage': 'error', 'table': 'flutter_test', 'current_index': 2, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': '❌ فشلت اختبارات الواجهة!'}, ensure_ascii=False)}")
+        sys.stdout.flush()
         return False
     print("   [PASS] اختبارات الفرونت إند اجتيزت بنجاح (100% Passing).")
 
     # 3. Compile Flutter Windows Release
+    print(f"[PROGRESS] {json.dumps({'percent': 48, 'stage': 'compile_windows', 'table': 'flutter_build', 'current_index': 3, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': 'جارٍ تجميع تطبيق الويندوز المكتبي (flutter build windows --release)...'}, ensure_ascii=False)}")
+    sys.stdout.flush()
     print("\n[3/6] [BUILD] تجميع تطبيق الويندوز المكتبي (flutter build windows --release)...")
     res = subprocess.run(["flutter", "build", "windows", "--release"], cwd=str(frontend_dir), shell=True)
     if res.returncode != 0:
         print("[ERROR] فشل تجميع تطبيق الويندوز المكتبي!")
+        print(f"[PROGRESS] {json.dumps({'percent': 100, 'stage': 'error', 'table': 'flutter_build', 'current_index': 3, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': '❌ فشل تجميع تطبيق الويندوز!'}, ensure_ascii=False)}")
+        sys.stdout.flush()
         return False
     print("   [SUCCESS] تم تجميع ملفات تطبيق الويندوز المكتبي بنجاح.")
 
     # 4. Package Production Standalone
+    print(f"[PROGRESS] {json.dumps({'percent': 72, 'stage': 'packaging', 'table': 'package_production', 'current_index': 4, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': 'جارٍ تجهيز وحزم ملفات بيئة الإنتاج المستقلة (package_production)...'}, ensure_ascii=False)}")
+    sys.stdout.flush()
     print("\n[4/6] [PACKAGE] تجميع حزمة الإنتاج المستقلة (package_production.py)...")
     res = subprocess.run([sys.executable, str(ROOT_DIR / "package_production.py")], cwd=str(ROOT_DIR))
     if res.returncode != 0:
         print("[ERROR] فشل تجميع حزمة الإنتاج المستقلة!")
+        print(f"[PROGRESS] {json.dumps({'percent': 100, 'stage': 'error', 'table': 'package_production', 'current_index': 4, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': '❌ فشل تجهيز حزمة الإنتاج!'}, ensure_ascii=False)}")
+        sys.stdout.flush()
         return False
     print("   [SUCCESS] تم تحديث حزمة Standalone وتضمين أحدث قاعدة بيانات.")
 
     # 5. Sync Database
+    print(f"[PROGRESS] {json.dumps({'percent': 85, 'stage': 'db_sync', 'table': 'sync_db', 'current_index': 5, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': 'جارٍ مزامنة وتحديث قاعدة بيانات الإنتاج...'}, ensure_ascii=False)}")
+    sys.stdout.flush()
     print("\n[5/6] [DB SYNC] مزامنة قاعدة البيانات الحالية إلى الإنتاج...")
     sync_db_to_prod()
 
     # 6. Create Release Bundle ZIP & Manifest
+    print(f"[PROGRESS] {json.dumps({'percent': 95, 'stage': 'zip_bundle', 'table': 'release_zip', 'current_index': 6, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': 'جارٍ إنشاء حزمة التوزيع المضغوطة (create_release_bundle)...'}, ensure_ascii=False)}")
+    sys.stdout.flush()
     print("\n[6/6] [ZIP BUNDLE] إنشاء حزمة التوزيع المضغوطة (create_release_bundle.py)...")
     if (ROOT_DIR / "create_release_bundle.py").exists():
         subprocess.run([sys.executable, str(ROOT_DIR / "create_release_bundle.py")], cwd=str(ROOT_DIR))
+
+    print(f"[PROGRESS] {json.dumps({'percent': 100, 'stage': 'completed', 'table': 'DONE', 'current_index': 6, 'total_tables': 6, 'records_synced': 0, 'total_synced': 0, 'message': '✅ تم بناء وتحديث وحزم الإنتاج بالكامل بنجاح تام!'}, ensure_ascii=False)}")
+    sys.stdout.flush()
 
     print("\n===============================================================================")
     print(" [SUCCESS] تم بناء وتحديث ومزامنة كافة مكونات النظام للبرودكشن بنجاح تام! ")

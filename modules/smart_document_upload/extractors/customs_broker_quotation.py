@@ -47,6 +47,7 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
 
         broker_name = self._extract_broker_name(text)
         port_name = self._extract_port(text)
+        title = self._extract_title(text, broker_name, port_name)
         container_type = self._extract_container_type(text)
         clearance_fee = self._extract_clearance_fee(text)
         inland_transport_fee = self._extract_inland_transport(text)
@@ -54,6 +55,8 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
         port_expenses = self._extract_port_expenses(text)
         miscellaneous_fee = self._extract_miscellaneous_fee(text)
         transit_days = self._extract_clearance_days(text)
+
+        effective_from = self._extract_effective_from_date(text)
         validity_date = self.find_first([
             r"(?:ساري\s+حتى|صلاحية\s+العرض|Valid\s+Until|Validity)[:\s]+([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2})",
             r"(?:Valid\s+to|Expiry)[:\s]+([0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{4})",
@@ -78,11 +81,15 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
 
         rate_options = self._extract_multiple_rate_options(text, default_broker=broker_name, default_port=port_name)
         expenses_catalog = self._extract_expenses_catalog(text)
+        notes = self._extract_notes(text)
 
         result: Dict[str, Any] = {
+            "title": title,
             "broker_name": broker_name,
             "port_name": port_name,
             "container_type": container_type,
+            "effective_from": effective_from,
+            "effective_to": validity_date,
             "clearance_fee": clearance_fee,
             "inland_transport_fee": inland_transport_fee,
             "inspection_fee": inspection_fee,
@@ -92,11 +99,31 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
             "currency": currency or "EGP",
             "transit_clearance_days": transit_days,
             "validity_date": validity_date,
-            "notes": self._extract_notes(text),
+            "notes": notes,
             "rate_options": rate_options,
             "expenses_catalog": expenses_catalog,
         }
         return result
+
+    def _extract_title(self, text: str, broker: Optional[str], port: Optional[str]) -> str:
+        match = self.find_first([
+            r"((?:بيان|عرض|لائق\s+بيان)\s+(?:ب)?أسعار\s+التخليص[^\n\r]{5,100})",
+            r"((?:قائمة|جدول)\s+أسعار\s+(?:التخليص|الخدمات)[^\n\r]{5,100})",
+        ], text)
+        if match:
+            return match.strip()
+        year_match = re.search(r"20[2-3][0-9]", text)
+        year = year_match.group(0) if year_match else "2026"
+        return f"بيان بأسعار التخليص والنقل لميناء {port or 'الإسكندرية'} لعام {year}"
+
+    def _extract_effective_from_date(self, text: str) -> str:
+        # Match ISO format YYYY/MM/DD or YYYY-MM-DD
+        date_match = re.search(r"\b(20[2-3][0-9])[-/](0?[1-9]|1[0-2])[-/](0?[1-9]|[12][0-9]|3[01])\b", text)
+        if date_match:
+            y, m, d = date_match.group(1), date_match.group(2).zfill(2), date_match.group(3).zfill(2)
+            return f"{y}-{m}-{d}"
+        from datetime import date
+        return date.today().isoformat()
 
     def _extract_broker_name(self, text: str) -> Optional[str]:
         match = self.find_first([
@@ -182,6 +209,13 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
         return 3
 
     def _extract_notes(self, text: str) -> Optional[str]:
+        notes_lines = []
+        for line in text.splitlines():
+            l = line.strip()
+            if l.startswith("بخلاف") or "كشف التجميع" in l or "توكيلات ملاحية" in l or "إيصالات رسمية" in l or l.startswith("ملاحظات") or l.startswith("شروط"):
+                notes_lines.append(l)
+        if notes_lines:
+            return " - ".join(notes_lines)
         match = self.find_first([
             r"(?:ملاحظات|بخلاف|شروط\s+السداد|Notes|Payment\s+Terms)[:\s]*([^\n\r]{10,200})",
         ], text)

@@ -9,6 +9,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/extraction_progress_dialog.dart';
+import '../../customs_consultation/widgets/price_list_form_dialog.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
@@ -590,15 +591,38 @@ class _CustomsClearanceQuotationsScreenState
                       Text(l10n.clearanceQuotesPriceListSubtitle, style: const TextStyle(color: Colors.grey, fontSize: 13)),
                     ],
                   ),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.emerald,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    icon: const Icon(Icons.add),
-                    label: Text(l10n.clearanceQuotesAddPriceItemBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    onPressed: () => _showAddPriceItemDialog(),
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6C5CE7),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        icon: const Icon(Icons.auto_awesome, color: Colors.amber, size: 18),
+                        label: const Text('✨ إنشاء وإدارة قائمة أسعار المخلص الشاملة المؤرخة', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          final partners = ref.read(partnersProvider).value ?? [];
+                          final brokersList = partners.where((p) => p.partnerType == 'Customs Broker' || p.partnerType == 'مستخلص جمركي' || p.partnerType == 'Customs Clearance').toList();
+                          showPriceListFormDialog(
+                            context,
+                            ref,
+                            brokersList: brokersList.isNotEmpty ? brokersList : partners,
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.emerald,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        icon: const Icon(Icons.add),
+                        label: Text(l10n.clearanceQuotesAddPriceItemBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: () => _showAddPriceItemDialog(),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1461,27 +1485,56 @@ class _CustomsClearanceQuotationsScreenState
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                                 ),
                               ),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.emerald,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                ),
-                                icon: const Icon(Icons.add_circle_outline, size: 14, color: Colors.white),
-                                label: const Text(
-                                  '🚀 إنشاء طلب RFQ جديد بهذه البيانات',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                                ),
-                                onPressed: () {
-                                  _showCreateRFQDialog(
-                                    initialBrokerName: _extractedClearanceData!['broker_name'] as String?,
-                                    initialPortName: _extractedClearanceData!['port_name'] as String?,
-                                    initialClearanceFee: (_extractedClearanceData!['clearance_fee'] as num?)?.toDouble(),
-                                    initialInspectionFee: (_extractedClearanceData!['inspection_fee'] as num?)?.toDouble(),
-                                    initialPortExpenses: (_extractedClearanceData!['port_expenses'] as num?)?.toDouble(),
-                                    initialMiscFee: (_extractedClearanceData!['miscellaneous_fee'] as num?)?.toDouble(),
-                                  );
-                                },
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                children: [
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF6C5CE7),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    ),
+                                    icon: const Icon(Icons.list_alt, size: 14, color: Colors.white),
+                                    label: const Text(
+                                      '📋 حفظ كقائمة أسعار معتمدة للمخلص',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                    ),
+                                    onPressed: () {
+                                      final partners = ref.read(partnersProvider).value ?? [];
+                                      final brokersList = partners.where((p) => p.partnerType == 'Customs Broker' || p.partnerType == 'مستخلص جمركي' || p.partnerType == 'Customs Clearance').toList();
+                                      final listToPass = brokersList.isNotEmpty ? brokersList : partners;
+                                      showPriceListFormDialog(
+                                        context,
+                                        ref,
+                                        brokersList: listToPass,
+                                        initialExtractedData: _extractedClearanceData,
+                                      );
+                                    },
+                                  ),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.emerald,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    ),
+                                    icon: const Icon(Icons.add_circle_outline, size: 14, color: Colors.white),
+                                    label: const Text(
+                                      '🚀 إنشاء طلب RFQ جديد بهذه البيانات',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                    ),
+                                    onPressed: () {
+                                      _showCreateRFQDialog(
+                                        initialBrokerName: _extractedClearanceData!['broker_name'] as String?,
+                                        initialPortName: _extractedClearanceData!['port_name'] as String?,
+                                        initialClearanceFee: (_extractedClearanceData!['clearance_fee'] as num?)?.toDouble(),
+                                        initialInspectionFee: (_extractedClearanceData!['inspection_fee'] as num?)?.toDouble(),
+                                        initialPortExpenses: (_extractedClearanceData!['port_expenses'] as num?)?.toDouble(),
+                                        initialMiscFee: (_extractedClearanceData!['miscellaneous_fee'] as num?)?.toDouble(),
+                                      );
+                                    },
+                                  ),
+                                ],
                               ),
                             ],
                           ),

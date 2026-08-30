@@ -259,19 +259,31 @@ class MasterDataEntityExtractor(BaseExtractor):
 
     def _extract_mobile(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:M|Mob|Mobile|Cell|محمول|موبايل|واتساب|WhatsApp)[^\S\r\n]*[:=]?[^\S\r\n]*(\+?[0-9\s\-]{8,20})",
-            r"(0086\s*1[3-9]\d{9}|\+86\s*1[3-9]\d{9})",
+            r"(?:M|Mob|Mobile|Cell|Cel|محمول|موبايل|واتساب|WhatsApp)[^\S\r\n]*[:=]?[^\S\r\n]*(\+?[0-9\s\-]{8,20})",
             r"(\+20\s*1[0-5]\d{8})",
+            r"\b(01[0-5]\d{8})\b",
+            r"(0086\s*1[3-9]\d{9}|\+86\s*1[3-9]\d{9})",
         ], text)
 
     def _extract_phone(self, text: str) -> Optional[str]:
-        return self.find_first([
-            r"(?:Phone|Tel\.?|Telephone|الهاتف|هاتف|تليفون)[^\S\r\n]*[:=]?[^\S\r\n]*(\+?[0-9\s\-\(\)]{8,20})",
+        # 1. Explicit labeled match
+        found = self.find_first([
+            r"(?:Phone|Tel\.?|Telephone|الهاتف|هاتف|تليفون|أرضي)[^\S\r\n]*[:=]?[^\S\r\n]*(\+?[0-9\s\-\(\)]{8,20})",
             r"(\+44\s*1\d{3}\s*\d{5,6})",
             r"(\+39\s*0\d{2,4}\s*\d{5,8})",
             r"(\+86\s*\d{2,4}\s*\d{7,8})",
             r"(\+370\s*5\s*\d{3}\s*\d{4})",
         ], text)
+        if found:
+            return found
+
+        # 2. Egyptian landline / area code patterns (e.g. +2 (02) 23101798, +20 2 23101798, 02-23101798)
+        landline = self.find_first([
+            r"(\+?2\s*\(?02\)?\s*[0-9\s\-]{7,10})",
+            r"(\+?20\s*\(?0\d{1,2}\)?\s*[0-9\s\-]{7,10})",
+            r"\b(02[- ]?[0-9\s\-]{7,9})\b",
+        ], text)
+        return landline
 
     def _extract_fax(self, text: str) -> Optional[str]:
         return self.find_first([
@@ -329,7 +341,7 @@ class MasterDataEntityExtractor(BaseExtractor):
             "SHIPPER COUNTRY", "EXPORTER COUNTRY", "COUNTRY CODE", "COUNTRY:", "ORIGIN:",
             "VAT NUMBER", "VAT NO", "VAT REG", "TAX ID", "TAX NUMBER", "TAX NO", "P.IVA", "C.F.",
             "EGYPTIAN IMPORTER TAX ID", "EGYPTIAN IMPORTER ID", "IMPORTER TAX ID", "IMPORTER ID",
-            "PHONE", "TEL:", "TEL.", "MOB:", "MOBILE:", "FAX:", "E-MAIL", "EMAIL:", "URL:", "WEB:", "WEBSITE:",
+            "PHONE", "TEL:", "TEL.", "MOB:", "MOBILE:", "CEL:", "CEL ", "CELL:", "CELL ", "FAX:", "E-MAIL", "EMAIL:", "URL:", "WEB:", "WEBSITE:",
             "CARGOX", "SWIFT", "IBAN", "ACCOUNT NO", "BANK ACCOUNT", "CONTACT PERSON", "ATTN:", "ATTENTION:",
             "IMPORTER CARD", "COMMERCIAL REGISTER", "CR NO", "ENTERPRISE CODE", "POSTCODE:", "ZIP CODE:"
         ]
@@ -338,12 +350,13 @@ class MasterDataEntityExtractor(BaseExtractor):
             "ROAD", "RD", "STREET", "ST.", "ST ", "AVENUE", "AVE", "BLVD", "BOULEVARD", "LANE", "LN", "WAY",
             "DRIVE", "DR.", "PARK", "INDUSTRIAL", "ZONE", "BUILDING", "BLDG", "SUITE", "FLOOR", "UNIT",
             "TOWN", "CITY", "PROVINCE", "COUNTY", "DISTRICT", "NO.", "N0.", "POSTCODE", "P.O.", "PO BOX",
+            "PLOT", "PART", "SECTOR", "BLOCK",
             "VIA ", "STRASSE", "RUE ", "CALLE ", "SANQUHAR", "CHANGSHU", "SUZHOU", "CAIRO", "ALEXANDRIA",
             "MAADI", "SARAYAT", "ZAMALEK", "NASR CITY", "HELIOPOLIS", "GIZA", "6TH OF OCTOBER", "NEW CAIRO",
             "TAGAMOA", "DOKKI", "MOHANDESSIN", "PORT SAID", "SUEZ", "DAMMETTA", "10TH OF RAMADAN",
             "UNITED KINGDOM", "CHINA", "ITALY", "GERMANY", "LITHUANIA", "EGYPT",
-            "شارع", "طريق", "منطقة", "مدينة", "محافظة", "مبنى", "عمارة", "برج", "حي", "ميدان", "مجمع",
-            "المعادي", "سرايات المعادي", "مدينة نصر", "مصر الجديدة", "التجمع", "القاهرة", "الجيزة", "مصر"
+            "شارع", "طريق", "منطقة", "قطعة", "مجاورة", "مدينة", "محافظة", "مبنى", "عمارة", "برج", "حي", "ميدان", "مجمع",
+            "المعادي", "زهراء المعادي", "سرايات المعادي", "مدينة نصر", "مصر الجديدة", "التجمع", "القاهرة", "الجيزة", "مصر"
         ]
 
         addr_lines = []
@@ -357,7 +370,11 @@ class MasterDataEntityExtractor(BaseExtractor):
             # Skip metadata lines
             if any(upper.startswith(kw) or f"{kw}:" in upper or f"{kw} :" in upper for kw in meta_prefix_keywords):
                 continue
-            if any(kw in upper for kw in ["PHONE", "E-MAIL", "EMAIL", "WEBSITE", "FAX", "VAT REGISTRATION", "SHIPPER ID:", "EXPORTER ID:", "TAX ID:", "IMPORTER TAX ID"]):
+            if any(kw in upper for kw in ["PHONE", "E-MAIL", "EMAIL", "WEBSITE", "WWW.", "HTTP://", "HTTPS://", "FAX", "CEL:", "CELL:", "MOB:", "MOBILE:"]):
+                continue
+
+            # Skip standalone phone / number line
+            if re.match(r"^\+?[0-9\s\-\(\)\.]{7,25}$", line):
                 continue
 
             # Check if line looks like address

@@ -189,5 +189,22 @@ def test_foreign_supplier_with_bank_details():
     assert "chillers" in extracted["notes"]
 
 
+def test_craft_logistics_freight_forwarder_extraction():
+    raw_text = """
+    Craft Logistics
+    +2 (02) 23101798
+    Plot 69 |10th part | Zahraa El-Maadi| Cairo | Egypt
+    Cel: +20 1144885119
+    Email: sales3@craft-logistics.com
+    www.craft-logistics.com
+    """
+    extractor = MasterDataEntityExtractor()
+    extracted = extractor.extract(raw_text, {}, module_name="freight-forwarder-entity")
 
-
+    assert extracted["company_name"] == "Craft Logistics"
+    assert extracted["phone_number"] == "+2 (02) 23101798"
+    assert extracted["mobile_number"] == "+20 1144885119"
+    assert extracted["email"] == "sales3@craft-logistics.com"
+    assert extracted["website"] == "www.craft-logistics.com"
+    assert "Zahraa El-Maadi" in extracted["address"]
+    assert extracted["country_code"] == "EG"

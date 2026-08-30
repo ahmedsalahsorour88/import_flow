@@ -36,6 +36,8 @@ SUPPORTED_MODULES = {
     "customs-clearance",
     "freight-quotation",
     "freight-booking",
+    "clearance-quotation",
+    "customs-broker-quotation",
     "customs-consultation",
     "warehouse-receiving",
     "demurrage",
@@ -45,8 +47,15 @@ SUPPORTED_MODULES = {
     "master-data-entity",
     "supplier-entity",
     "importer-entity",
+    "import-company-entity",
     "partner-entity",
     "bank-entity",
+    "shipping-line-entity",
+    "customs-broker-entity",
+    "freight-forwarder-entity",
+    "inland-transport-entity",
+    "inspection-agency-entity",
+    "insurance-company-entity",
 }
 
 

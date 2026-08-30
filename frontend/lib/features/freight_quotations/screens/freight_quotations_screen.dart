@@ -21,7 +21,8 @@ import '../providers/freight_quotations_provider.dart';
 import '../widgets/freight_quotations_extractor_dialog.dart';
 
 class FreightQuotationsScreen extends ConsumerStatefulWidget {
-  const FreightQuotationsScreen({super.key});
+  final int? initialImportFileId;
+  const FreightQuotationsScreen({super.key, this.initialImportFileId});
 
   @override
   ConsumerState<FreightQuotationsScreen> createState() => _FreightQuotationsScreenState();
@@ -66,10 +67,105 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    if (widget.initialImportFileId != null) {
+      _selectedImportFileId = widget.initialImportFileId;
+    }
     Future.microtask(() {
       ref.read(freightQuotationsProvider.notifier).fetchRFQs();
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
+      ref.read(importFilesProvider.notifier).fetchImportFiles().then((_) {
+        if (widget.initialImportFileId != null && mounted) {
+          setState(() {
+            _populateFromImportFile(widget.initialImportFileId!);
+          });
+        }
+      });
     });
+  }
+
+  void _populateFromImportFile(int fileId) {
+    final importFilesList = ref.read(importFilesProvider).value ?? [];
+    final selectedFile = importFilesList.where((f) => f.importFileId == fileId).firstOrNull;
+    if (selectedFile == null) return;
+
+    // 1. Title (عنوان طلب عرض السعر)
+    if (selectedFile.customFileNumber != null && selectedFile.customFileNumber!.trim().isNotEmpty) {
+      _titleController.text = selectedFile.customFileNumber!.trim();
+    } else if (selectedFile.poNumber != null && selectedFile.poNumber!.trim().isNotEmpty) {
+      _titleController.text = '${selectedFile.poNumber} - ${selectedFile.supplierName}';
+    } else {
+      _titleController.text = '[${selectedFile.importFileCode}] ${selectedFile.supplierName}';
+    }
+
+    // 2. Shipping Method (وسيلة الشحن)
+    final sm = selectedFile.shipmentMode.trim();
+    if (sm == 'Sea FCL' || sm == 'Sea') {
+      _shippingMethod = 'Ocean FCL';
+    } else if (sm == 'Sea LCL') {
+      _shippingMethod = 'Ocean LCL';
+    } else if (sm == 'Air') {
+      _shippingMethod = 'Air Freight';
+    } else if (sm == 'Courier') {
+      _shippingMethod = 'Courier Express';
+    } else if (sm == 'Land') {
+      _shippingMethod = 'Inland Trucking';
+    } else if (sm == 'Multimodal' || sm == 'Multi-Modal') {
+      _shippingMethod = 'Multi-Modal';
+    } else if (sm.isNotEmpty) {
+      _shippingMethod = sm;
+    }
+
+    // 3. Cargo Ready Date (تاريخ جاهزية البضاعة CRD)
+    if (selectedFile.cargoReadyDate != null && selectedFile.cargoReadyDate!.trim().isNotEmpty) {
+      final parsedDate = DateTime.tryParse(selectedFile.cargoReadyDate!.trim());
+      if (parsedDate != null) {
+        _crdDate = parsedDate;
+      }
+    }
+
+    // 4. Port of Loading (ميناء التحميل POL)
+    if (selectedFile.portOfLoading != null && selectedFile.portOfLoading!.trim().isNotEmpty) {
+      _polName = selectedFile.portOfLoading!.trim();
+    }
+
+    // 5. Port of Discharge (ميناء الوصول POD)
+    if (selectedFile.portOfDischarge != null && selectedFile.portOfDischarge!.trim().isNotEmpty) {
+      _podName = selectedFile.portOfDischarge!.trim();
+    }
+
+    // 6. CBM & Weight calculation (إجمالي الحجم والوزن القائم)
+    double calcCbm = 0.0;
+    double calcWeight = 0.0;
+    bool? foundStackable;
+
+    if (selectedFile.packingListsData.isNotEmpty) {
+      for (var pl in selectedFile.packingListsData) {
+        calcCbm += pl.cbm;
+        calcWeight += pl.grossWeightKg;
+        if (pl.isStackable != null) {
+          foundStackable = pl.isStackable;
+        }
+      }
+    }
+    if (calcCbm == 0 && calcWeight == 0) {
+      final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
+      final filePoIds = selectedFile.poIds ?? [];
+      for (var po in allPOs) {
+        if (filePoIds.contains(po.poId) || po.importFileId == selectedFile.importFileId) {
+          if (po.packingListItems.isNotEmpty) {
+            for (var pl in po.packingListItems) {
+              calcCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
+              calcWeight += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
+            }
+          } else {
+            calcCbm += po.totalCbm;
+            calcWeight += po.totalGrossWeightKg;
+          }
+        }
+      }
+    }
+    if (calcCbm > 0) _cbmController.text = calcCbm.toStringAsFixed(2);
+    if (calcWeight > 0) _weightController.text = calcWeight.toStringAsFixed(1);
+    if (foundStackable != null) _isStackable = foundStackable;
   }
 
   @override
@@ -1440,37 +1536,7 @@ Best regards,
                                     setState(() {
                                       _selectedImportFileId = v;
                                       if (v != null) {
-                                        final importFilesList = ref.read(importFilesProvider).value ?? [];
-                                        final selectedFile = importFilesList.where((f) => f.importFileId == v).firstOrNull;
-                                        if (selectedFile != null) {
-                                          double calcCbm = 0.0;
-                                          double calcWeight = 0.0;
-                                          if (selectedFile.packingListsData.isNotEmpty) {
-                                            for (var pl in selectedFile.packingListsData) {
-                                              calcCbm += pl.cbm;
-                                              calcWeight += pl.grossWeightKg;
-                                            }
-                                          }
-                                          if (calcCbm == 0 && calcWeight == 0) {
-                                            final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
-                                            final filePoIds = selectedFile.poIds ?? [];
-                                            for (var po in allPOs) {
-                                              if (filePoIds.contains(po.poId) || po.importFileId == selectedFile.importFileId) {
-                                                if (po.packingListItems.isNotEmpty) {
-                                                  for (var pl in po.packingListItems) {
-                                                    calcCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
-                                                    calcWeight += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
-                                                  }
-                                                } else {
-                                                  calcCbm += po.totalCbm;
-                                                  calcWeight += po.totalGrossWeightKg;
-                                                }
-                                              }
-                                            }
-                                          }
-                                          if (calcCbm > 0) _cbmController.text = calcCbm.toStringAsFixed(2);
-                                          if (calcWeight > 0) _weightController.text = calcWeight.toStringAsFixed(1);
-                                        }
+                                        _populateFromImportFile(v);
                                       }
                                     });
                                   },
@@ -1496,7 +1562,9 @@ Best regards,
                                     SearchableDropdownItem(value: 'Ocean FCL', label: 'Ocean FCL (شحن بحري كامل)'),
                                     SearchableDropdownItem(value: 'Ocean LCL', label: 'Ocean LCL (شحن بحري جزئي)'),
                                     SearchableDropdownItem(value: 'Air Freight', label: 'Air Freight (شحن جوي)'),
+                                    SearchableDropdownItem(value: 'Courier Express', label: 'Courier Express (بريد سريع / شحن سريع)'),
                                     SearchableDropdownItem(value: 'Inland Trucking', label: 'Inland Trucking (شحن بري)'),
+                                    SearchableDropdownItem(value: 'Multi-Modal', label: 'Multi-Modal (نقل متعدد الوسائط)'),
                                   ],
                                   onChanged: (val) {
                                     if (val != null) setState(() => _shippingMethod = val);
@@ -1524,10 +1592,14 @@ Best regards,
                             children: [
                               Expanded(
                                 child: SearchableDropdownField<String>(
-                                  value: portsList.any((p) => p.locationName == _polName) ? _polName : (portsList.isNotEmpty ? portsList.first.locationName : _polName),
+                                  value: _polName.isNotEmpty ? _polName : (portsList.isNotEmpty ? portsList.first.locationName : 'Shanghai Port (CN SHA), China'),
                                   labelText: 'ميناء التحميل (POL) *',
                                   searchHintText: 'ابحث عن ميناء التحميل...',
-                                  items: portsList.map((p) => SearchableDropdownItem<String>(value: p.locationName, label: p.locationName)).toList(),
+                                  items: [
+                                    if (_polName.isNotEmpty && !portsList.any((p) => p.locationName == _polName))
+                                      SearchableDropdownItem<String>(value: _polName, label: _polName),
+                                    ...portsList.map((p) => SearchableDropdownItem<String>(value: p.locationName, label: p.locationName)),
+                                  ],
                                   onChanged: (val) {
                                     if (val != null) setState(() => _polName = val);
                                   },
@@ -1536,10 +1608,14 @@ Best regards,
                               const SizedBox(width: 12),
                               Expanded(
                                 child: SearchableDropdownField<String>(
-                                  value: portsList.any((p) => p.locationName == _podName) ? _podName : (portsList.length > 1 ? portsList[1].locationName : _podName),
+                                  value: _podName.isNotEmpty ? _podName : (portsList.length > 1 ? portsList[1].locationName : 'Alexandria Port (EG ALX), Egypt'),
                                   labelText: 'ميناء الوصول (POD) *',
                                   searchHintText: 'ابحث عن ميناء الوصول...',
-                                  items: portsList.map((p) => SearchableDropdownItem<String>(value: p.locationName, label: p.locationName)).toList(),
+                                  items: [
+                                    if (_podName.isNotEmpty && !portsList.any((p) => p.locationName == _podName))
+                                      SearchableDropdownItem<String>(value: _podName, label: _podName),
+                                    ...portsList.map((p) => SearchableDropdownItem<String>(value: p.locationName, label: p.locationName)),
+                                  ],
                                   onChanged: (val) {
                                     if (val != null) setState(() => _podName = val);
                                   },

@@ -743,14 +743,20 @@ class ProductionSyncService:
                 parts.append(0)
             return tuple(parts[:3])
 
-        remote_url = custom_remote_url or "https://raw.githubusercontent.com/ahmedsalahsorour88/import_flow/main/version.json"
+        import time
+        ts = int(time.time())
+        remote_url = custom_remote_url or f"https://raw.githubusercontent.com/ahmedsalahsorour88/import_flow/main/version.json?_t={ts}"
 
         try:
             req = urllib.request.Request(
                 remote_url,
-                headers={"User-Agent": "ImportFlow-Update-Engine"},
+                headers={
+                    "User-Agent": "ImportFlow-Update-Engine",
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                },
             )
-            with urllib.request.urlopen(req, timeout=2.5) as resp:
+            with urllib.request.urlopen(req, timeout=3.5) as resp:
                 if resp.status == 200:
                     remote_data = json.loads(resp.read().decode("utf-8"))
                     latest_ver = remote_data.get("version", curr_ver)
@@ -820,12 +826,18 @@ class ProductionSyncService:
         """
         from modules.production_sync.schemas import InstallerInfoSchema
         import urllib.request
+        import time
 
-        remote_url = "https://raw.githubusercontent.com/ahmedsalahsorour88/import_flow/main/version.json"
+        ts = int(time.time())
+        remote_url = f"https://raw.githubusercontent.com/ahmedsalahsorour88/import_flow/main/version.json?_t={ts}"
         try:
             req = urllib.request.Request(
                 remote_url,
-                headers={"User-Agent": "ImportFlow-AutoUpdater"},
+                headers={
+                    "User-Agent": "ImportFlow-AutoUpdater",
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                },
             )
             with urllib.request.urlopen(req, timeout=5) as resp:
                 if resp.status == 200:

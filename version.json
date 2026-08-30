@@ -1,12 +1,12 @@
 {
   "major": 1,
   "minor": 0,
-  "patch": 96,
-  "version": "1.0.96",
-  "build_number": 97,
-  "updated_at": "2026-08-30 14:27:34",
-  "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.96/Sorour_Logistics_Setup_v1.0.96.exe",
-  "installer_filename": "Sorour_Logistics_Setup_v1.0.96.exe",
+  "patch": 97,
+  "version": "1.0.97",
+  "build_number": 98,
+  "updated_at": "2026-08-30 14:39:09",
+  "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.97/Sorour_Logistics_Setup_v1.0.97.exe",
+  "installer_filename": "Sorour_Logistics_Setup_v1.0.97.exe",
   "installer_size_mb": 197.67,
   "release_notes": [
     "إنشاء Release جديد على GitHub بالـ Tag v1.0.91 ورفع ملف Sorour_Logistics_Setup_v1.0.91.exe.",

@@ -171,4 +171,21 @@ class ShippingScenarioItem(Base):
     extra_day_storage_price = Column(Float, default=0.0, nullable=False)
     extra_day_storage_currency = Column(String(10), default="USD", nullable=False)
 
+    # Customs clearance quotation integration fields
+    clearance_fee_applicable = Column(Boolean, default=False, nullable=False)
+    clearance_fee_price = Column(Float, default=0.0, nullable=False)
+    clearance_fee_currency = Column(String(10), default="EGP", nullable=False)
+
+    inspection_fee_applicable = Column(Boolean, default=False, nullable=False)
+    inspection_fee_price = Column(Float, default=0.0, nullable=False)
+    inspection_fee_currency = Column(String(10), default="EGP", nullable=False)
+
+    inland_transport_fee_applicable = Column(Boolean, default=False, nullable=False)
+    inland_transport_fee_price = Column(Float, default=0.0, nullable=False)
+    inland_transport_fee_currency = Column(String(10), default="EGP", nullable=False)
+
+    port_expenses_applicable = Column(Boolean, default=False, nullable=False)
+    port_expenses_price = Column(Float, default=0.0, nullable=False)
+    port_expenses_currency = Column(String(10), default="EGP", nullable=False)
+
     session = relationship("ShippingEvaluationSession", back_populates="items")

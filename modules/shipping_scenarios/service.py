@@ -130,6 +130,18 @@ class ShippingScenarioService:
                 extra_day_storage_applicable=item.extra_day_storage_applicable,
                 extra_day_storage_price=item.extra_day_storage_price,
                 extra_day_storage_currency=item.extra_day_storage_currency,
+                clearance_fee_applicable=item.clearance_fee_applicable,
+                clearance_fee_price=item.clearance_fee_price,
+                clearance_fee_currency=item.clearance_fee_currency,
+                inspection_fee_applicable=item.inspection_fee_applicable,
+                inspection_fee_price=item.inspection_fee_price,
+                inspection_fee_currency=item.inspection_fee_currency,
+                inland_transport_fee_applicable=item.inland_transport_fee_applicable,
+                inland_transport_fee_price=item.inland_transport_fee_price,
+                inland_transport_fee_currency=item.inland_transport_fee_currency,
+                port_expenses_applicable=item.port_expenses_applicable,
+                port_expenses_price=item.port_expenses_price,
+                port_expenses_currency=item.port_expenses_currency,
             )
             calculated_items.append(calc_item)
 

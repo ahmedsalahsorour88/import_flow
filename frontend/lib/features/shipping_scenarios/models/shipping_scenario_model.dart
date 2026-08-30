@@ -103,6 +103,23 @@ class ShippingScenarioItemModel {
   final double extraDayStoragePrice;
   final String extraDayStorageCurrency;
 
+  // Customs clearance quotation integration fields
+  final bool clearanceFeeApplicable;
+  final double clearanceFeePrice;
+  final String clearanceFeeCurrency;
+
+  final bool inspectionFeeApplicable;
+  final double inspectionFeePrice;
+  final String inspectionFeeCurrency;
+
+  final bool inlandTransportFeeApplicable;
+  final double inlandTransportFeePrice;
+  final String inlandTransportFeeCurrency;
+
+  final bool portExpensesApplicable;
+  final double portExpensesPrice;
+  final String portExpensesCurrency;
+
   ShippingScenarioItemModel({
     this.itemId,
     this.providerId,
@@ -204,6 +221,22 @@ class ShippingScenarioItemModel {
     this.extraDayStorageApplicable = false,
     this.extraDayStoragePrice = 0.0,
     this.extraDayStorageCurrency = 'USD',
+
+    this.clearanceFeeApplicable = false,
+    this.clearanceFeePrice = 0.0,
+    this.clearanceFeeCurrency = 'EGP',
+
+    this.inspectionFeeApplicable = false,
+    this.inspectionFeePrice = 0.0,
+    this.inspectionFeeCurrency = 'EGP',
+
+    this.inlandTransportFeeApplicable = false,
+    this.inlandTransportFeePrice = 0.0,
+    this.inlandTransportFeeCurrency = 'EGP',
+
+    this.portExpensesApplicable = false,
+    this.portExpensesPrice = 0.0,
+    this.portExpensesCurrency = 'EGP',
   });
 
   factory ShippingScenarioItemModel.fromJson(Map<String, dynamic> json) {
@@ -319,6 +352,22 @@ class ShippingScenarioItemModel {
       extraDayStorageApplicable: json['extra_day_storage_applicable'] ?? false,
       extraDayStoragePrice: toDouble(json['extra_day_storage_price']),
       extraDayStorageCurrency: json['extra_day_storage_currency'] ?? 'USD',
+
+      clearanceFeeApplicable: json['clearance_fee_applicable'] ?? false,
+      clearanceFeePrice: toDouble(json['clearance_fee_price']),
+      clearanceFeeCurrency: json['clearance_fee_currency'] ?? 'EGP',
+
+      inspectionFeeApplicable: json['inspection_fee_applicable'] ?? false,
+      inspectionFeePrice: toDouble(json['inspection_fee_price']),
+      inspectionFeeCurrency: json['inspection_fee_currency'] ?? 'EGP',
+
+      inlandTransportFeeApplicable: json['inland_transport_fee_applicable'] ?? false,
+      inlandTransportFeePrice: toDouble(json['inland_transport_fee_price']),
+      inlandTransportFeeCurrency: json['inland_transport_fee_currency'] ?? 'EGP',
+
+      portExpensesApplicable: json['port_expenses_applicable'] ?? false,
+      portExpensesPrice: toDouble(json['port_expenses_price']),
+      portExpensesCurrency: json['port_expenses_currency'] ?? 'EGP',
     );
   }
 
@@ -419,6 +468,22 @@ class ShippingScenarioItemModel {
       'extra_day_storage_applicable': extraDayStorageApplicable,
       'extra_day_storage_price': extraDayStoragePrice,
       'extra_day_storage_currency': extraDayStorageCurrency,
+
+      'clearance_fee_applicable': clearanceFeeApplicable,
+      'clearance_fee_price': clearanceFeePrice,
+      'clearance_fee_currency': clearanceFeeCurrency,
+
+      'inspection_fee_applicable': inspectionFeeApplicable,
+      'inspection_fee_price': inspectionFeePrice,
+      'inspection_fee_currency': inspectionFeeCurrency,
+
+      'inland_transport_fee_applicable': inlandTransportFeeApplicable,
+      'inland_transport_fee_price': inlandTransportFeePrice,
+      'inland_transport_fee_currency': inlandTransportFeeCurrency,
+
+      'port_expenses_applicable': portExpensesApplicable,
+      'port_expenses_price': portExpensesPrice,
+      'port_expenses_currency': portExpensesCurrency,
     };
   }
 
@@ -507,6 +572,22 @@ class ShippingScenarioItemModel {
     bool? extraDayStorageApplicable,
     double? extraDayStoragePrice,
     String? extraDayStorageCurrency,
+
+    bool? clearanceFeeApplicable,
+    double? clearanceFeePrice,
+    String? clearanceFeeCurrency,
+
+    bool? inspectionFeeApplicable,
+    double? inspectionFeePrice,
+    String? inspectionFeeCurrency,
+
+    bool? inlandTransportFeeApplicable,
+    double? inlandTransportFeePrice,
+    String? inlandTransportFeeCurrency,
+
+    bool? portExpensesApplicable,
+    double? portExpensesPrice,
+    String? portExpensesCurrency,
   }) {
     return ShippingScenarioItemModel(
       itemId: itemId ?? this.itemId,
@@ -594,6 +675,22 @@ class ShippingScenarioItemModel {
       extraDayStorageApplicable: extraDayStorageApplicable ?? this.extraDayStorageApplicable,
       extraDayStoragePrice: extraDayStoragePrice ?? this.extraDayStoragePrice,
       extraDayStorageCurrency: extraDayStorageCurrency ?? this.extraDayStorageCurrency,
+
+      clearanceFeeApplicable: clearanceFeeApplicable ?? this.clearanceFeeApplicable,
+      clearanceFeePrice: clearanceFeePrice ?? this.clearanceFeePrice,
+      clearanceFeeCurrency: clearanceFeeCurrency ?? this.clearanceFeeCurrency,
+
+      inspectionFeeApplicable: inspectionFeeApplicable ?? this.inspectionFeeApplicable,
+      inspectionFeePrice: inspectionFeePrice ?? this.inspectionFeePrice,
+      inspectionFeeCurrency: inspectionFeeCurrency ?? this.inspectionFeeCurrency,
+
+      inlandTransportFeeApplicable: inlandTransportFeeApplicable ?? this.inlandTransportFeeApplicable,
+      inlandTransportFeePrice: inlandTransportFeePrice ?? this.inlandTransportFeePrice,
+      inlandTransportFeeCurrency: inlandTransportFeeCurrency ?? this.inlandTransportFeeCurrency,
+
+      portExpensesApplicable: portExpensesApplicable ?? this.portExpensesApplicable,
+      portExpensesPrice: portExpensesPrice ?? this.portExpensesPrice,
+      portExpensesCurrency: portExpensesCurrency ?? this.portExpensesCurrency,
     );
   }
 }

@@ -137,6 +137,18 @@ class ShippingScenarioRepository:
                 extra_day_storage_applicable=item_data.extra_day_storage_applicable,
                 extra_day_storage_price=item_data.extra_day_storage_price,
                 extra_day_storage_currency=item_data.extra_day_storage_currency,
+                clearance_fee_applicable=item_data.clearance_fee_applicable,
+                clearance_fee_price=item_data.clearance_fee_price,
+                clearance_fee_currency=item_data.clearance_fee_currency,
+                inspection_fee_applicable=item_data.inspection_fee_applicable,
+                inspection_fee_price=item_data.inspection_fee_price,
+                inspection_fee_currency=item_data.inspection_fee_currency,
+                inland_transport_fee_applicable=item_data.inland_transport_fee_applicable,
+                inland_transport_fee_price=item_data.inland_transport_fee_price,
+                inland_transport_fee_currency=item_data.inland_transport_fee_currency,
+                port_expenses_applicable=item_data.port_expenses_applicable,
+                port_expenses_price=item_data.port_expenses_price,
+                port_expenses_currency=item_data.port_expenses_currency,
             )
             db.add(item_obj)
 
@@ -292,6 +304,18 @@ class ShippingScenarioRepository:
                     extra_day_storage_applicable=item_data.extra_day_storage_applicable,
                     extra_day_storage_price=item_data.extra_day_storage_price,
                     extra_day_storage_currency=item_data.extra_day_storage_currency,
+                    clearance_fee_applicable=item_data.clearance_fee_applicable,
+                    clearance_fee_price=item_data.clearance_fee_price,
+                    clearance_fee_currency=item_data.clearance_fee_currency,
+                    inspection_fee_applicable=item_data.inspection_fee_applicable,
+                    inspection_fee_price=item_data.inspection_fee_price,
+                    inspection_fee_currency=item_data.inspection_fee_currency,
+                    inland_transport_fee_applicable=item_data.inland_transport_fee_applicable,
+                    inland_transport_fee_price=item_data.inland_transport_fee_price,
+                    inland_transport_fee_currency=item_data.inland_transport_fee_currency,
+                    port_expenses_applicable=item_data.port_expenses_applicable,
+                    port_expenses_price=item_data.port_expenses_price,
+                    port_expenses_currency=item_data.port_expenses_currency,
                 )
                 db.add(item_obj)
 

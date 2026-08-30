@@ -99,6 +99,23 @@ class ShippingScenarioItemBase(BaseModel):
     extra_day_storage_price: float = 0.0
     extra_day_storage_currency: str = "USD"
 
+    # Customs clearance quotation integration fields
+    clearance_fee_applicable: bool = False
+    clearance_fee_price: float = 0.0
+    clearance_fee_currency: str = "EGP"
+
+    inspection_fee_applicable: bool = False
+    inspection_fee_price: float = 0.0
+    inspection_fee_currency: str = "EGP"
+
+    inland_transport_fee_applicable: bool = False
+    inland_transport_fee_price: float = 0.0
+    inland_transport_fee_currency: str = "EGP"
+
+    port_expenses_applicable: bool = False
+    port_expenses_price: float = 0.0
+    port_expenses_currency: str = "EGP"
+
 
 class ShippingScenarioItemCreate(ShippingScenarioItemBase):
     pass
@@ -198,6 +215,23 @@ class ShippingScenarioItemUpdate(BaseModel):
     extra_day_storage_applicable: Optional[bool] = None
     extra_day_storage_price: Optional[float] = None
     extra_day_storage_currency: Optional[str] = None
+
+    clearance_fee_applicable: Optional[bool] = None
+    clearance_fee_price: Optional[float] = None
+    clearance_fee_currency: Optional[str] = None
+
+    inspection_fee_applicable: Optional[bool] = None
+    inspection_fee_price: Optional[float] = None
+    inspection_fee_currency: Optional[str] = None
+
+    inland_transport_fee_applicable: Optional[bool] = None
+    inland_transport_fee_price: Optional[float] = None
+    inland_transport_fee_currency: Optional[str] = None
+
+    port_expenses_applicable: Optional[bool] = None
+    port_expenses_price: Optional[float] = None
+    port_expenses_currency: Optional[str] = None
+
 
 
 class ShippingScenarioItemCalculated(ShippingScenarioItemBase):

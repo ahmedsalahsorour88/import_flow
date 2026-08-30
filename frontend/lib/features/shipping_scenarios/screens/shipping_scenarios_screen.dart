@@ -271,6 +271,20 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       total += convert(item.extraDayStoragePrice, item.extraDayStorageCurrency);
     }
 
+    // 4 Customs Clearance & Broker Fee Items
+    if (item.clearanceFeeApplicable) {
+      total += convert(item.clearanceFeePrice, item.clearanceFeeCurrency);
+    }
+    if (item.inspectionFeeApplicable) {
+      total += convert(item.inspectionFeePrice, item.inspectionFeeCurrency);
+    }
+    if (item.inlandTransportFeeApplicable) {
+      total += convert(item.inlandTransportFeePrice, item.inlandTransportFeeCurrency);
+    }
+    if (item.portExpensesApplicable) {
+      total += convert(item.portExpensesPrice, item.portExpensesCurrency);
+    }
+
     return total;
   }
 
@@ -1876,9 +1890,22 @@ Best regards,
                                     ],
                                     onChanged: (val) {
                                       final partner = customsBrokers.where((p) => p.providerId == val).firstOrNull;
+                                      final hasClearance = item.clearanceFeePrice > 0;
                                       _updateItem(idx, item.copyWith(
                                         customsBrokerId: val,
                                         customsBrokerName: partner?.partnerName,
+                                        clearanceFeeApplicable: val != null ? true : item.clearanceFeeApplicable,
+                                        clearanceFeePrice: (!hasClearance && val != null) ? 2500.0 : item.clearanceFeePrice,
+                                        clearanceFeeCurrency: "EGP",
+                                        inspectionFeeApplicable: val != null ? true : item.inspectionFeeApplicable,
+                                        inspectionFeePrice: (!hasClearance && val != null) ? 3500.0 : item.inspectionFeePrice,
+                                        inspectionFeeCurrency: "EGP",
+                                        inlandTransportFeeApplicable: val != null ? true : item.inlandTransportFeeApplicable,
+                                        inlandTransportFeePrice: (!hasClearance && val != null) ? 14800.0 : item.inlandTransportFeePrice,
+                                        inlandTransportFeeCurrency: "EGP",
+                                        portExpensesApplicable: val != null ? true : item.portExpensesApplicable,
+                                        portExpensesPrice: (!hasClearance && val != null) ? 4750.0 : item.portExpensesPrice,
+                                        portExpensesCurrency: "EGP",
                                       ), currenciesList);
                                     },
                                   ),
@@ -2280,6 +2307,50 @@ Best regards,
                                        onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(extraDayStorageCurrency: v), currenciesList),
                                        currenciesList: currenciesList,
                                      ),
+                                     _buildCostRow(
+                                       rowKey: 'clearanceFee_\$idx',
+                                       title: '18. أتعاب التخليص الجمركي (Customs Broker Fee)',
+                                       applicable: item.clearanceFeeApplicable,
+                                       price: item.clearanceFeePrice,
+                                       currency: item.clearanceFeeCurrency,
+                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(clearanceFeeApplicable: v), currenciesList),
+                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(clearanceFeePrice: v), currenciesList),
+                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(clearanceFeeCurrency: v), currenciesList),
+                                       currenciesList: currenciesList,
+                                     ),
+                                     _buildCostRow(
+                                       rowKey: 'inspectionFee_\$idx',
+                                       title: '19. مصاريف الفحص والعرض الجمركي (Inspection & Approvals)',
+                                       applicable: item.inspectionFeeApplicable,
+                                       price: item.inspectionFeePrice,
+                                       currency: item.inspectionFeeCurrency,
+                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(inspectionFeeApplicable: v), currenciesList),
+                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(inspectionFeePrice: v), currenciesList),
+                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(inspectionFeeCurrency: v), currenciesList),
+                                       currenciesList: currenciesList,
+                                     ),
+                                     _buildCostRow(
+                                       rowKey: 'inlandTransport_\$idx',
+                                       title: '20. النقل والتعتيق الداخلي للمصنع (Inland Transport)',
+                                       applicable: item.inlandTransportFeeApplicable,
+                                       price: item.inlandTransportFeePrice,
+                                       currency: item.inlandTransportFeeCurrency,
+                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(inlandTransportFeeApplicable: v), currenciesList),
+                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(inlandTransportFeePrice: v), currenciesList),
+                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(inlandTransportFeeCurrency: v), currenciesList),
+                                       currenciesList: currenciesList,
+                                     ),
+                                     _buildCostRow(
+                                       rowKey: 'portExpenses_\$idx',
+                                       title: '21. مصاريف الموانئ والأرضيات والتخليص (Port & Clearance Expenses)',
+                                       applicable: item.portExpensesApplicable,
+                                       price: item.portExpensesPrice,
+                                       currency: item.portExpensesCurrency,
+                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(portExpensesApplicable: v), currenciesList),
+                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(portExpensesPrice: v), currenciesList),
+                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(portExpensesCurrency: v), currenciesList),
+                                       currenciesList: currenciesList,
+                                     ),
                                     
                                     const Divider(height: 16),
                                     Container(
@@ -2357,7 +2428,18 @@ Best regards,
                                     DataCell(Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red))),
                                     DataCell(Text('${c["expectedWhDate"]}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
                                     DataCell(Text('${c["totalDays"]} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
-                                    DataCell(Text(item.customsBrokerName ?? '-')),
+                                    DataCell(Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(item.customsBrokerName ?? '-', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                        if (item.clearanceFeePrice > 0 || item.inlandTransportFeePrice > 0)
+                                          Text(
+                                            'تخليص: ' + ((item.clearanceFeeApplicable ? item.clearanceFeePrice : 0) + (item.inspectionFeeApplicable ? item.inspectionFeePrice : 0) + (item.inlandTransportFeeApplicable ? item.inlandTransportFeePrice : 0) + (item.portExpensesApplicable ? item.portExpensesPrice : 0)).toStringAsFixed(0) + ' ' + item.clearanceFeeCurrency,
+                                            style: TextStyle(fontSize: 10, color: Colors.green.shade800, fontWeight: FontWeight.bold),
+                                          ),
+                                      ],
+                                    )),
                                     DataCell(Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11))),
                                     DataCell(Text('${item.vesselName} (${item.voyageNumber ?? "-"})')),
                                     DataCell(Text(item.sailingDate)),

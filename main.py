@@ -116,7 +116,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="ImportFlow ERP API",
-    version="1.0.97",
+    version="1.0.99",
 )
 
 # ==================================================
@@ -240,7 +240,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "ImportFlow ERP",
-        "version": "1.0.97",
+        "version": "1.0.99",
         "status": "running",
     }
 
@@ -271,7 +271,7 @@ def health_check():
     return {
         "status": "OK",
         "system": "ImportFlow ERP",
-        "version": "1.0.97",
+        "version": "1.0.99",
         "database": {
             "connected": db_exists,
             "path": db_path,
@@ -305,4 +305,4 @@ def shutdown_system():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=28080, log_config=None, access_log=False)
+    uvicorn.run("main:app", host="127.0.0.1", port=28080, log_config=None, access_log=False)

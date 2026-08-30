@@ -26,9 +26,59 @@ router = APIRouter(
 )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Main Parse Endpoint — Universal
-# ─────────────────────────────────────────────────────────────────────────────
+@router.post(
+    "/upload",
+    response_model=SmartUploadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Upload a document and extract fields (module_name passed in form data)",
+)
+async def upload_document_form(
+    file: UploadFile = File(..., description="PDF, Word, or image file"),
+    module_name: str = Form("clearance-quotation", description="Module name"),
+    save_session: bool = Form(True, description="Save session record"),
+    db: Session = Depends(get_db),
+):
+    validate_module_name(module_name)
+    file_type = validate_upload_file(file)
+    content_bytes = await file.read()
+    validate_file_size(content_bytes, file.filename or "unknown")
+    result = service.parse_uploaded_document(
+        db=db,
+        module_name=module_name,
+        filename=file.filename or "unknown",
+        file_type=file_type,
+        content_bytes=content_bytes,
+        save_session=save_session,
+    )
+    return SmartUploadResponse(**result)
+
+
+@router.post(
+    "/upload/{module}",
+    response_model=SmartUploadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Upload a document with module in path",
+)
+async def upload_document_path(
+    module: str,
+    file: UploadFile = File(..., description="PDF, Word, or image file"),
+    save_session: bool = Form(True, description="Save session record"),
+    db: Session = Depends(get_db),
+):
+    validate_module_name(module)
+    file_type = validate_upload_file(file)
+    content_bytes = await file.read()
+    validate_file_size(content_bytes, file.filename or "unknown")
+    result = service.parse_uploaded_document(
+        db=db,
+        module_name=module,
+        filename=file.filename or "unknown",
+        file_type=file_type,
+        content_bytes=content_bytes,
+        save_session=save_session,
+    )
+    return SmartUploadResponse(**result)
+
 
 @router.post(
     "/parse/{module}",

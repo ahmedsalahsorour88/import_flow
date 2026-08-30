@@ -549,14 +549,17 @@ def generate_freight_rfq_service(
     free_days = import_file.target_free_days or 21
     service_type = import_file.service_type_preference or "Direct"
 
-    # Detect if Air Freight
+    # Detect if Air Freight or Courier or Multimodal
     mode_str = (import_file.shipment_mode or "").lower()
     pol_lower = (pol or "").lower()
     pod_lower = (pod or "").lower()
-    is_air = ("air" in mode_str or "airport" in pol_lower or "airport" in pod_lower or "مطار" in pol_lower or "مطار" in pod_lower or "جوي" in mode_str)
+    is_courier = "courier" in mode_str or "بريد" in mode_str or "express" in mode_str
+    is_air = ("air" in mode_str or "airport" in pol_lower or "airport" in pod_lower or "مطار" in pol_lower or "مطار" in pod_lower or "جوي" in mode_str or is_courier)
+    is_multimodal = "multi" in mode_str or "متعدد" in mode_str
 
-    # Calculate Volumetric & Chargeable Weight for Air
-    volumetric_weight_air = total_cbm * 166.67 if total_cbm > 0 else 0.0
+    # Calculate Volumetric & Chargeable Weight for Air / Courier
+    divisor = 5000.0 if is_courier else 6000.0
+    volumetric_weight_air = total_cbm * (200.0 if is_courier else 166.67) if total_cbm > 0 else 0.0
     pl_vol_weight = 0.0
     for po in linked_pos:
         for pl_item in getattr(po, 'packing_list_items', []):
@@ -565,15 +568,19 @@ def generate_freight_rfq_service(
             w = float(pl_item.width_cm or 0)
             h = float(pl_item.height_cm or 0)
             if l > 0 and w > 0 and h > 0:
-                pl_vol_weight += ((l * w * h) / 6000.0) * qty
+                pl_vol_weight += ((l * w * h) / divisor) * qty
     if pl_vol_weight > volumetric_weight_air:
         volumetric_weight_air = pl_vol_weight
 
     chargeable_weight = max(gross_weight, volumetric_weight_air) if is_air else gross_weight
 
     # Calculate Recommended Containers / Mode Description
-    if is_air:
+    if is_courier:
+        recommended_containers = f"Courier Express ({total_cbm:.2f} CBM | Chg Wt: {chargeable_weight:,.1f} kg)"
+    elif is_air:
         recommended_containers = f"Air Freight ({total_cbm:.2f} CBM | Chg Wt: {chargeable_weight:,.1f} kg)"
+    elif is_multimodal:
+        recommended_containers = f"Multimodal Transport ({total_cbm:.2f} CBM | {gross_weight:,.1f} kg)"
     elif total_cbm >= 60:
         recommended_containers = "1 CTNR * 40HC + 1 CTNR * 20GP"
     elif total_cbm >= 30:

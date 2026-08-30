@@ -414,9 +414,12 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                         decoration: const InputDecoration(labelText: 'وسيلة النقل', isDense: true, border: OutlineInputBorder()),
                         items: const [
                           DropdownMenuItem(value: 'All', child: Text('الكل')),
-                          DropdownMenuItem(value: 'Sea', child: Text('بحري (Sea)')),
+                          DropdownMenuItem(value: 'Sea FCL', child: Text('بحري FCL')),
+                          DropdownMenuItem(value: 'Sea LCL', child: Text('بحري LCL')),
                           DropdownMenuItem(value: 'Air', child: Text('جوي (Air)')),
+                          DropdownMenuItem(value: 'Courier', child: Text('بريد سريع (Courier)')),
                           DropdownMenuItem(value: 'Land', child: Text('بري (Land)')),
+                          DropdownMenuItem(value: 'Multimodal', child: Text('متعدد الوسائط (Multimodal)')),
                         ],
                         onChanged: (v) => setState(() => _filterMode = v!),
                       ),

@@ -40,7 +40,7 @@ class ImportFileBase(BaseModel):
     packing_lists_data: Optional[List[Dict[str, Any]]] = Field(default_factory=list, description="Multiple Packing Lists")
     project_ids: Optional[List[int]] = Field(default_factory=list, description="List of linked Project IDs")
     project_names: Optional[str] = None
-    shipment_mode: str = Field("Sea FCL", description="Sea FCL, Sea LCL, Air, Land")
+    shipment_mode: str = Field("Sea FCL", description="Sea FCL, Sea LCL, Air, Courier, Land, Multimodal")
     incoterm_code: str = Field("FOB", description="FOB, CIF, CFR, etc.")
     priority: str = Field("High", description="Low, Medium, High, Critical")
     shipment_category: str = Field("New Purchase", description="New Purchase, Repair, Replacement, Sample")

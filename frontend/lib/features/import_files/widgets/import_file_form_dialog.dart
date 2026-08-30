@@ -593,13 +593,15 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                   children: [
                     Expanded(
                       child: SearchableDropdownField<String>(
-                        value: ['Sea FCL', 'Sea LCL', 'Air', 'Land'].contains(_shipmentMode) ? _shipmentMode : 'Sea FCL',
+                        value: ['Sea FCL', 'Sea LCL', 'Air', 'Courier', 'Land', 'Multimodal'].contains(_shipmentMode) ? _shipmentMode : 'Sea FCL',
                         labelText: '${l.transportModeIncoterm} *',
                         items: const [
-                          SearchableDropdownItem(value: 'Sea FCL', label: 'Sea FCL'),
-                          SearchableDropdownItem(value: 'Sea LCL', label: 'Sea LCL'),
-                          SearchableDropdownItem(value: 'Air', label: 'Air'),
-                          SearchableDropdownItem(value: 'Land', label: 'Land'),
+                          SearchableDropdownItem(value: 'Sea FCL', label: 'Sea FCL', searchValue: 'Sea FCL بحري حاوية كاملة'),
+                          SearchableDropdownItem(value: 'Sea LCL', label: 'Sea LCL', searchValue: 'Sea LCL بحري جزئي طرد'),
+                          SearchableDropdownItem(value: 'Air', label: 'Air', searchValue: 'Air جوي شحن جوي'),
+                          SearchableDropdownItem(value: 'Courier', label: 'Courier', searchValue: 'Courier Express بريد سريع شحن سريع DHL FedEx Aramex UPS'),
+                          SearchableDropdownItem(value: 'Land', label: 'Land', searchValue: 'Land بري شحن بري'),
+                          SearchableDropdownItem(value: 'Multimodal', label: 'Multimodal', searchValue: 'Multimodal multi modes متعدد الوسائط مركب'),
                         ],
                         onChanged: (v) => setState(() => _shipmentMode = v!),
                       ),

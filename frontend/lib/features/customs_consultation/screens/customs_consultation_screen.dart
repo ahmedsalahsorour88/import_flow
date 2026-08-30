@@ -24,6 +24,7 @@ import '../../customs_clearance_quotations/screens/customs_clearance_quotations_
 import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../projects/providers/projects_provider.dart';
 import '../../purchase_orders/models/purchase_order_model.dart';
@@ -375,6 +376,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     }
 
     _syncHsRequirementsToChecklist(silent: true);
+
+    // Auto-update estimated duties controller
+    final calcLines = _calculateCustomsLines();
+    final double totalTaxes = calcLines.fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp);
+    if (totalTaxes > 0) {
+      _estimatedDutiesController.text = totalTaxes.toStringAsFixed(2);
+    }
   }
 
   void _onPoChanged(int? poId) {
@@ -711,15 +719,16 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
     final tariffsList = ref.watch(customsTariffProvider).value ?? [];
 
+    ImportFileModel? file;
     List<PurchaseOrderModel> matchingPOs = [];
     if (_selectedImportFileId != null) {
       final importFiles = ref.watch(importFilesProvider).value ?? [];
-      final file = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
+      file = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
       if (file != null) {
         matchingPOs = allPOs.where((p) =>
-            (p.importFileId != null && p.importFileId == file.importFileId) ||
-            (file.importFileCode.isNotEmpty && p.importFileCode != null && p.importFileCode == file.importFileCode) ||
-            (file.poIds != null && p.poId != null && file.poIds!.contains(p.poId))).toList();
+            (p.importFileId != null && p.importFileId == file!.importFileId) ||
+            (file!.importFileCode.isNotEmpty && p.importFileCode != null && p.importFileCode == file!.importFileCode) ||
+            (file!.poIds != null && p.poId != null && file!.poIds!.contains(p.poId))).toList();
       }
     } else if (_selectedPoId != null) {
       matchingPOs = allPOs.where((p) => p.poId == _selectedPoId).toList();
@@ -729,7 +738,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final double totalFreightEgp = double.tryParse(_freightEgpController.text.trim()) ?? 0.0;
     final double totalInsuranceEgp = double.tryParse(_insuranceEgpController.text.trim()) ?? 0.0;
 
-    // Collect all line items paired with their parent PO
+    // 1. Calculate Aggregate Total of ALL Invoices attached to the Import File
+    double totalInvoicesForeign = 0.0;
+    if (file != null && file.invoicesData.isNotEmpty) {
+      for (final inv in file.invoicesData) {
+        totalInvoicesForeign += inv.amount;
+      }
+    }
+
+    // 2. Collect all line items paired with their parent PO
     final List<Map<String, dynamic>> flatLineEntries = [];
     for (final po in matchingPOs) {
       for (final item in po.items) {
@@ -740,16 +757,81 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       }
     }
 
+    // Pre-index tariffs for instant O(1) lookups
+    final Map<int, CustomsTariffModel> tariffById = {
+      for (final t in tariffsList) t.tariffId: t,
+    };
+    final Map<String, CustomsTariffModel> tariffByNormalizedHs = {
+      for (final t in tariffsList) t.hsCode.replaceAll('.', '').trim(): t,
+    };
+
+    // Case A: No PO Line items, but Invoices exist on the Import File
     if (flatLineEntries.isEmpty) {
+      if (totalInvoicesForeign > 0 && file != null) {
+        final List<CustomsItemCalcRow> result = [];
+        final int invCount = file.invoicesData.length;
+        for (int i = 0; i < invCount; i++) {
+          final inv = file.invoicesData[i];
+          final double invForeign = inv.amount;
+          final double fobEgp = invForeign * exchangeRate;
+          final double freightShare = invCount > 0 ? (totalFreightEgp / invCount) : 0.0;
+          final double insuranceShare = invCount > 0 ? (totalInsuranceEgp / invCount) : 0.0;
+          final double cifEgp = fobEgp + freightShare + insuranceShare;
+
+          final double effectiveDutyRate = 5.0;
+          final double dutyAmountEgp = cifEgp * (effectiveDutyRate / 100.0);
+          final double vatRate = 14.0;
+          final double vatBaseEgp = cifEgp + dutyAmountEgp;
+          final double vatAmountEgp = vatBaseEgp * (vatRate / 100.0);
+          final double svcRate = 1.0;
+          final double svcAmountEgp = cifEgp * (svcRate / 100.0);
+          final double totalLineTaxes = dutyAmountEgp + vatAmountEgp + svcAmountEgp;
+
+          result.add(CustomsItemCalcRow(
+            hsCode: '8479.89.90',
+            description: 'Commercial Invoice #${inv.invoiceNo} (${file.supplierName})',
+            qty: 1,
+            unit: 'SET',
+            foreignPrice: invForeign,
+            fobEgp: fobEgp,
+            freightEgp: freightShare,
+            insuranceEgp: insuranceShare,
+            cifEgp: cifEgp,
+            dutyRate: effectiveDutyRate,
+            baseDutyRate: effectiveDutyRate,
+            dutyAmountEgp: dutyAmountEgp,
+            vatRate: vatRate,
+            vatBaseEgp: vatBaseEgp,
+            vatAmountEgp: vatAmountEgp,
+            scheduleTaxRate: 0.0,
+            scheduleTaxAmountEgp: 0.0,
+            developmentFeeRate: 0.0,
+            developmentFeeAmountEgp: 0.0,
+            customsServiceFeeRate: svcRate,
+            customsServiceFeeAmountEgp: svcAmountEgp,
+            totalTaxesAndDutiesEgp: totalLineTaxes,
+            requiresCoo: true,
+            requiresInspection: false,
+            requiresAcid: true,
+            regulatoryAuthority: null,
+            priorApprovalNote: null,
+            countryOfOrigin: null,
+            appliedAgreementName: null,
+            hasExemption: false,
+            exemptionConditionsNote: null,
+            requiredDocument: null,
+          ));
+        }
+        return result;
+      }
       return [];
     }
 
-    // Compute total FOB in EGP
-    double totalFobEgp = 0.0;
-    for (final entry in flatLineEntries) {
-      final l = entry['item'] as POLineItemModel;
-      totalFobEgp += (l.totalPrice * exchangeRate);
-    }
+    // Case B: PO Line items exist -> Scale proportionally to Total Invoices if Invoices exist
+    final double poItemsFobSum = flatLineEntries.fold(0.0, (s, e) => s + (e['item'] as POLineItemModel).totalPrice);
+    final double effectiveFobForeign = totalInvoicesForeign > 0 ? totalInvoicesForeign : poItemsFobSum;
+    final double totalFobEgp = effectiveFobForeign * exchangeRate;
+    final double scaleFactor = (totalInvoicesForeign > 0 && poItemsFobSum > 0) ? (totalInvoicesForeign / poItemsFobSum) : 1.0;
 
     // Known Agreement Origin Sets
     const euCountries = {
@@ -761,14 +843,6 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     const gaftaCountries = {
       'SA', 'AE', 'JO', 'KW', 'OM', 'QA', 'BH', 'LB', 'IQ', 'SY',
       'YE', 'SD', 'LY', 'TN', 'DZ', 'MA', 'PS', 'EG'
-    };
-
-    // Pre-index tariffs for instant O(1) lookups
-    final Map<int, CustomsTariffModel> tariffById = {
-      for (final t in tariffsList) t.tariffId: t,
-    };
-    final Map<String, CustomsTariffModel> tariffByNormalizedHs = {
-      for (final t in tariffsList) t.hsCode.replaceAll('.', '').trim(): t,
     };
 
     final List<CustomsItemCalcRow> result = [];
@@ -848,7 +922,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       final double devRate = matchedTariff?.developmentFeeRate ?? 0.0;
       final double svcRate = matchedTariff?.customsServiceFeeRate ?? 1.0;
 
-      final double fobEgp = l.totalPrice * exchangeRate;
+      final double lineForeignPrice = l.totalPrice * scaleFactor;
+      final double fobEgp = lineForeignPrice * exchangeRate;
       final double freightShare = totalFobEgp > 0 ? (fobEgp / totalFobEgp * totalFreightEgp) : 0.0;
       final double insuranceShare = totalFobEgp > 0 ? (fobEgp / totalFobEgp * totalInsuranceEgp) : 0.0;
       final double cifEgp = fobEgp + freightShare + insuranceShare;
@@ -867,7 +942,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         description: l.descriptionAr.isNotEmpty ? l.descriptionAr : (matchedTariff?.hsDescription ?? loc.defaultImportItemDescription),
         qty: l.quantity,
         unit: l.unitOfMeasure,
-        foreignPrice: l.totalPrice,
+        foreignPrice: lineForeignPrice,
         fobEgp: fobEgp,
         freightEgp: freightShare,
         insuranceEgp: insuranceShare,
@@ -1676,6 +1751,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                           Row(
                             children: [
                               Expanded(
+                                flex: 3,
                                 child: SearchableDropdownField<int?>(
                                   value: _selectedImportFileId,
                                   labelText: l.linkImportFile,
@@ -1688,43 +1764,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
                                           value: f.importFileId,
                                           label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
-                                          subtitle: '${f.companyName} | ${l.customsBrokerLabel}: ${f.brokerName ?? ""}',
+                                          subtitle: '${f.companyName} | ${l.customsBrokerLabel}: ${f.brokerName ?? ""} | ${f.invoicesData.length} Invoices',
                                         )),
                                   ],
                                   onChanged: _onImportFileChanged,
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 16),
                               Expanded(
-                                child: SearchableDropdownField<int?>(
-                                  value: _selectedPoId,
-                                  labelText: l.linkPurchaseOrder,
-                                  searchHintText: '${l.search} ${l.linkPurchaseOrder}...',
-                                  items: [
-                                    SearchableDropdownItem<int?>(value: null, label: l.allFiles),
-                                    ...poList.map((po) => SearchableDropdownItem<int?>(
-                                          value: po.poId,
-                                          label: '${po.poNumber}${po.poReference != null && po.poReference!.isNotEmpty ? " - ${po.poReference}" : ""} (${po.supplierName ?? "Supplier"})',
-                                        )),
-                                  ],
-                                  onChanged: _onPoChanged,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: SearchableDropdownField<int?>(
-                                  value: _selectedProjectId,
-                                  labelText: l.linkProject,
-                                  searchHintText: '${l.search} ${l.linkProject}...',
-                                  items: [
-                                    SearchableDropdownItem<int?>(value: null, label: l.allFiles),
-                                    ...projectsList.map((pj) => SearchableDropdownItem<int?>(value: pj.projectId, label: '${pj.projectCode} - ${pj.projectName}')),
-                                  ],
-                                  onChanged: (val) => setState(() => _selectedProjectId = val),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
+                                flex: 2,
                                 child: TextFormField(
                                   controller: _estimatedDutiesController,
                                   keyboardType: TextInputType.number,
@@ -1737,6 +1785,62 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               ),
                             ],
                           ),
+                          if (_selectedImportFileId != null) ...[
+                            Builder(builder: (context) {
+                              final importFiles = ref.watch(importFilesProvider).value ?? [];
+                              final selFile = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
+                              if (selFile == null) return const SizedBox.shrink();
+
+                              final invCount = selFile.invoicesData.length;
+                              final double totalInvAmt = selFile.invoicesData.fold(0.0, (s, inv) => s + inv.amount);
+
+                              return Container(
+                                margin: const EdgeInsets.only(top: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cobalt.withOpacity(0.06),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                                ),
+                                child: Wrap(
+                                  spacing: 16,
+                                  runSpacing: 6,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.receipt_long, size: 16, color: AppTheme.cobalt),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'إجمالي الفواتير المربوطة: $invCount فواتير (${totalInvAmt > 0 ? totalInvAmt.toStringAsFixed(2) : "0.00"} $_customsCurrency)',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                        ),
+                                      ],
+                                    ),
+                                    if (selFile.poNumber != null && selFile.poNumber!.isNotEmpty)
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.shopping_cart_checkout, size: 16, color: AppTheme.emerald),
+                                          const SizedBox(width: 6),
+                                          Text('أمر الشراء: ${selFile.poNumber}', style: const TextStyle(fontSize: 12, color: AppTheme.charcoal)),
+                                        ],
+                                      ),
+                                    if (selFile.projectNames != null && selFile.projectNames!.isNotEmpty)
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.business, size: 16, color: AppTheme.charcoal),
+                                          const SizedBox(width: 6),
+                                          Text('المشروع: ${selFile.projectNames}', style: const TextStyle(fontSize: 12, color: AppTheme.charcoal)),
+                                        ],
+                                      ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
                         ],
                       ),
                     ),

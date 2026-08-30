@@ -256,6 +256,7 @@ class PurchaseOrderService:
         return PurchaseOrderResponse(
             po_id=po.po_id,
             po_number=po.po_number,
+            po_reference=getattr(po, "po_reference", None),
             import_file_id=po.import_file_id,
             import_file_code=import_file_code,
             proforma_invoice_number=po.proforma_invoice_number,

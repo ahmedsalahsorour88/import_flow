@@ -111,15 +111,24 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   final TextEditingController _cargoxIdCtrl = TextEditingController();
   final TextEditingController _foreignTaxIdCtrl = TextEditingController();
   final TextEditingController _brandsCtrl = TextEditingController();
-  String _supplierRegType = 'Commercial Register';
+  final TextEditingController _faxCtrl = TextEditingController();
+  final TextEditingController _bankNameCtrl = TextEditingController();
+  final TextEditingController _accountNumberCtrl = TextEditingController();
+  final TextEditingController _ibanCtrl = TextEditingController();
+  final TextEditingController _notesCtrl = TextEditingController();
+  String _supplierType = 'Manufacturer';
+  String _supplierRegType = 'Factory Registration';
+  bool _hasIso = false;
+  bool _registeredDecree43 = false;
+  bool _whiteListRegistered = false;
 
   final TextEditingController _taxIdCtrl = TextEditingController();
   final TextEditingController _commercialRegisterCtrl = TextEditingController();
   final TextEditingController _importerCardCtrl = TextEditingController();
   final TextEditingController _nafezaTokenCtrl = TextEditingController();
-  final DateTime _importerIdExpiry = DateTime.now().add(const Duration(days: 365));
-  final DateTime _vatIdExpiry = DateTime.now().add(const Duration(days: 365 * 3));
-  final DateTime _registrationExpiry = DateTime.now().add(const Duration(days: 365 * 2));
+  DateTime _importerIdExpiry = DateTime.now().add(const Duration(days: 365));
+  DateTime _vatIdExpiry = DateTime.now().add(const Duration(days: 365 * 3));
+  DateTime _registrationExpiry = DateTime.now().add(const Duration(days: 365 * 2));
 
   final TextEditingController _brokerLicenseCtrl = TextEditingController();
   final TextEditingController _portsCtrl = TextEditingController();
@@ -192,6 +201,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     _contactPersonCtrl.dispose();
     _phoneCtrl.dispose();
     _mobileCtrl.dispose();
+    _faxCtrl.dispose();
     _emailCtrl.dispose();
     _secondaryEmailCtrl.dispose();
     _websiteCtrl.dispose();
@@ -201,6 +211,10 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     _cargoxIdCtrl.dispose();
     _foreignTaxIdCtrl.dispose();
     _brandsCtrl.dispose();
+    _bankNameCtrl.dispose();
+    _accountNumberCtrl.dispose();
+    _ibanCtrl.dispose();
+    _notesCtrl.dispose();
     _taxIdCtrl.dispose();
     _commercialRegisterCtrl.dispose();
     _importerCardCtrl.dispose();
@@ -416,6 +430,29 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     }
   }
 
+  DateTime? _tryParseDate(dynamic val) {
+    if (val == null) return null;
+    final str = val.toString().trim();
+    if (str.isEmpty) return null;
+    final d = DateTime.tryParse(str);
+    if (d != null) return d;
+    final parts = str.split(RegExp(r'[-/]'));
+    if (parts.length == 3) {
+      if (parts[0].length == 4) {
+        final y = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        final day = int.tryParse(parts[2]);
+        if (y != null && m != null && day != null) return DateTime(y, m, day);
+      } else if (parts[2].length == 4) {
+        final day = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        final y = int.tryParse(parts[2]);
+        if (y != null && m != null && day != null) return DateTime(y, m, day);
+      }
+    }
+    return null;
+  }
+
   void _populateFields(Map<String, dynamic> ext, double score) {
     setState(() {
       _confidenceScore = score;
@@ -428,13 +465,28 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         _companyNameCtrl.text = ext['partner_name'].toString();
       }
 
-      if (ext['name_ar'] != null && ext['name_ar'].toString().isNotEmpty) {
+      if (ext['arabic_name'] != null && ext['arabic_name'].toString().isNotEmpty) {
+        _arabicNameCtrl.text = ext['arabic_name'].toString();
+      } else if (ext['name_ar'] != null && ext['name_ar'].toString().isNotEmpty) {
         _arabicNameCtrl.text = ext['name_ar'].toString();
       }
 
       if (ext['contact_person'] != null) _contactPersonCtrl.text = ext['contact_person'].toString();
-      if (ext['phone'] != null) _phoneCtrl.text = ext['phone'].toString();
-      if (ext['mobile'] != null) _mobileCtrl.text = ext['mobile'].toString();
+      if (ext['phone'] != null) {
+        _phoneCtrl.text = ext['phone'].toString();
+      } else if (ext['phone_number'] != null) {
+        _phoneCtrl.text = ext['phone_number'].toString();
+      }
+      if (ext['mobile'] != null) {
+        _mobileCtrl.text = ext['mobile'].toString();
+      } else if (ext['mobile_number'] != null) {
+        _mobileCtrl.text = ext['mobile_number'].toString();
+      }
+      if (ext['fax'] != null) {
+        _faxCtrl.text = ext['fax'].toString();
+      } else if (ext['fax_number'] != null) {
+        _faxCtrl.text = ext['fax_number'].toString();
+      }
       if (ext['email'] != null) _emailCtrl.text = ext['email'].toString();
       if (ext['secondary_email'] != null) _secondaryEmailCtrl.text = ext['secondary_email'].toString();
       if (ext['website'] != null) _websiteCtrl.text = ext['website'].toString();
@@ -448,21 +500,44 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           orElse: () => {'name': c, 'code': 'CN'},
         );
         _countryCodeCtrl.text = match['code']!;
+      } else if (ext['country_code'] != null && ext['country_code'].toString().isNotEmpty) {
+        final code = ext['country_code'].toString().toUpperCase();
+        final match = _countryList.firstWhere(
+          (item) => item['code']!.toUpperCase() == code,
+          orElse: () => {'name': code, 'code': code},
+        );
+        _countryCtrl.text = match['name']!;
+        _countryCodeCtrl.text = match['code']!;
       }
 
-      if (ext['cargox_id'] != null) _cargoxIdCtrl.text = ext['cargox_id'].toString();
+      if (ext['cargox_id'] != null) {
+        _cargoxIdCtrl.text = ext['cargox_id'].toString();
+      } else if (ext['cargox_platform_id'] != null) {
+        _cargoxIdCtrl.text = ext['cargox_platform_id'].toString();
+      }
       if (ext['foreign_exporter_id'] != null) {
         _foreignTaxIdCtrl.text = ext['foreign_exporter_id'].toString();
       } else if (ext['foreign_tax_id'] != null) {
         _foreignTaxIdCtrl.text = ext['foreign_tax_id'].toString();
+      } else if (ext['vat_tax_id'] != null) {
+        _foreignTaxIdCtrl.text = ext['vat_tax_id'].toString();
       }
       if (ext['brands'] != null) _brandsCtrl.text = ext['brands'].toString();
-      if (ext['registration_type'] != null) _supplierRegType = ext['registration_type'].toString();
+      if (ext['supplier_type'] != null && ext['supplier_type'].toString().isNotEmpty) {
+        _supplierType = ext['supplier_type'].toString();
+      }
+      if (ext['registration_type'] != null && ext['registration_type'].toString().isNotEmpty) {
+        _supplierRegType = ext['registration_type'].toString();
+      } else if (ext['supplier_registration_type'] != null && ext['supplier_registration_type'].toString().isNotEmpty) {
+        _supplierRegType = ext['supplier_registration_type'].toString();
+      }
 
       if (ext['vat_id'] != null) {
         _taxIdCtrl.text = ext['vat_id'].toString();
       } else if (ext['tax_id'] != null) {
         _taxIdCtrl.text = ext['tax_id'].toString();
+      } else if (ext['vat_tax_id'] != null) {
+        _taxIdCtrl.text = ext['vat_tax_id'].toString();
       }
       if (ext['registration_number'] != null) {
         _commercialRegisterCtrl.text = ext['registration_number'].toString();
@@ -476,18 +551,51 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
       }
       if (ext['nafeza_token_id'] != null) _nafezaTokenCtrl.text = ext['nafeza_token_id'].toString();
 
-      if (ext['clearance_license_number'] != null) _brokerLicenseCtrl.text = ext['clearance_license_number'].toString();
+      if (ext['importer_id_expiry'] != null) {
+        final d = _tryParseDate(ext['importer_id_expiry']);
+        if (d != null) _importerIdExpiry = d;
+      }
+      if (ext['vat_id_expiry'] != null) {
+        final d = _tryParseDate(ext['vat_id_expiry']);
+        if (d != null) _vatIdExpiry = d;
+      }
+      if (ext['registration_expiry'] != null) {
+        final d = _tryParseDate(ext['registration_expiry']);
+        if (d != null) _registrationExpiry = d;
+      }
+
+      if (ext['clearance_license_number'] != null) {
+        _brokerLicenseCtrl.text = ext['clearance_license_number'].toString();
+      } else if (ext['license_number'] != null) {
+        _brokerLicenseCtrl.text = ext['license_number'].toString();
+      }
       if (ext['ports'] != null) _portsCtrl.text = ext['ports'].toString();
       if (ext['scac_code'] != null) _scacCodeCtrl.text = ext['scac_code'].toString();
       if (ext['tracking_url'] != null) _trackingUrlCtrl.text = ext['tracking_url'].toString();
       if (ext['services_scope'] != null) _servicesScopeCtrl.text = ext['services_scope'].toString();
       if (ext['fleet_types'] != null) _fleetTypesCtrl.text = ext['fleet_types'].toString();
       if (ext['inspection_scope'] != null) _inspectionScopeCtrl.text = ext['inspection_scope'].toString();
-      if (ext['policy_terms'] != null) _policyTermsCtrl.text = ext['policy_terms'].toString();
+      if (ext['policy_terms'] != null) {
+        _policyTermsCtrl.text = ext['policy_terms'].toString();
+      } else if (ext['insurance_terms'] != null) {
+        _policyTermsCtrl.text = ext['insurance_terms'].toString();
+      }
 
       if (ext['swift_code'] != null) _swiftCodeCtrl.text = ext['swift_code'].toString();
+      if (ext['bank_name'] != null) _bankNameCtrl.text = ext['bank_name'].toString();
       if (ext['branch_name'] != null) _branchNameCtrl.text = ext['branch_name'].toString();
-      if (ext['bank_account'] != null) _bankAccountCtrl.text = ext['bank_account'].toString();
+      if (ext['bank_account'] != null) {
+        _bankAccountCtrl.text = ext['bank_account'].toString();
+        _accountNumberCtrl.text = ext['bank_account'].toString();
+      } else if (ext['account_number'] != null) {
+        _bankAccountCtrl.text = ext['account_number'].toString();
+        _accountNumberCtrl.text = ext['account_number'].toString();
+      }
+      if (ext['iban'] != null) _ibanCtrl.text = ext['iban'].toString();
+      if (ext['notes'] != null) _notesCtrl.text = ext['notes'].toString();
+      if (ext['has_iso'] != null) _hasIso = ext['has_iso'] == true || ext['has_iso'] == 'true';
+      if (ext['registered_decree_43'] != null) _registeredDecree43 = ext['registered_decree_43'] == true || ext['registered_decree_43'] == 'true';
+      if (ext['white_list_registered'] != null) _whiteListRegistered = ext['white_list_registered'] == true || ext['white_list_registered'] == 'true';
     });
   }
 
@@ -522,20 +630,28 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           endpoint = '${ApiConstants.baseUrl}/suppliers';
           payload = {
             'company_name': effectiveName,
-            'supplier_type': 'Manufacturer',
+            'supplier_type': _supplierType,
             'registration_type': _supplierRegType,
             'foreign_exporter_id': _foreignTaxIdCtrl.text.trim().isNotEmpty ? _foreignTaxIdCtrl.text.trim() : 'EXP-${DateTime.now().millisecondsSinceEpoch}',
+            'cargox_platform_id': _cargoxIdCtrl.text.trim().isNotEmpty ? _cargoxIdCtrl.text.trim() : null,
             'foreign_exporter_country': _countryCtrl.text.trim(),
             'foreign_exporter_country_code': _countryCodeCtrl.text.trim(),
-            'cargox_id': _cargoxIdCtrl.text.trim().isNotEmpty ? _cargoxIdCtrl.text.trim() : null,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Foreign Address',
-            'contact_person': _contactPersonCtrl.text.trim(),
-            'phone': _phoneCtrl.text.trim(),
-            'email': _emailCtrl.text.trim(),
-            'website': _websiteCtrl.text.trim(),
-            'brands': _brandsCtrl.text.trim(),
-            'swift_code': _swiftCodeCtrl.text.trim(),
-            'bank_account': _bankAccountCtrl.text.trim(),
+            'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+            'mobile': _mobileCtrl.text.trim().isNotEmpty ? _mobileCtrl.text.trim() : null,
+            'fax': _faxCtrl.text.trim().isNotEmpty ? _faxCtrl.text.trim() : null,
+            'email': _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+            'secondary_email': _secondaryEmailCtrl.text.trim().isNotEmpty ? _secondaryEmailCtrl.text.trim() : null,
+            'website': _websiteCtrl.text.trim().isNotEmpty ? _websiteCtrl.text.trim() : null,
+            'bank_name': _bankNameCtrl.text.trim().isNotEmpty ? _bankNameCtrl.text.trim() : null,
+            'swift_code': _swiftCodeCtrl.text.trim().isNotEmpty ? _swiftCodeCtrl.text.trim() : null,
+            'account_number': (_accountNumberCtrl.text.trim().isNotEmpty ? _accountNumberCtrl.text.trim() : (_bankAccountCtrl.text.trim().isNotEmpty ? _bankAccountCtrl.text.trim() : null)),
+            'iban': _ibanCtrl.text.trim().isNotEmpty ? _ibanCtrl.text.trim() : null,
+            'has_iso': _hasIso,
+            'registered_decree_43': _registeredDecree43,
+            'white_list_registered': _whiteListRegistered,
+            'brands': _brandsCtrl.text.trim().isNotEmpty ? _brandsCtrl.text.trim() : null,
+            'notes': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           };
           break;
 
@@ -544,7 +660,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           payload = {
             'importer_name': effectiveName,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Cairo, Egypt',
-            'country': 'Egypt',
+            'country': _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'Egypt',
             'importer_id': _importerCardCtrl.text.trim().isNotEmpty ? _importerCardCtrl.text.trim() : 'IMP-${DateTime.now().millisecondsSinceEpoch}',
             'importer_id_expiry': '${_importerIdExpiry.year}-${_importerIdExpiry.month.toString().padLeft(2, '0')}-${_importerIdExpiry.day.toString().padLeft(2, '0')}',
             'vat_id': _taxIdCtrl.text.trim().isNotEmpty ? _taxIdCtrl.text.trim() : '000000000',
@@ -1129,9 +1245,26 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   }
 
   Widget _buildSupplierFields(bool isArabic) {
+    const supplierTypeOptions = [
+      'Manufacturer',
+      'Foreign Supplier / Trader',
+      'Authorized Agent / Distributor',
+      'Exporter',
+    ];
+
+    const regTypeOptions = [
+      'Factory Registration',
+      'Foreign Exporter Number (Nafeza)',
+      'Company Registration Number',
+      'VAT Number',
+      'Tax Number',
+      'Commercial Register',
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Company Name
         TextFormField(
           controller: _companyNameCtrl,
           decoration: InputDecoration(
@@ -1141,13 +1274,71 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'اسم المورد مطلوب' : 'Supplier name is required') : null,
         ),
         const SizedBox(height: 10),
+        // Supplier Type & Registration Type
+        Row(
+          children: [
+            Expanded(
+              child: SearchableDropdownField<String>(
+                value: supplierTypeOptions.contains(_supplierType) ? _supplierType : supplierTypeOptions.first,
+                labelText: isArabic ? 'نوع المورد *' : 'Supplier Type *',
+                items: supplierTypeOptions
+                    .map((type) => SearchableDropdownItem<String>(value: type, label: type))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _supplierType = v);
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: SearchableDropdownField<String>(
+                value: regTypeOptions.contains(_supplierRegType) ? _supplierRegType : regTypeOptions.first,
+                labelText: isArabic ? 'نوع السجل الأجنبي *' : 'Registration Type *',
+                items: regTypeOptions
+                    .map((type) => SearchableDropdownItem<String>(value: type, label: type))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _supplierRegType = v);
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Foreign Exporter ID & CargoX ID
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _foreignTaxIdCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم السجل / معرف نافذة الأجنبي (Foreign Exporter ID) *' : 'Foreign Exporter ID (Nafeza) *',
+                  prefixIcon: const Icon(Icons.badge_rounded, size: 18),
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'رقم السجل مطلوب' : 'Foreign Exporter ID is required') : null,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _cargoxIdCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'معرف منصة كارجو إكس (CargoX Platform ID)' : 'CargoX Platform Registered ID',
+                  prefixIcon: const Icon(Icons.hub_rounded, size: 18, color: Colors.blue),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Country & Country Code
         Row(
           children: [
             Expanded(
               flex: 3,
               child: SearchableDropdownField<String>(
                 value: _countryCtrl.text.isNotEmpty ? _countryCtrl.text : 'China (CN)',
-                labelText: isArabic ? 'دولة المقر والمنشأ *' : 'Country of Origin & HQ *',
+                labelText: isArabic ? 'الدولة والمنشأ *' : 'Country *',
                 items: _countryList.map((c) => SearchableDropdownItem(value: c['name']!, label: c['name']!)).toList(),
                 onChanged: (v) {
                   if (v != null) {
@@ -1162,59 +1353,90 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             ),
             const SizedBox(width: 10),
             Expanded(
-              flex: 3,
-              child: SearchableDropdownField<String>(
-                value: _supplierRegType,
-                labelText: isArabic ? 'نوع السجل الأجنبي *' : 'Registration Type *',
-                items: const [
-                  SearchableDropdownItem(value: 'Commercial Register', label: 'Commercial Register'),
-                  SearchableDropdownItem(value: 'Tax Number', label: 'Tax Number'),
-                  SearchableDropdownItem(value: 'VAT Number', label: 'VAT Number'),
-                  SearchableDropdownItem(value: 'Business License', label: 'Business License'),
-                  SearchableDropdownItem(value: 'DUNS Number', label: 'DUNS Number'),
-                ],
-                onChanged: (v) {
-                  if (v != null) setState(() => _supplierRegType = v);
-                },
+              flex: 2,
+              child: TextFormField(
+                controller: _countryCodeCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'كود الدولة (ISO 2-letter) *' : 'Country Code (ISO 2-letter) *',
+                  prefixIcon: const Icon(Icons.code, size: 18),
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'كود الدولة مطلوب' : 'Country code is required') : null,
               ),
             ),
           ],
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _foreignTaxIdCtrl,
-                decoration: InputDecoration(
-                  labelText: isArabic ? 'رقم السجل والتعريف الضريبي *' : 'Foreign Tax & Reg Number *',
-                  prefixIcon: const Icon(Icons.badge_rounded, size: 18),
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'رقم السجل مطلوب' : 'Registration number is required') : null,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextFormField(
-                controller: _cargoxIdCtrl,
-                decoration: InputDecoration(
-                  labelText: isArabic ? 'معرف منصة كارجو إكس' : 'CargoX Blockchain ID',
-                  prefixIcon: const Icon(Icons.hub_rounded, size: 18, color: Colors.blue),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
+        // Full Address
         TextFormField(
           controller: _addressCtrl,
           decoration: InputDecoration(
-            labelText: isArabic ? 'عنوان المصنع والمقر الرئيسي *' : 'Factory & HQ Address *',
+            labelText: isArabic ? 'العنوان الكامل للمصنع والمقر *' : 'Full Address *',
             prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
           ),
           validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'العنوان مطلوب' : 'Address is required') : null,
         ),
         const SizedBox(height: 10),
+        // Primary & Secondary Email
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _emailCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'البريد الإلكتروني الرئيسي' : 'Primary Email',
+                  prefixIcon: const Icon(Icons.email_outlined, size: 18),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _secondaryEmailCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'البريد الإلكتروني الثانوي' : 'Secondary / Additional Email',
+                  prefixIcon: const Icon(Icons.mark_email_read_outlined, size: 18),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Phone, Mobile, Fax
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _phoneCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم الهاتف' : 'Phone Number',
+                  prefixIcon: const Icon(Icons.phone_rounded, size: 18),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _mobileCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'المحمول / الواتساب' : 'Mobile Number',
+                  prefixIcon: const Icon(Icons.smartphone_rounded, size: 18),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _faxCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'الفاكس' : 'Fax',
+                  prefixIcon: const Icon(Icons.print_rounded, size: 18),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Contact Person & Website
         Row(
           children: [
             Expanded(
@@ -1223,30 +1445,6 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                 decoration: InputDecoration(
                   labelText: isArabic ? 'مسؤول التواصل والمبيعات' : 'Contact Person & Sales',
                   prefixIcon: const Icon(Icons.person_outline, size: 18),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextFormField(
-                controller: _phoneCtrl,
-                decoration: InputDecoration(
-                  labelText: isArabic ? 'رقم الهاتف والواتساب' : 'Phone & WhatsApp Number',
-                  prefixIcon: const Icon(Icons.phone_rounded, size: 18),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _emailCtrl,
-                decoration: InputDecoration(
-                  labelText: isArabic ? 'البريد الإلكتروني' : 'Email Address',
-                  prefixIcon: const Icon(Icons.email_outlined, size: 18),
                 ),
               ),
             ),
@@ -1263,24 +1461,146 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           ],
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _swiftCodeCtrl,
-                decoration: InputDecoration(
-                  labelText: isArabic ? 'كود السويفت البنكي' : 'Bank SWIFT Code',
-                  prefixIcon: const Icon(Icons.swap_horiz_rounded, size: 18),
+        // Beneficiary Bank Details
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.blueGrey.shade50.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blueGrey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.account_balance, size: 16, color: AppTheme.charcoal),
+                  const SizedBox(width: 6),
+                  Text(
+                    isArabic ? 'بيانات البنك المستفيد والحساب المصرفي' : 'Beneficiary Bank Details',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _bankNameCtrl,
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'اسم البنك المستفيد' : 'Beneficiary Bank Name',
+                        prefixIcon: const Icon(Icons.account_balance_outlined, size: 16),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _swiftCodeCtrl,
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'كود السويفت البنكي (SWIFT Code)' : 'Bank SWIFT Code',
+                        prefixIcon: const Icon(Icons.code, size: 16),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _accountNumberCtrl,
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'رقم الحساب المصرفي (Account #)' : 'Account Number',
+                        prefixIcon: const Icon(Icons.numbers, size: 16),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _ibanCtrl,
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'رقم الآيبان (IBAN)' : 'IBAN',
+                        prefixIcon: const Icon(Icons.credit_card, size: 16),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Compliance Section
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: CheckboxListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(isArabic ? 'شهادة ISO' : 'ISO Certified', style: const TextStyle(fontSize: 11)),
+                  value: _hasIso,
+                  activeColor: AppTheme.cobalt,
+                  onChanged: (val) => setState(() => _hasIso = val ?? false),
                 ),
               ),
-            ),
-            const SizedBox(width: 10),
+              Expanded(
+                child: CheckboxListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(isArabic ? 'قرار 43' : 'Decree 43', style: const TextStyle(fontSize: 11)),
+                  value: _registeredDecree43,
+                  activeColor: AppTheme.cobalt,
+                  onChanged: (val) => setState(() => _registeredDecree43 = val ?? false),
+                ),
+              ),
+              Expanded(
+                child: CheckboxListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(isArabic ? 'القائمة البيضاء' : 'White List', style: const TextStyle(fontSize: 11)),
+                  value: _whiteListRegistered,
+                  activeColor: AppTheme.emerald,
+                  onChanged: (val) => setState(() => _whiteListRegistered = val ?? false),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Brands & Notes
+        Row(
+          children: [
             Expanded(
               child: TextFormField(
                 controller: _brandsCtrl,
                 decoration: InputDecoration(
                   labelText: isArabic ? 'العلامات التجارية والمنتجات' : 'Brands & Products',
                   prefixIcon: const Icon(Icons.category_rounded, size: 18),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _notesCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'ملاحظات إضافية' : 'Additional Notes',
+                  prefixIcon: const Icon(Icons.notes_rounded, size: 18),
                 ),
               ),
             ),
@@ -1294,56 +1614,52 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Company Name
         TextFormField(
           controller: _companyNameCtrl,
           decoration: InputDecoration(
-            labelText: isArabic ? 'اسم الشركة المستوردة بالإنجليزية *' : 'Importing Company Name (English) *',
-            prefixIcon: const Icon(Icons.domain_rounded, size: 18),
+            labelText: isArabic ? 'اسم الشركة المستوردة *' : 'Company Name *',
+            prefixIcon: const Icon(Icons.business_rounded, size: 18),
           ),
-          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'الاسم بالإنجليزية مطلوب' : 'English name is required') : null,
+          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'اسم الشركة مطلوب' : 'Company name is required') : null,
         ),
         const SizedBox(height: 10),
-        TextFormField(
-          controller: _arabicNameCtrl,
-          decoration: InputDecoration(
-            labelText: isArabic ? 'اسم الشركة المستوردة بالعربية *' : 'Importing Company Name (Arabic) *',
-            prefixIcon: const Icon(Icons.translate_rounded, size: 18),
-          ),
-        ),
-        const SizedBox(height: 10),
+        // Address & Country
         Row(
           children: [
             Expanded(
+              flex: 3,
               child: TextFormField(
-                controller: _taxIdCtrl,
+                controller: _addressCtrl,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'الرقم الضريبي المصري (9 أرقام) *' : 'Egyptian Tax ID (9 Digits) *',
-                  prefixIcon: const Icon(Icons.pin_rounded, size: 18),
+                  labelText: isArabic ? 'العنوان المسجل للشركة *' : 'Registered Address *',
+                  prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'الرقم الضريبي مطلوب' : 'Tax ID is required') : null,
+                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'العنوان مطلوب' : 'Address is required') : null,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
+              flex: 2,
               child: TextFormField(
-                controller: _commercialRegisterCtrl,
+                controller: _countryCtrl,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'رقم السجل التجاري *' : 'Commercial Registration Number *',
-                  prefixIcon: const Icon(Icons.badge_rounded, size: 18),
+                  labelText: isArabic ? 'الدولة *' : 'Country *',
+                  prefixIcon: const Icon(Icons.flag_rounded, size: 18),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'السجل التجاري مطلوب' : 'Commercial register is required') : null,
               ),
             ),
           ],
         ),
         const SizedBox(height: 10),
+        // Importer Card ID & Importer Card Expiry Date
         Row(
           children: [
             Expanded(
               child: TextFormField(
                 controller: _importerCardCtrl,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'رقم البطاقة الاستيرادية *' : 'Importer Card Number *',
+                  labelText: isArabic ? 'رقم البطاقة الاستيرادية (9 أرقام) *' : 'Importer Card ID (9 digits) *',
                   prefixIcon: const Icon(Icons.credit_card_rounded, size: 18),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'البطاقة الاستيرادية مطلوبة' : 'Importer card is required') : null,
@@ -1351,33 +1667,110 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: TextFormField(
-                controller: _nafezaTokenCtrl,
-                decoration: InputDecoration(
-                  labelText: isArabic ? 'معرف توكن نافذة الإلكتروني' : 'Nafeza E-Token ID',
-                  prefixIcon: const Icon(Icons.vpn_key_rounded, size: 18, color: Colors.blue),
+              child: InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _importerIdExpiry,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2040),
+                  );
+                  if (picked != null) setState(() => _importerIdExpiry = picked);
+                },
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'تاريخ انتهاء البطاقة الاستيرادية *' : 'Importer Card Expiry Date *',
+                    prefixIcon: const Icon(Icons.calendar_month_rounded, size: 18, color: AppTheme.cobalt),
+                  ),
+                  child: Text('${_importerIdExpiry.year}-${_importerIdExpiry.month.toString().padLeft(2, '0')}-${_importerIdExpiry.day.toString().padLeft(2, '0')}'),
                 ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 10),
-        TextFormField(
-          controller: _addressCtrl,
-          decoration: InputDecoration(
-            labelText: isArabic ? 'عنوان المقر المسجل للشركة *' : 'Registered Company Address *',
-            prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
-          ),
-          validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'العنوان مطلوب' : 'Address is required') : null,
+        // VAT Registration ID & VAT Registration Expiry Date
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _taxIdCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم التسجيل الضريبي / القيمة المضافة (9 أرقام) *' : 'VAT Registration ID (9 digits) *',
+                  prefixIcon: const Icon(Icons.pin_rounded, size: 18),
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'الرقم الضريبي مطلوب' : 'Tax ID is required') : null,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _vatIdExpiry,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2040),
+                  );
+                  if (picked != null) setState(() => _vatIdExpiry = picked);
+                },
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'تاريخ انتهاء التسجيل الضريبي *' : 'VAT Registration Expiry Date *',
+                    prefixIcon: const Icon(Icons.calendar_month_rounded, size: 18, color: AppTheme.cobalt),
+                  ),
+                  child: Text('${_vatIdExpiry.year}-${_vatIdExpiry.month.toString().padLeft(2, '0')}-${_vatIdExpiry.day.toString().padLeft(2, '0')}'),
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
+        // Commercial Reg # & Commercial Reg Expiry Date
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _commercialRegisterCtrl,
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'رقم السجل التجاري (15 رقم) *' : 'Commercial Reg # (15 digits) *',
+                  prefixIcon: const Icon(Icons.badge_rounded, size: 18),
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'السجل التجاري مطلوب' : 'Commercial register is required') : null,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _registrationExpiry,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2040),
+                  );
+                  if (picked != null) setState(() => _registrationExpiry = picked);
+                },
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'تاريخ انتهاء السجل التجاري *' : 'Commercial Reg Expiry Date *',
+                    prefixIcon: const Icon(Icons.calendar_month_rounded, size: 18, color: AppTheme.cobalt),
+                  ),
+                  child: Text('${_registrationExpiry.year}-${_registrationExpiry.month.toString().padLeft(2, '0')}-${_registrationExpiry.day.toString().padLeft(2, '0')}'),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Phone & Email
         Row(
           children: [
             Expanded(
               child: TextFormField(
                 controller: _phoneCtrl,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'الهاتف الرئيسي' : 'Primary Phone',
+                  labelText: isArabic ? 'رقم الهاتف' : 'Primary Phone',
                   prefixIcon: const Icon(Icons.phone_rounded, size: 18),
                 ),
               ),
@@ -1393,6 +1786,15 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        // Notes / Nafeza Token
+        TextFormField(
+          controller: _nafezaTokenCtrl,
+          decoration: InputDecoration(
+            labelText: isArabic ? 'معرف توكن نافذة / ملاحظات إضافية' : 'Nafeza E-Token ID / Additional Notes',
+            prefixIcon: const Icon(Icons.vpn_key_rounded, size: 18, color: Colors.blue),
+          ),
         ),
       ],
     );

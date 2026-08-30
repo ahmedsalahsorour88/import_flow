@@ -154,4 +154,40 @@ def test_archi_brands_egyptian_importer():
     assert extracted["vat_tax_id"] in ["759-552-827", "759552827"]
 
 
+def test_foreign_supplier_with_bank_details():
+    raw_text = """
+    Supplier Name: G.I. Industrial Holding S.p.A.
+    Supplier Type: Manufacturer
+    Registration Type: Factory Registration
+    Foreign Exporter ID: IT03456789012
+    CargoX Platform ID: 0x9876543210abcdef9876543210abcdef98765432
+    Country: Italy
+    Country Code: IT
+    Address: Via Max Piccini 11, 33050 Rivignano Teor (UD), Italy
+    Email: export@gi-industrial.it
+    Bank Name: Intesa Sanpaolo S.p.A.
+    SWIFT Code: BCITITMM
+    IBAN: IT60X0542811101000000123456
+    Brands: Clint, Montair, Novair
+    Notes: Leading Italian manufacturer of HVAC chillers
+    """
+    extractor = MasterDataEntityExtractor()
+    extracted = extractor.extract(raw_text, {}, module_name="supplier-entity")
+
+    assert extracted["company_name"] == "G.I. Industrial Holding S.p.A."
+    assert extracted["supplier_type"] == "Manufacturer"
+    assert extracted["registration_type"] == "Factory Registration"
+    assert extracted["foreign_exporter_id"] == "IT03456789012"
+    assert extracted["cargox_id"] == "0x9876543210abcdef9876543210abcdef98765432"
+    assert extracted["country_code"] == "IT"
+    assert "Via Max Piccini 11" in extracted["address"]
+    assert extracted["email"] == "export@gi-industrial.it"
+    assert extracted["bank_name"] == "Intesa Sanpaolo S.p.A."
+    assert extracted["swift_code"] == "BCITITMM"
+    assert "IT60X0542811101000000123456" in extracted["iban"]
+    assert "Clint" in extracted["brands"]
+    assert "chillers" in extracted["notes"]
+
+
+
 

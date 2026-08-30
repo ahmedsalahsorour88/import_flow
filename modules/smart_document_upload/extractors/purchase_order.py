@@ -31,6 +31,10 @@ class PurchaseOrderExtractor(BaseExtractor):
 
         result: Dict[str, Any] = {
             "po_number": self._extract_po_number(text),
+            "po_reference": self.find_first([
+                r"(?:PO\s*Reference|Order\s*Title|Reference\s*Name|Project\s*Ref|اسم\s*الطلب|مرجع\s*الطلب|اسم\s*المشروع)[:\s]+([^\r\n]{3,80})",
+                r"(?:Subject|Subject\s*Line|Ref\s*#?)[:\s]+([A-Za-z0-9\u0600-\u06FF\s\-_]{3,80})",
+            ], text),
             "supplier_name": self._extract_supplier(text),
             "supplier_address": self._extract_supplier_address(text),
             "supplier_phone": self._extract_supplier_phone(text),

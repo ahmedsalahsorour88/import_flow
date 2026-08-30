@@ -79,6 +79,8 @@ class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
         data: partner.toJson(),
       );
       ref?.invalidate(systemAuditLogsProvider);
+      ref?.invalidate(allPartnersProvider);
+      ref?.read(allPartnersProvider.notifier).fetchPartners();
       await fetchPartners();
       return null; // Success
     } on DioException catch (e) {
@@ -99,6 +101,8 @@ class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
       );
       ref?.invalidate(systemAuditLogsProvider);
       ref?.invalidate(entityAuditTimelineProvider((entityType: 'ExternalServiceProvider', entityId: providerId)));
+      ref?.invalidate(allPartnersProvider);
+      ref?.read(allPartnersProvider.notifier).fetchPartners();
       await fetchPartners();
       return null; // Success
     } on DioException catch (e) {
@@ -120,6 +124,8 @@ class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
       }
       ref?.invalidate(systemAuditLogsProvider);
       ref?.invalidate(entityAuditTimelineProvider((entityType: 'ExternalServiceProvider', entityId: providerId)));
+      ref?.invalidate(allPartnersProvider);
+      ref?.read(allPartnersProvider.notifier).fetchPartners();
       await fetchPartners();
       return true;
     } catch (e) {

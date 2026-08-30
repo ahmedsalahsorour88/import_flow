@@ -28,6 +28,7 @@ class MasterDataEntityExtractor(BaseExtractor):
         result: Dict[str, Any] = {
             "company_name": company_name,
             "arabic_name": self._extract_arabic_name(text),
+            "supplier_type": self._clean_val(self._extract_supplier_type(text)),
             "registration_type": reg_type,
             "supplier_registration_type": reg_type,
             "contact_person": self._clean_val(self._extract_contact_person(text)),
@@ -48,6 +49,7 @@ class MasterDataEntityExtractor(BaseExtractor):
             "importer_id_expiry": self._clean_val(self._extract_importer_expiry(text)),
             "vat_id_expiry": self._clean_val(self._extract_vat_expiry(text)),
             "cargox_id": self._clean_val(self._extract_cargox_id(text)),
+            "cargox_platform_id": self._clean_val(self._extract_cargox_id(text)),
             "license_number": self._clean_val(self._extract_broker_license(text)),
             "clearance_license_number": self._clean_val(self._extract_broker_license(text)),
             "scac_code": self._clean_val(self._extract_scac_code(text)),
@@ -56,9 +58,13 @@ class MasterDataEntityExtractor(BaseExtractor):
             "inspection_scope": self._clean_val(self._extract_inspection_scope(text)),
             "insurance_terms": self._clean_val(self._extract_insurance_terms(text)),
             "ports": self._clean_val(self._extract_ports(text)),
+            "bank_name": self._clean_val(self._extract_bank_name(text)),
             "swift_code": self._clean_val(self._extract_swift(text)),
             "bank_account": self._clean_val(self._extract_iban(text)),
+            "account_number": self._clean_val(self._extract_iban(text)),
             "iban": self._clean_val(self._extract_iban(text)),
+            "brands": self._clean_val(self._extract_brands(text)),
+            "notes": self._clean_val(self._extract_notes(text)),
         }
         return result
 
@@ -142,11 +148,21 @@ class MasterDataEntityExtractor(BaseExtractor):
         ], text)
 
     def _extract_cargox_id(self, text: str) -> Optional[str]:
-        return self.find_first([
-            r"(?:CargoX\s+ID|CargoX\s+Blockchain\s+ID|CargoX|Blockchain\s+ID|CargoX\s+Account|معرف\s+كارجو\s+إكس|كارجو\s+إكس)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_]{5,42})",
+        explicit = self.find_first([
+            r"(?:CargoX\s+Platform\s+(?:Registered\s+)?ID|CargoX\s+Blockchain\s+ID|CargoX\s+ID|CargoX\s+Account|معرف\s+كارجو\s+إكس|كارجو\s+إكس)[^\S\r\n]*[:=][^\S\r\n]*([A-Za-z0-9\-_]{5,42})",
+            r"(?:CargoX\s+Platform\s+ID|CargoX\s+Blockchain\s+ID|CargoX\s+ID|Blockchain\s+ID|CargoX\s+Account)[^\S\r\n]*[:=]?[^\S\r\n]*(0x[a-fA-F0-9]{40}|CX-[A-Za-z0-9]{6,16}|[A-Za-z0-9\-_]{5,42})",
             r"\b(0x[a-fA-F0-9]{40})\b",
             r"\b(CX-[A-Za-z0-9]{6,16})\b",
         ], text)
+        if explicit and explicit.upper() not in ["PLATFORM", "REGISTERED", "BLOCKCHAIN", "ACCOUNT"]:
+            return explicit.strip()
+        m = re.search(r"\b(0x[a-fA-F0-9]{40})\b", text)
+        if m:
+            return m.group(1).strip()
+        m_cx = re.search(r"\b(CX-[A-Za-z0-9]{6,16})\b", text)
+        if m_cx:
+            return m_cx.group(1).strip()
+        return None
 
     def _extract_importer_id(self, text: str) -> Optional[str]:
         return self.find_first([
@@ -567,5 +583,48 @@ class MasterDataEntityExtractor(BaseExtractor):
         if "DEKHEILA" in upper or "الدخيلة" in text:
             ports.append("Dekheila Port")
         return ", ".join(ports) if ports else None
+
+    def _extract_supplier_type(self, text: str) -> Optional[str]:
+        explicit = self.find_first([
+            r"(?:Supplier\s+Type|Type\s+of\s+Supplier|Vendor\s+Type|نوع\s+المورد|صفة\s+المورد)[^\S\r\n]*[:=]?[^\S\r\n]*([^\r\n]{3,60})",
+        ], text)
+        if explicit:
+            val = explicit.strip()
+            val_u = val.upper()
+            if "MANUFACTURER" in val_u or "مصنع" in val or "PRODUCER" in val_u:
+                return "Manufacturer"
+            if "AGENT" in val_u or "DISTRIBUTOR" in val_u or "وكيل" in val or "موزع" in val:
+                return "Authorized Agent / Distributor"
+            if "EXPORTER" in val_u or "مُصدّر" in val or "مصدر" in val:
+                return "Exporter"
+            if "TRADER" in val_u or "SUPPLIER" in val_u or "تاجر" in val or "مورد" in val:
+                return "Foreign Supplier / Trader"
+            return val
+
+        upper = text.upper()
+        if "MANUFACTURER" in upper or "FACTORY" in upper or "PRODUCER" in upper:
+            return "Manufacturer"
+        if "AUTHORIZED AGENT" in upper or "DISTRIBUTOR" in upper:
+            return "Authorized Agent / Distributor"
+        if "EXPORTER" in upper:
+            return "Exporter"
+        return "Manufacturer"
+
+    def _extract_bank_name(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Bank\s+Name|Beneficiary\s+Bank|Bank|اسم\s+البنك|البنك\s+المستفيد|مصرف)[^\S\r\n]*[:=]?[^\S\r\n]*([^\r\n]{3,80})",
+            r"(?:Bank\s*:\s*)([^\r\n]{3,80})",
+        ], text)
+
+    def _extract_brands(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Brands|Brand\s+Name|Products|Product\s+Lines|العلامات\s+التجارية|الماركات|المنتجات)[^\S\r\n]*[:=]?[^\S\r\n]*([^\r\n]{2,100})",
+        ], text)
+
+    def _extract_notes(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Notes|Remarks|Additional\s+Notes|ملاحظات|ملاحظات\s+إضافية)[^\S\r\n]*[:=]?[^\S\r\n]*([^\r\n]{3,200})",
+        ], text)
+
 
 

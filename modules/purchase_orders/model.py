@@ -25,6 +25,7 @@ class PurchaseOrder(Base):
 
     # Reference Code
     po_number = Column(String(50), nullable=False, unique=True, index=True) # e.g. PO-2026-001
+    po_reference = Column(String(200), nullable=True)                      # اسم أو مرجع أمر الشراء e.g. "Chiller Units - Delta Factory"
     proforma_invoice_number = Column(String(100), nullable=True)           # Supplier PI Number
 
     # Foreign Keys

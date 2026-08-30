@@ -1702,7 +1702,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   searchHintText: '${l.search} ${l.linkPurchaseOrder}...',
                                   items: [
                                     SearchableDropdownItem<int?>(value: null, label: l.allFiles),
-                                    ...poList.map((po) => SearchableDropdownItem<int?>(value: po.poId, label: '${po.poNumber} - ${po.supplierName}')),
+                                    ...poList.map((po) => SearchableDropdownItem<int?>(
+                                          value: po.poId,
+                                          label: '${po.poNumber}${po.poReference != null && po.poReference!.isNotEmpty ? " - ${po.poReference}" : ""} (${po.supplierName ?? "Supplier"})',
+                                        )),
                                   ],
                                   onChanged: _onPoChanged,
                                 ),

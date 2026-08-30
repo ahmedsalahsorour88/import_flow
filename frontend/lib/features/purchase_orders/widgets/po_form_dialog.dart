@@ -41,6 +41,7 @@ class POFormDialog extends ConsumerStatefulWidget {
 
 class _POFormDialogState extends ConsumerState<POFormDialog> {
   final _formKey = GlobalKey<FormState>();
+  late TextEditingController _poReferenceCtrl;
   late TextEditingController _piCtrl;
   late TextEditingController _rateCtrl;
   late TextEditingController _notesCtrl;
@@ -496,6 +497,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         if (poNum != null && poNum.isNotEmpty) {
           _piCtrl.text = poNum;
         }
+        final poRef = (ext['po_reference'] ?? ext['reference'] ?? ext['order_title'] ?? ext['subject'])?.toString();
+        if (poRef != null && poRef.isNotEmpty) {
+          _poReferenceCtrl.text = poRef;
+        }
         final dateStr = (ext['order_date'] ?? ext['po_date'] ?? ext['date'])?.toString();
         if (dateStr != null && dateStr.isNotEmpty) {
           _selectedOrderDate = _parseFlexDate(dateStr);
@@ -709,7 +714,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
     final defaultPiNumber = po?.proformaInvoiceNumber ??
         (ext != null ? (ext['po_number'] ?? ext['proforma_invoice_number'])?.toString() : null) ?? '';
+    final defaultPoRef = po?.poReference ??
+        (ext != null ? (ext['po_reference'] ?? ext['reference'] ?? ext['order_title'] ?? ext['subject'])?.toString() : null) ?? '';
     _piCtrl = TextEditingController(text: defaultPiNumber);
+    _poReferenceCtrl = TextEditingController(text: defaultPoRef);
     _rateCtrl = TextEditingController(text: (po?.exchangeRate ?? 1.0).toString());
     _notesCtrl = TextEditingController(text: po?.notes ?? '');
     _selectedStatus = po?.status ?? 'Draft';
@@ -935,6 +943,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
   @override
   void dispose() {
+    _poReferenceCtrl.dispose();
     _piCtrl.dispose();
     _rateCtrl.dispose();
     _notesCtrl.dispose();
@@ -1252,6 +1261,15 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                               onChanged: (v) => setState(() => _selectedImportFileId = v),
                             ),
                             const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _poReferenceCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'PO Reference / Name (اسم / مرجع أمر الشراء)',
+                                hintText: 'مثال: وحدات شيلر مصنع الدلتا / Chiller Units 500kW',
+                                prefixIcon: Icon(Icons.bookmark_outline_rounded, color: AppTheme.cobalt, size: 18),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
                             Row(
                               children: [
                                 Expanded(
@@ -1260,6 +1278,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                     decoration: const InputDecoration(
                                       labelText: 'Proforma Invoice # (رقم الفاتورة المبدئية)',
                                       hintText: 'e.g. PI-2026-991',
+                                      prefixIcon: Icon(Icons.receipt_long_outlined, color: AppTheme.cobalt, size: 18),
                                     ),
                                   ),
                                 ),
@@ -2828,6 +2847,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
       final newPO = PurchaseOrderModel(
         poNumber: '',
+        poReference: _poReferenceCtrl.text.trim().isEmpty ? null : _poReferenceCtrl.text.trim(),
         proformaInvoiceNumber: _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
         countryOfOrigin: _selectedCountryOfOrigin,
         importFileId: _selectedImportFileId,
@@ -2879,6 +2899,16 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       final currencies = ref.read(currenciesProvider).value ?? [];
 
       // 1. Header changes
+      final newPoRef = _poReferenceCtrl.text.trim().isEmpty ? null : _poReferenceCtrl.text.trim();
+      if (FieldChangeItem.isDifferent(oldPO.poReference, newPoRef)) {
+        changes.add(FieldChangeItem(
+          section: 'بيانات الفاتورة المبدئية والترويسة',
+          fieldName: 'اسم / مرجع أمر الشراء (PO Reference)',
+          oldValue: oldPO.poReference,
+          newValue: newPoRef,
+        ));
+      }
+
       final newPi = _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim();
       if (FieldChangeItem.isDifferent(oldPO.proformaInvoiceNumber, newPi)) {
         changes.add(FieldChangeItem(
@@ -3107,6 +3137,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       final effectivePalletPlan = _isDirectVolumeMode ? _dialogPalletItems.map((p) => p.toJson()).toList() : <Map<String, dynamic>>[];
 
       final updateData = {
+        'po_reference': _poReferenceCtrl.text.trim().isEmpty ? null : _poReferenceCtrl.text.trim(),
         'proforma_invoice_number': _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
         'country_of_origin': _selectedCountryOfOrigin,
         'import_file_id': _selectedImportFileId,

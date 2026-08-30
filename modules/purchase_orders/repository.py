@@ -56,6 +56,7 @@ class PurchaseOrderRepository:
             query = query.filter(
                 or_(
                     PurchaseOrder.po_number.ilike(pattern),
+                    PurchaseOrder.po_reference.ilike(pattern),
                     PurchaseOrder.proforma_invoice_number.ilike(pattern),
                     PurchaseOrder.notes.ilike(pattern),
                 )
@@ -68,6 +69,7 @@ class PurchaseOrderRepository:
 
         po = PurchaseOrder(
             po_number=po_num,
+            po_reference=data.po_reference.strip() if data.po_reference else None,
             import_file_id=data.import_file_id,
             proforma_invoice_number=data.proforma_invoice_number.strip() if data.proforma_invoice_number else None,
             country_of_origin=data.country_of_origin.strip() if data.country_of_origin else None,

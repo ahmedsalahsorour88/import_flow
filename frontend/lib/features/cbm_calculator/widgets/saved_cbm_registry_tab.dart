@@ -1189,7 +1189,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                     SearchableDropdownItem<int?>(value: null, label: l.cbmSessionStandalone),
                     ...poList.map((po) => SearchableDropdownItem<int?>(
                           value: po.poId,
-                          label: '${po.poNumber} (${po.projectName ?? "Project"})',
+                          label: '${po.poNumber}${po.poReference != null && po.poReference!.isNotEmpty ? " - ${po.poReference}" : ""} (${po.projectName ?? "Project"})',
                           subtitle: po.supplierName,
                         )),
                   ],

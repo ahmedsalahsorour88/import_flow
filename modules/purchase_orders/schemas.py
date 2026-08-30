@@ -123,6 +123,7 @@ class PalletPlanItem(BaseModel):
 
 class PurchaseOrderBase(BaseModel):
     import_file_id: Optional[int] = None
+    po_reference: Optional[str] = Field(None, max_length=200, description="اسم أو مرجع أمر الشراء")
     proforma_invoice_number: Optional[str] = Field(None, max_length=100)
     country_of_origin: Optional[str] = Field(None, max_length=100, description="بلد المنشأ لأمر التوريد")
     project_id: int
@@ -152,6 +153,7 @@ class PurchaseOrderCreate(PurchaseOrderBase):
 
 class PurchaseOrderUpdate(BaseModel):
     import_file_id: Optional[int] = None
+    po_reference: Optional[str] = Field(None, max_length=200, description="اسم أو مرجع أمر الشراء")
     proforma_invoice_number: Optional[str] = Field(None, max_length=100)
     country_of_origin: Optional[str] = Field(None, max_length=100)
     project_id: Optional[int] = None

@@ -10,11 +10,14 @@
 4. **السجل التاريخي Audit Trail**: تسجيل اسم المستخدم وتاريخ العملية وملاحظات التعديل.
 
 ## 📑 Required Inputs & System Master Data
-- **Master Data Dependencies**: Company (MD-001), Supplier (MD-002), Currency (MD-005), Incoterms (MD-006).
+- **Key Fields**:
+  - `po_number`: الكود/الرقم المرجعي الرسمي لأمر الشراء (Unique System Code).
+  - `po_reference`: الاسم/المرجع الوصفي لأمر الشراء (Descriptive PO Name / Reference) لسهولة التمييز والربط المباشر في دراسات الشحن واستشارات الجمارك (مثل: "طلبية خامات الربع الأول - مصنع أكتوبر").
+- **Master Data Dependencies**: Company (MD-001), Supplier (MD-002), Currency (MD-005), Incoterms (MD-006), Projects (MD-007).
 - **Document Attachment**: إرفاق المستندات الرسمية الداعمة للمهمة.
 
 ## 🏁 Output & Next Operational Milestone
-- **Task Output**: تجميع السجلات المطلوبة وتأكيد إكتمال المهمة.
+- **Task Output**: تجميع السجلات المطلوبة وتأكيد إكتمال المهمة وإتاحة أمر الشراء بالاسم والمرجع (`po_number (po_reference)`) داخل شاشات المفاضلة ودراسة الشحن والاستشارات الجمركية.
 - **Next Milestone**: الانتقال للمهمة التالية في سير العمل المرن (Flexible Workflow).
 
 ---

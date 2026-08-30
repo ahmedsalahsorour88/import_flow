@@ -247,3 +247,42 @@ class TestPurchaseOrdersBackend:
         assert len(updated_po2.packing_list_items) == 1
         assert updated_po2.packing_list_items[0].is_stackable is False
 
+    def test_create_and_search_po_with_po_reference(self, db_session):
+        service = PurchaseOrderService(db_session)
+        comp = db_session.query(ImportCompany).first()
+        supp = db_session.query(Supplier).first()
+        inco = db_session.query(Incoterm).first()
+        curr = db_session.query(Currency).first()
+        proj = db_session.query(Project).first()
+
+        po_data = PurchaseOrderCreate(
+            po_number="PO-2026-REF01",
+            po_reference="Chiller Units 500kW - Delta Plant",
+            proforma_invoice_number="PI-DELTA-2026",
+            project_id=proj.project_id,
+            company_id=comp.company_id,
+            supplier_id=supp.supplier_id,
+            incoterm_id=inco.incoterm_id,
+            currency_id=curr.currency_id,
+            exchange_rate=50.0,
+            items=[],
+            packing_list_items=[],
+        )
+
+        po = service.create(po_data)
+        assert po.po_id is not None
+        assert po.po_reference == "Chiller Units 500kW - Delta Plant"
+
+        # Test search by po_reference substring
+        results = service.get_all(search="Delta Plant")
+        assert len(results) >= 1
+        assert any(p.po_number == "PO-2026-REF01" for p in results)
+
+        # Test update po_reference
+        updated_po = service.update(
+            po.po_id,
+            PurchaseOrderUpdate(po_reference="Updated Chiller Units 600kW"),
+        )
+        assert updated_po.po_reference == "Updated Chiller Units 600kW"
+
+

@@ -62,54 +62,61 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
   }
 
   void _openExtractorForCategory(BuildContext context, String category) {
+    void onDone() {
+      ref.read(partnersProvider.notifier).fetchPartners();
+      ref.read(allPartnersProvider.notifier).fetchPartners();
+      ref.invalidate(partnersProvider);
+      ref.invalidate(allPartnersProvider);
+    }
+
     switch (category) {
       case 'Shipping Line':
         UniversalEntityExtractorDialog.showShippingLineExtractor(
           context,
-          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+          onSaved: onDone,
         );
         break;
       case 'Customs Broker':
         UniversalEntityExtractorDialog.showCustomsBrokerExtractor(
           context,
-          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+          onSaved: onDone,
         );
         break;
       case 'Freight Forwarder':
         UniversalEntityExtractorDialog.showFreightForwarderExtractor(
           context,
-          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+          onSaved: onDone,
         );
         break;
       case 'Inland Transport':
         UniversalEntityExtractorDialog.showInlandTransportExtractor(
           context,
-          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+          onSaved: onDone,
         );
         break;
       case 'Inspection Agency':
         UniversalEntityExtractorDialog.showInspectionAgencyExtractor(
           context,
-          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+          onSaved: onDone,
         );
         break;
       case 'Insurance Company':
         UniversalEntityExtractorDialog.showInsuranceCompanyExtractor(
           context,
-          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+          onSaved: onDone,
         );
         break;
       case 'Bank':
         UniversalEntityExtractorDialog.showBankExtractor(
           context,
-          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+          onSaved: onDone,
         );
         break;
       default:
         UniversalEntityExtractorDialog.show(
           context,
           initialTarget: EntityTarget.customsBroker,
-          onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+          onSaved: onDone,
         );
         break;
     }
@@ -120,6 +127,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     super.initState();
     Future.microtask(() {
       ref.read(partnersProvider.notifier).fetchPartners();
+      ref.read(allPartnersProvider.notifier).fetchPartners();
     });
   }
 

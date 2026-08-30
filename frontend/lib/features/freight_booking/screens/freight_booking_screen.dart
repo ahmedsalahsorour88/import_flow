@@ -109,7 +109,10 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
           label: const Text('تكويد خط ملاحي بالذكاء الاصطناعي ✨'),
           onPressed: () => UniversalEntityExtractorDialog.showShippingLineExtractor(
             context,
-            onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+            onSaved: () {
+              ref.read(partnersProvider.notifier).fetchPartners();
+              ref.read(allPartnersProvider.notifier).fetchPartners();
+            },
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.emerald,
@@ -124,7 +127,10 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
           label: const Text('تكويد شركة شحن بالذكاء الاصطناعي ✨'),
           onPressed: () => UniversalEntityExtractorDialog.showFreightForwarderExtractor(
             context,
-            onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
+            onSaved: () {
+              ref.read(partnersProvider.notifier).fetchPartners();
+              ref.read(allPartnersProvider.notifier).fetchPartners();
+            },
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.cobalt,
@@ -1444,7 +1450,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
   @override
   Widget build(BuildContext context) {
     final importFiles = ref.watch(importFilesProvider).value ?? [];
-    final partners = ref.watch(partnersProvider).value ?? [];
+    final partners = ref.watch(allPartnersProvider).value ?? ref.watch(partnersProvider).value ?? [];
     final ports = ref.watch(transportLocationsProvider).value ?? [];
     final shippingSessions = ref.watch(shippingScenariosProvider).sessions;
     final poList = ref.watch(purchaseOrdersProvider).purchaseOrders;

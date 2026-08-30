@@ -424,6 +424,7 @@ class PalletPlanItemModel {
 class PurchaseOrderModel {
   final int? poId;
   final String poNumber;
+  final String? poReference;
   final String? proformaInvoiceNumber;
   final String? countryOfOrigin;
   final int? importFileId;
@@ -466,6 +467,7 @@ class PurchaseOrderModel {
   PurchaseOrderModel({
     this.poId,
     required this.poNumber,
+    this.poReference,
     this.proformaInvoiceNumber,
     this.countryOfOrigin,
     this.importFileId,
@@ -509,6 +511,7 @@ class PurchaseOrderModel {
     return PurchaseOrderModel(
       poId: json['po_id'] != null ? _numToInt(json['po_id']) : null,
       poNumber: json['po_number'] as String? ?? '',
+      poReference: json['po_reference'] as String?,
       proformaInvoiceNumber: json['proforma_invoice_number'] as String?,
       countryOfOrigin: json['country_of_origin'] as String?,
       importFileId: json['import_file_id'] != null ? _numToInt(json['import_file_id']) : null,
@@ -561,6 +564,7 @@ class PurchaseOrderModel {
     return {
       if (poId != null) 'po_id': poId,
       if (poNumber.isNotEmpty) 'po_number': poNumber,
+      if (poReference != null && poReference!.isNotEmpty) 'po_reference': poReference,
       if (proformaInvoiceNumber != null) 'proforma_invoice_number': proformaInvoiceNumber,
       if (countryOfOrigin != null) 'country_of_origin': countryOfOrigin,
       if (importFileId != null) 'import_file_id': importFileId,

@@ -11,6 +11,7 @@ import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/error_details_dialog.dart';
+import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 
 import '../../external_service_providers/models/partner_model.dart';
@@ -141,27 +142,13 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
   void _refreshData({bool force = false}) {
     ref.read(shippingScenariosProvider.notifier).fetchSessions();
-    if (force || ref.read(projectsProvider).value == null) {
-      ref.read(projectsProvider.notifier).fetchProjects();
-    }
-    if (force || ref.read(purchaseOrdersProvider).purchaseOrders.isEmpty) {
-      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
-    }
-    if (force || ref.read(allPartnersProvider).value == null) {
-      ref.read(allPartnersProvider.notifier).fetchPartners();
-    }
-    if (force || ref.read(partnersProvider).value == null) {
-      ref.read(partnersProvider.notifier).fetchPartners();
-    }
-    if (force || ref.read(transportLocationsProvider).value == null) {
-      ref.read(transportLocationsProvider.notifier).fetchLocations();
-    }
-    if (force || ref.read(importFilesProvider).value == null) {
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
-    }
-    if (force || ref.read(currenciesProvider).value == null) {
-      ref.read(currenciesProvider.notifier).fetchCurrencies();
-    }
+    ref.read(allPartnersProvider.notifier).fetchPartners();
+    ref.read(partnersProvider.notifier).fetchPartners();
+    ref.read(projectsProvider.notifier).fetchProjects();
+    ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+    ref.read(transportLocationsProvider.notifier).fetchLocations();
+    ref.read(importFilesProvider.notifier).fetchImportFiles();
+    ref.read(currenciesProvider.notifier).fetchCurrencies();
   }
 
   void _initDefaultItems() {
@@ -1097,9 +1084,25 @@ Best regards,
     final List<PartnerModel> partnersList = partnersState.value ?? [];
     final List<CurrencyModel> currenciesList = currenciesAsync.value ?? [];
 
-    final List<PartnerModel> freightForwarders = partnersList.where((p) => p.partnerType.contains('Freight Forwarder')).toList();
-    final List<PartnerModel> shippingLines = partnersList.where((p) => p.partnerType.contains('Shipping Line')).toList();
-    final List<PartnerModel> customsBrokers = partnersList.where((p) => p.partnerType.contains('Customs Broker')).toList();
+    final List<PartnerModel> freightForwarders = partnersList.where((p) {
+      final t = p.partnerType.toLowerCase();
+      return t.contains('freight forwarder') || t.contains('forwarder') || t.contains('شحن') || t.contains('لوجستي');
+    }).toList();
+
+    final List<PartnerModel> shippingLines = partnersList.where((p) {
+      final t = p.partnerType.toLowerCase();
+      return t.contains('shipping line') ||
+          t.contains('carrier') ||
+          t.contains('liner') ||
+          t.contains('ملاحي') ||
+          t.contains('خط شحن') ||
+          t.contains('خطوط ملاحية');
+    }).toList();
+
+    final List<PartnerModel> customsBrokers = partnersList.where((p) {
+      final t = p.partnerType.toLowerCase();
+      return t.contains('customs broker') || t.contains('broker') || t.contains('تخليص') || t.contains('مخلص');
+    }).toList();
     final portsList = portsState.value ?? [];
 
     final tabs = [
@@ -1473,7 +1476,7 @@ Best regards,
                                     SearchableDropdownItem<int?>(value: null, label: l.unassigned),
                                     ...poList.map((po) => SearchableDropdownItem<int?>(
                                           value: po.poId,
-                                          label: '${po.poNumber} (${po.supplierName ?? "Supplier"})',
+                                          label: '${po.poNumber}${po.poReference != null && po.poReference!.isNotEmpty ? " - ${po.poReference}" : ""} (${po.supplierName ?? "Supplier"})',
                                         )),
                                   ],
                                   onChanged: (v) => setState(() => _selectedPoId = v),
@@ -1721,11 +1724,13 @@ Best regards,
                                   child: SearchableDropdownField<int?>(
                                     value: item.providerId,
                                     labelText: l.freightForwarderCol,
+                                    searchHintText: 'ابحث عن شركة / وكيل الشحن...',
                                     items: [
                                       SearchableDropdownItem<int?>(value: null, label: l.unassigned),
                                       ...freightForwarders.map((p) => SearchableDropdownItem<int?>(
                                             value: p.providerId,
-                                            label: p.partnerName,
+                                            label: '${p.partnerName}${p.partnerCode.isNotEmpty ? " (${p.partnerCode})" : ""}',
+                                            searchValue: '${p.partnerName} ${p.partnerCode} ${p.partnerType}',
                                           )),
                                     ],
                                     onChanged: (val) {
@@ -1745,16 +1750,20 @@ Best regards,
                                         ? item.providerName
                                         : (item.providerName.isNotEmpty ? item.providerName : ''),
                                     labelText: '${l.shippingLineCol} *',
+                                    searchHintText: 'ابحث عن الخط الملاحي أو كود SCAC (مثل: LCL, COSCO, MSC, ONE)...',
                                     items: [
                                       SearchableDropdownItem<String>(value: '', label: l.unassigned),
                                       if (item.providerName.isNotEmpty && !shippingLines.any((p) => p.partnerName == item.providerName))
                                         SearchableDropdownItem<String>(
                                           value: item.providerName,
                                           label: '★ ${item.providerName} (مقترح)',
+                                          searchValue: item.providerName,
                                         ),
                                       ...shippingLines.map((p) => SearchableDropdownItem<String>(
                                             value: p.partnerName,
-                                            label: p.partnerName,
+                                            label: '${p.partnerName}${p.scacCode != null && p.scacCode!.isNotEmpty ? " (${p.scacCode})" : ""}',
+                                            searchValue: '${p.partnerName} ${p.partnerCode} ${p.scacCode ?? ""} ${p.partnerType}',
+                                            subtitle: p.scacCode != null && p.scacCode!.isNotEmpty ? 'SCAC: ${p.scacCode}' : p.partnerCode,
                                           )),
                                     ],
                                     onChanged: (val) {
@@ -1764,7 +1773,16 @@ Best regards,
                                     },
                                   ),
                                 ),
-                                const SizedBox(width: 10),
+                                const SizedBox(width: 4),
+                                IconButton(
+                                  icon: const Icon(Icons.add_business_outlined, color: AppTheme.emerald, size: 20),
+                                  tooltip: 'تكويد خط ملاحي جديد بالذكاء الاصطناعي',
+                                  onPressed: () => UniversalEntityExtractorDialog.showShippingLineExtractor(
+                                    context,
+                                    onSaved: () => _refreshData(force: true),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
                                 Expanded(
                                   flex: 2,
                                   child: TextFormField(

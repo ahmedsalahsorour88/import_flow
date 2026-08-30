@@ -301,3 +301,8 @@ def shutdown_system():
         "status": "shutting down",
         "message": "ImportFlow backend is shutting down gracefully...",
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=28080, log_config=None, access_log=False)

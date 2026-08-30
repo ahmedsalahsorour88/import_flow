@@ -29,11 +29,23 @@ echo       [OK] Database schema verified!
 echo [3/4] Checking backend server (Port 28080)...
 netstat -ano | findstr ":28080" | findstr "LISTENING" >nul 2>&1
 if %errorlevel% equ 0 (
-    echo       [OK] Backend server is already running.
+    echo       [OK] Backend server is already active and listening.
 ) else (
     echo       [+] Starting background FastAPI backend server...
-    start /min "" python main.py
-    timeout /t 2 /nobreak >nul
+    start /min "ImportFlow_Backend" python backend_runner.py
+    
+    :: Wait up to 10 seconds for port 28080 to become ready
+    set "READY=0"
+    for /L %%i in (1,1,10) do (
+        if !READY! equ 0 (
+            timeout /t 1 /nobreak >nul
+            netstat -ano | findstr ":28080" | findstr "LISTENING" >nul 2>&1
+            if !errorlevel! equ 0 (
+                set "READY=1"
+                echo       [OK] Backend server is ready and responding!
+            )
+        )
+    )
 )
 
 :: 4. Launch Desktop Client

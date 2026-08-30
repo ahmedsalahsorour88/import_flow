@@ -545,7 +545,7 @@ class FreightQuotationExtractor(BaseExtractor):
 
         # Regex captures rate lines supporting standard, unicode quotes, LCL, Air, and OCR formats
         rate_pattern = re.compile(
-            r"(?:([A-Z0-9\-\.]{2,10})[:\s]+)?(?:O/?F(?:\s*rate)?[:\s]*|نولون(?:\s*بحري)?[:\s]*)?(?:USD|\$|EUR|EGP)?\s*([0-9,]{2,8}(?:\.\d+)?)\s*(?:/|\\)\s*(20\s*(?:GP|DC|ft\b)?|40\s*(?:HQ|HC|GP|DC|ft\b)?|CBM|KG|W/?M)(?!\d)(?:\s+BY\s+([A-Z0-9\-\.\s]{2,15}))?",
+            r"(?:([A-Za-z0-9\-\.]{2,10})[^\S\r\n]*[:=]?[^\S\r\n]*)?(?:O/?F(?:\s*rate)?[^\S\r\n]*[:=]?[^\S\r\n]*|Ocean\s+Freight[^\S\r\n]*[:=]?[^\S\r\n]*|Rate[^\S\r\n]*[:=]?[^\S\r\n]*|نولون(?:\s*بحري)?[^\S\r\n]*[:=]?[^\S\r\n]*)?(?:USD|\$|EUR|EGP)?[^\S\r\n]*([0-9,]{1,8}(?:\.\d+)?)[^\S\r\n]*(?:/|\\)[^\S\r\n]*(20\s*(?:GP|DC|ft\b)?|40\s*(?:HQ|HC|GP|DC|ft\b)?|CBM|KG|W/?M)(?!\d)(?:[^\S\r\n]+BY[^\S\r\n]+([A-Za-z0-9\-\. ]{2,15}))?",
             re.IGNORECASE,
         )
 
@@ -584,18 +584,45 @@ class FreightQuotationExtractor(BaseExtractor):
                 cntr_type = self._normalize_cntr(cntr_raw)
                 rate_val = self.parse_numeric_str(raw_rate)
 
-                # Avoid capturing local charges as ocean freight
-                pre_text = block[max(0, match.start() - 50):match.start()].lower()
-                is_local_line = any(w in pre_text for w in ["local", "محلية", "ex-work", "exw fee", "مصاريف المصنع", "truck"])
-                has_freight_keyword = any(w in pre_text for w in ["ocean", "o/f", "freight", "نولون"])
-                if is_local_line and not has_freight_keyword:
+                # Avoid capturing local charges, THC, storage, or documentation as ocean freight
+                line_start = block.rfind("\n", 0, match.start())
+                line_start = 0 if line_start == -1 else line_start + 1
+                line_end = block.find("\n", match.end())
+                line_end = len(block) if line_end == -1 else line_end
+                full_line = block[line_start:line_end].strip()
+                full_line_lower = full_line.lower()
+
+                surcharge_keywords = [
+                    "local", "محلية", "ex-work", "exw fee", "مصاريف المصنع", "truck",
+                    "d-thc", "dthc", "o-thc", "othc", "thc", "terminal handling",
+                    "storage", "warehousing", "تخزين", "extra storage",
+                    "detention", "demurrage", "غرامات",
+                    "delivery order", "d/o", "gate pass",
+                    "bl fee", "b/l fee", "doc fee", "documentation fee",
+                    "handling fee", "clearance fee", "customs fee",
+                    "free time extend", "extend free time"
+                ]
+                freight_keywords = ["ocean", "o/f", "freight", "نولون", "sea freight"]
+
+                is_surcharge = any(w in full_line_lower for w in surcharge_keywords)
+                has_freight_keyword = any(w in full_line_lower for w in freight_keywords)
+                if is_surcharge and not has_freight_keyword:
                     continue
 
                 # Filter out date digits captured as rate (e.g. rate_val < 35 for 20GP/40HQ)
                 if rate_val <= 31 and ("20" in cntr_type or "40" in cntr_type):
                     continue
 
-                unique_key = f"{carrier_name}_{cntr_type}_{rate_val}"
+                # Detect line-specific currency
+                line_curr_match = re.search(r"\b(EUR|USD|GBP|EGP|CNY|SAR|AED|€|\$|£|¥)\b", full_line, re.IGNORECASE)
+                if line_curr_match:
+                    sym = line_curr_match.group(1).upper()
+                    sym_map = {"€": "EUR", "$": "USD", "£": "GBP", "¥": "CNY"}
+                    opt_currency = sym_map.get(sym, sym)
+                else:
+                    opt_currency = currency
+
+                unique_key = f"{carrier_name}_{cntr_type}_{rate_val}_{opt_currency}"
                 if unique_key in seen_keys:
                     continue
                 seen_keys.add(unique_key)
@@ -630,7 +657,7 @@ class FreightQuotationExtractor(BaseExtractor):
                     "local_charges": local_fee if local_fee > 0 else None,
                     "exw_charges": local_fee if (incoterm == "EXW" or "EXW" in block) and local_fee > 0 else None,
                     "total_estimated_cost": total_cost,
-                    "currency": currency,
+                    "currency": opt_currency,
                     "incoterm": "EXW" if ("EXW" in block or incoterm == "EXW") else (incoterm or "FOB"),
                     "origin_port": blk_orig or origin,
                     "destination_port": blk_dest or dest,
@@ -738,20 +765,26 @@ class FreightQuotationExtractor(BaseExtractor):
 
         # Pattern 3: Standard shipping surcharges if present as distinct lines
         surcharge_patterns = [
-            (r"(?:THC|Terminal\s+Handling(?:\s+Charge)?|رسوم\s+المناولة|تداول\s+الحاويات)[:\s]+(?:USD|\$|EUR|EGP)?\s*([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9]+)?", "thc_charge", "رسوم تداول ومناولة (THC)"),
-            (r"(?:Doc(?:\s+Fee|\s+Charges?)?|Documentation(?:\s+Fee)?|رسوم\s+المستندات|مصاريف\s+البوليصة)[:\s]+(?:USD|\$|EUR|EGP)?\s*([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9]+)?", "doc_fee", "رسوم بوليصة ومستندات (Doc Fee)"),
-            (r"(?:ISPS|Security\s+Fee|رسوم\s+الأمن)[:\s]+(?:USD|\$|EUR|EGP)?\s*([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9]+)?", "isps_fee", "رسوم أمن الميناء (ISPS)"),
-            (r"(?:Seal\s+Fee|رسوم\s+السيل)[:\s]+(?:USD|\$|EUR|EGP)?\s*([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9]+)?", "seal_fee", "رسوم الرصاصة الجمركية (Seal Fee)"),
-            (r"(?:VGM\s+Fee|وزن\s+VGM)[:\s]+(?:USD|\$|EUR|EGP)?\s*([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9]+)?", "vgm_fee", "رسوم وزن الحاوية (VGM)"),
-            (r"(?:Chassis\s+Fee|رسوم\s+الشاسيه)[:\s]+(?:USD|\$|EUR|EGP)?\s*([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9]+)?", "chassis_fee", "رسوم الشاسيه (Chassis Fee)"),
+            (r"(?:D-THC|DTHC|Destination\s+THC)[:\s]+(?:(USD|\$|EUR|EGP)\s*)?([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9/]+)?", "d_thc", "رسوم تداول ومناولة في الوصول (D-THC)"),
+            (r"(?:Storage(?:\s*\([^\)]*\))?|رسوم\s+التخزين|أرضيات)[:\s]+(?:(USD|\$|EUR|EGP)\s*)?([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9/]+)?", "storage_fee", "رسوم التخزين (Storage)"),
+            (r"(?:Extra\s+Storage(?:\s+Day)?|تخزين\s+إضافي)[:\s]+(?:(USD|\$|EUR|EGP)\s*)?([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9/]+)?", "extra_storage_fee", "رسوم تخزين إضافي يومي (Extra Storage Day)"),
+            (r"(?:THC|Terminal\s+Handling(?:\s+Charge)?|رسوم\s+المناولة|تداول\s+الحاويات)[:\s]+(?:(USD|\$|EUR|EGP)\s*)?([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9/]+)?", "thc_charge", "رسوم تداول ومناولة (THC)"),
+            (r"(?:Doc(?:\s+Fee|\s+Charges?)?|Documentation(?:\s+Fee)?|رسوم\s+المستندات|مصاريف\s+البوليصة)[:\s]+(?:(USD|\$|EUR|EGP)\s*)?([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9/]+)?", "doc_fee", "رسوم بوليصة ومستندات (Doc Fee)"),
+            (r"(?:ISPS|Security\s+Fee|رسوم\s+الأمن)[:\s]+(?:(USD|\$|EUR|EGP)\s*)?([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9/]+)?", "isps_fee", "رسوم أمن الميناء (ISPS)"),
+            (r"(?:Seal\s+Fee|رسوم\s+السيل)[:\s]+(?:(USD|\$|EUR|EGP)\s*)?([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9/]+)?", "seal_fee", "رسوم الرصاصة الجمركية (Seal Fee)"),
+            (r"(?:VGM\s+Fee|وزن\s+VGM)[:\s]+(?:(USD|\$|EUR|EGP)\s*)?([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9/]+)?", "vgm_fee", "رسوم وزن الحاوية (VGM)"),
+            (r"(?:Chassis\s+Fee|رسوم\s+الشاسيه)[:\s]+(?:(USD|\$|EUR|EGP)\s*)?([0-9,]+(?:\.\d+)?)\s*(?:/|\\)?\s*([A-Za-z0-9/]+)?", "chassis_fee", "رسوم الشاسيه (Chassis Fee)"),
         ]
 
         for pat, fkey, flabel in surcharge_patterns:
             m = re.search(pat, text, re.IGNORECASE)
             if m:
-                amt = self.parse_numeric_str(m.group(1))
-                unit = (m.group(2) or "unit").strip() if len(m.groups()) >= 2 and m.group(2) else "unit"
-                key = f"{fkey}_{amt}"
+                curr_str = (m.group(1) or "USD").upper()
+                sym_map = {"€": "EUR", "$": "USD", "£": "GBP", "¥": "CNY"}
+                curr_code = sym_map.get(curr_str, curr_str)
+                amt = self.parse_numeric_str(m.group(2))
+                unit = (m.group(3) or "unit").strip() if len(m.groups()) >= 3 and m.group(3) else "unit"
+                key = f"{fkey}_{amt}_{curr_code}"
                 if key not in seen_keys and 0 < amt < 5000:
                     seen_keys.add(key)
                     expenses.append({
@@ -759,9 +792,9 @@ class FreightQuotationExtractor(BaseExtractor):
                         "label": flabel,
                         "raw_label": flabel,
                         "amount": amt,
-                        "currency": "USD",
+                        "currency": curr_code,
                         "unit": unit,
-                        "formatted_value": f"USD {amt:,.0f} / {unit}",
+                        "formatted_value": f"{curr_code} {amt:,.0f} / {unit}",
                         "category": "Standard Surcharges",
                         "is_unmapped": False,
                     })

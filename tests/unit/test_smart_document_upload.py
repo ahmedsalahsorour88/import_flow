@@ -649,9 +649,47 @@ Other (21days+USD200/ctnr)"""
             assert opt["notes"] is not None
             assert "USD 200" in opt["notes"]
 
+    def test_genoa_alexandria_lcl_quotation_single_option(self):
+        user_email = """
+        Dear Mr.Ahmed,
+                     Good Day,
 
+        Please find below our rate  :
 
+        POL : Genoa
 
+        POD : Alexandria Old Port – Our Warehouse
+
+        Term : EXW
+
+        Volume : 9 CBM
+        Cargo : Non-IMO / Non-Stackable
+        •	Ocean Freight : EUR 25 / W/M
+        •	D-THC : EGP 650 / W/M + VAT 
+        •	Storage (1st week) : EGP 650 / W/M + VAT
+        •	Extra Storage Day : EGP 50 / W/M + VAT
+        •	Transit Time : About 7 days – Direct Service
+                Notes  :
+        •	Ocean freight rates are subject to War Risk Surcharges (WRS) and General Rate Increase (GRI).
+        •	All vessels are subject to possible delays in arrival, berthing, sailing, or changes in schedule/port calls, which are beyond our control.
+        •	Storage charges apply in case the cargo is stored in UGL bonded warehouse. In case of storage in governmental warehouses, the applicable governmental warehouse tariff will apply.
+        •	21 days is the maximum valid time for using the offered tariff. After 21 days, the regular governmental warehouse tariff will be applied.
+        """
+        result = self.extractor.extract(user_email, {})
+        assert result["options_count"] == 1
+        assert len(result["rate_options"]) == 1
+
+        opt = result["rate_options"][0]
+        assert opt["ocean_freight"] == 25.0
+        assert opt["currency"] == "EUR"
+        assert opt["container_type"] == "LCL (CBM)"
+        assert "Genoa" in (opt["origin_port"] or "")
+        assert "Alexandria" in (opt["destination_port"] or "")
+        assert opt["transit_days"] == 7
+        assert opt["is_direct"] is True
+        assert opt["incoterm"] == "EXW"
+        assert "D-THC" in (opt["notes"] or "")
+        assert "Storage" in (opt["notes"] or "")
 # ─────────────────────────────────────────────────────────────────────────────
 # Freight Booking Extractor Tests
 # ─────────────────────────────────────────────────────────────────────────────

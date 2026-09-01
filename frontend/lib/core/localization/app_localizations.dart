@@ -3517,6 +3517,39 @@ abstract class AppLocalizations {
   String stepParam2Label(String stepCode);
   String stepParam3Label(String stepCode);
 
+  // CL-003 Live Logistics Tracking Radar
+  String get viewModeKanbanPhases;
+  String get viewModeLiveRadar;
+  String get kpiInTransit;
+  String get kpiInPort;
+  String get kpiHighDemurrageRisk;
+  String get kpiUnderTesting;
+  String get kpiIncompleteDocs;
+  String get riskFilterAll;
+  String get riskFilterCritical;
+  String get riskFilterWarning;
+  String get riskFilterSafe;
+  String get sampleFilterAll;
+  String get sampleFilterUnderTesting;
+  String get sampleFilterApproved;
+  String get sampleFilterRejected;
+  String get colVesselAndBl;
+  String get colEtaCountdown;
+  String get colDemurrageRisk;
+  String get colSampleTesting;
+  String get colDocReadiness;
+  String get colQuickActions;
+  String get btnDemurrageSimulator;
+  String get btnRegulatorySamples;
+  String get btnCustoms46;
+  String get btnCentralArchive;
+  String get missingDocsTooltip;
+  String get allDocsCompleted;
+  String daysRemainingToEta(dynamic days);
+  String daysInPort(dynamic days);
+  String freeDaysRemainingBadge(dynamic days);
+  String get demurrageIncurredBadge;
+
   // ==========================================
   // Screen 49: Freight Quotations Comparison (FreightQuotationsComparisonScreen)
   // ==========================================

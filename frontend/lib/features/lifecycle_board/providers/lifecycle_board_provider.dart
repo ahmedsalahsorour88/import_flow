@@ -7,9 +7,16 @@ import '../../../core/network/api_client.dart';
 
 final lifecycleBoardSummaryProvider =
     FutureProvider.autoDispose<LifecycleBoardSummaryModel>((ref) async {
-  final dio = Dio();
+  final dio = ref.watch(dioProvider);
   final response = await dio.get('${ApiConstants.baseUrl}/lifecycle-board/summary');
   return LifecycleBoardSummaryModel.fromJson(response.data);
+});
+
+final liveLogisticsTrackingProvider =
+    FutureProvider.autoDispose<LiveLogisticsSummaryModel>((ref) async {
+  final dio = ref.watch(dioProvider);
+  final response = await dio.get('${ApiConstants.baseUrl}/lifecycle-board/live-tracking');
+  return LiveLogisticsSummaryModel.fromJson(response.data);
 });
 
 class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {

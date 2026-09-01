@@ -103,3 +103,64 @@ class LifecycleBoardSummaryResponse(BaseModel):
     phases: List[PhaseSummary]
     total_active_files: int
     all_shipments: List[ShipmentStageCard]
+
+
+class LiveLogisticsTrackingItem(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    company_name: str
+    supplier_name: str
+    po_number: Optional[str] = None
+    shipment_mode: str = "Sea FCL"
+    incoterm_code: str = "FOB"
+    priority: str = "High"
+
+    # Voyage & Vessel Logistics
+    bl_number: Optional[str] = None
+    carrier_name: Optional[str] = None
+    vessel_name: Optional[str] = None
+    pol_name: Optional[str] = None
+    pod_name: Optional[str] = None
+    etd: Optional[str] = None
+    eta: Optional[str] = None
+    eta_countdown_days: Optional[int] = None # Positive = Days remaining to arrival, Negative = Days in port
+    arrival_status: str = "Pre-Shipment" # Pre-Shipment, In Transit, In Port / Clearing, Cleared
+
+    # Demurrage & Detention Free Time Radar
+    demurrage_tracking_code: Optional[str] = None
+    demurrage_status: str = "No Active Session" # Safe, Warning, Critical, Overdue, No Active Session
+    free_days_total: int = 14
+    free_days_remaining: int = 14
+    used_free_days: int = 0
+    demurrage_risk_level: str = "Low" # Low, Medium, High, Critical
+    accumulated_demurrage_fx: float = 0.0
+    accumulated_demurrage_egp: float = 0.0
+
+    # Regulatory Testing & Laboratory Samples
+    sample_test_status: str = "Not Applicable" # Pending, Under Testing, Approved, Rejected, Exempted, Not Applicable
+    regulatory_agency: Optional[str] = None # GOEIC, Food Safety, Radiation, NTRA
+    lab_receipt_number: Optional[str] = None
+    sample_result_countdown_days: Optional[int] = None
+
+    # Smart Document Readiness
+    doc_readiness_percent: float = 0.0 # 0.0 to 100.0%
+    verified_documents_count: int = 0
+    total_required_documents: int = 7
+    missing_documents: List[str] = []
+
+    # Overall Operational Health & Stage
+    operational_health_score: str = "Optimal" # Optimal, Attention Needed, Critical Alert
+    current_step_code: str = "STEP_01"
+    current_step_name_ar: str = ""
+    current_step_name_en: str = ""
+    next_action: str = ""
+
+
+class LiveLogisticsSummaryResponse(BaseModel):
+    total_active_shipments: int
+    in_transit_count: int
+    in_port_count: int
+    high_risk_demurrage_count: int
+    under_sample_testing_count: int
+    incomplete_documents_count: int
+    items: List[LiveLogisticsTrackingItem]

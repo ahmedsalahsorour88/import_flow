@@ -3695,6 +3695,39 @@ class AppLocalizationsAr extends AppLocalizations {
     }
   }
 
+  // CL-003 Live Logistics Tracking Radar
+  @override String get viewModeKanbanPhases => 'عرض مراحل العمليات (6 مراحل)';
+  @override String get viewModeLiveRadar => 'رادار التتبع اللوجستي الحي';
+  @override String get kpiInTransit => 'في الطريق للميناء';
+  @override String get kpiInPort => 'في الميناء وقيد التخليص';
+  @override String get kpiHighDemurrageRisk => 'خطر غرامات أرضيات';
+  @override String get kpiUnderTesting => 'عينات قيد الفحص المعملي';
+  @override String get kpiIncompleteDocs => 'نواقص مستندية';
+  @override String get riskFilterAll => 'جميع مستويات الخطر';
+  @override String get riskFilterCritical => 'خطر حرج';
+  @override String get riskFilterWarning => 'تحذير / متوسط';
+  @override String get riskFilterSafe => 'آمن';
+  @override String get sampleFilterAll => 'جميع حالات العينات';
+  @override String get sampleFilterUnderTesting => 'قيد الفحص المعملي';
+  @override String get sampleFilterApproved => 'معتمدة / مطابقة';
+  @override String get sampleFilterRejected => 'مرفوضة';
+  @override String get colVesselAndBl => 'السفينة والخط وبوليصة الشحن';
+  @override String get colEtaCountdown => 'الوصول ETA وأيام الميناء';
+  @override String get colDemurrageRisk => 'مؤشر غرامات الأرضيات والسماح';
+  @override String get colSampleTesting => 'فحص العينات الرقابية';
+  @override String get colDocReadiness => 'اكتمال المستندات';
+  @override String get colQuickActions => 'إجراءات سريعة';
+  @override String get btnDemurrageSimulator => 'محاكي الغرامات';
+  @override String get btnRegulatorySamples => 'اشتراطات وفحص';
+  @override String get btnCustoms46 => 'إقرار 46 ك.م';
+  @override String get btnCentralArchive => 'أرشيف المستندات';
+  @override String get missingDocsTooltip => 'المستندات الناقصة: ';
+  @override String get allDocsCompleted => 'كافة المستندات مكتملة ومعتمدة بنجاح';
+  @override String daysRemainingToEta(dynamic days) => 'متبقي $days يوم على الوصول';
+  @override String daysInPort(dynamic days) => 'في الميناء منذ $days يوم';
+  @override String freeDaysRemainingBadge(dynamic days) => 'متبقي $days يوم سماح';
+  @override String get demurrageIncurredBadge => 'بدء احتساب الغرامات';
+
   // ==========================================
   // Screen 49: Freight Quotations Comparison (FreightQuotationsComparisonScreen)
   // ==========================================

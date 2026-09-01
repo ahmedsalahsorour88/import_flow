@@ -129,3 +129,174 @@ class LifecycleBoardSummaryModel {
     );
   }
 }
+
+class LiveLogisticsTrackingItemModel {
+  final int importFileId;
+  final String importFileCode;
+  final String companyName;
+  final String supplierName;
+  final String? poNumber;
+  final String shipmentMode;
+  final String incotermCode;
+  final String priority;
+
+  // Voyage & Logistics
+  final String? blNumber;
+  final String? carrierName;
+  final String? vesselName;
+  final String? polName;
+  final String? podName;
+  final String? etd;
+  final String? eta;
+  final int? etaCountdownDays;
+  final String arrivalStatus;
+
+  // Demurrage & Free Time
+  final String? demurrageTrackingCode;
+  final String demurrageStatus;
+  final int freeDaysTotal;
+  final int freeDaysRemaining;
+  final int usedFreeDays;
+  final String demurrageRiskLevel;
+  final double accumulatedDemurrageFx;
+  final double accumulatedDemurrageEgp;
+
+  // Regulatory Testing & Samples
+  final String sampleTestStatus;
+  final String? regulatoryAgency;
+  final String? labReceiptNumber;
+  final int? sampleResultCountdownDays;
+
+  // Document Readiness
+  final double docReadinessPercent;
+  final int verifiedDocumentsCount;
+  final int totalRequiredDocuments;
+  final List<String> missingDocuments;
+
+  // Health Score & Stage
+  final String operationalHealthScore;
+  final String currentStepCode;
+  final String currentStepNameAr;
+  final String currentStepNameEn;
+  final String nextAction;
+
+  LiveLogisticsTrackingItemModel({
+    required this.importFileId,
+    required this.importFileCode,
+    required this.companyName,
+    required this.supplierName,
+    this.poNumber,
+    required this.shipmentMode,
+    required this.incotermCode,
+    required this.priority,
+    this.blNumber,
+    this.carrierName,
+    this.vesselName,
+    this.polName,
+    this.podName,
+    this.etd,
+    this.eta,
+    this.etaCountdownDays,
+    required this.arrivalStatus,
+    this.demurrageTrackingCode,
+    required this.demurrageStatus,
+    required this.freeDaysTotal,
+    required this.freeDaysRemaining,
+    required this.usedFreeDays,
+    required this.demurrageRiskLevel,
+    required this.accumulatedDemurrageFx,
+    required this.accumulatedDemurrageEgp,
+    required this.sampleTestStatus,
+    this.regulatoryAgency,
+    this.labReceiptNumber,
+    this.sampleResultCountdownDays,
+    required this.docReadinessPercent,
+    required this.verifiedDocumentsCount,
+    required this.totalRequiredDocuments,
+    required this.missingDocuments,
+    required this.operationalHealthScore,
+    required this.currentStepCode,
+    required this.currentStepNameAr,
+    required this.currentStepNameEn,
+    required this.nextAction,
+  });
+
+  factory LiveLogisticsTrackingItemModel.fromJson(Map<String, dynamic> json) {
+    return LiveLogisticsTrackingItemModel(
+      importFileId: json['import_file_id'] ?? 0,
+      importFileCode: json['import_file_code'] ?? '',
+      companyName: json['company_name'] ?? '',
+      supplierName: json['supplier_name'] ?? '',
+      poNumber: json['po_number'],
+      shipmentMode: json['shipment_mode'] ?? 'Sea FCL',
+      incotermCode: json['incoterm_code'] ?? 'FOB',
+      priority: json['priority'] ?? 'High',
+      blNumber: json['bl_number'],
+      carrierName: json['carrier_name'],
+      vesselName: json['vessel_name'],
+      polName: json['pol_name'],
+      podName: json['pod_name'],
+      etd: json['etd'],
+      eta: json['eta'],
+      etaCountdownDays: json['eta_countdown_days'],
+      arrivalStatus: json['arrival_status'] ?? 'Pre-Shipment',
+      demurrageTrackingCode: json['demurrage_tracking_code'],
+      demurrageStatus: json['demurrage_status'] ?? 'No Active Session',
+      freeDaysTotal: json['free_days_total'] ?? 14,
+      freeDaysRemaining: json['free_days_remaining'] ?? 14,
+      usedFreeDays: json['used_free_days'] ?? 0,
+      demurrageRiskLevel: json['demurrage_risk_level'] ?? 'Low',
+      accumulatedDemurrageFx: (json['accumulated_demurrage_fx'] as num?)?.toDouble() ?? 0.0,
+      accumulatedDemurrageEgp: (json['accumulated_demurrage_egp'] as num?)?.toDouble() ?? 0.0,
+      sampleTestStatus: json['sample_test_status'] ?? 'Not Applicable',
+      regulatoryAgency: json['regulatory_agency'],
+      labReceiptNumber: json['lab_receipt_number'],
+      sampleResultCountdownDays: json['sample_result_countdown_days'],
+      docReadinessPercent: (json['doc_readiness_percent'] as num?)?.toDouble() ?? 0.0,
+      verifiedDocumentsCount: json['verified_documents_count'] ?? 0,
+      totalRequiredDocuments: json['total_required_documents'] ?? 7,
+      missingDocuments: List<String>.from(json['missing_documents'] ?? []),
+      operationalHealthScore: json['operational_health_score'] ?? 'Optimal',
+      currentStepCode: json['current_step_code'] ?? 'STEP_01',
+      currentStepNameAr: json['current_step_name_ar'] ?? '',
+      currentStepNameEn: json['current_step_name_en'] ?? '',
+      nextAction: json['next_action'] ?? '',
+    );
+  }
+}
+
+class LiveLogisticsSummaryModel {
+  final int totalActiveShipments;
+  final int inTransitCount;
+  final int inPortCount;
+  final int highRiskDemurrageCount;
+  final int underSampleTestingCount;
+  final int incompleteDocumentsCount;
+  final List<LiveLogisticsTrackingItemModel> items;
+
+  LiveLogisticsSummaryModel({
+    required this.totalActiveShipments,
+    required this.inTransitCount,
+    required this.inPortCount,
+    required this.highRiskDemurrageCount,
+    required this.underSampleTestingCount,
+    required this.incompleteDocumentsCount,
+    required this.items,
+  });
+
+  factory LiveLogisticsSummaryModel.fromJson(Map<String, dynamic> json) {
+    return LiveLogisticsSummaryModel(
+      totalActiveShipments: json['total_active_shipments'] ?? 0,
+      inTransitCount: json['in_transit_count'] ?? 0,
+      inPortCount: json['in_port_count'] ?? 0,
+      highRiskDemurrageCount: json['high_risk_demurrage_count'] ?? 0,
+      underSampleTestingCount: json['under_sample_testing_count'] ?? 0,
+      incompleteDocumentsCount: json['incomplete_documents_count'] ?? 0,
+      items: (json['items'] as List<dynamic>?)
+              ?.map((e) => LiveLogisticsTrackingItemModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+}
+

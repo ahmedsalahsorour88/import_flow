@@ -3695,6 +3695,39 @@ class AppLocalizationsEn extends AppLocalizations {
     }
   }
 
+  // CL-003 Live Logistics Tracking Radar
+  @override String get viewModeKanbanPhases => '6-Phase Stage Board';
+  @override String get viewModeLiveRadar => 'Live Logistics Radar';
+  @override String get kpiInTransit => 'In Transit / Sailing';
+  @override String get kpiInPort => 'In Port / Clearing';
+  @override String get kpiHighDemurrageRisk => 'Demurrage Risk';
+  @override String get kpiUnderTesting => 'Under Lab Testing';
+  @override String get kpiIncompleteDocs => 'Incomplete Docs';
+  @override String get riskFilterAll => 'All Risk Levels';
+  @override String get riskFilterCritical => 'Critical Risk';
+  @override String get riskFilterWarning => 'Warning / Medium';
+  @override String get riskFilterSafe => 'Safe';
+  @override String get sampleFilterAll => 'All Sample Statuses';
+  @override String get sampleFilterUnderTesting => 'Under Testing';
+  @override String get sampleFilterApproved => 'Approved';
+  @override String get sampleFilterRejected => 'Rejected';
+  @override String get colVesselAndBl => 'Vessel, Line & B/L';
+  @override String get colEtaCountdown => 'ETA & Port Dwell Time';
+  @override String get colDemurrageRisk => 'Demurrage & Free Time Radar';
+  @override String get colSampleTesting => 'Regulatory Samples';
+  @override String get colDocReadiness => 'Document Readiness';
+  @override String get colQuickActions => 'Quick Actions';
+  @override String get btnDemurrageSimulator => 'Demurrage Tracker';
+  @override String get btnRegulatorySamples => 'Requirements & Samples';
+  @override String get btnCustoms46 => 'Customs 46';
+  @override String get btnCentralArchive => 'Docs Archive';
+  @override String get missingDocsTooltip => 'Missing Documents: ';
+  @override String get allDocsCompleted => 'All required documents verified';
+  @override String daysRemainingToEta(dynamic days) => '$days days to arrival';
+  @override String daysInPort(dynamic days) => '$days days in port';
+  @override String freeDaysRemainingBadge(dynamic days) => '$days free days remaining';
+  @override String get demurrageIncurredBadge => 'Demurrage Incurred';
+
   // ==========================================
   // Screen 49: Freight Quotations Comparison (FreightQuotationsComparisonScreen)
   // ==========================================

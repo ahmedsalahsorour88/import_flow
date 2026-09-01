@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.lifecycle_board.schemas import (
     LifecycleBoardSummaryResponse,
+    LiveLogisticsSummaryResponse,
     StageActivityResponse,
     StepAdvancePayload,
     SkipStepPayload,
@@ -26,6 +27,15 @@ router = APIRouter(prefix="/api/v1/lifecycle-board", tags=["Shipment Lifecycle B
 )
 def get_board_summary(db: Session = Depends(get_db)):
     return service.get_board_summary_service(db)
+
+
+@router.get(
+    "/live-tracking",
+    response_model=LiveLogisticsSummaryResponse,
+    summary="Get aggregated live logistics tracking intelligence (ETA, Demurrage Risk, Samples, Document Completeness)",
+)
+def get_live_logistics_tracking(db: Session = Depends(get_db)):
+    return service.get_live_logistics_tracking_service(db)
 
 
 @router.get(

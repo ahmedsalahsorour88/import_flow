@@ -5950,6 +5950,200 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dynColOwner => 'Owner / Assignee';
   @override
   String get dynColStatus => 'File Status';
+
+  // ── Screen 68: Comprehensive Import File Report ───────────────────────────
+  @override
+  String get compReportScreenTitle => 'Comprehensive Import File Report';
+  @override
+  String get compReportAddUpdateBtn => 'Add Update';
+  @override
+  String get compReportSelectFileLabel => 'Select Import File to view comprehensive report';
+  @override
+  String get compReportEmptyStatePrompt => 'Select an import file from the list above\nto view the comprehensive report';
+  @override
+  String compReportPercentCompleted(String percent) => '$percent% completed';
+  @override
+  String get compReportCompletedPhases => 'Completed Phases';
+  @override
+  String get compReportRemainingPhases => 'Remaining Phases';
+  @override
+  String get compReportPipelineTitle => 'Shipment Operational Lifecycle Pipeline (10 Phases)';
+  @override
+  String compReportStoppedAtPhase(String phase) => 'Shipment stopped at: $phase';
+  @override
+  String get compReportSecBasicInfo => 'Basic Import File Details';
+  @override
+  String get compReportColFileCode => 'File Code';
+  @override
+  String get compReportColCustomsFileNo => 'Customs File #';
+  @override
+  String get compReportColImportCompany => 'Importing Company';
+  @override
+  String get compReportColSupplier => 'Foreign Supplier';
+  @override
+  String get compReportColBroker => 'Customs Broker';
+  @override
+  String get compReportColPoNumber => 'PO Number';
+  @override
+  String get compReportColPiNumber => 'PI Number';
+  @override
+  String get compReportColShipmentMode => 'Shipment Mode';
+  @override
+  String get compReportColIncoterm => 'Incoterm Rule';
+  @override
+  String get compReportColCategory => 'Shipment Category';
+  @override
+  String get compReportColScenario => 'Selected Scenario';
+  @override
+  String get compReportColRequiredEta => 'Required ETA';
+  @override
+  String get compReportColOwner => 'Operational Owner';
+  @override
+  String get compReportColCreatedAt => 'Creation Date';
+  @override
+  String get compReportColUpdatedAt => 'Last Updated';
+  @override
+  String get compReportSecDocs => 'Official Documents & Customs Papers';
+  @override
+  String get compReportAcidNumber => 'ACID Number (Nafeza)';
+  @override
+  String get compReportBankForm4 => 'Bank Form 4 Number';
+  @override
+  String get compReportSwiftNumber => 'SWIFT Wire Reference';
+  @override
+  String get compReportForm46Number => 'Customs Declaration 46 #';
+  @override
+  String compReportSecInvoices(int count) => 'Commercial Invoices ($count Invoices)';
+  @override
+  String get compReportNoInvoices => 'No invoices recorded';
+  @override
+  String compReportSecPackingLists(int count) => 'Packing Lists & Cargo Specs ($count Lists)';
+  @override
+  String get compReportNoPackingLists => 'No packing list data recorded';
+  @override
+  String get compReportTotalPackages => 'Total Packages';
+  @override
+  String get compReportTotalWeight => 'Total Weight';
+  @override
+  String get compReportTotalCbm => 'Total Volume CBM';
+  @override
+  String compReportPackagesUnit(dynamic count) => '$count pkgs';
+  @override
+  String compReportPiecesUnit(dynamic count) => '$count pcs';
+  @override
+  String get compReportSecStatus => 'Operational Status & Current Stage';
+  @override
+  String compReportPriorityPrefix(String priority) => 'Priority: $priority';
+  @override
+  String get compReportStatusLabel => 'Status';
+  @override
+  String get compReportCurrentStageLabel => 'Current Stage';
+  @override
+  String get compReportCurrentModuleLabel => 'Current Module';
+  @override
+  String get compReportNextActionLabel => 'Next Required Action';
+  @override
+  String get compReportTotalProgressLabel => 'Overall Progress Rate:';
+  @override
+  String get compReportSecFinancial => 'Financial Summary';
+  @override
+  String get compReportTotalInvoicesVal => 'Total Invoices Value';
+  @override
+  String get compReportEstimatedCostVal => 'Estimated Total Cost';
+  @override
+  String get compReportEstimatedVariance => 'Estimated Cost Variance';
+  @override
+  String get compReportSecNotes => 'General Notes';
+  @override
+  String get compReportNoNotes => 'No general notes recorded.';
+  @override
+  String compReportSecTimeline(int count) => 'Daily Updates & Operational Log ($count Updates)';
+  @override
+  String get compReportNoTimelineLogs => 'No operational updates recorded for this shipment yet.';
+  @override
+  String compReportByPrefix(String user) => 'By: $user';
+  @override
+  String compReportAlertPriorityPrefix(String priority) => 'Priority: $priority';
+  @override
+  String get compReportSecClearance => 'Customs Clearance Data (Phase 7)';
+  @override
+  String get compReportNoClearanceData => 'No customs clearance data recorded';
+  @override
+  String compReportDeclarationChip(String no) => 'Declaration: $no';
+  @override
+  String compReportReleasePermitChip(String no) => 'Release Permit: $no';
+  @override
+  String get compReportDutyImport => 'Import Duty';
+  @override
+  String get compReportDutyVat => 'VAT';
+  @override
+  String get compReportDutySchedule => 'Schedule Tax';
+  @override
+  String get compReportDutyInspection => 'Inspection Fee';
+  @override
+  String get compReportDutyTotal => 'Total';
+  @override
+  String compReportPaymentDate(String date) => 'Payment Date: $date';
+  @override
+  String compReportReleaseDate(String date) => 'Release Date: $date';
+  @override
+  String get compReportSecWarehouse => 'Warehouse Receiving & GRN Voucher (Phase 8)';
+  @override
+  String get compReportNoWarehouseData => 'No warehouse receiving data recorded';
+  @override
+  String compReportGrnChip(String code) => 'GRN: $code';
+  @override
+  String compReportArrivalDatetime(String date) => 'Arrival: $date';
+  @override
+  String compReportInspectorPrefix(String name) => 'Inspector: $name';
+  @override
+  String get compReportQtyInvoiced => 'Invoiced Qty';
+  @override
+  String get compReportQtyAccepted => 'Accepted';
+  @override
+  String get compReportQtyShortage => 'Shortage';
+  @override
+  String get compReportQtyDamaged => 'Damaged';
+  @override
+  String get compReportTableColCode => 'Code';
+  @override
+  String get compReportTableColItem => 'Item';
+  @override
+  String get compReportTableColInvoiced => 'Invoiced';
+  @override
+  String get compReportTableColAccepted => 'Accepted';
+  @override
+  String get compReportTableColShortage => 'Shortage';
+  @override
+  String get compReportTableColDamaged => 'Damaged';
+  @override
+  String get compReportPhase1Name => 'Planning, Feasibility & Freight';
+  @override
+  String get compReportPhase2Name => 'Financial Approval & Budget';
+  @override
+  String get compReportPhase3Name => 'Documents, ACID & Form 4';
+  @override
+  String get compReportPhase4Name => 'Freight Booking & Carrier';
+  @override
+  String get compReportPhase5Name => 'Actual Shipping & CargoX';
+  @override
+  String get compReportPhase6Name => 'Declaration 46 & Customs Tariff';
+  @override
+  String get compReportPhase7Name => 'Customs Clearance & Duty Payment';
+  @override
+  String get compReportPhase8Name => 'Warehouse Receiving & GRN';
+  @override
+  String get compReportPhase9Name => 'Landed Cost Settlement';
+  @override
+  String get compReportPhase10Name => 'File Closure & Archiving';
+  @override
+  String get compReportCategoryCostAdjustment => 'Phase Cost Adjustment';
+  @override
+  String get compReportCategoryFutureAlert => 'Future Phase Alert';
+  @override
+  String get compReportCategoryDailyCheckIn => 'Daily Check-in';
+  @override
+  String get compReportCategoryGeneralUpdate => 'General Operational Update';
 }
 
 

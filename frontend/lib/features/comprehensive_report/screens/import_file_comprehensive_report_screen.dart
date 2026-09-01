@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -32,18 +33,21 @@ class _ImportFileComprehensiveReportScreenState
   int? _selectedFileId;
   ImportFileModel? _selectedFile;
 
-  static const List<Map<String, dynamic>> _allPhases = [
-    {'code': 'Phase 1', 'name': 'التخطيط والجدوى والنولون', 'icon': Icons.analytics_outlined, 'bp': 'BP-001 → BP-011'},
-    {'code': 'Phase 2', 'name': 'الموافقة والاعتماد المالي', 'icon': Icons.account_balance_outlined, 'bp': 'BP-012 → BP-013'},
-    {'code': 'Phase 3', 'name': 'المستندات والـ ACID و Form 4', 'icon': Icons.description_outlined, 'bp': 'BP-014 → BP-016'},
-    {'code': 'Phase 4', 'name': 'حجز الشحن والناقل', 'icon': Icons.directions_boat_outlined, 'bp': 'BP-017 → BP-019'},
-    {'code': 'Phase 5', 'name': 'الشحن الفعلي وتتبع CargoX', 'icon': Icons.local_shipping_outlined, 'bp': 'BP-020 → BP-025'},
-    {'code': 'Phase 6', 'name': 'إقرار 46 والتعريفة الجمركية', 'icon': Icons.account_balance_wallet_outlined, 'bp': 'BP-026 → BP-028'},
-    {'code': 'Phase 7', 'name': 'التخليص الجمركي وسداد الرسوم', 'icon': Icons.receipt_long_outlined, 'bp': 'BP-029 → BP-032'},
-    {'code': 'Phase 8', 'name': 'استلام البضاعة بالمخازن GRN', 'icon': Icons.warehouse_outlined, 'bp': 'BP-033 → BP-035'},
-    {'code': 'Phase 9', 'name': 'تسوية تكلفة الوصول Landed Cost', 'icon': Icons.calculate_outlined, 'bp': 'BP-036 → BP-039'},
-    {'code': 'Phase 10', 'name': 'إغلاق الملف والأرشفة التاريخية', 'icon': Icons.archive_outlined, 'bp': 'BP-040'},
-  ];
+  List<Map<String, dynamic>> _getPhases(BuildContext context) {
+    final l = context.l10n;
+    return [
+      {'code': 'Phase 1', 'name': l.compReportPhase1Name, 'icon': Icons.analytics_outlined, 'bp': 'BP-001 → BP-011'},
+      {'code': 'Phase 2', 'name': l.compReportPhase2Name, 'icon': Icons.account_balance_outlined, 'bp': 'BP-012 → BP-013'},
+      {'code': 'Phase 3', 'name': l.compReportPhase3Name, 'icon': Icons.description_outlined, 'bp': 'BP-014 → BP-016'},
+      {'code': 'Phase 4', 'name': l.compReportPhase4Name, 'icon': Icons.directions_boat_outlined, 'bp': 'BP-017 → BP-019'},
+      {'code': 'Phase 5', 'name': l.compReportPhase5Name, 'icon': Icons.local_shipping_outlined, 'bp': 'BP-020 → BP-025'},
+      {'code': 'Phase 6', 'name': l.compReportPhase6Name, 'icon': Icons.account_balance_wallet_outlined, 'bp': 'BP-026 → BP-028'},
+      {'code': 'Phase 7', 'name': l.compReportPhase7Name, 'icon': Icons.receipt_long_outlined, 'bp': 'BP-029 → BP-032'},
+      {'code': 'Phase 8', 'name': l.compReportPhase8Name, 'icon': Icons.warehouse_outlined, 'bp': 'BP-033 → BP-035'},
+      {'code': 'Phase 9', 'name': l.compReportPhase9Name, 'icon': Icons.calculate_outlined, 'bp': 'BP-036 → BP-039'},
+      {'code': 'Phase 10', 'name': l.compReportPhase10Name, 'icon': Icons.archive_outlined, 'bp': 'BP-040'},
+    ];
+  }
 
   @override
   void initState() {
@@ -67,8 +71,8 @@ class _ImportFileComprehensiveReportScreenState
 
   int _currentPhaseIndex(ImportFileModel file) {
     final mod = file.currentModule;
-    for (int i = 0; i < _allPhases.length; i++) {
-      if (mod.contains(_allPhases[i]['code'] as String)) return i;
+    for (int i = 1; i <= 10; i++) {
+      if (mod.contains('Phase $i')) return i - 1;
     }
     return 0;
   }
@@ -84,6 +88,7 @@ class _ImportFileComprehensiveReportScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final importFilesState = ref.watch(importFilesProvider);
     final updatesState = ref.watch(shipmentUpdatesProvider);
     final clearanceState = ref.watch(customsClearanceProvider);
@@ -94,13 +99,13 @@ class _ImportFileComprehensiveReportScreenState
       appBar: AppBar(
         backgroundColor: AppTheme.charcoal,
         elevation: 0,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.summarize_outlined, color: AppTheme.cobalt, size: 24),
-            SizedBox(width: 10),
+            const Icon(Icons.summarize_outlined, color: AppTheme.cobalt, size: 24),
+            const SizedBox(width: 10),
             Text(
-              'تقرير ملف الاستيراد الشامل والمدمج',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
+              l.compReportScreenTitle,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
             ),
           ],
         ),
@@ -116,7 +121,7 @@ class _ImportFileComprehensiveReportScreenState
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 ),
                 icon: const Icon(Icons.published_with_changes, color: Colors.white, size: 16),
-                label: const Text('إضافة تحديث', style: TextStyle(color: Colors.white, fontSize: 12)),
+                label: Text(l.compReportAddUpdateBtn, style: const TextStyle(color: Colors.white, fontSize: 12)),
                 onPressed: () => ShipmentUpdateDialog.show(
                   context,
                   initialFileId: _selectedFile!.importFileId,
@@ -126,7 +131,6 @@ class _ImportFileComprehensiveReportScreenState
             ),
           const SizedBox(width: 8),
         ],
-
       ),
       body: Column(
         children: [
@@ -136,7 +140,7 @@ class _ImportFileComprehensiveReportScreenState
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: importFilesState.when(
               loading: () => const LinearProgressIndicator(),
-              error: (e, _) => Text('خطأ: $e', style: const TextStyle(color: AppTheme.crimson)),
+              error: (e, _) => Text('${l.errorPrefix} $e', style: const TextStyle(color: AppTheme.crimson)),
               data: (files) => Row(
                 children: [
                   const Icon(Icons.folder_open, color: AppTheme.cobalt, size: 20),
@@ -144,7 +148,7 @@ class _ImportFileComprehensiveReportScreenState
                   Expanded(
                     child: SearchableDropdownField<int>(
                       value: _selectedFileId,
-                      labelText: 'اختر ملف الاستيراد لعرض التقرير الشامل',
+                      labelText: l.compReportSelectFileLabel,
                       items: files.map((f) => SearchableDropdownItem<int>(
                         value: f.importFileId,
                         label: '${f.customFileNumber ?? f.importFileCode}  |  ${f.supplierName}  |  ${f.currentStage}  |  ${f.status}',
@@ -160,18 +164,18 @@ class _ImportFileComprehensiveReportScreenState
           // ── Report Body ───────────────────────────────────────────
           Expanded(
             child: _selectedFile == null
-                ? _buildEmptyState()
+                ? _buildEmptyState(context)
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Section 1: Header Banner
-                        _buildHeaderBanner(_selectedFile!),
+                        _buildHeaderBanner(context, _selectedFile!),
                         const SizedBox(height: 16),
 
                         // Section 2: 10-Phase Progress Pipeline
-                        _buildPhasePipeline(_selectedFile!, updatesState),
+                        _buildPhasePipeline(context, _selectedFile!, updatesState),
                         const SizedBox(height: 16),
 
                         // Section 3: Two-Column Detail Cards
@@ -183,13 +187,13 @@ class _ImportFileComprehensiveReportScreenState
                               flex: 3,
                               child: Column(
                                 children: [
-                                  _buildBasicInfoCard(_selectedFile!),
+                                  _buildBasicInfoCard(context, _selectedFile!),
                                   const SizedBox(height: 14),
-                                  _buildDocumentsCard(_selectedFile!),
+                                  _buildDocumentsCard(context, _selectedFile!),
                                   const SizedBox(height: 14),
-                                  _buildInvoicesCard(_selectedFile!),
+                                  _buildInvoicesCard(context, _selectedFile!),
                                   const SizedBox(height: 14),
-                                  _buildPackingListCard(_selectedFile!),
+                                  _buildPackingListCard(context, _selectedFile!),
                                 ],
                               ),
                             ),
@@ -199,11 +203,11 @@ class _ImportFileComprehensiveReportScreenState
                               flex: 2,
                               child: Column(
                                 children: [
-                                  _buildStatusCard(_selectedFile!),
+                                  _buildStatusCard(context, _selectedFile!),
                                   const SizedBox(height: 14),
-                                  _buildFinancialCard(_selectedFile!),
+                                  _buildFinancialCard(context, _selectedFile!),
                                   const SizedBox(height: 14),
-                                  _buildNotesCard(_selectedFile!),
+                                  _buildNotesCard(context, _selectedFile!),
                                 ],
                               ),
                             ),
@@ -212,15 +216,15 @@ class _ImportFileComprehensiveReportScreenState
                         const SizedBox(height: 16),
 
                         // Section 4: Live Update Logs Timeline
-                        _buildUpdateTimeline(_selectedFile!, updatesState),
+                        _buildUpdateTimeline(context, _selectedFile!, updatesState),
                         const SizedBox(height: 16),
                         
                         // Section 5: Customs Clearance Real-Time Data
-                        _buildClearanceSection(clearanceState),
+                        _buildClearanceSection(context, clearanceState),
                         const SizedBox(height: 16),
                         
                         // Section 6: Warehouse Receiving & GRN Real-Time Data
-                        _buildWarehouseSection(warehouseState),
+                        _buildWarehouseSection(context, warehouseState),
                       ],
                     ),
                   ),
@@ -230,7 +234,8 @@ class _ImportFileComprehensiveReportScreenState
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
+    final l = context.l10n;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -238,7 +243,7 @@ class _ImportFileComprehensiveReportScreenState
           Icon(Icons.summarize_outlined, size: 80, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           Text(
-            'اختر ملف استيراد من القائمة أعلاه\nلعرض التقرير الشامل والمدمج',
+            l.compReportEmptyStatePrompt,
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
           ),
@@ -248,7 +253,8 @@ class _ImportFileComprehensiveReportScreenState
   }
 
   // ── Section 1: Header Banner ──────────────────────────────────────
-  Widget _buildHeaderBanner(ImportFileModel file) {
+  Widget _buildHeaderBanner(BuildContext context, ImportFileModel file) {
+    final l = context.l10n;
     final isClosed = file.status == 'Closed';
     final phaseIdx = _currentPhaseIndex(file);
     final completedCount = isClosed ? 10 : phaseIdx;
@@ -297,9 +303,9 @@ class _ImportFileComprehensiveReportScreenState
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
                     ),
                     const SizedBox(width: 12),
-                    _statusPill(file.status),
+                    _statusPill(context, file.status),
                     const SizedBox(width: 8),
-                    _priorityPill(file.priority),
+                    _priorityPill(context, file.priority),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -318,7 +324,7 @@ class _ImportFileComprehensiveReportScreenState
                 Row(
                   children: [
                     Text(
-                      '${file.progressPercent.toStringAsFixed(0)}% مكتمل',
+                      l.compReportPercentCompleted(file.progressPercent.toStringAsFixed(0)),
                       style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 10),
@@ -346,9 +352,9 @@ class _ImportFileComprehensiveReportScreenState
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _counterBadge('$completedCount', 'مراحل مكتملة', AppTheme.emerald),
+              _counterBadge('$completedCount', l.compReportCompletedPhases, AppTheme.emerald),
               const SizedBox(height: 8),
-              _counterBadge('$remainingCount', 'مراحل متبقية', AppTheme.orange),
+              _counterBadge('$remainingCount', l.compReportRemainingPhases, AppTheme.orange),
             ],
           ),
         ],
@@ -375,22 +381,53 @@ class _ImportFileComprehensiveReportScreenState
     );
   }
 
-  Widget _statusPill(String status) {
+  Widget _statusPill(BuildContext context, String status) {
+    final l = context.l10n;
     Color bg;
-    switch (status) {
-      case 'Open': bg = AppTheme.cobalt; break;
-      case 'In Progress': bg = AppTheme.emerald; break;
-      case 'Closed': bg = Colors.grey; break;
-      default: bg = AppTheme.orange;
+    String label;
+    switch (status.toLowerCase()) {
+      case 'open':
+        bg = AppTheme.cobalt;
+        label = l.filterStatusDraft;
+        break;
+      case 'in progress':
+        bg = AppTheme.emerald;
+        label = l.statusInProgress;
+        break;
+      case 'closed':
+        bg = Colors.grey;
+        label = l.statusClosed;
+        break;
+      default:
+        bg = AppTheme.orange;
+        label = status;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-      child: Text(status, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+      child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
     );
   }
 
-  Widget _priorityPill(String priority) {
+  Widget _priorityPill(BuildContext context, String priority) {
+    final l = context.l10n;
+    String label;
+    switch (priority.toLowerCase()) {
+      case 'critical':
+        label = l.priorityCritical;
+        break;
+      case 'high':
+        label = l.priorityHigh;
+        break;
+      case 'medium':
+        label = l.priorityMedium;
+        break;
+      case 'low':
+        label = l.priorityLow;
+        break;
+      default:
+        label = priority;
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
@@ -398,17 +435,19 @@ class _ImportFileComprehensiveReportScreenState
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _priorityColor(priority).withOpacity(0.5)),
       ),
-      child: Text(priority, style: TextStyle(color: _priorityColor(priority), fontSize: 11, fontWeight: FontWeight.bold)),
+      child: Text(label, style: TextStyle(color: _priorityColor(priority), fontSize: 11, fontWeight: FontWeight.bold)),
     );
   }
 
   // ── Section 2: 10-Phase Pipeline ──────────────────────────────────
-  Widget _buildPhasePipeline(ImportFileModel file, ShipmentUpdatesState updatesState) {
+  Widget _buildPhasePipeline(BuildContext context, ImportFileModel file, ShipmentUpdatesState updatesState) {
+    final l = context.l10n;
+    final phases = _getPhases(context);
     final currentIdx = _currentPhaseIndex(file);
     final isClosed = file.status == 'Closed';
 
     return _reportCard(
-      title: 'خط سير مراحل الشحنة التشغيلي (10 مراحل)',
+      title: l.compReportPipelineTitle,
       icon: Icons.linear_scale,
       iconColor: AppTheme.cobalt,
       child: Column(
@@ -417,10 +456,10 @@ class _ImportFileComprehensiveReportScreenState
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: List.generate(_allPhases.length, (idx) {
-                final phase = _allPhases[idx];
+              children: List.generate(phases.length, (idx) {
+                final phase = phases[idx];
                 final pCode = phase['code'] as String;
-                final phaseLogs = updatesState.logs.where((l) => l.targetPhase.contains(pCode)).toList();
+                final phaseLogs = updatesState.logs.where((log) => log.targetPhase.contains(pCode)).toList();
 
                 bool isCompleted = isClosed || idx < currentIdx;
                 bool isCurrent = !isClosed && idx == currentIdx;
@@ -511,7 +550,7 @@ class _ImportFileComprehensiveReportScreenState
                         ],
                       ),
                     ),
-                    if (idx < _allPhases.length - 1)
+                    if (idx < phases.length - 1)
                       Container(
                         width: 16,
                         height: 2,
@@ -538,7 +577,7 @@ class _ImportFileComprehensiveReportScreenState
                   const Icon(Icons.lock_outlined, color: AppTheme.crimson, size: 16),
                   const SizedBox(width: 8),
                   Text(
-                    'تم إيقاف الشحنة عند: ${file.closedAtPhase}',
+                    l.compReportStoppedAtPhase(file.closedAtPhase!),
                     style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   if (file.closureReason != null) ...[
@@ -555,44 +594,46 @@ class _ImportFileComprehensiveReportScreenState
   }
 
   // ── Section 3a: Basic Info ────────────────────────────────────────
-  Widget _buildBasicInfoCard(ImportFileModel file) {
+  Widget _buildBasicInfoCard(BuildContext context, ImportFileModel file) {
+    final l = context.l10n;
     return _reportCard(
-      title: 'بيانات ملف الاستيراد الأساسية',
+      title: l.compReportSecBasicInfo,
       icon: Icons.info_outline,
       iconColor: AppTheme.cobalt,
       child: Column(
         children: [
-          _infoRow('كود الملف', file.importFileCode),
-          _infoRow('رقم الملف الجمركي', file.customFileNumber ?? '—'),
-          _infoRow('الشركة المستوردة', file.companyName),
-          _infoRow('المورد الأجنبي', file.supplierName),
-          _infoRow('المخلص الجمركي', file.brokerName ?? '—'),
-          _infoRow('رقم أمر الشراء PO', file.poNumber ?? '—'),
-          _infoRow('رقم الفاتورة PI', file.piNumber ?? '—'),
-          _infoRow('وسيلة الشحن', file.shipmentMode),
-          _infoRow('شرط التجارة (Incoterm)', file.incotermCode),
-          _infoRow('فئة الشحنة', file.shipmentCategory),
-          _infoRow('السيناريو المختار', file.selectedScenario ?? '—'),
-          _infoRow('تاريخ الوصول المطلوب ETA', file.requiredEta ?? '—'),
-          _infoRow('المسئول التشغيلي (Owner)', file.owner),
-          _infoRow('تاريخ الإنشاء', file.createdAt.split('T').first),
-          _infoRow('آخر تحديث', file.updatedAt.split('T').first),
+          _infoRow(l.compReportColFileCode, file.importFileCode),
+          _infoRow(l.compReportColCustomsFileNo, file.customFileNumber ?? '—'),
+          _infoRow(l.compReportColImportCompany, file.companyName),
+          _infoRow(l.compReportColSupplier, file.supplierName),
+          _infoRow(l.compReportColBroker, file.brokerName ?? '—'),
+          _infoRow(l.compReportColPoNumber, file.poNumber ?? '—'),
+          _infoRow(l.compReportColPiNumber, file.piNumber ?? '—'),
+          _infoRow(l.compReportColShipmentMode, file.shipmentMode),
+          _infoRow(l.compReportColIncoterm, file.incotermCode),
+          _infoRow(l.compReportColCategory, file.shipmentCategory),
+          _infoRow(l.compReportColScenario, file.selectedScenario ?? '—'),
+          _infoRow(l.compReportColRequiredEta, file.requiredEta ?? '—'),
+          _infoRow(l.compReportColOwner, file.owner),
+          _infoRow(l.compReportColCreatedAt, file.createdAt.split('T').first),
+          _infoRow(l.compReportColUpdatedAt, file.updatedAt.split('T').first),
         ],
       ),
     );
   }
 
   // ── Section 3b: Documents ─────────────────────────────────────────
-  Widget _buildDocumentsCard(ImportFileModel file) {
+  Widget _buildDocumentsCard(BuildContext context, ImportFileModel file) {
+    final l = context.l10n;
     final docs = <Map<String, String>>[
-      {'label': 'رقم الـ ACID (نافذة)', 'value': file.acidNumber ?? '—'},
-      {'label': 'رقم نموذج 4 البنكي (Form 4)', 'value': file.form4No ?? '—'},
-      {'label': 'رقم التحويل البنكي SWIFT', 'value': file.swiftNo ?? '—'},
-      {'label': 'رقم إقرار 46 الجمركي', 'value': file.form46No ?? '—'},
+      {'label': l.compReportAcidNumber, 'value': file.acidNumber ?? '—'},
+      {'label': l.compReportBankForm4, 'value': file.form4No ?? '—'},
+      {'label': l.compReportSwiftNumber, 'value': file.swiftNo ?? '—'},
+      {'label': l.compReportForm46Number, 'value': file.form46No ?? '—'},
     ];
 
     return _reportCard(
-      title: 'المستندات الرسمية والوثائق الجمركية',
+      title: l.compReportSecDocs,
       icon: Icons.description_outlined,
       iconColor: AppTheme.orange,
       child: Column(
@@ -634,13 +675,14 @@ class _ImportFileComprehensiveReportScreenState
   }
 
   // ── Section 3c: Invoices ──────────────────────────────────────────
-  Widget _buildInvoicesCard(ImportFileModel file) {
+  Widget _buildInvoicesCard(BuildContext context, ImportFileModel file) {
+    final l = context.l10n;
     return _reportCard(
-      title: 'الفواتير التجارية المرتبطة (${file.invoicesData.length} فاتورة)',
+      title: l.compReportSecInvoices(file.invoicesData.length),
       icon: Icons.receipt_outlined,
       iconColor: AppTheme.emerald,
       child: file.invoicesData.isEmpty
-          ? const Text('لا توجد فواتير مسجلة', style: TextStyle(color: Colors.grey, fontSize: 12))
+          ? Text(l.compReportNoInvoices, style: const TextStyle(color: Colors.grey, fontSize: 12))
           : Column(
               children: file.invoicesData.map((inv) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
@@ -676,17 +718,18 @@ class _ImportFileComprehensiveReportScreenState
   }
 
   // ── Section 3d: Packing Lists ─────────────────────────────────────
-  Widget _buildPackingListCard(ImportFileModel file) {
+  Widget _buildPackingListCard(BuildContext context, ImportFileModel file) {
+    final l = context.l10n;
     double totalCbm = file.packingListsData.fold(0.0, (s, p) => s + p.cbm);
     double totalWeight = file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
     int totalPkgs = file.packingListsData.fold(0, (s, p) => s + p.totalPackages);
 
     return _reportCard(
-      title: 'بيانات الباكينج ليست والشحن (${file.packingListsData.length} قائمة)',
+      title: l.compReportSecPackingLists(file.packingListsData.length),
       icon: Icons.inventory_2_outlined,
       iconColor: AppTheme.cobalt,
       child: file.packingListsData.isEmpty
-          ? const Text('لا توجد بيانات باكينج ليست', style: TextStyle(color: Colors.grey, fontSize: 12))
+          ? Text(l.compReportNoPackingLists, style: const TextStyle(color: Colors.grey, fontSize: 12))
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -701,9 +744,9 @@ class _ImportFileComprehensiveReportScreenState
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _miniStat('الطرود الإجمالية', '$totalPkgs قطعة'),
-                      _miniStat('الوزن الإجمالي', '${totalWeight.toStringAsFixed(1)} KG'),
-                      _miniStat('الحجم الإجمالي CBM', '${totalCbm.toStringAsFixed(2)} m³'),
+                      _miniStat(l.compReportTotalPackages, l.compReportPiecesUnit(totalPkgs)),
+                      _miniStat(l.compReportTotalWeight, '${totalWeight.toStringAsFixed(1)} KG'),
+                      _miniStat(l.compReportTotalCbm, '${totalCbm.toStringAsFixed(2)} m³'),
                     ],
                   ),
                 ),
@@ -722,7 +765,7 @@ class _ImportFileComprehensiveReportScreenState
                         const SizedBox(width: 6),
                         Text(pl.plNo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                         const Spacer(),
-                        Text('${pl.totalPackages} طرد', style: const TextStyle(fontSize: 11)),
+                        Text(l.compReportPackagesUnit(pl.totalPackages), style: const TextStyle(fontSize: 11)),
                         const SizedBox(width: 10),
                         Text('${pl.grossWeightKg.toStringAsFixed(1)} KG', style: const TextStyle(fontSize: 11)),
                         const SizedBox(width: 10),
@@ -737,9 +780,10 @@ class _ImportFileComprehensiveReportScreenState
   }
 
   // ── Section 3e: Status Card ───────────────────────────────────────
-  Widget _buildStatusCard(ImportFileModel file) {
+  Widget _buildStatusCard(BuildContext context, ImportFileModel file) {
+    final l = context.l10n;
     return _reportCard(
-      title: 'الحالة التشغيلية والمرحلة الحالية',
+      title: l.compReportSecStatus,
       icon: Icons.timeline_outlined,
       iconColor: AppTheme.emerald,
       child: Column(
@@ -749,16 +793,16 @@ class _ImportFileComprehensiveReportScreenState
             children: [
               Icon(Icons.circle, size: 10, color: _priorityColor(file.priority)),
               const SizedBox(width: 6),
-              Text('الأولوية: ${file.priority}', style: TextStyle(fontWeight: FontWeight.bold, color: _priorityColor(file.priority), fontSize: 13)),
+              Text(l.compReportPriorityPrefix(file.priority), style: TextStyle(fontWeight: FontWeight.bold, color: _priorityColor(file.priority), fontSize: 13)),
             ],
           ),
           const SizedBox(height: 8),
-          _infoRow('الحالة', file.status),
-          _infoRow('المرحلة الحالية', file.currentStage),
-          _infoRow('المعالجة الحالية', file.currentModule),
-          _infoRow('الإجراء التالي المطلوب', file.nextAction),
+          _infoRow(l.compReportStatusLabel, file.status),
+          _infoRow(l.compReportCurrentStageLabel, file.currentStage),
+          _infoRow(l.compReportCurrentModuleLabel, file.currentModule),
+          _infoRow(l.compReportNextActionLabel, file.nextAction),
           const SizedBox(height: 10),
-          const Text('نسبة الإنجاز الكلية:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+          Text(l.compReportTotalProgressLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
           const SizedBox(height: 6),
           Row(
             children: [
@@ -788,19 +832,20 @@ class _ImportFileComprehensiveReportScreenState
   }
 
   // ── Section 3f: Financial Card ─────────────────────────────────────
-  Widget _buildFinancialCard(ImportFileModel file) {
+  Widget _buildFinancialCard(BuildContext context, ImportFileModel file) {
+    final l = context.l10n;
     double totalInvoicesValue = file.invoicesData.fold(0.0, (s, i) => s + i.amount);
 
     return _reportCard(
-      title: 'الملخص المالي',
+      title: l.compReportSecFinancial,
       icon: Icons.account_balance_outlined,
       iconColor: AppTheme.orange,
       child: Column(
         children: [
-          _financialRow('قيمة الفواتير الإجمالية', '${totalInvoicesValue.toStringAsFixed(2)} USD', Colors.teal),
-          _financialRow('التكلفة التقديرية الشاملة', '${file.estimatedCost.toStringAsFixed(2)} USD', AppTheme.cobalt),
+          _financialRow(l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} USD', Colors.teal),
+          _financialRow(l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} USD', AppTheme.cobalt),
           const Divider(height: 16),
-          _financialRow('الفرق التقديري', '${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} USD',
+          _financialRow(l.compReportEstimatedVariance, '${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} USD',
               file.estimatedCost > totalInvoicesValue ? AppTheme.orange : AppTheme.emerald),
         ],
       ),
@@ -808,50 +853,57 @@ class _ImportFileComprehensiveReportScreenState
   }
 
   // ── Section 3g: Notes Card ─────────────────────────────────────────
-  Widget _buildNotesCard(ImportFileModel file) {
+  Widget _buildNotesCard(BuildContext context, ImportFileModel file) {
+    final l = context.l10n;
     return _reportCard(
-      title: 'الملاحظات العامة',
+      title: l.compReportSecNotes,
       icon: Icons.notes_outlined,
       iconColor: AppTheme.charcoal,
       child: file.notes == null || file.notes!.isEmpty
-          ? const Text('لا توجد ملاحظات عامة مسجلة.', style: TextStyle(color: Colors.grey, fontSize: 12))
+          ? Text(l.compReportNoNotes, style: const TextStyle(color: Colors.grey, fontSize: 12))
           : Text(file.notes!, style: const TextStyle(fontSize: 12, height: 1.5)),
     );
   }
 
   // ── Section 4: Update Timeline ────────────────────────────────────
-  Widget _buildUpdateTimeline(ImportFileModel file, ShipmentUpdatesState updatesState) {
+  Widget _buildUpdateTimeline(BuildContext context, ImportFileModel file, ShipmentUpdatesState updatesState) {
+    final l = context.l10n;
     final logs = updatesState.logs;
 
     return _reportCard(
-      title: 'سجل التحديثات والمتابعة التشغيلية اليومية (${logs.length} تحديث)',
+      title: l.compReportSecTimeline(logs.length),
       icon: Icons.history_outlined,
       iconColor: AppTheme.cobalt,
       child: logs.isEmpty
-          ? const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(child: Text('لا توجد تحديثات تشغيلية مسجلة على هذه الشحنة حتى الآن.', style: TextStyle(color: Colors.grey))),
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: Text(l.compReportNoTimelineLogs, style: const TextStyle(color: Colors.grey))),
             )
           : Column(
               children: logs.map((log) {
                 Color catColor;
                 IconData catIcon;
+                String catLabel;
                 switch (log.updateCategory) {
                   case 'Phase Cost Adjustment':
                     catColor = AppTheme.orange;
                     catIcon = Icons.edit_note;
+                    catLabel = l.compReportCategoryCostAdjustment;
                     break;
                   case 'Future Phase Alert':
                     catColor = AppTheme.crimson;
                     catIcon = Icons.notification_important;
+                    catLabel = l.compReportCategoryFutureAlert;
                     break;
                   case 'Daily Check-in':
                     catColor = AppTheme.emerald;
                     catIcon = Icons.today;
+                    catLabel = l.compReportCategoryDailyCheckIn;
                     break;
                   default:
                     catColor = AppTheme.cobalt;
                     catIcon = Icons.sticky_note_2_outlined;
+                    catLabel = log.updateCategory.isEmpty ? l.compReportCategoryGeneralUpdate : log.updateCategory;
                 }
 
                 return Padding(
@@ -893,7 +945,7 @@ class _ImportFileComprehensiveReportScreenState
                                       color: catColor.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
-                                    child: Text(log.updateCategory, style: TextStyle(fontSize: 10, color: catColor, fontWeight: FontWeight.bold)),
+                                    child: Text(catLabel, style: TextStyle(fontSize: 10, color: catColor, fontWeight: FontWeight.bold)),
                                   ),
                                   const SizedBox(width: 8),
                                   Container(
@@ -907,7 +959,7 @@ class _ImportFileComprehensiveReportScreenState
                                   const Spacer(),
                                   Text(log.logDate, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                                   const SizedBox(width: 8),
-                                  Text('بواسطة: ${log.assignedUser}', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                                  Text(l.compReportByPrefix(log.assignedUser), style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
                                 ],
                               ),
                               const SizedBox(height: 8),
@@ -939,7 +991,7 @@ class _ImportFileComprehensiveReportScreenState
                                   children: [
                                     const Icon(Icons.flag, size: 13, color: AppTheme.crimson),
                                     const SizedBox(width: 4),
-                                    Text('درجة الأولوية: ${log.alertPriority}',
+                                    Text(l.compReportAlertPriorityPrefix(log.alertPriority),
                                         style: const TextStyle(fontSize: 11, color: AppTheme.crimson, fontWeight: FontWeight.bold)),
                                   ],
                                 ),
@@ -1030,16 +1082,17 @@ class _ImportFileComprehensiveReportScreenState
     );
   }
 
-  Widget _buildClearanceSection(AsyncValue<List<CustomsClearanceModel>> state) {
+  Widget _buildClearanceSection(BuildContext context, AsyncValue<List<CustomsClearanceModel>> state) {
+    final l = context.l10n;
     return _reportCard(
-      title: 'بيانات التخليص الجمركي (Phase 7)',
+      title: l.compReportSecClearance,
       icon: Icons.receipt_long_outlined,
       iconColor: AppTheme.cobalt,
       child: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Text('خطأ: $err', style: const TextStyle(color: AppTheme.crimson)),
+        error: (err, _) => Text('${l.errorPrefix} $err', style: const TextStyle(color: AppTheme.crimson)),
         data: (list) {
-          if (list.isEmpty) return const Text('لا توجد بيانات تخليص جمركي', style: TextStyle(color: Colors.grey));
+          if (list.isEmpty) return Text(l.compReportNoClearanceData, style: const TextStyle(color: Colors.grey));
           final clr = list.first;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1049,7 +1102,7 @@ class _ImportFileComprehensiveReportScreenState
                 runSpacing: 8,
                 children: [
                   if (clr.declaration46No != null)
-                    Chip(label: Text('إقرار: ${clr.declaration46No}', style: const TextStyle(fontSize: 12)), backgroundColor: Colors.blue.shade50),
+                    Chip(label: Text(l.compReportDeclarationChip(clr.declaration46No!), style: const TextStyle(fontSize: 12)), backgroundColor: Colors.blue.shade50),
                   Chip(
                     label: Text(clr.channelType, style: const TextStyle(fontSize: 12)),
                     backgroundColor: clr.channelType.toLowerCase().contains('green') ? Colors.green.shade50 : (clr.channelType.toLowerCase().contains('red') ? Colors.red.shade50 : Colors.orange.shade50),
@@ -1062,25 +1115,25 @@ class _ImportFileComprehensiveReportScreenState
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(color: AppTheme.emerald.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                  child: Text('تصريح إفراج: ${clr.releasePermitNo}', style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold, fontSize: 12)),
+                  child: Text(l.compReportReleasePermitChip(clr.releasePermitNo!), style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
               const Divider(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _miniStat('ضريبة الوارد', clr.importDutyAmount.toStringAsFixed(2)),
-                  _miniStat('القيمة المضافة', clr.vatAmount.toStringAsFixed(2)),
-                  _miniStat('ضريبة الجدول', clr.scheduleTaxAmount.toStringAsFixed(2)),
-                  _miniStat('رسوم العرض', clr.labServiceFees.toStringAsFixed(2)),
-                  _miniStat('الإجمالي', clr.totalDutyPayable.toStringAsFixed(2)),
+                  _miniStat(l.compReportDutyImport, clr.importDutyAmount.toStringAsFixed(2)),
+                  _miniStat(l.compReportDutyVat, clr.vatAmount.toStringAsFixed(2)),
+                  _miniStat(l.compReportDutySchedule, clr.scheduleTaxAmount.toStringAsFixed(2)),
+                  _miniStat(l.compReportDutyInspection, clr.labServiceFees.toStringAsFixed(2)),
+                  _miniStat(l.compReportDutyTotal, clr.totalDutyPayable.toStringAsFixed(2)),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  if (clr.paymentDate != null) Text('تاريخ السداد: ${clr.paymentDate}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  if (clr.paymentDate != null) Text(l.compReportPaymentDate(clr.paymentDate!), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                   const SizedBox(width: 16),
-                  if (clr.releaseDate != null) Text('تاريخ الإفراج: ${clr.releaseDate}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  if (clr.releaseDate != null) Text(l.compReportReleaseDate(clr.releaseDate!), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 ],
               )
             ],
@@ -1090,16 +1143,17 @@ class _ImportFileComprehensiveReportScreenState
     );
   }
 
-  Widget _buildWarehouseSection(AsyncValue<List<WarehouseReceivingModel>> state) {
+  Widget _buildWarehouseSection(BuildContext context, AsyncValue<List<WarehouseReceivingModel>> state) {
+    final l = context.l10n;
     return _reportCard(
-      title: 'استلام المخازن وسند GRN (Phase 8)',
+      title: l.compReportSecWarehouse,
       icon: Icons.warehouse_outlined,
       iconColor: AppTheme.emerald,
       child: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Text('خطأ: $err', style: const TextStyle(color: AppTheme.crimson)),
+        error: (err, _) => Text('${l.errorPrefix} $err', style: const TextStyle(color: AppTheme.crimson)),
         data: (list) {
-          if (list.isEmpty) return const Text('لا توجد بيانات استلام مخازن', style: TextStyle(color: Colors.grey));
+          if (list.isEmpty) return Text(l.compReportNoWarehouseData, style: const TextStyle(color: Colors.grey));
           final wh = list.first;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1109,7 +1163,7 @@ class _ImportFileComprehensiveReportScreenState
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                    child: Text('GRN: ${wh.grnCode}', style: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12)),
+                    child: Text(l.compReportGrnChip(wh.grnCode), style: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12)),
                   ),
                   const SizedBox(width: 16),
                   Text(wh.warehouseName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
@@ -1118,19 +1172,19 @@ class _ImportFileComprehensiveReportScreenState
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Text('وصول: ${wh.arrivalDatetime}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  Text(l.compReportArrivalDatetime(wh.arrivalDatetime), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                   const SizedBox(width: 16),
-                  Text('المفتش: ${wh.inspectorName}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  Text(l.compReportInspectorPrefix(wh.inspectorName), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 ],
               ),
               const Divider(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _miniStat('الكمية المفوترة', wh.totalInvoicedQty.toString()),
-                  _miniStat('المقبول', wh.totalAcceptedQty.toString()),
-                  _miniStat('العجز', wh.totalShortageQty.toString()),
-                  _miniStat('التالف', wh.totalDamagedQty.toString()),
+                  _miniStat(l.compReportQtyInvoiced, wh.totalInvoicedQty.toString()),
+                  _miniStat(l.compReportQtyAccepted, wh.totalAcceptedQty.toString()),
+                  _miniStat(l.compReportQtyShortage, wh.totalShortageQty.toString()),
+                  _miniStat(l.compReportQtyDamaged, wh.totalDamagedQty.toString()),
                 ],
               ),
               const SizedBox(height: 12),
@@ -1143,13 +1197,13 @@ class _ImportFileComprehensiveReportScreenState
                     dataRowMinHeight: 32,
                     dataRowMaxHeight: 32,
                     columnSpacing: 16,
-                    columns: const [
-                      DataColumn(label: Text('الكود', style: TextStyle(fontSize: 11))),
-                      DataColumn(label: Text('الصنف', style: TextStyle(fontSize: 11))),
-                      DataColumn(label: Text('فواتير', style: TextStyle(fontSize: 11))),
-                      DataColumn(label: Text('مقبول', style: TextStyle(fontSize: 11))),
-                      DataColumn(label: Text('عجز', style: TextStyle(fontSize: 11))),
-                      DataColumn(label: Text('تالف', style: TextStyle(fontSize: 11))),
+                    columns: [
+                      DataColumn(label: Text(l.compReportTableColCode, style: const TextStyle(fontSize: 11))),
+                      DataColumn(label: Text(l.compReportTableColItem, style: const TextStyle(fontSize: 11))),
+                      DataColumn(label: Text(l.compReportTableColInvoiced, style: const TextStyle(fontSize: 11))),
+                      DataColumn(label: Text(l.compReportTableColAccepted, style: const TextStyle(fontSize: 11))),
+                      DataColumn(label: Text(l.compReportTableColShortage, style: const TextStyle(fontSize: 11))),
+                      DataColumn(label: Text(l.compReportTableColDamaged, style: const TextStyle(fontSize: 11))),
                     ],
                     rows: wh.grnItems.map((item) => DataRow(cells: [
                       DataCell(Text(item.itemCode, style: const TextStyle(fontSize: 11))),

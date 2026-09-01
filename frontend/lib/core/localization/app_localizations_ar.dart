@@ -5950,6 +5950,200 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dynColOwner => 'المسؤول';
   @override
   String get dynColStatus => 'حالة الملف';
+
+  // ── Screen 68: Comprehensive Import File Report ───────────────────────────
+  @override
+  String get compReportScreenTitle => 'تقرير ملف الاستيراد الشامل والمدمج';
+  @override
+  String get compReportAddUpdateBtn => 'إضافة تحديث';
+  @override
+  String get compReportSelectFileLabel => 'اختر ملف الاستيراد لعرض التقرير الشامل';
+  @override
+  String get compReportEmptyStatePrompt => 'اختر ملف استيراد من القائمة أعلاه\nلعرض التقرير الشامل والمدمج';
+  @override
+  String compReportPercentCompleted(String percent) => '$percent% مكتمل';
+  @override
+  String get compReportCompletedPhases => 'مراحل مكتملة';
+  @override
+  String get compReportRemainingPhases => 'مراحل متبقية';
+  @override
+  String get compReportPipelineTitle => 'خط سير مراحل الشحنة التشغيلي (10 مراحل)';
+  @override
+  String compReportStoppedAtPhase(String phase) => 'تم إيقاف الشحنة عند: $phase';
+  @override
+  String get compReportSecBasicInfo => 'بيانات ملف الاستيراد الأساسية';
+  @override
+  String get compReportColFileCode => 'كود الملف';
+  @override
+  String get compReportColCustomsFileNo => 'رقم الملف الجمركي';
+  @override
+  String get compReportColImportCompany => 'الشركة المستوردة';
+  @override
+  String get compReportColSupplier => 'المورد الأجنبي';
+  @override
+  String get compReportColBroker => 'المخلص الجمركي';
+  @override
+  String get compReportColPoNumber => 'رقم أمر الشراء PO';
+  @override
+  String get compReportColPiNumber => 'رقم الفاتورة PI';
+  @override
+  String get compReportColShipmentMode => 'وسيلة الشحن';
+  @override
+  String get compReportColIncoterm => 'شرط التجارة (Incoterm)';
+  @override
+  String get compReportColCategory => 'فئة الشحنة';
+  @override
+  String get compReportColScenario => 'السيناريو المختار';
+  @override
+  String get compReportColRequiredEta => 'تاريخ الوصول المطلوب ETA';
+  @override
+  String get compReportColOwner => 'المسئول التشغيلي (Owner)';
+  @override
+  String get compReportColCreatedAt => 'تاريخ الإنشاء';
+  @override
+  String get compReportColUpdatedAt => 'آخر تحديث';
+  @override
+  String get compReportSecDocs => 'المستندات الرسمية والوثائق الجمركية';
+  @override
+  String get compReportAcidNumber => 'رقم الـ ACID (نافذة)';
+  @override
+  String get compReportBankForm4 => 'رقم نموذج 4 البنكي (Form 4)';
+  @override
+  String get compReportSwiftNumber => 'رقم التحويل البنكي SWIFT';
+  @override
+  String get compReportForm46Number => 'رقم إقرار 46 الجمركي';
+  @override
+  String compReportSecInvoices(int count) => 'الفواتير التجارية المرتبطة ($count فاتورة)';
+  @override
+  String get compReportNoInvoices => 'لا توجد فواتير مسجلة';
+  @override
+  String compReportSecPackingLists(int count) => 'بيانات الباكينج ليست والشحن ($count قائمة)';
+  @override
+  String get compReportNoPackingLists => 'لا توجد بيانات باكينج ليست';
+  @override
+  String get compReportTotalPackages => 'الطرود الإجمالية';
+  @override
+  String get compReportTotalWeight => 'الوزن الإجمالي';
+  @override
+  String get compReportTotalCbm => 'الحجم الإجمالي CBM';
+  @override
+  String compReportPackagesUnit(dynamic count) => '$count طرد';
+  @override
+  String compReportPiecesUnit(dynamic count) => '$count قطعة';
+  @override
+  String get compReportSecStatus => 'الحالة التشغيلية والمرحلة الحالية';
+  @override
+  String compReportPriorityPrefix(String priority) => 'الأولوية: $priority';
+  @override
+  String get compReportStatusLabel => 'الحالة';
+  @override
+  String get compReportCurrentStageLabel => 'المرحلة الحالية';
+  @override
+  String get compReportCurrentModuleLabel => 'المعالجة الحالية';
+  @override
+  String get compReportNextActionLabel => 'الإجراء التالي المطلوب';
+  @override
+  String get compReportTotalProgressLabel => 'نسبة الإنجاز الكلية:';
+  @override
+  String get compReportSecFinancial => 'الملخص المالي';
+  @override
+  String get compReportTotalInvoicesVal => 'قيمة الفواتير الإجمالية';
+  @override
+  String get compReportEstimatedCostVal => 'التكلفة التقديرية الشاملة';
+  @override
+  String get compReportEstimatedVariance => 'الفرق التقديري';
+  @override
+  String get compReportSecNotes => 'الملاحظات العامة';
+  @override
+  String get compReportNoNotes => 'لا توجد ملاحظات عامة مسجلة.';
+  @override
+  String compReportSecTimeline(int count) => 'سجل التحديثات والمتابعة التشغيلية اليومية ($count تحديث)';
+  @override
+  String get compReportNoTimelineLogs => 'لا توجد تحديثات تشغيلية مسجلة على هذه الشحنة حتى الآن.';
+  @override
+  String compReportByPrefix(String user) => 'بواسطة: $user';
+  @override
+  String compReportAlertPriorityPrefix(String priority) => 'درجة الأولوية: $priority';
+  @override
+  String get compReportSecClearance => 'بيانات التخليص الجمركي (المرحلة 7)';
+  @override
+  String get compReportNoClearanceData => 'لا توجد بيانات تخليص جمركي';
+  @override
+  String compReportDeclarationChip(String no) => 'إقرار: $no';
+  @override
+  String compReportReleasePermitChip(String no) => 'تصريح إفراج: $no';
+  @override
+  String get compReportDutyImport => 'ضريبة الوارد';
+  @override
+  String get compReportDutyVat => 'القيمة المضافة';
+  @override
+  String get compReportDutySchedule => 'ضريبة الجدول';
+  @override
+  String get compReportDutyInspection => 'رسوم العرض';
+  @override
+  String get compReportDutyTotal => 'الإجمالي';
+  @override
+  String compReportPaymentDate(String date) => 'تاريخ السداد: $date';
+  @override
+  String compReportReleaseDate(String date) => 'تاريخ الإفراج: $date';
+  @override
+  String get compReportSecWarehouse => 'استلام المخازن وسند إذن الإضافة GRN (المرحلة 8)';
+  @override
+  String get compReportNoWarehouseData => 'لا توجد بيانات استلام مخازن';
+  @override
+  String compReportGrnChip(String code) => 'إذن إضافة: $code';
+  @override
+  String compReportArrivalDatetime(String date) => 'وصول: $date';
+  @override
+  String compReportInspectorPrefix(String name) => 'المفتش: $name';
+  @override
+  String get compReportQtyInvoiced => 'الكمية المفوترة';
+  @override
+  String get compReportQtyAccepted => 'المقبول';
+  @override
+  String get compReportQtyShortage => 'العجز';
+  @override
+  String get compReportQtyDamaged => 'التالف';
+  @override
+  String get compReportTableColCode => 'الكود';
+  @override
+  String get compReportTableColItem => 'الصنف';
+  @override
+  String get compReportTableColInvoiced => 'فواتير';
+  @override
+  String get compReportTableColAccepted => 'مقبول';
+  @override
+  String get compReportTableColShortage => 'عجز';
+  @override
+  String get compReportTableColDamaged => 'تالف';
+  @override
+  String get compReportPhase1Name => 'التخطيط والجدوى والنولون';
+  @override
+  String get compReportPhase2Name => 'الموافقة والاعتماد المالي';
+  @override
+  String get compReportPhase3Name => 'المستندات والـ ACID و Form 4';
+  @override
+  String get compReportPhase4Name => 'حجز الشحن والناقل';
+  @override
+  String get compReportPhase5Name => 'الشحن الفعلي وتتبع CargoX';
+  @override
+  String get compReportPhase6Name => 'إقرار 46 والتعريفة الجمركية';
+  @override
+  String get compReportPhase7Name => 'التخليص الجمركي وسداد الرسوم';
+  @override
+  String get compReportPhase8Name => 'استلام البضاعة بالمخازن GRN';
+  @override
+  String get compReportPhase9Name => 'تسوية تكلفة الوصول Landed Cost';
+  @override
+  String get compReportPhase10Name => 'إغلاق الملف والأرشفة التاريخية';
+  @override
+  String get compReportCategoryCostAdjustment => 'تعديل تكلفة مرحلة';
+  @override
+  String get compReportCategoryFutureAlert => 'تنبيه مرحلة مستقبلية';
+  @override
+  String get compReportCategoryDailyCheckIn => 'تسجيل متابعة يومي';
+  @override
+  String get compReportCategoryGeneralUpdate => 'تحديث تشغيلي عام';
 }
 
 

@@ -3,12 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/critical_alert_banner.dart';
 import '../../demurrage_detention/screens/demurrage_detention_screen.dart';
 import '../../import_documentation/screens/central_docs_archive_screen.dart';
 import '../../import_documentation/screens/customs_declaration46_screen.dart';
+import '../../import_files/screens/import_files_screen.dart';
 import '../../import_requirements/screens/import_requirements_screen.dart';
+import '../../notifications/providers/notifications_provider.dart';
 import '../models/lifecycle_board_model.dart';
 import '../providers/lifecycle_board_provider.dart';
+import '../providers/live_polling_provider.dart';
 import '../widgets/step_action_dialog.dart';
 
 class LifecycleBoardScreen extends ConsumerStatefulWidget {
@@ -52,6 +56,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(lifecycleBoardSummaryProvider);
       ref.invalidate(liveLogisticsTrackingProvider);
+      ref.invalidate(livePollingProvider);
     });
   }
 
@@ -70,6 +75,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   void _refreshAll() {
     ref.invalidate(lifecycleBoardSummaryProvider);
     ref.invalidate(liveLogisticsTrackingProvider);
+    ref.invalidate(livePollingProvider);
+    // CL-006: تشغيل فحص التنبيهات الحرجة عند كل تحديث يدوي
+    ref.read(notificationsProvider.notifier).triggerExpiryCheck();
   }
 
   @override
@@ -124,6 +132,58 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
             ),
           ),
           const SizedBox(width: 8),
+          // CL-004: مؤشر التحديث الحي (يظهر فقط في وضع الرادار)
+          if (_viewModeIndex == 1) ...[
+            ref.watch(isRefreshingProvider)
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  )
+                : ref.watch(refreshCountdownProvider).when(
+                    data: (seconds) => Container(
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: seconds <= 10
+                            ? AppTheme.orange.withOpacity(0.3)
+                            : Colors.white12,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: seconds <= 10 ? AppTheme.orange.withOpacity(0.5) : Colors.white24,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.refresh,
+                            size: 11,
+                            color: seconds <= 10 ? AppTheme.orange : Colors.white60,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${seconds}s',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: seconds <= 10 ? AppTheme.orange : Colors.white60,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+            const SizedBox(width: 4),
+          ],
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
             tooltip: l10n.refreshLiveBoardTooltip,
@@ -358,7 +418,8 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   // ===========================================================================
 
   Widget _buildLiveLogisticsRadarView(BuildContext context, AppLocalizations l10n) {
-    final radarAsync = ref.watch(liveLogisticsTrackingProvider);
+    // CL-004: استخدام livePollingProvider بدلاً من FutureProvider للتحديث التلقائي
+    final radarAsync = ref.watch(livePollingProvider);
 
     return radarAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -413,6 +474,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
         return Column(
           children: [
+            // CL-006: بانر التنبيهات الحرجة — يظهر تلقائياً عند وجود إشعارات CRITICAL
+            const CriticalAlertBanner(),
+
             // UPPER: 5 Strategic KPI Summary Cards with Horizontal Scrollbar
             Container(
               color: Colors.white,
@@ -691,8 +755,22 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       }
 
                       return DataRow(
+                        // CL-005: الضغط على الصف ينتقل لشاشة ملف الاستيراد المقابل
+                        onSelectChanged: (selected) {
+                          if (selected == true) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ImportFilesScreen(
+                                  initialSearchQuery: item.importFileCode,
+                                  highlightedFileId: item.importFileId,
+                                ),
+                              ),
+                            );
+                          }
+                        },
                         cells: [
-                          // 1. Shipment Code & Importer / Supplier
+                          // 1. Shipment Code & Importer / Supplier — مع أيقونة التنقل
                           DataCell(
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -711,6 +789,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10.5),
                                       ),
                                     ),
+                                    const SizedBox(width: 4),
+                                    // CL-005: أيقونة التنقل للتفاصيل
+                                    const Icon(Icons.open_in_new, size: 11, color: AppTheme.cobalt),
                                     const SizedBox(width: 4),
                                     Text(
                                       '${item.shipmentMode} | ${item.incotermCode}',

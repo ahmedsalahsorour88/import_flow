@@ -64,6 +64,18 @@ class ExpiryCheckerService:
         # 9. Customs Exchange Rate Fluctuation Watchdog
         new_notifications.extend(self._check_currency_fluctuation_alerts())
 
+        # CL-006 ── 10. Active Demurrage Charges Alert (غرامات أرضيات نشطة)
+        new_notifications.extend(self._check_active_demurrage_alerts())
+
+        # CL-006 ── 11. Demurrage Free-Time Warning (72-hour window)
+        new_notifications.extend(self._check_demurrage_freetime_warning())
+
+        # CL-006 ── 12. Incomplete Documents on Arrived Shipments
+        new_notifications.extend(self._check_incomplete_docs_alerts())
+
+        # CL-006 ── 13. ETA < 48 Hours without Open Customs Clearance
+        new_notifications.extend(self._check_eta_customs_readiness_alerts())
+
         return new_notifications
 
     # ─── 1. Company Expiries ──────────────────────────────────────────────────
@@ -409,6 +421,204 @@ class ExpiryCheckerService:
                         )
                         created = self.repo.create(schema)
                         new_notifications.append(created)
+
+        return new_notifications
+
+    # ─── CL-006: 10. Active Demurrage Charges Alert ──────────────────────────
+
+    def _check_active_demurrage_alerts(self) -> list:
+        """Alert 10: شحنات بدأت باحتساب غرامات أرضيات فعلية (total_demurrage_fx > 0)."""
+        from modules.demurrage_detention.model import DemurrageTracking as DT
+        new_notifications = []
+
+        active_sessions = self.db.query(DT).filter(
+            DT.total_demurrage_fx > 0,
+            DT.is_active == True,
+        ).all()
+
+        for session in active_sessions:
+            category = "DEMURRAGE_ACTIVE"
+            entity_id = getattr(session, 'tracking_id', getattr(session, 'id', 0))
+            if not self.repo.exists_active_for_entity("DemurrageTracking", entity_id, category):
+                total_fx = getattr(session, 'total_demurrage_fx', 0.0)
+                total_egp = getattr(session, 'total_cost_egp', 0.0)
+                schema = NotificationCreate(
+                    title=f"🚨 غرامات أرضيات نشطة: {session.import_file_code}",
+                    message=(
+                        f"شحنة {session.import_file_code} تتراكم عليها غرامات أرضيات "
+                        f"بقيمة ${total_fx:.0f} "
+                        f"({total_egp:.0f} ج.م). "
+                        f"يُرجى التدخل الفوري للتخليص والسحب."
+                    ),
+                    severity="CRITICAL",
+                    category=category,
+                    entity_type="DemurrageTracking",
+                    entity_id=entity_id,
+                    target_role="ALL",
+                )
+                created = self.repo.create(schema)
+                new_notifications.append(created)
+
+        return new_notifications
+
+    # ─── CL-006: 11. Demurrage Free-Time 72-Hour Warning ─────────────────────
+
+    def _check_demurrage_freetime_warning(self) -> list:
+        """Alert 11: شحنات ستنتهي فترة سماحها خلال 72 ساعة (3 أيام أو أقل) أو في حالة Warning."""
+        from modules.demurrage_detention.model import DemurrageTracking as DT
+        new_notifications = []
+        today = date.today()
+
+        at_risk_sessions = self.db.query(DT).filter(
+            DT.total_demurrage_fx == 0,
+            DT.is_active == True,
+        ).all()
+
+        for session in at_risk_sessions:
+            free_days_remaining = None
+            if hasattr(session, 'free_days_remaining') and session.free_days_remaining is not None:
+                free_days_remaining = session.free_days_remaining
+            elif getattr(session, 'discharge_date', None):
+                policy_days = getattr(getattr(session, 'policy', None), 'demurrage_free_days', 14) or 14
+                used_days = (today - session.discharge_date).days
+                free_days_remaining = policy_days - used_days
+
+            is_warning = getattr(session, 'status', '') == 'Warning' or (
+                free_days_remaining is not None and 0 <= free_days_remaining <= 3
+            )
+
+            if is_warning:
+                category = "DEMURRAGE_WARNING"
+                entity_id = getattr(session, 'tracking_id', getattr(session, 'id', 0))
+                if not self.repo.exists_active_for_entity("DemurrageTracking", entity_id, category):
+                    days_left = int(free_days_remaining if free_days_remaining is not None else 3)
+                    schema = NotificationCreate(
+                        title=f"⚠️ تحذير أرضيات: {session.import_file_code}",
+                        message=(
+                            f"شحنة {session.import_file_code} متبقي لها {days_left} يوم "
+                            f"قبل انتهاء فترة السماح وبدء احتساب الغرامات. "
+                            f"الرجاء التعجيل في إجراءات التخليص."
+                        ),
+                        severity="WARNING",
+                        category=category,
+                        entity_type="DemurrageTracking",
+                        entity_id=entity_id,
+                        target_role="ALL",
+                    )
+                    created = self.repo.create(schema)
+                    new_notifications.append(created)
+
+        return new_notifications
+
+    # ─── CL-006: 12. Incomplete Documents on Arrived Shipments ───────────────
+
+    def _check_incomplete_docs_alerts(self) -> list:
+        """Alert 12: شحنات بها نقص مستندي (readiness < 60%)."""
+        new_notifications = []
+
+        arrived_files = self.db.query(ImportFile).filter(
+            ImportFile.is_active == True,
+            ImportFile.is_customs_released == False,
+        ).all()
+
+        for f in arrived_files:
+            verified = 0
+            if getattr(f, 'invoices_data', None) or getattr(f, 'invoice_value', None): verified += 1
+            if getattr(f, 'packing_lists_data', None) or getattr(f, 'packing_list_value', None): verified += 1
+            if getattr(f, 'acid_number', None): verified += 1
+            if getattr(f, 'form4_no', None): verified += 1
+            if getattr(f, 'custom_file_number', None): verified += 1
+            if getattr(f, 'form46_no', None) or getattr(f, 'is_customs_released', False): verified += 1
+            if getattr(f, 'pi_number', None) or getattr(f, 'bl_number', None): verified += 1
+
+            readiness_pct = (verified / 7) * 100.0
+            if readiness_pct >= 60.0:
+                continue
+
+            category = "INCOMPLETE_DOCS"
+            entity_id = getattr(f, 'import_file_id', getattr(f, 'id', 0))
+            if not self.repo.exists_active_for_entity("ImportFile", entity_id, category):
+                schema = NotificationCreate(
+                    title=f"📄 نقص مستندي: {f.import_file_code}",
+                    message=(
+                        f"شحنة {f.import_file_code} وصلت أو قاربت الوصول لكن اكتمال المستندات "
+                        f"{readiness_pct:.0f}% فقط ({verified}/7 مستندات). "
+                        f"يُرجى استكمال الملف المستندي فوراً."
+                    ),
+                    severity="WARNING",
+                    category=category,
+                    entity_type="ImportFile",
+                    entity_id=entity_id,
+                    target_role="ALL",
+                )
+                created = self.repo.create(schema)
+                new_notifications.append(created)
+
+        return new_notifications
+
+    # ─── CL-006: 13. ETA < 48 Hours without Open Customs Clearance ───────────
+
+    def _check_eta_customs_readiness_alerts(self) -> list:
+        """Alert 13: شحنات ETA خلال 48 ساعة بدون ملف تخليص جمركي مفتوح."""
+        new_notifications = []
+        now = datetime.now(timezone.utc)
+        threshold = now + timedelta(hours=48)
+
+        try:
+            from modules.freight_booking.model import ShipmentBooking
+        except ImportError:
+            return new_notifications
+
+        bookings = self.db.query(ShipmentBooking).filter(
+            ShipmentBooking.eta.isnot(None),
+        ).all()
+
+        for booking in bookings:
+            try:
+                b_eta = getattr(booking, 'eta', None)
+                if isinstance(b_eta, datetime):
+                    eta_dt = b_eta if b_eta.tzinfo else b_eta.replace(tzinfo=timezone.utc)
+                elif isinstance(b_eta, date):
+                    eta_dt = datetime.combine(b_eta, datetime.min.time(), tzinfo=timezone.utc)
+                else:
+                    continue
+            except Exception:
+                continue
+
+            if not (now <= eta_dt <= threshold):
+                continue
+
+            import_file = None
+            if getattr(booking, 'import_file_id', None):
+                import_file = self.db.query(ImportFile).filter(
+                    ImportFile.import_file_id == booking.import_file_id,
+                    ImportFile.is_active == True,
+                ).first()
+
+            if not import_file:
+                continue
+            if getattr(import_file, 'form46_no', None) or getattr(import_file, 'custom_file_number', None) or getattr(import_file, 'is_customs_released', False):
+                continue
+
+            category = "ETA_CUSTOMS_ALERT"
+            entity_id = getattr(import_file, 'import_file_id', getattr(import_file, 'id', 0))
+            if not self.repo.exists_active_for_entity("ImportFile", entity_id, category):
+                hours_left = max(0, int((eta_dt - now).total_seconds() / 3600))
+                schema = NotificationCreate(
+                    title=f"🚢 ETA وشيك بدون تخليص: {import_file.import_file_code}",
+                    message=(
+                        f"شحنة {import_file.import_file_code} ستصل خلال {hours_left} ساعة "
+                        f"ولم يُفتح لها ملف تخليص جمركي بعد. "
+                        f"يُرجى المباشرة فوراً في إجراءات إقرار 46 ك.م."
+                    ),
+                    severity="CRITICAL",
+                    category=category,
+                    entity_type="ImportFile",
+                    entity_id=entity_id,
+                    target_role="ALL",
+                )
+                created = self.repo.create(schema)
+                new_notifications.append(created)
 
         return new_notifications
 

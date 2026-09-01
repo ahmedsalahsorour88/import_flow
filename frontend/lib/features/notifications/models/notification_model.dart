@@ -37,6 +37,32 @@ class NotificationModel {
       createdAt: json['created_at']?.toString() ?? '',
     );
   }
+
+  NotificationModel copyWith({
+    int? notificationId,
+    String? title,
+    String? message,
+    String? severity,
+    String? category,
+    String? entityType,
+    int? entityId,
+    String? targetRole,
+    bool? isRead,
+    String? createdAt,
+  }) {
+    return NotificationModel(
+      notificationId: notificationId ?? this.notificationId,
+      title: title ?? this.title,
+      message: message ?? this.message,
+      severity: severity ?? this.severity,
+      category: category ?? this.category,
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      targetRole: targetRole ?? this.targetRole,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }
 
 class NotificationSummaryModel {

@@ -26,7 +26,14 @@ import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 
 
 class ImportFilesScreen extends ConsumerStatefulWidget {
-  const ImportFilesScreen({super.key});
+  final String? initialSearchQuery;
+  final int? highlightedFileId;
+
+  const ImportFilesScreen({
+    super.key,
+    this.initialSearchQuery,
+    this.highlightedFileId,
+  });
 
   @override
   ConsumerState<ImportFilesScreen> createState() => _ImportFilesScreenState();
@@ -35,6 +42,8 @@ class ImportFilesScreen extends ConsumerStatefulWidget {
 class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedStatusFilter = 'All';
+  int? _highlightedFileId;
+
 
   void _showVisualLoadPlanDialogForReport(BuildContext context, List<PurchaseOrderModel> pos, double totalCbm, double totalWeight) {
     final l = context.l10n;
@@ -1093,6 +1102,10 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialSearchQuery != null && widget.initialSearchQuery!.isNotEmpty) {
+      _searchController.text = widget.initialSearchQuery!;
+    }
+    _highlightedFileId = widget.highlightedFileId;
     Future.microtask(() {
       ref.read(paginatedImportFilesProvider.notifier).fetchPage(1);
       ref.read(importFilesProvider.notifier).fetchImportFiles();

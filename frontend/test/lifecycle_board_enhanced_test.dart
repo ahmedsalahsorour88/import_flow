@@ -1,10 +1,31 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/lifecycle_board/models/lifecycle_board_model.dart';
 import 'package:frontend/features/lifecycle_board/providers/lifecycle_board_provider.dart';
+import 'package:frontend/features/lifecycle_board/providers/live_polling_provider.dart';
 import 'package:frontend/features/lifecycle_board/screens/lifecycle_board_screen.dart';
+import 'package:frontend/features/notifications/models/notification_model.dart';
+import 'package:frontend/features/notifications/providers/notifications_provider.dart';
+
+class MockNotificationsNotifier extends StateNotifier<AsyncValue<List<NotificationModel>>>
+    implements NotificationsNotifier {
+  MockNotificationsNotifier([List<NotificationModel>? initialList])
+      : super(AsyncValue.data(initialList ?? []));
+
+  @override
+  Future<void> fetchNotifications() async {}
+
+  @override
+  Future<void> markAsRead(int notificationId) async {}
+
+  @override
+  Future<void> markAllAsRead() async {}
+
+  @override
+  Future<void> triggerExpiryCheck() async {}
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -135,6 +156,9 @@ void main() {
       overrides: [
         lifecycleBoardSummaryProvider.overrideWith((ref) => Future.value(mockBoardData)),
         liveLogisticsTrackingProvider.overrideWith((ref) => Future.value(mockRadarData)),
+        livePollingProvider.overrideWith((ref) => Stream.value(mockRadarData)),
+        refreshCountdownProvider.overrideWith((ref) => Stream.value(45)),
+        notificationsProvider.overrideWith((ref) => MockNotificationsNotifier([])),
       ],
       child: const AppLocalizationsProvider(
         locale: Locale('ar'),
@@ -145,7 +169,7 @@ void main() {
     );
   }
 
-  group('CL-003 Live Shipment Logistics Tracking Radar Tests', () {
+  group('CL-003, CL-004, CL-005, CL-006 Live Shipment Logistics Tracking Radar Tests', () {
     test('LiveLogisticsSummaryModel serialization and model parsing', () {
       final json = {
         'total_active_shipments': 1,
@@ -224,14 +248,17 @@ void main() {
       await tester.tap(radarTab);
       await tester.pumpAndSettle();
 
-      // 3. Verify KPI cards render
+      // 3. Verify CL-004 countdown indicator in AppBar
+      expect(find.text('45s'), findsOneWidget);
+
+      // 4. Verify KPI cards render
       expect(find.text('في الطريق للميناء'), findsOneWidget);
       expect(find.text('في الميناء وقيد التخليص'), findsOneWidget);
       expect(find.text('خطر غرامات أرضيات'), findsOneWidget);
       expect(find.text('عينات قيد الفحص المعملي'), findsOneWidget);
       expect(find.text('نواقص مستندية'), findsOneWidget);
 
-      // 4. Verify Radar items and badges
+      // 5. Verify Radar items and badges
       expect(find.text('IMP-2026-0001'), findsOneWidget);
       expect(find.text('IMP-2026-0002'), findsOneWidget);
       expect(find.text('Under Testing'), findsOneWidget);
@@ -239,7 +266,10 @@ void main() {
       expect(find.text('86%'), findsOneWidget);
       expect(find.text('43%'), findsOneWidget);
 
-      // 5. Test Risk Filter Chips
+      // 6. Verify CL-005 navigation indicator icon is present
+      expect(find.byIcon(Icons.open_in_new), findsWidgets);
+
+      // 7. Test Risk Filter Chips
       final criticalFilter = find.text('خطر حرج');
       expect(criticalFilter, findsOneWidget);
       await tester.tap(criticalFilter);

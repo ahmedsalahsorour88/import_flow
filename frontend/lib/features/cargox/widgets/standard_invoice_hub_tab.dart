@@ -126,7 +126,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       final bytes = await notifier.downloadExcelTemplate(_selectedImportFile!.importFileId);
 
       if (!mounted) return;
-      final defaultName = 'Standard_Commercial_Invoice_${_selectedImportFile!.importFileCode}.xlsx';
+      final defaultName = 'Phase4_CargoX_Standard_Invoice_${_selectedImportFile!.importFileCode}.xlsx';
       await FileSaveHelper.saveBytes(
         context: context,
         bytes: bytes,

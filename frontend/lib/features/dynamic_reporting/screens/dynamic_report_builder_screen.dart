@@ -117,7 +117,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
     }).toList();
 
     final csvContent = '$headerRow\n${rows.join('\n')}';
-    final filename = 'ImportFlow_Dynamic_Report_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Reports_Dynamic_Custom_Report_${DateTime.now().millisecondsSinceEpoch}.csv';
 
     await FileSaveHelper.saveText(
       context: context,
@@ -234,7 +234,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
     );
 
     final bytes = await doc.save();
-    final filename = 'ImportFlow_Dynamic_Report_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filename = 'Reports_Dynamic_Custom_Report_${DateTime.now().millisecondsSinceEpoch}.pdf';
 
     if (!mounted) return;
     await FileSaveHelper.saveBytes(

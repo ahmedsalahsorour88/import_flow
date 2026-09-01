@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -1002,12 +1003,13 @@ class CooExportService {
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'Draft_Certificate_of_Origin_${acidNumber.replaceAll(RegExp(r'[^0-9]'), '')}.pdf',
+      name: 'Phase3_Draft_Certificate_of_Origin_${acidNumber.replaceAll(RegExp(r'[^0-9]'), '')}',
     );
   }
 
   /// Exports and Saves Certificate of Origin PDF directly to a file chosen by the user
   static Future<String?> saveCOOPdfToFile({
+    BuildContext? context,
     required Map<String, dynamic> templateData,
     required String certificateType,
     required String acidNumber,
@@ -1021,11 +1023,11 @@ class CooExportService {
     );
 
     final certClean = acidNumber.replaceAll(RegExp(r'[^0-9]'), '');
-    final defaultName = 'Draft_Certificate_of_Origin_${certClean.isNotEmpty ? certClean : DateTime.now().millisecondsSinceEpoch}.pdf';
+    final defaultName = 'Phase3_Draft_Certificate_of_Origin_${certClean.isNotEmpty ? certClean : DateTime.now().millisecondsSinceEpoch}.pdf';
     final bytes = await pdf.save();
 
     return FileSaveHelper.saveBytes(
-      context: null,
+      context: context,
       bytes: bytes,
       defaultFileName: defaultName,
       dialogTitle: 'حفظ مسودة شهادة المنشأ بصيغة PDF',
@@ -1089,6 +1091,7 @@ class CooExportService {
 
   /// Exports and Saves Certificate of Origin CSV / Excel directly to a file chosen by the user
   static Future<String?> saveCOOCsvToFile({
+    BuildContext? context,
     required Map<String, dynamic> templateData,
     required String certificateType,
     required String acidNumber,
@@ -1100,10 +1103,10 @@ class CooExportService {
     );
 
     final certClean = acidNumber.replaceAll(RegExp(r'[^0-9]'), '');
-    final defaultName = 'Draft_Certificate_of_Origin_${certClean.isNotEmpty ? certClean : DateTime.now().millisecondsSinceEpoch}.csv';
+    final defaultName = 'Phase3_Draft_Certificate_of_Origin_${certClean.isNotEmpty ? certClean : DateTime.now().millisecondsSinceEpoch}.csv';
 
     return FileSaveHelper.saveText(
-      context: null,
+      context: context,
       textContent: csv,
       defaultFileName: defaultName,
       dialogTitle: 'حفظ مسودة شهادة المنشأ بصيغة Excel / CSV',

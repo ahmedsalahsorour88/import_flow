@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -314,12 +315,13 @@ class CustomsPdfService {
 
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdfBytes,
-      name: 'Nafeza_Customs_Duty_Statement',
+      name: 'Phase1_Nafeza_Customs_Duty_Statement',
     );
   }
 
   /// Download/Save PDF file to disk
   static Future<String?> downloadPdf({
+    BuildContext? context,
     required String currency,
     required double exchangeRate,
     required double totalFobFc,
@@ -346,10 +348,10 @@ class CustomsPdfService {
       result: result,
     );
 
-    final String defaultFileName = 'Nafeza_Customs_Statement_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final String defaultFileName = 'Phase1_Nafeza_Customs_Statement_${DateTime.now().millisecondsSinceEpoch}.pdf';
     
     return FileSaveHelper.saveBytes(
-      context: null,
+      context: context,
       bytes: pdfBytes,
       defaultFileName: defaultFileName,
       dialogTitle: 'حفظ بيان التقدير الجمركي بصيغة PDF',

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
+import '../models/goods_in_transit_model.dart';
 import '../providers/goods_in_transit_provider.dart';
 
 class GoodsInTransitScreen extends ConsumerStatefulWidget {
@@ -110,11 +112,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
                         icon: const Icon(Icons.file_download_outlined, size: 16),
                         label: Text(l.gitExportExcelBtn),
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(l.gitExportSuccessMsg), backgroundColor: AppTheme.emerald),
-                          );
-                        },
+                        onPressed: () => _exportGitLedgerCsv(context, filteredItems),
                       ),
                     ],
                   ),
@@ -315,6 +313,40 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _exportGitLedgerCsv(BuildContext context, List<GitLineItemModel> items) async {
+    final buffer = StringBuffer();
+    buffer.write('\uFEFF');
+    buffer.writeln('Sorour Logistics ERP — سجل بضاعة بالطريق وتتبع الشحنات (Goods In Transit Ledger)');
+    buffer.writeln('تاريخ التصدير,${DateTime.now().toIso8601String().split('T')[0]}');
+    buffer.writeln('');
+    buffer.writeln('كود ملف الشحنة,أمر الشراء,كود الصنف,اسم ووصف الصنف,الكمية المشحونة,عدد الطرود,نوع التعبئة,عدد الحاويات,نوع الحاوية,تاريخ الإفراج,حالة الاستلام المخزني');
+
+    for (final it in items) {
+      buffer.writeln(
+        '${it.importFileCode},'
+        '${it.poNumber},'
+        '${it.itemCode},'
+        '"${it.itemName.replaceAll('"', '""')}",'
+        '${it.invoicedQty},'
+        '${it.packagesCount},'
+        '"${it.packageType.replaceAll('"', '""')}",'
+        '${it.containersCount},'
+        '"${it.containerType.replaceAll('"', '""')}",'
+        '${it.certifiedDate},'
+        '${it.isDeliveredToWarehouse ? "تم الاستلام بالمخزن" : "بضاعة بالطريق (In-Transit)"}',
+      );
+    }
+
+    final filename = 'Phase6_Goods_In_Transit_Ledger_${DateTime.now().millisecondsSinceEpoch}.csv';
+    await FileSaveHelper.saveText(
+      context: context,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
+      dialogTitle: 'حفظ سجل بضاعة بالطريق بصيغة Excel / CSV',
+      allowedExtensions: ['csv', 'xlsx'],
     );
   }
 }

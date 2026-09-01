@@ -188,9 +188,10 @@ class CustomsExportService {
     }
 
     // Save dialog via FileSaveHelper
-    final defaultFileName = 'Customs_Study_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final cleanCode = (importFileCode != null && importFileCode.trim().isNotEmpty) ? importFileCode.replaceAll(RegExp(r'[^0-9A-Za-z_-]'), '_') : '${DateTime.now().millisecondsSinceEpoch}';
+    final defaultFileName = 'Phase1_Customs_Consultation_Study_${cleanCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
     return FileSaveHelper.saveText(
-      context: null,
+      context: context,
       textContent: buffer.toString(),
       defaultFileName: defaultFileName,
       dialogTitle: 'حفظ دراسة الجمارك وبيان نافذة بصيغة Excel / CSV',

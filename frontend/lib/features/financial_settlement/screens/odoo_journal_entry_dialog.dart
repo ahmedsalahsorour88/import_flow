@@ -65,7 +65,7 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
     try {
       final notifier = ref.read(financialSettlementProvider.notifier);
       final csvData = await notifier.downloadOdooCsv(settlementId);
-      final filename = 'odoo_landed_cost_settlement_$settlementId.csv';
+      final filename = 'Phase6_Odoo_Landed_Cost_Settlement_$settlementId.csv';
 
       if (!mounted) return;
       await FileSaveHelper.saveText(
@@ -91,7 +91,7 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
     try {
       final notifier = ref.read(financialSettlementProvider.notifier);
       final bytes = await notifier.downloadOdooExcel(settlementId);
-      final filename = 'accounting_landed_cost_voucher_$settlementId.xlsx';
+      final filename = 'Phase6_Accounting_Landed_Cost_Voucher_$settlementId.xlsx';
 
       if (!mounted) return;
       await FileSaveHelper.saveBytes(

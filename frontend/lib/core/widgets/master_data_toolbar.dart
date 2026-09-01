@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/api_constants.dart';
 import '../localization/app_localizations.dart';
 import '../network/dio_client.dart';
+import '../services/file_save_helper.dart';
 import '../theme/app_theme.dart';
 import 'buttons/app_button.dart';
 
@@ -46,20 +47,37 @@ class _MasterDataToolbarWidgetState
 
   Future<void> _downloadFile(
       String actionEndpoint, String defaultFileName) async {
+    final cleanTitle = widget.title.replaceAll(' ', '_');
+    final formattedDefaultName = defaultFileName.startsWith('MasterData_')
+        ? defaultFileName
+        : 'MasterData_${cleanTitle}_${defaultFileName}';
     final url =
         '${ApiConstants.baseUrl}/${widget.moduleEndpoint}/$actionEndpoint';
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${context.l10n.preparingExport} $defaultFileName'),
-        backgroundColor: AppTheme.cobalt,
-        duration: const Duration(seconds: 3),
-      ),
-    );
-    // TODO: implement actual file download via dioProvider
-    // final dio = ref.read(dioProvider);
-    // final response = await dio.get(url, options: Options(responseType: ResponseType.bytes));
-    debugPrint('Export URL: $url');
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.get(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      if (response.data != null && response.data is List<int>) {
+        if (!mounted) return;
+        await FileSaveHelper.saveBytes(
+          context: context,
+          bytes: response.data as List<int>,
+          defaultFileName: formattedDefaultName,
+          dialogTitle: 'حفظ ملف بيانات ${widget.title}',
+          allowedExtensions: defaultFileName.endsWith('.pdf') ? ['pdf'] : ['xlsx', 'csv'],
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${context.l10n.errorPrefix}: $e'),
+          backgroundColor: AppTheme.crimson,
+        ),
+      );
+    }
   }
 
   Future<void> _handleImportExcel() async {
@@ -228,7 +246,7 @@ class _MasterDataToolbarWidgetState
                 icon: Icons.description,
                 onPressed: widget.onExportExcel ??
                     () => _downloadFile(
-                        'export-excel', '${widget.title}_Report.xlsx'),
+                        'export-excel', 'MasterData_${widget.title.replaceAll(" ", "_")}_Report.xlsx'),
               ),
 
               // Export PDF
@@ -239,7 +257,7 @@ class _MasterDataToolbarWidgetState
                 icon: Icons.picture_as_pdf,
                 onPressed: widget.onExportPdf ??
                     () => _downloadFile(
-                        'export-pdf', '${widget.title}_Report.pdf'),
+                        'export-pdf', 'MasterData_${widget.title.replaceAll(" ", "_")}_Report.pdf'),
               ),
 
               // Import Excel

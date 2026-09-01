@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -408,7 +409,7 @@ class DraftBLExportService {
     );
 
     final blNo = (draftData['draft_bl_number'] ?? draftBlNumber ?? systemData['draft_bl_number'] ?? 'DRAFT-BL').toString();
-    final filename = 'Draft_BL_${blNo.replaceAll('/', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filename = 'Phase3_Draft_BL_${blNo.replaceAll('/', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     await Printing.sharePdf(bytes: await pdf.save(), filename: filename);
   }
 
@@ -431,12 +432,13 @@ class DraftBLExportService {
     final blNo = (draftData['draft_bl_number'] ?? draftBlNumber ?? systemData['draft_bl_number'] ?? 'DRAFT-BL').toString();
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'Draft_BL_${blNo.replaceAll('/', '_')}',
+      name: 'Phase3_Draft_BL_${blNo.replaceAll('/', '_')}',
     );
   }
 
   /// Generates and downloads structured Draft B/L as Excel / CSV
   static Future<String?> exportDraftBLToExcel({
+    BuildContext? context,
     required Map<String, dynamic> systemData,
     required Map<String, dynamic> draftData,
     String? draftBlNumber,
@@ -488,9 +490,9 @@ class DraftBLExportService {
 
     buffer.writeln('تاريخ التصدير,${DateTime.now().toIso8601String()}');
 
-    final filename = 'Draft_BL_${blNo.toString().replaceAll('/', '_')}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Phase3_Draft_BL_${blNo.toString().replaceAll('/', '_')}_${DateTime.now().millisecondsSinceEpoch}.csv';
     return FileSaveHelper.saveText(
-      context: null,
+      context: context,
       textContent: buffer.toString(),
       defaultFileName: filename,
       dialogTitle: 'حفظ مسودة البوليصة بصيغة Excel / CSV',
@@ -500,6 +502,7 @@ class DraftBLExportService {
 
   /// Exports and Saves Draft B/L PDF directly to a file chosen by the user
   static Future<String?> saveDraftBLPdfToFile({
+    BuildContext? context,
     required Map<String, dynamic> systemData,
     required Map<String, dynamic> draftData,
     String? draftBlNumber,
@@ -517,11 +520,11 @@ class DraftBLExportService {
     final blNo = (draftData['draft_bl_number'] ?? draftBlNumber ?? systemData['draft_bl_number'] ?? 'DRAFT_BL')
         .toString()
         .replaceAll(RegExp(r'[^0-9A-Za-z_-]'), '_');
-    final filename = 'Draft_BL_${blNo}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filename = 'Phase3_Draft_BL_${blNo}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final bytes = await pdf.save();
 
     return FileSaveHelper.saveBytes(
-      context: null,
+      context: context,
       bytes: bytes,
       defaultFileName: filename,
       dialogTitle: 'حفظ مسودة البوليصة بصيغة PDF',

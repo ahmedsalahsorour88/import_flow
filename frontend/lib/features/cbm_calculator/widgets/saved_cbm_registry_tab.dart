@@ -1144,7 +1144,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       buffer.writeln('${i + 1},${item.packageType},${item.quantity},${item.lengthCm},${item.widthCm},${item.heightCm},${item.grossWeightPerUnitKg},${item.isStackable ? "Stackable" : "Non-Stackable"},${item.totalCbm},$lineGross');
     }
 
-    final filename = 'CBM_Report_${calc.calcCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Phase1_CBM_Measurement_Report_${calc.calcCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
     await FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),

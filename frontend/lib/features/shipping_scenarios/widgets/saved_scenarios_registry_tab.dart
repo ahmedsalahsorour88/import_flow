@@ -13,6 +13,7 @@ import '../../projects/providers/projects_provider.dart';
 import '../models/shipping_scenario_model.dart';
 import '../providers/shipping_scenarios_provider.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/file_save_helper.dart';
 
 class SavedScenariosRegistryTab extends ConsumerStatefulWidget {
   final void Function(ShippingEvaluationModel session) onEditSession;
@@ -635,6 +636,15 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
           ),
         ),
         actions: [
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.emerald,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.file_download_outlined, size: 16),
+            onPressed: () => _exportScenarioCsv(context, sess),
+            label: Text(l.exportExcel),
+          ),
           TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
         ],
       ),
@@ -642,27 +652,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
   }
 
   void _showPrintReportDialog(BuildContext context, ShippingEvaluationModel sess) {
-    final buffer = StringBuffer();
-    buffer.writeln('=====================================================');
-    buffer.writeln('Sorour Logistics ERP - Shipping Scenario & Quote Report (${sess.sessionCode})');
-    buffer.writeln('Study Title: ${sess.title ?? "N/A"}');
-    buffer.writeln('Cargo Ready Date: ${sess.cargoReadyDate} | Pick-up: ${sess.pickUpAddress ?? "N/A"}');
-    buffer.writeln('Linked Import File: ${sess.importFileCode ?? "N/A"} | PO: ${sess.poNumber ?? "N/A"}');
-    buffer.writeln('Avg Transit: ${sess.avgExpectedTransitDays} days | WH Arrival: ${sess.avgExpectedWarehouseArrivalDate ?? "N/A"}');
-    buffer.writeln('Recommended Line: ${sess.recommendedScenarioProvider ?? "N/A"}');
-    buffer.writeln('=====================================================\n');
-    buffer.writeln('Provider,Shipping Line,Customs Broker,Vessel,Voyage,POL,POD,Sailing,ETA,Free Time,Delay,Total WH Days,Total Cost,Risk,Status');
-    for (var item in sess.items) {
-      buffer.writeln('"${item.providerName}","${item.providerName}","${item.customsBrokerName ?? "-"}","${item.vesselName}","${item.voyageNumber ?? "-"}","${item.polName ?? "-"}","${item.podName ?? "-"}","${item.sailingDate}","${item.estimatedArrivalDate}",${item.freeTimeDays},${item.expectedLineDelayDays},${item.expectedTotalDaysToWarehouse},"${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}","${item.riskLevel}","${item.isRecommended ? "Recommended" : item.isExcludedFromAverage ? "Excluded" : "Normal"}"');
-    }
-
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🖨️ تم نسخ تقرير الدراسة والعروض للحافظة بنجاح! جاهز للطباعة (Ctrl+P)'),
-        backgroundColor: AppTheme.cobalt,
-      ),
-    );
+    _exportScenarioCsv(context, sess);
   }
 
   // ignore: unused_element
@@ -1205,6 +1195,35 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
           },
         );
       },
+    );
+  }
+
+  Future<void> _exportScenarioCsv(BuildContext context, ShippingEvaluationModel sess) async {
+    final buffer = StringBuffer();
+    buffer.write('\uFEFF');
+    buffer.writeln('Sorour Logistics ERP — تقرير دراسة وتقييم سيناريوهات الشحن');
+    buffer.writeln('كود الدراسة,${sess.sessionCode}');
+    buffer.writeln('عنوان الدراسة,"${(sess.title ?? '').replaceAll('"', '""')}"');
+    buffer.writeln('كود ملف الاستيراد,${sess.importFileCode ?? "-"}');
+    buffer.writeln('أمر الشراء,${sess.poNumber ?? "-"}');
+    buffer.writeln('المشروع,${sess.projectName ?? "-"}');
+    buffer.writeln('تاريخ الجاهزية CRD,${sess.cargoReadyDate}');
+    buffer.writeln('عنوان الاستلام,"${(sess.pickUpAddress ?? "-").replaceAll('"', '""')}"');
+    buffer.writeln('الخط الموصى به,"${(sess.recommendedScenarioProvider ?? "-").replaceAll('"', '""')}"');
+    buffer.writeln('');
+    buffer.writeln('--- سيناريوهات الشحن المقارنة ---');
+    buffer.writeln('الخط الملاحي / الناقل,الباخرة,ميناء الشحن,ميناء الوصول,مدة الإبحار (أيام),تاريخ الإبحار,تاريخ الوصول التقديري ETA,تاريخ وصول المخزن المتوقع,التكلفة التقديرية,العملة,مستوى المخاطر,موصى به');
+    for (final it in sess.items) {
+      buffer.writeln('"${it.providerName.replaceAll('"', '""')}","${it.vesselName.replaceAll('"', '""')}","${it.polName ?? '-'}","${it.podName ?? '-'}","${it.vesselLeadTimeDays}","${it.sailingDate}","${it.estimatedArrivalDate}","${it.expectedWarehouseArrivalDate}","${it.totalQuotationAmount}","${it.quotationCurrency}","${it.riskLevel}","${it.isRecommended ? "نعم" : "لا"}"');
+    }
+
+    final filename = 'Phase1_Shipping_Evaluation_${sess.sessionCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    await FileSaveHelper.saveText(
+      context: context,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
+      dialogTitle: 'حفظ دراسة سيناريوهات الشحن بصيغة Excel / CSV',
+      allowedExtensions: ['csv', 'xlsx'],
     );
   }
 

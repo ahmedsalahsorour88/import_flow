@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 
 import '../../features/import_files/models/import_file_model.dart';
 import '../theme/app_theme.dart';
+import 'file_save_helper.dart';
 
 class FreightRfqGeneratorService {
   /// Generates a professional Freight RFQ Sheet as a PDF document
@@ -347,12 +348,12 @@ class FreightRfqGeneratorService {
     );
   }
 
-  /// Print or Save PDF
+  /// Print or Preview PDF
   static Future<void> printOrSavePdf(BuildContext context, Uint8List pdfBytes, String fileCode) async {
     try {
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => pdfBytes,
-        name: 'Freight_RFQ_$fileCode.pdf',
+        name: 'Phase1_Freight_RFQ_$fileCode',
       );
     } catch (e) {
       if (!context.mounted) return;
@@ -363,5 +364,17 @@ class FreightRfqGeneratorService {
         ),
       );
     }
+  }
+
+  /// Exports and Saves Freight RFQ PDF directly with native save dialog
+  static Future<String?> savePdfToFile(BuildContext context, Uint8List pdfBytes, String fileCode) async {
+    final filename = 'Phase1_Freight_RFQ_${fileCode}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    return FileSaveHelper.saveBytes(
+      context: context,
+      bytes: pdfBytes,
+      defaultFileName: filename,
+      dialogTitle: 'حفظ طلب عروض أسعار النولون (Freight RFQ) بصيغة PDF',
+      allowedExtensions: ['pdf'],
+    );
   }
 }

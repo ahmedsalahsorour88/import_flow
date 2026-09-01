@@ -182,7 +182,7 @@ class MasterDataExportService {
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'Importer_${company.importerId}',
+      name: 'MasterData_Import_Companies_${company.importerId}',
     );
   }
 
@@ -210,9 +210,9 @@ class MasterDataExportService {
       buffer.writeln('الملاحظات,"${company.notes!.replaceAll('"', '""')}"');
     }
 
-    final filename = 'Importer_${company.importerId}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'MasterData_Import_Companies_${company.importerId}_${DateTime.now().millisecondsSinceEpoch}.csv';
     return FileSaveHelper.saveText(
-      context: null,
+      context: context,
       textContent: buffer.toString(),
       defaultFileName: filename,
       dialogTitle: 'حفظ بيانات الشركة المستوردة بصيغة Excel / CSV',
@@ -446,7 +446,7 @@ Sorour Logistics ERP
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'Supplier_${supplier.supplierCode}',
+      name: 'MasterData_Suppliers_${supplier.supplierCode}',
     );
   }
 
@@ -484,9 +484,9 @@ Sorour Logistics ERP
     buffer.writeln('قائمة بيضاء,${supplier.whiteListRegistered ? "نعم" : "لا"}');
     buffer.writeln('العلامات والبراندات,"${(supplier.brands ?? "-").replaceAll('"', '""')}"');
 
-    final filename = 'Supplier_${supplier.supplierCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'MasterData_Suppliers_${supplier.supplierCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
     return FileSaveHelper.saveText(
-      context: null,
+      context: context,
       textContent: buffer.toString(),
       defaultFileName: filename,
       dialogTitle: 'حفظ بيانات المورد الأجنبي بصيغة Excel / CSV',
@@ -732,7 +732,7 @@ Sorour Logistics ERP
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'Partner_${partner.partnerCode}',
+      name: 'MasterData_Partners_${partner.partnerCode}',
     );
   }
 
@@ -760,9 +760,9 @@ Sorour Logistics ERP
     buffer.writeln('العنوان,"${(partner.address ?? "-").replaceAll('"', '""')}"');
     buffer.writeln('حالة السجل,${partner.isActive ? "نشط" : "غير نشط"}');
 
-    final filename = 'Partner_${partner.partnerCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'MasterData_Partners_${partner.partnerCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
     return FileSaveHelper.saveText(
-      context: null,
+      context: context,
       textContent: buffer.toString(),
       defaultFileName: filename,
       dialogTitle: 'حفظ بيانات الشريك بصيغة Excel / CSV',

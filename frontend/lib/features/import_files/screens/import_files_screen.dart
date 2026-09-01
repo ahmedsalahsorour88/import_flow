@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/import_file_po_linker.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -1019,8 +1020,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                        onPressed: () {
+                        onPressed: () async {
                           final buffer = StringBuffer();
+                          buffer.write('\uFEFF');
                           buffer.writeln('custom broker name,shipment no,supp. Name,Project name,PI Value,shipping mode,Inco term,TOTAL,shipping date,arrival port,arrival warehouse,DIRECT OVER,ready to pick up Date,latest update for pending shipment,Doc Date,Swift,Carrier,ACID,FORM 4,FORM 46');
 
                           for (final f in report.files) {
@@ -1030,14 +1032,15 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             buffer.writeln('"${f.owner.contains('Broker') ? f.owner : 'Customs Broker'}",${f.customFileNumber ?? f.importFileCode},"${f.supplierName}","${f.projectNames ?? 'Main Site Building'}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","${f.currentStage} (${f.progressPercent.toInt()}%) - ${f.nextAction}","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COSCO'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
                           }
 
-                          Clipboard.setData(ClipboardData(text: buffer.toString()));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(l.csvExportSuccess),
-                              backgroundColor: AppTheme.emerald,
-                            ),
-                          );
+                          final filename = 'Reports_Import_Files_Master_Summary_${DateTime.now().millisecondsSinceEpoch}.csv';
                           Navigator.pop(dialogCtx);
+                          await FileSaveHelper.saveText(
+                            context: context,
+                            textContent: buffer.toString(),
+                            defaultFileName: filename,
+                            dialogTitle: 'حفظ التقرير الشامل لملفات الاستيراد بصيغة Excel / CSV',
+                            allowedExtensions: ['csv', 'xlsx'],
+                          );
                         },
                         icon: const Icon(Icons.download, color: Colors.white, size: 18),
                         label: Text(l.exportReportExcelPdf, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -308,12 +309,13 @@ class InspectionExportService {
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'Draft_Inspection_Certificate_${agency}_${acidNumber.replaceAll(RegExp(r'[^0-9]'), '')}.pdf',
+      name: 'Phase3_Draft_Inspection_Certificate_${agency}_${acidNumber.replaceAll(RegExp(r'[^0-9]'), '')}',
     );
   }
 
   /// Exports and Saves Inspection Certificate PDF directly to a file chosen by the user
   static Future<String?> saveInspectionPdfToFile({
+    BuildContext? context,
     required Map<String, dynamic> templateData,
     required String agency,
     required String certType,
@@ -329,11 +331,11 @@ class InspectionExportService {
     );
 
     final cleanAcid = acidNumber.replaceAll(RegExp(r'[^0-9]'), '');
-    final filename = 'Draft_Inspection_Certificate_${agency}_${cleanAcid.isNotEmpty ? cleanAcid : DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filename = 'Phase3_Draft_Inspection_Certificate_${agency}_${cleanAcid.isNotEmpty ? cleanAcid : DateTime.now().millisecondsSinceEpoch}.pdf';
     final bytes = await pdf.save();
 
     return FileSaveHelper.saveBytes(
-      context: null,
+      context: context,
       bytes: bytes,
       defaultFileName: filename,
       dialogTitle: 'حفظ مسودة شهادة الفحص والمطابقة بصيغة PDF',
@@ -372,6 +374,7 @@ class InspectionExportService {
 
   /// Exports and Saves Inspection Certificate CSV / Excel directly to a file chosen by the user
   static Future<String?> saveInspectionCsvToFile({
+    BuildContext? context,
     required Map<String, dynamic> templateData,
     required String agency,
     required String certType,
@@ -387,10 +390,10 @@ class InspectionExportService {
     );
 
     final cleanAcid = acidNumber.replaceAll(RegExp(r'[^0-9]'), '');
-    final filename = 'Draft_Inspection_Certificate_${agency}_${cleanAcid.isNotEmpty ? cleanAcid : DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Phase3_Draft_Inspection_Certificate_${agency}_${cleanAcid.isNotEmpty ? cleanAcid : DateTime.now().millisecondsSinceEpoch}.csv';
 
     return FileSaveHelper.saveText(
-      context: null,
+      context: context,
       textContent: csv,
       defaultFileName: filename,
       dialogTitle: 'حفظ مسودة شهادة الفحص والمطابقة بصيغة Excel / CSV',

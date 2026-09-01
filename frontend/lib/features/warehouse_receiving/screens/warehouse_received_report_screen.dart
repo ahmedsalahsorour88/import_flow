@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
+import '../models/warehouse_receiving_model.dart';
 import '../providers/warehouse_receiving_provider.dart';
 
 class WarehouseReceivedReportScreen extends ConsumerStatefulWidget {
@@ -136,11 +138,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
                         icon: const Icon(Icons.file_download_outlined, size: 16),
                         label: Text(l.whReportExportExcelBtn),
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(l.whReportExportSuccessMsg), backgroundColor: AppTheme.emerald),
-                          );
-                        },
+                        onPressed: () => _exportWarehouseReceivedReportCsv(context, records),
                       ),
                     ],
                   ),
@@ -331,6 +329,49 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _exportWarehouseReceivedReportCsv(BuildContext context, List<WarehouseReceivingModel> records) async {
+    final buffer = StringBuffer();
+    buffer.write('\uFEFF');
+    buffer.writeln('Sorour Logistics ERP — تقرير الشحنات المستلمة بالمخزن ومطابقة الفروق تفصيلي (Warehouse GRN Audit Report)');
+    buffer.writeln('تاريخ التصدير,${DateTime.now().toIso8601String().split('T')[0]}');
+    buffer.writeln('');
+    buffer.writeln('رقم إذن الاستلام (GRN),المستودع,تاريخ ووقت الوصول,رقم الشاحنة,اسم السائق,رقم الرصاصة,سلامة الرصاص,إجمالي الفاتورة,إجمالي المستلم السليم,إجمالي العجز,إجمالي التالف,نوع الفارق,حالة الشحنة,اسم الفاحص');
+
+    for (final r in records) {
+      buffer.writeln(
+        '${r.grnCode},'
+        '"${r.warehouseName.replaceAll('"', '""')}",'
+        '${r.arrivalDatetime},'
+        '"${(r.truckPlateNumber ?? "-").replaceAll('"', '""')}",'
+        '"${(r.driverName ?? "-").replaceAll('"', '""')}",'
+        '"${(r.sealNumber ?? "-").replaceAll('"', '""')}",'
+        '${r.sealIntact ? "سليم" : "غير سليم"},'
+        '${r.totalInvoicedQty},'
+        '${r.totalAcceptedQty},'
+        '${r.totalShortageQty},'
+        '${r.totalDamagedQty},'
+        '"${r.discrepancyType}",'
+        '"${r.status}",'
+        '"${r.inspectorName.replaceAll('"', '""')}"',
+      );
+
+      if (r.grnItems.isNotEmpty) {
+        for (final item in r.grnItems) {
+          buffer.writeln('  -> صنف تفصيلي,كود: ${item.itemCode},اسم: "${item.itemName.replaceAll('"', '""')}",فاتورة: ${item.invoicedQty},سليم: ${item.acceptedQty},عجز: ${item.shortageQty},تالف: ${item.damagedQty},حجر صحي: ${item.quarantineFlag ? "نعم" : "لا"}');
+        }
+      }
+    }
+
+    final filename = 'Phase6_Warehouse_Received_Report_${DateTime.now().millisecondsSinceEpoch}.csv';
+    await FileSaveHelper.saveText(
+      context: context,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
+      dialogTitle: 'حفظ تقرير استلام المخزن بصيغة Excel / CSV',
+      allowedExtensions: ['csv', 'xlsx'],
     );
   }
 }

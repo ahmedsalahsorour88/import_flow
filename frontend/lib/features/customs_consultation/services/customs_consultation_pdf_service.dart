@@ -1,7 +1,9 @@
 import 'dart:typed_data';
+import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../../../core/services/file_save_helper.dart';
 import '../models/customs_consultation_model.dart';
 import 'customs_export_service.dart';
 
@@ -399,6 +401,19 @@ class CustomsConsultationPdfService {
     );
 
     return pdf.save();
+  }
+
+  /// Exports and Saves Customs Consultation PDF directly with native save dialog
+  static Future<String?> saveConsultationPdfToFile(BuildContext context, CustomsConsultationModel session) async {
+    final pdfBytes = await generateConsultationPdf(session);
+    final defaultFileName = 'Phase1_Customs_Consultation_${session.consultationCode}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    return FileSaveHelper.saveBytes(
+      context: context,
+      bytes: pdfBytes,
+      defaultFileName: defaultFileName,
+      dialogTitle: 'حفظ تقرير دراسة الاستشارة الجمركية بصيغة PDF',
+      allowedExtensions: ['pdf'],
+    );
   }
 
   static pw.Widget _buildPdfMetricBox(String title, String value, PdfColor color) {

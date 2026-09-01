@@ -2336,17 +2336,25 @@ def extract_clean_main_description(raw_desc: str) -> str:
     text = re.sub(r'(?i)\bN\s*/\s*M\b', '', text)
     text = re.sub(r'(?i)ACID:[0-9]+', '', text)
     text = re.sub(r'[\*\#]', '', text)
+    
+    # Strip leading/trailing punctuation, commas, slashes, dashes
+    text = re.sub(r'^[\s,./\-_:|]+', '', text)
+    text = re.sub(r'[\s,./\-_:|]+$', '', text)
     text = re.sub(r'\s{2,}', ' ', text).strip()
     
-    # Deduplicate if joined with /
-    if ' / ' in text:
-        parts = [p.strip() for p in text.split(' / ') if p.strip()]
+    # Deduplicate if joined with / or ,
+    if ' / ' in text or ',' in text:
+        parts = [re.sub(r'^[\s,./\-_:|]+', '', p).strip() for p in re.split(r'\s*[/,]\s*', text) if p.strip()]
         unique_parts = []
         for p in parts:
-            if p not in unique_parts:
-                unique_parts.append(p)
+            p_clean = re.sub(r'^[\s,./\-_:|]+', '', p).strip()
+            if p_clean and p_clean not in unique_parts and len(p_clean) > 1:
+                unique_parts.append(p_clean)
         text = ' / '.join(unique_parts)
         
+    text = re.sub(r'^[\s,./\-_:|]+', '', text)
+    text = re.sub(r'[\s,./\-_:|]+$', '', text).strip()
+
     if not text or text.upper() == "COMMERCIAL CARGO" or "CN - China" in text:
         text = "Acoustic Panels"
         
@@ -2380,32 +2388,84 @@ def format_coo_hs_code(raw_hs: str, is_china: bool = True) -> str:
     return str(raw_hs).strip()
 
 
+def get_package_type_plural(count: int, package_type: Optional[str] = None) -> str:
+    """Returns plural or singular package type description in uppercase."""
+    pkg_cnt = max(1, int(count or 1))
+    raw_type = (package_type or "CARTON").strip().upper()
+    if "PALLET" in raw_type:
+        return "PALLETS" if pkg_cnt > 1 else "PALLET"
+    elif "CONTAINER" in raw_type:
+        return "CONTAINERS" if pkg_cnt > 1 else "CONTAINER"
+    elif "BOX" in raw_type:
+        return "BOXES" if pkg_cnt > 1 else "BOX"
+    elif "PACKAGE" in raw_type or "PKG" in raw_type:
+        return "PACKAGES" if pkg_cnt > 1 else "PACKAGE"
+    elif "DRUM" in raw_type:
+        return "DRUMS" if pkg_cnt > 1 else "DRUM"
+    elif "BAG" in raw_type:
+        return "BAGS" if pkg_cnt > 1 else "BAG"
+    elif "ROLL" in raw_type:
+        return "ROLLS" if pkg_cnt > 1 else "ROLL"
+    elif "CRATE" in raw_type:
+        return "CRATES" if pkg_cnt > 1 else "CRATE"
+    elif "CTN" in raw_type:
+        return "CTNS" if pkg_cnt > 1 else "CTN"
+    else:
+        return "CARTONS" if pkg_cnt > 1 else "CARTON"
+
+
 def format_total_packages_line(count: int, package_type: Optional[str] = None) -> str:
     """Format total packages line for Chinese COO Box 7: e.g. 'TOTAL PACKED IN EIGHTY TWO (82) CARTONS ONLY'."""
     pkg_cnt = max(1, int(count or 1))
     words = int_to_english_words(pkg_cnt)
-    
-    raw_type = (package_type or "CARTON").strip().upper()
-    if "PALLET" in raw_type:
-        pkg_word = "PALLETS" if pkg_cnt > 1 else "PALLET"
-    elif "CONTAINER" in raw_type:
-        pkg_word = "CONTAINERS" if pkg_cnt > 1 else "CONTAINER"
-    elif "BOX" in raw_type:
-        pkg_word = "BOXES" if pkg_cnt > 1 else "BOX"
-    elif "PACKAGE" in raw_type or "PKG" in raw_type:
-        pkg_word = "PACKAGES" if pkg_cnt > 1 else "PACKAGE"
-    elif "DRUM" in raw_type:
-        pkg_word = "DRUMS" if pkg_cnt > 1 else "DRUM"
-    elif "BAG" in raw_type:
-        pkg_word = "BAGS" if pkg_cnt > 1 else "BAG"
-    elif "ROLL" in raw_type:
-        pkg_word = "ROLLS" if pkg_cnt > 1 else "ROLL"
-    elif "CRATE" in raw_type:
-        pkg_word = "CRATES" if pkg_cnt > 1 else "CRATE"
-    else:
-        pkg_word = "CARTONS" if pkg_cnt > 1 else "CARTON"
-        
+    pkg_word = get_package_type_plural(pkg_cnt, package_type)
     return f"TOTAL PACKED IN {words} ({pkg_cnt}) {pkg_word} ONLY"
+
+
+def format_coo_quantity_box(
+    quantity: float,
+    unit: Optional[str],
+    packages_count: int,
+    package_type: Optional[str],
+    gross_weight_kg: float,
+    is_china: bool = True
+) -> str:
+    """Formats Box 9 (Quantity) for Certificate of Origin.
+    Line 1: Item pieces/quantity by unit / Package count by type (e.g. 1,152 PCS / 144 CARTONS)
+    Line 2: Total Gross Weight in KGS (e.g. 10,510KGS G.W.)
+    """
+    q_val = float(quantity or 0.0)
+    if q_val.is_integer():
+        qty_str = f"{int(q_val):,}"
+    else:
+        qty_str = f"{q_val:,.2f}".rstrip('0').rstrip('.')
+        if '.' in qty_str and len(qty_str.split('.')[1]) > 2:
+            qty_str = f"{q_val:,.4f}".rstrip('0').rstrip('.')
+            
+    clean_unit = (unit or "PCS").strip().upper()
+    if clean_unit in ["PIECE", "PIECES", "PC", "PCS."]:
+        clean_unit = "PCS"
+    elif clean_unit in ["SET", "SETS"]:
+        clean_unit = "SETS" if q_val != 1 else "SET"
+    elif clean_unit in ["ROLL", "ROLLS"]:
+        clean_unit = "ROLLS" if q_val != 1 else "ROLL"
+    elif clean_unit in ["M2", "SQM", "SQ.M"]:
+        clean_unit = "SQM"
+    elif clean_unit in ["KG", "KGS", "KILOGRAM"]:
+        clean_unit = "KGS"
+
+    pkg_cnt = max(1, int(packages_count or 1))
+    pkg_type_plural = get_package_type_plural(pkg_cnt, package_type)
+
+    line1 = f"{qty_str} {clean_unit} / {pkg_cnt} {pkg_type_plural}"
+
+    gw_val = float(gross_weight_kg or 0.0)
+    if is_china:
+        gw_line = f"{gw_val:,.0f}KGS G.W." if gw_val.is_integer() else f"{gw_val:,.2f}KGS G.W."
+    else:
+        gw_line = f"{gw_val:,.0f} KG G.W." if gw_val.is_integer() else f"{gw_val:,.3f} KG G.W."
+
+    return f"{line1}\n{gw_line}"
 
 
 def generate_coo_draft_template_service(
@@ -2669,11 +2729,15 @@ def generate_coo_draft_template_service(
 
         q_val = c_item["quantity"]
         u_str = c_item["unit"]
-        pcs_line = f"{int(q_val) if q_val.is_integer() else q_val:,.0f} {u_str} (TOTAL PIECES)"
-        pkgs_line = f"{p_cnt} CARTONS / PACKAGES (TOTAL CARTONS)"
         gw_val = c_item["gross_weight_kg"] if c_item["gross_weight_kg"] > 0 else (10510.56 if is_china else 10510.0)
-        gw_line = f"{gw_val:,.0f}KGS G.W." if gw_val.is_integer() else f"{gw_val:,.2f}KGS G.W."
-        box_9_formatted = gw_line if is_china else f"{gw_val:,.3f} KG"
+        box_9_formatted = format_coo_quantity_box(
+            quantity=q_val,
+            unit=u_str,
+            packages_count=p_cnt,
+            package_type=pkg_type_val,
+            gross_weight_kg=gw_val,
+            is_china=is_china
+        )
         box_10_formatted = f"{inv_num}\n{inv_dt}"
 
         table_rows.append({
@@ -2695,8 +2759,14 @@ def generate_coo_draft_template_service(
     # Summary strings
     summary_invoices_str = "\n".join(f"{r['invoice_number']} ({r['invoice_date']})" for r in table_rows)
     primary_invoice_str = f"{table_rows[0]['invoice_number']}\n{table_rows[0]['invoice_date']}" if table_rows else f"IN{imp_file.import_file_code}\n{date.today()}"
-    total_gw_line = f"{total_gross_wt:,.0f}KGS G.W." if total_gross_wt.is_integer() else f"{total_gross_wt:,.2f}KGS G.W."
-    primary_box_9_str = total_gw_line if is_china else f"{total_gross_wt:,.3f} KG"
+    primary_box_9_str = format_coo_quantity_box(
+        quantity=total_qty_all,
+        unit=first_unit,
+        packages_count=total_packages_all,
+        package_type=getattr(imp_file, 'package_type', None),
+        gross_weight_kg=total_gross_wt,
+        is_china=is_china
+    )
 
     # Dynamic exporter details in pure English
     exporter_name = sanitize_english_only((supplier.company_name if supplier else None) or imp_file.supplier_name or "FOREIGN EXPORTER")

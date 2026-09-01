@@ -173,13 +173,16 @@ void main() {
     });
   });
 
-  group('Chinese COO Box 7 & Box 8 Helper Unit Tests', () {
+  group('Chinese COO Box 7, 8, and 9 Helper Unit Tests', () {
     test('extractCleanMainDescription strips model numbers and material qualifiers like PET', () {
       expect(VisualDraftCOOSheet.extractCleanMainDescription('PET Acoustic Panels (YH-652)'), 'Acoustic Panels');
       expect(VisualDraftCOOSheet.extractCleanMainDescription('PET Acoustic Panels (YH-644)'), 'Acoustic Panels');
       expect(VisualDraftCOOSheet.extractCleanMainDescription('PET Acoustic Panels'), 'Acoustic Panels');
       expect(VisualDraftCOOSheet.extractCleanMainDescription('Acoustic Panel YH-652'), 'Acoustic Panel');
       expect(VisualDraftCOOSheet.extractCleanMainDescription('N/M Acoustic Panels'), 'Acoustic Panels');
+      expect(VisualDraftCOOSheet.extractCleanMainDescription(', / PET Acoustic Panels'), 'Acoustic Panels');
+      expect(VisualDraftCOOSheet.extractCleanMainDescription(', / Acoustic Panels'), 'Acoustic Panels');
+      expect(VisualDraftCOOSheet.extractCleanMainDescription(' / Acoustic Panels'), 'Acoustic Panels');
     });
 
     test('formatCooHsCode formats 4-digit heading with dot for Chinese CCPIT COO', () {
@@ -188,6 +191,32 @@ void main() {
       expect(VisualDraftCOOSheet.formatCooHsCode('5602', isChina: true), '56.02');
       expect(VisualDraftCOOSheet.formatCooHsCode('3921900000', isChina: true), '39.21');
       expect(VisualDraftCOOSheet.formatCooHsCode('5602290000', isChina: false), '5602290000');
+    });
+
+    test('formatCooQuantityBox formats quantity by unit and packages by type with gross weight', () {
+      expect(VisualDraftCOOSheet.getPackageTypePlural(144, 'Carton'), 'CARTONS');
+      expect(VisualDraftCOOSheet.getPackageTypePlural(1, 'Pallet'), 'PALLET');
+      expect(VisualDraftCOOSheet.getPackageTypePlural(10, 'Pallet'), 'PALLETS');
+
+      final q1 = VisualDraftCOOSheet.formatCooQuantityBox(
+        quantity: 1152,
+        unit: 'PCS',
+        packagesCount: 144,
+        packageType: 'CARTON',
+        grossWeightKg: 10510.0,
+        isChina: true,
+      );
+      expect(q1, '1,152 PCS / 144 CARTONS\n10,510KGS G.W.');
+
+      final q2 = VisualDraftCOOSheet.formatCooQuantityBox(
+        quantity: 810,
+        unit: 'SHEETS',
+        packagesCount: 82,
+        packageType: 'CARTON',
+        grossWeightKg: 4756.0,
+        isChina: true,
+      );
+      expect(q2, '810 SHEETS / 82 CARTONS\n4,756KGS G.W.');
     });
   });
 }

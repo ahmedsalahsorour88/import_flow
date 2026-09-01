@@ -431,12 +431,19 @@ def test_china_ccpit_coo_box_6_and_7_formatting_and_english_words(db_session):
     # Check Box 8 is formatted as 4-digit heading with dot for Chinese COO
     assert template["box_8_hs_code"] == "56.02"
 
-    # Check table rows Box 6 is N/M and Box 8 is 56.02
+    # Verify Box 9 Quantity & Weight formatting (Pieces/Unit / Packages/Type + Gross Weight)
+    box_9 = template["box_9_quantity_and_weight"]
+    assert "810 SHEETS / 82 CARTONS" in box_9
+    assert "4,756KGS G.W." in box_9
+
+    # Check table rows Box 6 is N/M, Box 8 is 56.02, and Box 9 has pieces / packages
     assert len(template["table_rows"]) >= 1
     assert template["table_rows"][0]["marks_and_numbers"] == "N/M"
     assert template["table_rows"][0]["hs_code"] == "56.02"
     assert "TOTAL PACKED IN EIGHTY TWO (82) CARTONS ONLY" in template["table_rows"][0]["description_and_acid"]
     assert "N/M" not in template["table_rows"][0]["description_and_acid"]
+    assert "810 SHEETS / 82 CARTONS" in template["table_rows"][0]["quantity_and_weight_str"]
+    assert "4,756KGS G.W." in template["table_rows"][0]["quantity_and_weight_str"]
 
     # Cleanup
     db_session.delete(item_china)
@@ -447,9 +454,14 @@ def test_china_ccpit_coo_box_6_and_7_formatting_and_english_words(db_session):
 
 
 def test_extract_clean_main_description_and_anti_duplicate_models():
-    from modules.import_documentation.service import extract_clean_main_description, format_coo_hs_code
+    from modules.import_documentation.service import (
+        extract_clean_main_description,
+        format_coo_hs_code,
+        format_coo_quantity_box,
+        get_package_type_plural,
+    )
     
-    # Verify stripping of model numbers, codes, and material qualifiers (e.g. PET)
+    # Verify stripping of model numbers, codes, material qualifiers, and leading punctuation (e.g. , / )
     assert extract_clean_main_description("PET Acoustic Panels (YH-652)") == "Acoustic Panels"
     assert extract_clean_main_description("PET Acoustic Panels (YH-644)") == "Acoustic Panels"
     assert extract_clean_main_description("Acoustic Panel YH-652") == "Acoustic Panel"
@@ -457,6 +469,9 @@ def test_extract_clean_main_description_and_anti_duplicate_models():
     assert extract_clean_main_description("PET Acoustic Panels (YH-652) / PET Acoustic Panels (YH-644)") == "Acoustic Panels"
     assert extract_clean_main_description("N/M Acoustic Panels") == "Acoustic Panels"
     assert extract_clean_main_description("PET Acoustic Panels") == "Acoustic Panels"
+    assert extract_clean_main_description(", / PET Acoustic Panels") == "Acoustic Panels"
+    assert extract_clean_main_description(", / Acoustic Panels") == "Acoustic Panels"
+    assert extract_clean_main_description(" / Acoustic Panels") == "Acoustic Panels"
 
     # Verify Chinese COO 4-digit Box 8 formatting (XX.XX)
     assert format_coo_hs_code("5602290000", is_china=True) == "56.02"
@@ -465,6 +480,42 @@ def test_extract_clean_main_description_and_anti_duplicate_models():
     assert format_coo_hs_code("3921900000", is_china=True) == "39.21"
     assert format_coo_hs_code("5602290000, 3921900000", is_china=True) == "56.02, 39.21"
     assert format_coo_hs_code("5602290000", is_china=False) == "5602290000"
+
+    # Verify Box 9 Quantity & Weight formatting (Pieces/Unit / Packages/Type + Gross Weight)
+    assert get_package_type_plural(144, "Carton") == "CARTONS"
+    assert get_package_type_plural(1, "Pallet") == "PALLET"
+    assert get_package_type_plural(10, "Pallet") == "PALLETS"
+
+    q_box_1 = format_coo_quantity_box(
+        quantity=1152,
+        unit="PCS",
+        packages_count=144,
+        package_type="CARTON",
+        gross_weight_kg=10510.0,
+        is_china=True
+    )
+    assert q_box_1 == "1,152 PCS / 144 CARTONS\n10,510KGS G.W."
+
+    q_box_2 = format_coo_quantity_box(
+        quantity=810,
+        unit="SHEETS",
+        packages_count=82,
+        package_type="CARTON",
+        gross_weight_kg=4756.0,
+        is_china=True
+    )
+    assert q_box_2 == "810 SHEETS / 82 CARTONS\n4,756KGS G.W."
+
+    q_box_3 = format_coo_quantity_box(
+        quantity=500.5,
+        unit="SQM",
+        packages_count=20,
+        package_type="PALLET",
+        gross_weight_kg=4500.25,
+        is_china=False
+    )
+    assert q_box_3 == "500.5 SQM / 20 PALLETS\n4,500.250 KG G.W."
+
 
 
 

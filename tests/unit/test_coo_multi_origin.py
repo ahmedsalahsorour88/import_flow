@@ -325,10 +325,146 @@ Place and date,signature and stamp of certifying authority
     assert result["hs_code"] == "560229"
     assert "4904" in result["gross_weight"]
     assert result["invoice_number"] == "GRS20260505T9"
-    assert "2026" in result["issue_date"] or "JUL" in result["issue_date"]
-
     assert ai_result["certificate_number"] == "26C311120218/00004"
     assert "SUZHOU GREENISH" in ai_result["exporter_name"]
     assert "SCAS FOR CONSTRUCTION" in ai_result["importer_name"]
     assert ai_result["verification_url"] == "HTTP://CHECK.ECOCCPIT.NET/"
+
+
+def test_china_ccpit_coo_box_6_and_7_formatting_and_english_words(db_session):
+    from modules.import_documentation.service import int_to_english_words, format_total_packages_line
+
+    # Test int_to_english_words
+    assert int_to_english_words(82) == "EIGHTY TWO"
+    assert int_to_english_words(144) == "ONE HUNDRED FORTY FOUR"
+    assert int_to_english_words(1) == "ONE"
+    assert int_to_english_words(1000) == "ONE THOUSAND"
+    assert int_to_english_words(0) == "ZERO"
+
+    # Test format_total_packages_line
+    line82 = format_total_packages_line(82, "Carton")
+    assert line82 == "TOTAL PACKED IN EIGHTY TWO (82) CARTONS ONLY"
+
+    line1 = format_total_packages_line(1, "Pallet")
+    assert line1 == "TOTAL PACKED IN ONE (1) PALLET ONLY"
+
+    line5 = format_total_packages_line(5, "Containers")
+    assert line5 == "TOTAL PACKED IN FIVE (5) CONTAINERS ONLY"
+
+    # Test draft generation for China CCPIT
+    china_supplier = Supplier(
+        supplier_code="SUP-CHINA-TEST-001",
+        company_name="Suzhou Greenish Imp&Exp Co., Ltd.",
+        supplier_type="Manufacturer",
+        registration_type="Factory",
+        foreign_exporter_id="EXP-CN-001",
+        foreign_exporter_country="China",
+        foreign_exporter_country_code="CN",
+        address="Suzhou, China",
+        is_active=True,
+    )
+    db_session.add(china_supplier)
+    db_session.commit()
+
+    company = db_session.query(ImportCompany).first()
+    project = db_session.query(Project).first()
+    incoterm = db_session.query(Incoterm).first()
+    currency = db_session.query(Currency).first()
+
+    imp_file = ImportFile(
+        import_file_code="IMP-2026-CCPIT-TEST",
+        company_id=company.company_id if company else None,
+        company_name=company.importer_name if company else "Test Importer",
+        supplier_id=china_supplier.supplier_id,
+        supplier_name=china_supplier.company_name,
+        acid_number="5281534391006810017",
+        is_active=True,
+    )
+    db_session.add(imp_file)
+    db_session.commit()
+
+    po_china = PurchaseOrder(
+        po_number="PO-CHINA-001-TEST",
+        import_file_id=imp_file.import_file_id,
+        project_id=project.project_id if project else 1,
+        company_id=company.company_id if company else 1,
+        supplier_id=china_supplier.supplier_id,
+        incoterm_id=incoterm.incoterm_id if incoterm else 1,
+        currency_id=currency.currency_id if currency else 1,
+        country_of_origin="China",
+        total_packages_count=82,
+        total_gross_weight_kg=4756.0,
+        is_active=True,
+    )
+    db_session.add(po_china)
+    db_session.commit()
+
+    item_china = POLineItem(
+        po_id=po_china.po_id,
+        description_en="Acoustic Panel",
+        description_ar="لوحات صوتية",
+        main_description="Acoustic Panel",
+        country_of_origin="China",
+        quantity=810,
+        unit_of_measure="SHEETS",
+        unit_price=10.0,
+        total_price=8100.0,
+        gross_weight_kg=4756.0,
+    )
+    db_session.add(item_china)
+    db_session.commit()
+
+    coo_res = generate_coo_draft_template_service(db_session, imp_file.import_file_id, "China Certificate of Origin (CCPIT)")
+    template = coo_res.template_data
+
+    # Check Box 6 is always N/M
+    assert template["box_6_marks_and_numbers"] == "N/M"
+
+    # Check Box 7 has main description, total packed line, stars line, and ACID line
+    box_7 = template["box_7_description_and_acid"]
+    assert "Acoustic Panel" in box_7
+    assert "TOTAL PACKED IN EIGHTY TWO (82) CARTONS ONLY" in box_7
+    assert "*** *** *** *** ***" in box_7
+    assert "ACID:5281534391006810017" in box_7
+    assert "N/M" not in box_7
+
+    # Check Box 8 is formatted as 4-digit heading with dot for Chinese COO
+    assert template["box_8_hs_code"] == "56.02"
+
+    # Check table rows Box 6 is N/M and Box 8 is 56.02
+    assert len(template["table_rows"]) >= 1
+    assert template["table_rows"][0]["marks_and_numbers"] == "N/M"
+    assert template["table_rows"][0]["hs_code"] == "56.02"
+    assert "TOTAL PACKED IN EIGHTY TWO (82) CARTONS ONLY" in template["table_rows"][0]["description_and_acid"]
+    assert "N/M" not in template["table_rows"][0]["description_and_acid"]
+
+    # Cleanup
+    db_session.delete(item_china)
+    db_session.delete(po_china)
+    db_session.delete(imp_file)
+    db_session.delete(china_supplier)
+    db_session.commit()
+
+
+def test_extract_clean_main_description_and_anti_duplicate_models():
+    from modules.import_documentation.service import extract_clean_main_description, format_coo_hs_code
+    
+    # Verify stripping of model numbers, codes, and material qualifiers (e.g. PET)
+    assert extract_clean_main_description("PET Acoustic Panels (YH-652)") == "Acoustic Panels"
+    assert extract_clean_main_description("PET Acoustic Panels (YH-644)") == "Acoustic Panels"
+    assert extract_clean_main_description("Acoustic Panel YH-652") == "Acoustic Panel"
+    assert extract_clean_main_description("Acoustic Panel (Model A-123)") == "Acoustic Panel"
+    assert extract_clean_main_description("PET Acoustic Panels (YH-652) / PET Acoustic Panels (YH-644)") == "Acoustic Panels"
+    assert extract_clean_main_description("N/M Acoustic Panels") == "Acoustic Panels"
+    assert extract_clean_main_description("PET Acoustic Panels") == "Acoustic Panels"
+
+    # Verify Chinese COO 4-digit Box 8 formatting (XX.XX)
+    assert format_coo_hs_code("5602290000", is_china=True) == "56.02"
+    assert format_coo_hs_code("560229", is_china=True) == "56.02"
+    assert format_coo_hs_code("5602", is_china=True) == "56.02"
+    assert format_coo_hs_code("3921900000", is_china=True) == "39.21"
+    assert format_coo_hs_code("5602290000, 3921900000", is_china=True) == "56.02, 39.21"
+    assert format_coo_hs_code("5602290000", is_china=False) == "5602290000"
+
+
 

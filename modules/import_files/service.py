@@ -288,6 +288,22 @@ def update_import_file_service(
             auto_generate_system_tasks_for_file(db, updated_file)
         except Exception:
             pass
+
+        # Propagate ACID Number to Import Requirements Assessments
+        if updated_file.acid_number:
+            try:
+                from modules.import_requirements.model import ImportRequirementAssessment
+                from modules.import_requirements.service import sync_regulatory_tasks_and_alerts
+                assessments = db.query(ImportRequirementAssessment).filter(
+                    ImportRequirementAssessment.import_file_id == import_file_id
+                ).all()
+                for a in assessments:
+                    a.acid_number = updated_file.acid_number
+                    db.commit()
+                    sync_regulatory_tasks_and_alerts(db, a.assessment_id)
+            except Exception:
+                pass
+
     return updated_file
 
 

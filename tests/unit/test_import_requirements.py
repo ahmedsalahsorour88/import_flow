@@ -274,3 +274,66 @@ def test_restore_soft_deleted_assessment():
     assert restore_res.json()["is_active"] is True
 
 
+def test_optional_acid_and_smart_tasks_generation():
+    db = TestingSessionLocal()
+    from modules.import_files.model import ImportFile
+    from modules.smart_tasks.model import SmartTask
+
+    # 1. Create an import file without ACID (Draft phase)
+    file_obj = ImportFile(
+        import_file_code="IMP-2026-TEST1",
+        company_name="Test Importer Co",
+        supplier_name="Test Global Supplier",
+        estimated_cost=50000.0,
+        estimated_cost_currency="USD",
+        acid_number=None, # Not issued yet
+        status="Draft",
+    )
+    db.add(file_obj)
+    db.commit()
+    db.refresh(file_obj)
+
+    # 2. Create Assessment without ACID, but with uncompleted regulatory requirements
+    payload = {
+        "import_file_id": file_obj.import_file_id,
+        "import_file_code": file_obj.import_file_code,
+        "shipment_value_usd": 50000.0,
+        "decree_43_applicable": True,
+        "white_list_verified": False, # Uncompleted Decree 43
+        "import_permit_required": True,
+        "permit_issuing_authority": "EEAA",
+        "permit_status": "Pending", # Uncompleted permit
+        "overall_status": "In Progress",
+        "risk_level": "High",
+    }
+    res = client.post("/api/v1/import-requirements", json=payload)
+    assert res.status_code == 201
+    data = res.json()
+    assert data["acid_number"] is None # Cleanly allowed without error!
+
+    # 3. Verify that SmartTasks were generated for uncompleted regulatory requirements
+    tasks = db.query(SmartTask).filter(SmartTask.import_file_id == file_obj.import_file_id).all()
+    assert len(tasks) >= 2
+    task_titles = [t.title for t in tasks]
+    assert any("قرار 43" in t for t in task_titles)
+    assert any("EEAA" in t or "موافقة" in t for t in task_titles)
+
+    # 4. Now simulate updating the import file with the 19-digit ACID issued later
+    from modules.import_files.service import update_import_file_service
+    from modules.import_files.schemas import ImportFileUpdate
+    update_import_file_service(
+        db,
+        file_obj.import_file_id,
+        ImportFileUpdate(acid_number="1987654321098765432")
+    )
+
+    # 5. Check that assessment was auto-synchronized with the new ACID
+    from modules.import_requirements.model import ImportRequirementAssessment
+    updated_assessment = db.query(ImportRequirementAssessment).filter(
+        ImportRequirementAssessment.import_file_id == file_obj.import_file_id
+    ).first()
+    assert updated_assessment.acid_number == "1987654321098765432"
+
+    db.close()
+
+

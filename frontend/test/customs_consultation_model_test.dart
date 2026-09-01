@@ -166,6 +166,148 @@ void main() {
       expect(model.comparisonLines.first.hsCode, '6802.99');
       expect(model.comparisonLines.first.qtyVariance, 20.0);
     });
+
+    test('Should parse and serialize BrokerPriceListModel with custom surcharge items correctly', () {
+      final json = {
+        'price_list_id': 10,
+        'price_list_code': 'PL-2026-0010',
+        'title': 'بيان أسعار التخليص والنقل لميناء الإسكندرية لعام 2026',
+        'broker_id': 34,
+        'broker_name': 'Nabil Naseef .ACC',
+        'port_name': 'Alexandria Port',
+        'effective_from': '2026-04-01',
+        'version': 1,
+        'is_active': true,
+        'notes': 'الأسعار سارية لكافة الرسائل الواردة لميناء الإسكندرية والدخيلة',
+        'items': [
+          {
+            'item_id': 1,
+            'price_list_id': 10,
+            'expense_type_id': null,
+            'expense_name': 'اخرى',
+            'category': 'Other Fees (مصاريف أخرى)',
+            'unit_type': 'Per Shipment (لكل شحنة)',
+            'standard_price': 1000.0,
+            'currency': 'EGP',
+            'notes': 'بند استثنائي',
+            'is_active': true,
+          },
+          {
+            'item_id': 2,
+            'price_list_id': 10,
+            'expense_type_id': 5,
+            'expense_name': 'أتعاب تخليص حاوية 40 قدم',
+            'category': 'Clearance Fees (أتعاب ومصاريف تخليص)',
+            'unit_type': 'Per Container (لكل حاوية)',
+            'standard_price': 2500.0,
+            'currency': 'EGP',
+            'is_active': true,
+          },
+        ],
+      };
+
+      final model = BrokerPriceListModel.fromJson(json);
+
+      expect(model.priceListId, 10);
+      expect(model.priceListCode, 'PL-2026-0010');
+      expect(model.brokerId, 34);
+      expect(model.brokerName, 'Nabil Naseef .ACC');
+      expect(model.items.length, 2);
+      expect(model.items.first.expenseTypeId, isNull);
+      expect(model.items.first.expenseName, 'اخرى');
+      expect(model.items.first.standardPrice, 1000.0);
+      expect(model.items.last.expenseTypeId, 5);
+      expect(model.items.last.standardPrice, 2500.0);
+
+      final serialized = model.toJson();
+      expect(serialized['title'], 'بيان أسعار التخليص والنقل لميناء الإسكندرية لعام 2026');
+      expect((serialized['items'] as List).length, 2);
+      expect((serialized['items'] as List).first['expense_name'], 'اخرى');
+      expect((serialized['items'] as List).first['standard_price'], 1000.0);
+    });
+
+    test('Should calculate Marine Insurance and Declared CIF correctly according to Egyptian Customs formula', () {
+      // Example matching user request:
+      // FOB = $47,000.00 USD
+      // Freight = $8,250.00 USD
+      // C&F = $55,250.00 USD
+      // Insurance (0.5%) = $55,250 * 0.005 = $276.25 USD
+      // Declared Customs CIF Foreign = $55,526.25 USD
+      // FX Rate = 50.00 EGP/USD
+      // Declared Customs CIF EGP = 2,776,312.50 EGP
+
+      const double fobForeign = 47000.0;
+      const double freightForeign = 8250.0;
+      const double candfForeign = fobForeign + freightForeign;
+      expect(candfForeign, 55250.0);
+
+      const double insuranceRatePct = 0.5;
+      final double insuranceForeign = candfForeign * (insuranceRatePct / 100.0);
+      expect(insuranceForeign, 276.25);
+
+      final double declaredCifForeign = candfForeign + insuranceForeign;
+      expect(declaredCifForeign, 55526.25);
+
+      const double customsExchangeRate = 50.0;
+      final double declaredCifEgp = declaredCifForeign * customsExchangeRate;
+      expect(declaredCifEgp, 2776312.50);
+    });
+
+    test('Should consolidate line items by identical HS Code and sum values correctly', () {
+      final rows = [
+        {
+          'hs_code': '5602290000',
+          'description': 'PET Acoustic Panels',
+          'qty': 100.0,
+          'foreign_price': 5887.90,
+          'fob_egp': 294395.0,
+          'cif_egp': 350170.0,
+          'duty_egp': 17508.50,
+          'vat_egp': 51475.0,
+        },
+        {
+          'hs_code': '5602290000',
+          'description': 'PET Acoustic Panels',
+          'qty': 120.0,
+          'foreign_price': 7065.48,
+          'fob_egp': 353274.0,
+          'cif_egp': 420204.0,
+          'duty_egp': 21010.20,
+          'vat_egp': 61770.0,
+        },
+        {
+          'hs_code': '84798990',
+          'description': 'Industrial Motor Assembly',
+          'qty': 1.0,
+          'foreign_price': 15000.0,
+          'fob_egp': 750000.0,
+          'cif_egp': 820000.0,
+          'duty_egp': 41000.0,
+          'vat_egp': 120540.0,
+        },
+      ];
+
+      // Group by HS Code
+      final Map<String, List<Map<String, dynamic>>> grouped = {};
+      for (final r in rows) {
+        grouped.putIfAbsent(r['hs_code'] as String, () => []).add(r);
+      }
+
+      expect(grouped.keys.length, 2);
+      expect(grouped['5602290000']!.length, 2);
+      expect(grouped['84798990']!.length, 1);
+
+      // Aggregate 5602290000
+      final hs5602Rows = grouped['5602290000']!;
+      final totalQty = hs5602Rows.fold(0.0, (s, r) => s + (r['qty'] as double));
+      final totalFobEgp = hs5602Rows.fold(0.0, (s, r) => s + (r['fob_egp'] as double));
+      final totalDutyEgp = hs5602Rows.fold(0.0, (s, r) => s + (r['duty_egp'] as double));
+
+      expect(totalQty, 220.0);
+      expect(totalFobEgp, 647669.0);
+      expect(totalDutyEgp, 38518.70);
+    });
   });
 }
+
 

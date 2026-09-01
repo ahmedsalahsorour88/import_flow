@@ -669,18 +669,20 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                 Table(
                                   border: TableBorder.all(color: Colors.grey.shade300),
                                   columnWidths: const {
-                                    0: FlexColumnWidth(1.2),
-                                    1: FlexColumnWidth(3.0),
-                                    2: FlexColumnWidth(1.2),
-                                    3: FlexColumnWidth(1.2),
-                                    4: FlexColumnWidth(1.2),
-                                    5: FlexColumnWidth(1.5),
+                                    0: FlexColumnWidth(1.0),
+                                    1: FlexColumnWidth(1.8),
+                                    2: FlexColumnWidth(2.6),
+                                    3: FlexColumnWidth(1.1),
+                                    4: FlexColumnWidth(1.1),
+                                    5: FlexColumnWidth(1.1),
+                                    6: FlexColumnWidth(1.3),
                                   },
                                   children: [
                                     TableRow(
                                       decoration: const BoxDecoration(color: AppTheme.cloudWhite),
                                       children: [
                                         Padding(padding: const EdgeInsets.all(6), child: Text(l.itemCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.mainDescription, style: const TextStyle(fontWeight: FontWeight.bold))),
                                         Padding(padding: const EdgeInsets.all(6), child: Text(l.descriptionAndHsCode, style: const TextStyle(fontWeight: FontWeight.bold))),
                                         Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyUom, style: const TextStyle(fontWeight: FontWeight.bold))),
                                         Padding(padding: const EdgeInsets.all(6), child: Text(l.unitPrice, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -710,6 +712,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                           decoration: isMismatched ? BoxDecoration(color: Colors.red.shade50.withOpacity(0.3)) : null,
                                           children: [
                                             Padding(padding: const EdgeInsets.all(6), child: Text(item.itemCode ?? '-')),
+                                            Padding(
+                                              padding: const EdgeInsets.all(6),
+                                              child: Text(
+                                                item.mainDescription?.isNotEmpty == true ? item.mainDescription! : '-',
+                                                style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                              ),
+                                            ),
                                             Padding(
                                               padding: const EdgeInsets.all(6),
                                               child: Column(
@@ -1028,29 +1037,31 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                               Table(
                                 border: TableBorder.all(color: Colors.grey.shade300),
                                 columnWidths: const {
-                                  0: FlexColumnWidth(1.8),
-                                  1: FlexColumnWidth(1.2),
-                                  2: FlexColumnWidth(1.0),
-                                  3: FlexColumnWidth(1.0),
-                                  4: FlexColumnWidth(1.0),
-                                  5: FlexColumnWidth(1.4),
-                                  6: FlexColumnWidth(1.1),
-                                  7: FlexColumnWidth(1.1),
-                                  8: FlexColumnWidth(1.1),
+                                  0: FlexColumnWidth(1.6),
+                                  1: FlexColumnWidth(1.1),
+                                  2: FlexColumnWidth(1.6),
+                                  3: FlexColumnWidth(0.9),
+                                  4: FlexColumnWidth(0.9),
+                                  5: FlexColumnWidth(0.9),
+                                  6: FlexColumnWidth(1.3),
+                                  7: FlexColumnWidth(1.0),
+                                  8: FlexColumnWidth(1.0),
+                                  9: FlexColumnWidth(1.0),
                                 },
                                 children: [
-                                  const TableRow(
-                                    decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                                  TableRow(
+                                    decoration: const BoxDecoration(color: AppTheme.cloudWhite),
                                     children: [
-                                      Padding(padding: EdgeInsets.all(6), child: Text('HS Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: EdgeInsets.all(6), child: Text('Item Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: EdgeInsets.all(6), child: Text('Qty PCS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: EdgeInsets.all(6), child: Text('Qty PKG', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: EdgeInsets.all(6), child: Text('Pkg Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: EdgeInsets.all(6), child: Text('Dimensions (cm)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: EdgeInsets.all(6), child: Text('Net Wt (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: EdgeInsets.all(6), child: Text('Gross Wt (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: EdgeInsets.all(6), child: Text('CBM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      const Padding(padding: EdgeInsets.all(6), child: Text('HS Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      const Padding(padding: EdgeInsets.all(6), child: Text('Item Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.mainDescription, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      const Padding(padding: EdgeInsets.all(6), child: Text('Qty PCS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      const Padding(padding: EdgeInsets.all(6), child: Text('Qty PKG', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      const Padding(padding: EdgeInsets.all(6), child: Text('Pkg Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      const Padding(padding: EdgeInsets.all(6), child: Text('Dimensions (cm)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      const Padding(padding: EdgeInsets.all(6), child: Text('Net Wt (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      const Padding(padding: EdgeInsets.all(6), child: Text('Gross Wt (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      const Padding(padding: EdgeInsets.all(6), child: Text('CBM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                                     ],
                                   ),
                                   ...po.packingListItems.map(
@@ -1084,6 +1095,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                                 : Text(p.hsCode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                           ),
                                           Padding(padding: const EdgeInsets.all(6), child: Text(p.itemCode, style: const TextStyle(fontSize: 11))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.mainDescription ?? p.description ?? '-', style: const TextStyle(fontSize: 11))),
                                           Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPcs}', style: const TextStyle(fontSize: 11))),
                                           Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPkg}', style: const TextStyle(fontSize: 11))),
                                           Padding(padding: const EdgeInsets.all(6), child: Text(p.packageType, style: const TextStyle(fontSize: 11))),

@@ -133,7 +133,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
           _activeDraftTemplate = template;
           _activeAcidNumber = (file?.acidNumber != null && file!.acidNumber!.isNotEmpty)
               ? file.acidNumber
-              : (template['box_7_description_and_acid'] ?? template['box_10_invoices_and_acid'] ?? '7595528271020210010');
+              : '5281534391023010013';
           _activeExemptionNotes = res['exemption_notes']?.toString();
 
           if (template['certificate_number'] != null) _certNumberCtrl.text = template['certificate_number'].toString();

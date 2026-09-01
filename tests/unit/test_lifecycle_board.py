@@ -163,3 +163,54 @@ def test_hold_and_resume_activities(db_session):
     step13_resumed = repo.get_activity(db_session, "IMP-2026-0001", "STEP_13")
     assert step13_resumed.status == "In-Progress"
     assert "تم صدور الموافقة" in step13_resumed.notes
+
+
+def test_previous_and_next_step_tracking(db_session):
+    # Set STEP_02 as current active step for IMP-2026-0001
+    repo.save_or_update_activity(
+        db_session,
+        import_file_code="IMP-2026-0001",
+        step_code="STEP_01",
+        status="Completed",
+        completed_at="2026-08-31 10:00:00",
+    )
+    repo.save_or_update_activity(
+        db_session,
+        import_file_code="IMP-2026-0001",
+        step_code="STEP_02",
+        status="In-Progress",
+        started_at="2026-08-31 10:05:00",
+    )
+
+    summary = service.get_board_summary_service(db_session)
+    matching = [s for s in summary.all_shipments if s.import_file_code == "IMP-2026-0001"]
+    assert len(matching) == 1
+    card = matching[0]
+
+    # Verify Previous, Current, and Next steps
+    assert card.step_code == "STEP_02"
+    assert card.step_name_ar == "الدراسات والاستشارات الجمركية"
+    assert card.previous_step_code == "STEP_01"
+    assert card.previous_step_name_ar == "دراسات ومفاضلة نولون الشحن"
+    assert card.next_step_code == "STEP_03"
+    assert card.next_step_name_ar == "متطلبات واشتراطات الاستيراد للشحنة"
+
+
+def test_sync_consultation_lifecycle_stage(db_session):
+    file1 = db_session.query(ImportFile).filter(ImportFile.import_file_code == "IMP-2026-0001").first()
+    assert file1 is not None
+
+    # Call sync
+    service.sync_consultation_lifecycle_stage(db_session, file1.import_file_id)
+
+    # Check that STEP_01 is Completed and STEP_02 is In-Progress
+    step1 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_01")
+    assert step1.status == "Completed"
+
+    step2 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_02")
+    assert step2.status == "In-Progress"
+
+    # Check that ImportFile next action points to STEP_03
+    db_session.refresh(file1)
+    assert "STEP_02" in file1.current_module
+    assert "STEP_03" in file1.next_action

@@ -484,6 +484,17 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     return null;
   }
 
+  static String _formatDecimalInput(double val) {
+    if (val.isNaN || val.isInfinite) return '0';
+    if (val == 0.0) return '0';
+    if (val == val.roundToDouble()) return val.toInt().toString();
+    var s = val.toString();
+    if (s.contains('.')) {
+      s = s.replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+    }
+    return s;
+  }
+
   void _applyExtractedFieldsToState(Map<String, dynamic> ext, {String targetTab = 'all'}) {
     final companies = ref.read(importCompaniesProvider).value ?? [];
     final suppliers = ref.read(suppliersProvider).value ?? [];
@@ -768,6 +779,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     if (po != null && po.items.isNotEmpty) {
       _dialogItems = po.items.map((i) => POLineItemModel(
             itemCode: i.itemCode,
+            mainDescription: i.mainDescription,
             descriptionAr: i.descriptionAr,
             descriptionEn: i.descriptionEn,
             countryOfOrigin: i.countryOfOrigin,
@@ -789,6 +801,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         final qty = (i['quantity'] as num?)?.toDouble() ?? 100.0;
         final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
         final desc = i['description']?.toString() ?? i['item_name']?.toString() ?? i['name']?.toString() ?? i['description_ar']?.toString() ?? i['description_en']?.toString() ?? 'بند استيرادي رئيسي';
+        final mainDesc = i['main_description']?.toString() ?? i['mainDescription']?.toString();
         final codeRaw = i['item_code'] ?? i['item_number'] ?? i['item_no'] ?? i['product_code'] ?? i['code'] ?? i['item'];
         final code = (codeRaw != null && codeRaw.toString().trim().isNotEmpty)
             ? codeRaw.toString().trim()
@@ -824,6 +837,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
         return POLineItemModel(
           itemCode: code,
+          mainDescription: mainDesc,
           descriptionAr: desc,
           descriptionEn: desc,
           countryOfOrigin: itemCty,
@@ -853,6 +867,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       _dialogPackingItems = po.packingListItems.map((p) => PackingListItemModel(
             hsCode: p.hsCode,
             itemCode: p.itemCode,
+            mainDescription: p.mainDescription,
             description: p.description,
             qtyPcs: p.qtyPcs,
             qtyPkg: p.qtyPkg,
@@ -879,6 +894,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         if ((pDesc == null || pDesc.trim().isEmpty) && idx < _dialogItems.length) {
           pDesc = _dialogItems[idx].descriptionAr.isNotEmpty ? _dialogItems[idx].descriptionAr : _dialogItems[idx].descriptionEn;
         }
+        String? pMainDesc = p['main_description']?.toString() ?? p['mainDescription']?.toString() ?? (idx < _dialogItems.length ? _dialogItems[idx].mainDescription : null);
         final pTotCbm = (p['total_cbm'] ?? p['volume'] ?? p['cbm'] as num?)?.toDouble() ?? 0.0;
         final pCodeRaw = p['item_code'] ?? p['item_number'] ?? p['item_no'] ?? p['product_code'] ?? p['code'] ?? p['item'];
         final pCode = (pCodeRaw != null && pCodeRaw.toString().trim().isNotEmpty)
@@ -900,6 +916,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         return PackingListItemModel(
           hsCode: pHs,
           itemCode: pCode,
+          mainDescription: pMainDesc,
           description: pDesc,
           qtyPcs: (p['qty_pcs'] as num?)?.toDouble() ?? 1.0,
           qtyPkg: (p['qty_pkg'] as num?)?.toDouble() ?? 1.0,
@@ -927,6 +944,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           itemCode: (item.itemCode != null && item.itemCode!.trim().isNotEmpty)
               ? item.itemCode!.trim()
               : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}',
+          mainDescription: item.mainDescription,
           description: desc,
           qtyPcs: item.quantity,
           qtyPkg: (item.quantity > 0 ? (item.quantity / 10).ceilToDouble() : 10.0),
@@ -1617,6 +1635,16 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 3,
                                             child: TextFormField(
+                                              key: ValueKey('po_item_main_desc_$idx'),
+                                              initialValue: item.mainDescription,
+                                              decoration: const InputDecoration(labelText: 'Main Description (الوصف الرئيسي)', isDense: true),
+                                              onChanged: (v) => _dialogItems[idx] = _dialogItems[idx].copyWith(mainDescription: v.trim().isEmpty ? null : v.trim()),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            flex: 3,
+                                            child: TextFormField(
                                               key: ValueKey('po_item_desc_$idx'),
                                               initialValue: item.descriptionAr,
                                               decoration: const InputDecoration(labelText: 'Arabic Description *', isDense: true),
@@ -2271,9 +2299,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           ),
                                         );
                                       },
-                                    ),
-                                const SizedBox(height: 16),
-                                Row(
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            const SizedBox(height: 16),
+                            Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
@@ -2310,6 +2341,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                 itemCode: (item.itemCode != null && item.itemCode!.trim().isNotEmpty)
                                                     ? item.itemCode!.trim()
                                                     : 'ITEM-${(i + 1).toString().padLeft(3, '0')}',
+                                                mainDescription: item.mainDescription,
                                                 description: item.descriptionAr.isNotEmpty ? item.descriptionAr : item.descriptionEn,
                                                 qtyPcs: item.quantity > 0 ? item.quantity : 100.0,
                                                 qtyPkg: (item.quantity > 0 ? (item.quantity / 10).ceilToDouble() : 10.0),
@@ -2345,6 +2377,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       label: Text(l.addPackingEntryBtn, style: const TextStyle(color: AppTheme.emerald)),
                                       onPressed: () {
                                         String defaultHs = '';
+                                        String? defaultMainDesc;
                                         String? defaultDesc;
                                         if (_dialogItems.isNotEmpty) {
                                           final first = _dialogItems.first;
@@ -2354,6 +2387,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             final match = tariffs.cast<CustomsTariffModel?>().firstWhere((t) => t?.tariffId == first.tariffId, orElse: () => null);
                                             if (match != null) defaultHs = match.hsCode;
                                           }
+                                          defaultMainDesc = first.mainDescription;
                                           defaultDesc = first.descriptionAr.isNotEmpty ? first.descriptionAr : first.descriptionEn;
                                         }
                                         setState(() {
@@ -2361,6 +2395,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             PackingListItemModel(
                                               hsCode: defaultHs,
                                               itemCode: 'ITEM-${(_dialogPackingItems.length + 1).toString().padLeft(3, "0")}',
+                                              mainDescription: defaultMainDesc,
                                               description: defaultDesc,
                                               qtyPcs: 10,
                                               qtyPkg: 1,
@@ -2489,9 +2524,26 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   ),
                                                   const SizedBox(width: 8),
                                                   Expanded(
-                                                    flex: 4,
+                                                    flex: 3,
                                                     child: TextFormField(
-                                                       key: ValueKey('po_pkg_desc_$idx'),
+                                                      key: ValueKey('po_pkg_main_desc_'),
+                                                      initialValue: p.mainDescription ?? '',
+                                                      decoration: InputDecoration(
+                                                        labelText: '' + l.mainDescription + ' (الوصف الرئيسي)',
+                                                        isDense: true,
+                                                      ),
+                                                      onChanged: (v) {
+                                                        _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(
+                                                          mainDescription: v.trim().isNotEmpty ? v.trim() : null,
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    flex: 3,
+                                                    child: TextFormField(
+                                                      key: ValueKey('po_pkg_desc_'),
                                                       initialValue: p.description ?? '',
                                                       decoration: InputDecoration(
                                                         labelText: l.itemDescriptionLabel,
@@ -2506,8 +2558,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     ),
                                                   ),
                                                   const SizedBox(width: 8),
-                                                   Expanded(
-                                                     flex: 3,
+                                                  Expanded(
+                                                    flex: 3,
                                                     child: SearchableDropdownField<String>(
                                                       value: p.packageType,
                                                       labelText: l.packageTypeFieldLabel,
@@ -2633,7 +2685,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                    Expanded(
                                                      flex: 2,
                                                      child: TextFormField(
-                                                       initialValue: p.netWeightUnitKg.toString(),
+                                                       initialValue: _formatDecimalInput(p.netWeightUnitKg),
                                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                                        decoration: InputDecoration(labelText: l.netWeightFieldLabel(p.weightUnit), isDense: true),
                                                        onChanged: (v) {
@@ -2648,7 +2700,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                    Expanded(
                                                      flex: 2,
                                                      child: TextFormField(
-                                                       initialValue: p.grossWeightUnitKg.toString(),
+                                                       initialValue: _formatDecimalInput(p.grossWeightUnitKg),
                                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                                        decoration: InputDecoration(labelText: l.grossWeightFieldLabel(p.weightUnit), isDense: true),
                                                        onChanged: (v) {
@@ -2696,13 +2748,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                           Column(
                                                             children: [
                                                               Text(l.totalGrossWeightPill, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                                              Text('${(p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)).toStringAsFixed(1)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
+                                                              Text('${_formatDecimalInput(p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg))} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
                                                             ],
                                                           ),
                                                           Column(
                                                             children: [
                                                               Text(l.airChargeablePill, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                                              Text('${(p.calculatedCbm * 166.67).toStringAsFixed(1)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple)),
+                                                              Text('${_formatDecimalInput(p.calculatedCbm * 166.67)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple)),
                                                             ],
                                                           ),
                                                         ],
@@ -2720,14 +2772,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

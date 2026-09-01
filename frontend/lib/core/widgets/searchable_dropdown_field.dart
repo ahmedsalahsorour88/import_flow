@@ -70,7 +70,7 @@ class SearchableDropdownField<T> extends FormField<T> {
             return InkWell(
               onTap: state.widget.enabled
                   ? () async {
-                      final selected = await showDialog<T>(
+                      final selection = await showDialog<_DropdownSelection<T>>(
                         context: context,
                         builder: (ctx) => _SearchableDropdownDialog<T>(
                           title: labelText,
@@ -80,9 +80,9 @@ class SearchableDropdownField<T> extends FormField<T> {
                         ),
                       );
 
-                      if (selected != null || value != selected) {
-                        state.didChange(selected);
-                        onChanged?.call(selected);
+                      if (selection != null) {
+                        state.didChange(selection.value);
+                        onChanged?.call(selection.value);
                       }
                     }
                   : null,
@@ -189,8 +189,8 @@ class _SearchableDropdownDialogState<T> extends State<_SearchableDropdownDialog<
         ],
       ),
       content: SizedBox(
-        width: 480,
-        height: 400,
+        width: (MediaQuery.of(context).size.width * 0.5).clamp(320.0, 480.0),
+        height: (MediaQuery.of(context).size.height * 0.55).clamp(260.0, 400.0),
         child: Column(
           children: [
             const SizedBox(height: 6),
@@ -268,7 +268,7 @@ class _SearchableDropdownDialogState<T> extends State<_SearchableDropdownDialog<
                                 )
                               : null,
                           onTap: () {
-                            Navigator.pop(context, item.value);
+                            Navigator.pop(context, _DropdownSelection<T>(item.value));
                           },
                         );
                       },
@@ -280,3 +280,9 @@ class _SearchableDropdownDialogState<T> extends State<_SearchableDropdownDialog<
     );
   }
 }
+
+class _DropdownSelection<T> {
+  final T value;
+  const _DropdownSelection(this.value);
+}
+

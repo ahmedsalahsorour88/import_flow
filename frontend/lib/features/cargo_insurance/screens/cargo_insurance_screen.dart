@@ -95,30 +95,30 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
+    final l = context.l10n;
     final certificatesAsync = ref.watch(cargoInsuranceProvider);
 
     if (widget.isEmbedded) {
-      return _buildMainContent(isArabic, certificatesAsync);
+      return _buildMainContent(certificatesAsync);
     }
 
     final tabs = [
-      const VerticalNavTabItem(
+      VerticalNavTabItem(
         icon: Icons.shield_rounded,
         titleEn: 'Certificates Registry',
-        titleAr: 'سجل شهادات التأمين',
+        titleAr: l.insuranceTabCertificatesRegistry,
       ),
-      const VerticalNavTabItem(
+      VerticalNavTabItem(
         icon: Icons.add_moderator_rounded,
         titleEn: 'New Certificate',
-        titleAr: 'إصدار وثيقة جديدة',
+        titleAr: l.insuranceTabNewCertificate,
       ),
     ];
 
     return VerticalStageScaffold(
       stageCode: 'PHASE-3-INS',
       titleEn: 'Marine & Cargo Insurance Engine',
-      titleAr: 'شهادات التأمين على البضائع المشحونة',
+      titleAr: l.insuranceScreenTitle,
       headerIcon: Icons.security_rounded,
       headerColor: AppTheme.cobalt,
       tabs: tabs,
@@ -131,7 +131,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
       headerActions: [
         ElevatedButton.icon(
           icon: const Icon(Icons.auto_awesome_rounded, size: 16),
-          label: Text(isArabic ? 'تكويد شركة تأمين بالذكاء الاصطناعي ✨' : 'AI Insurance Co Extractor ✨'),
+          label: Text(l.insuranceAiExtractorBtn),
           onPressed: () => UniversalEntityExtractorDialog.showInsuranceCompanyExtractor(
             context,
             onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
@@ -146,15 +146,15 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
         const SizedBox(width: 8),
         SmartUploadButton(
           module: SmartUploadModule.cargoShipping,
-          label: isArabic ? 'رفع واستخراج وثيقة التأمين / البوليصة الذكي' : 'Smart Upload & AI Extractor',
+          label: l.insuranceSmartUploadBtn,
           onDataExtracted: (result) {
             final fields = result.extractedFields;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  isArabic
-                      ? '✅ تم استخراج مستند الشحن / التأمين: ${fields['bl_number'] ?? fields['policy_number'] ?? 'مكتمل'}'
-                      : 'Extracted: ${fields['bl_number'] ?? fields['policy_number'] ?? 'Done'}',
+                  l.insuranceExtractedSnackbar(
+                    fields['bl_number'] ?? fields['policy_number'] ?? l.insuranceExtractedDone,
+                  ),
                 ),
                 backgroundColor: AppTheme.emerald,
                 duration: const Duration(seconds: 4),
@@ -166,15 +166,15 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
         const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: isArabic ? 'تحديث البيانات' : 'Refresh',
+          tooltip: l.insuranceRefreshTooltip,
           onPressed: _refreshData,
         ),
       ],
-      body: _buildMainContent(isArabic, certificatesAsync),
+      body: _buildMainContent(certificatesAsync),
     );
   }
 
-  Widget _buildMainContent(bool isArabic, AsyncValue<List<CargoInsuranceModel>> certificatesAsync) {
+  Widget _buildMainContent(AsyncValue<List<CargoInsuranceModel>> certificatesAsync) {
     final l = context.l10n;
 
     return certificatesAsync.when(
@@ -186,13 +186,13 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
             const Icon(Icons.error_outline, size: 48, color: AppTheme.crimson),
             const SizedBox(height: 12),
             Text(
-              isArabic ? 'حدث خطأ أثناء جلب وثائق التأمين: $err' : 'Error loading certificates: $err',
+              l.insuranceFetchError(err.toString()),
               style: const TextStyle(color: AppTheme.crimson),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
               icon: const Icon(Icons.refresh),
-              label: Text(isArabic ? 'إعادة المحاولة' : 'Retry'),
+              label: Text(l.insuranceRetryBtn),
               onPressed: _refreshData,
             ),
           ],
@@ -239,28 +239,28 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                 children: [
                   _histStatCard(
                     icon: Icons.shield_rounded,
-                    label: isArabic ? 'إجمالي الوثائق' : 'Total Policies',
+                    label: l.insuranceKpiTotalPolicies,
                     value: '$totalCount',
                     color: AppTheme.cobalt,
                   ),
                   const SizedBox(width: 10),
                   _histStatCard(
                     icon: Icons.check_circle_rounded,
-                    label: isArabic ? 'وثائق معتمدة' : 'Issued & Valid',
+                    label: l.insuranceKpiIssuedValid,
                     value: '$issuedCount',
                     color: AppTheme.emerald,
                   ),
                   const SizedBox(width: 10),
                   _histStatCard(
                     icon: Icons.account_balance_wallet_rounded,
-                    label: isArabic ? 'إجمالي القيمة المؤمنة' : 'Total Insured',
+                    label: l.insuranceKpiTotalInsured,
                     value: '\$${totalInsuredValue.toStringAsFixed(0)}',
                     color: Colors.orange.shade300,
                   ),
                   const SizedBox(width: 10),
                   _histStatCard(
                     icon: Icons.payments_rounded,
-                    label: isArabic ? 'إجمالي الأقساط' : 'Total Premiums',
+                    label: l.insuranceKpiTotalPremiums,
                     value: '\$${totalPremiumsPaid.toStringAsFixed(0)}',
                     color: Colors.purple.shade300,
                   ),
@@ -273,7 +273,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     ),
                     icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: Text(isArabic ? 'تحديث السجل' : 'Refresh Registry', style: const TextStyle(fontSize: 13)),
+                    label: Text(l.insuranceRefreshRegistryBtn, style: const TextStyle(fontSize: 13)),
                     onPressed: _refreshData,
                   ),
                   const SizedBox(width: 10),
@@ -287,7 +287,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                     ),
                     icon: const Icon(Icons.add_moderator_rounded, size: 18),
                     label: Text(
-                      isArabic ? 'إصدار وثيقة تأمين جديدة' : 'New Certificate',
+                      l.insuranceNewCertificateBtn,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     onPressed: () => _showAddEditCertificateDialog(),
@@ -319,9 +319,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        hintText: isArabic
-                            ? 'بحث برقم الوثيقة، رقم البوليصة، المستورد، شركة التأمين، الميناء...'
-                            : 'Search certificate code, policy, insured, insurance company, port...',
+                        hintText: l.insuranceSearchHint,
                         prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
@@ -347,13 +345,13 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                   // Status Filter Chips
                   Row(
                     children: [
-                      _buildStatusFilterChip('All', isArabic ? 'الكل' : 'All'),
+                      _buildStatusFilterChip('All', l.insuranceFilterAll),
                       const SizedBox(width: 6),
-                      _buildStatusFilterChip('ISSUED', isArabic ? 'معتمدة' : 'Issued', AppTheme.emerald),
+                      _buildStatusFilterChip('ISSUED', l.insuranceFilterIssued, AppTheme.emerald),
                       const SizedBox(width: 6),
-                      _buildStatusFilterChip('DRAFT', isArabic ? 'مسودة' : 'Draft', Colors.orange),
+                      _buildStatusFilterChip('DRAFT', l.insuranceFilterDraft, Colors.orange),
                       const SizedBox(width: 6),
-                      _buildStatusFilterChip('CANCELLED', isArabic ? 'ملغاة' : 'Cancelled', AppTheme.crimson),
+                      _buildStatusFilterChip('CANCELLED', l.insuranceFilterCancelled, AppTheme.crimson),
                     ],
                   ),
                   const SizedBox(width: 12),
@@ -365,7 +363,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                       color: _showInactive ? AppTheme.crimson : Colors.grey,
                     ),
                     label: Text(
-                      _showInactive ? (isArabic ? 'عرض المحذوف' : 'Deleted') : (isArabic ? 'إخفاء المحذوف' : 'Hide Deleted'),
+                      _showInactive ? l.insuranceShowDeleted : l.insuranceHideDeleted,
                       style: TextStyle(
                         fontSize: 12,
                         color: _showInactive ? AppTheme.crimson : Colors.grey.shade700,
@@ -405,22 +403,20 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                           const SizedBox(height: 16),
                           Text(
                             _searchController.text.isNotEmpty || _selectedStatusFilter != 'All'
-                                ? (isArabic ? 'لم يتم العثور على وثائق تطابق البحث' : l.noResultsFound)
-                                : (isArabic ? 'لا توجد وثائق تأمين مسجلة حالياً' : l.noDataFound),
+                                ? l.insuranceNoMatchingFound
+                                : l.insuranceNoDataFound,
                             style: TextStyle(fontSize: 16, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            isArabic
-                                ? 'اضغط على "إصدار وثيقة تأمين جديدة" لحساب وتوليد شهادة التأمين البحري/الجوي'
-                                : 'Click "New Certificate" to calculate and issue marine/air cargo insurance.',
+                            l.insuranceEmptyHint,
                             style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
                           ),
                           const SizedBox(height: 18),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
                             icon: const Icon(Icons.add_moderator_rounded),
-                            label: Text(isArabic ? 'إصدار وثيقة تأمين جديدة' : 'Create Insurance Certificate'),
+                            label: Text(l.insuranceNewCertificateBtn),
                             onPressed: () => _showAddEditCertificateDialog(),
                           ),
                         ],
@@ -452,17 +448,17 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                             ),
                             columns: [
                               const DataColumn(label: Text('#')),
-                              DataColumn(label: Text(isArabic ? 'كود الوثيقة' : 'Cert Code')),
-                              DataColumn(label: Text(isArabic ? 'تاريخ الإصدار' : 'Issue Date')),
-                              DataColumn(label: Text(isArabic ? 'رقم البوليصة / الشحنة' : 'Policy / File')),
-                              DataColumn(label: Text(isArabic ? 'المؤمن له (المستورد)' : 'Insured Entity')),
-                              DataColumn(label: Text(isArabic ? 'شركة التأمين' : 'Insurance Co')),
-                              DataColumn(label: Text(isArabic ? 'الوسيلة وخط السير' : 'Transport / Route')),
-                              DataColumn(label: Text(isArabic ? 'القيمة المؤمنة (110%)' : 'Insured Value')),
-                              DataColumn(label: Text(isArabic ? 'بند التغطية' : 'Coverage Clause')),
-                              DataColumn(label: Text(isArabic ? 'إجمالي القسط المستحق' : 'Gross Premium')),
-                              DataColumn(label: Text(isArabic ? 'الحالة' : 'Status')),
-                              DataColumn(label: Text(isArabic ? 'الإجراءات' : 'Actions')),
+                              DataColumn(label: Text(l.insuranceColCertCode)),
+                              DataColumn(label: Text(l.insuranceColIssueDate)),
+                              DataColumn(label: Text(l.insuranceColPolicyFile)),
+                              DataColumn(label: Text(l.insuranceColInsuredEntity)),
+                              DataColumn(label: Text(l.insuranceColInsuranceCo)),
+                              DataColumn(label: Text(l.insuranceColTransportRoute)),
+                              DataColumn(label: Text(l.insuranceColInsuredValue)),
+                              DataColumn(label: Text(l.insuranceColCoverageClause)),
+                              DataColumn(label: Text(l.insuranceColGrossPremium)),
+                              DataColumn(label: Text(l.insuranceColStatus)),
+                              DataColumn(label: Text(l.insuranceColActions)),
                             ],
                             rows: filteredCertificates.asMap().entries.map((entry) {
                               final idx = entry.key + 1;
@@ -627,8 +623,8 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                                       ),
                                       child: Text(
                                         isIssued
-                                            ? (isArabic ? '✅ معتمدة' : 'Issued')
-                                            : (isCancelled ? (isArabic ? '🚫 ملغاة' : 'Cancelled') : (isArabic ? '⏳ مسودة' : 'Draft')),
+                                            ? '✅ ${l.insuranceStatusIssuedBadge}'
+                                            : (isCancelled ? '🚫 ${l.insuranceStatusCancelledBadge}' : '⏳ ${l.insuranceStatusDraftBadge}'),
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
@@ -650,16 +646,16 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                                           onEdit: isIssued ? null : () => _showAddEditCertificateDialog(cert),
                                           onPrint: () => _showViewCertificateDialog(cert),
                                           onDelete: () => _confirmDeleteCertificate(cert),
-                                          viewTooltip: isArabic ? 'عرض الشهادة الرسمية' : 'View Certificate',
-                                          editTooltip: isArabic ? 'تعديل الوثيقة' : 'Edit',
-                                          printTooltip: isArabic ? 'طباعة شهادة التأمين' : 'Print Certificate',
-                                          deleteTooltip: isArabic ? 'حذف / إلغاء' : 'Delete',
+                                          viewTooltip: l.insuranceViewTooltip,
+                                          editTooltip: l.insuranceEditTooltip,
+                                          printTooltip: l.insurancePrintTooltip,
+                                          deleteTooltip: l.insuranceDeleteTooltip,
                                         ),
                                         if (!isIssued && !isCancelled) ...[
                                           const SizedBox(width: 4),
                                           IconButton(
                                             icon: const Icon(Icons.verified_rounded, color: AppTheme.emerald, size: 18),
-                                            tooltip: isArabic ? 'اعتماد وإصدار الوثيقة' : 'Issue Certificate',
+                                            tooltip: l.insuranceIssueCertificateTooltip,
                                             onPressed: () => _confirmIssueCertificate(cert),
                                           ),
                                         ],
@@ -734,7 +730,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
   }
 
   Future<void> _confirmIssueCertificate(CargoInsuranceModel cert) async {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l = context.l10n;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -742,23 +738,19 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
           children: [
             const Icon(Icons.verified_rounded, color: AppTheme.emerald, size: 24),
             const SizedBox(width: 8),
-            Text(isArabic ? 'اعتماد وثيقة التأمين' : 'Issue Certificate'),
+            Text(l.insuranceConfirmIssueTitle),
           ],
         ),
-        content: Text(
-          isArabic
-              ? 'هل أنت متأكد من اعتماد وإصدار وثيقة التأمين ${cert.certificateCode} رسمياً؟'
-              : 'Are you sure you want to officially issue certificate ${cert.certificateCode}?',
-        ),
+        content: Text(l.insuranceConfirmIssueMsg(cert.certificateCode)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+            child: Text(l.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(isArabic ? 'تأكيد الاعتماد' : 'Confirm Issue', style: const TextStyle(color: Colors.white)),
+            child: Text(l.insuranceConfirmIssueBtn, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -768,7 +760,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isArabic ? '✅ تم اعتماد وإصدار الوثيقة بنجاح!' : 'Certificate issued successfully!'),
+            content: Text(l.insuranceIssueSuccessMsg),
             backgroundColor: AppTheme.emerald,
           ),
         );
@@ -777,7 +769,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
   }
 
   Future<void> _confirmDeleteCertificate(CargoInsuranceModel cert) async {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l = context.l10n;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -785,16 +777,16 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
           children: [
             const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 24),
             const SizedBox(width: 8),
-            Text(isArabic ? 'حذف الوثيقة' : 'Delete Certificate'),
+            Text(l.insuranceConfirmDeleteTitle),
           ],
         ),
-        content: Text(isArabic ? 'هل تريد حذف هذا السجل نهائياً؟' : 'Delete this record?'),
+        content: Text(l.insuranceConfirmDeleteMsg),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(isArabic ? 'إلغاء' : 'Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(isArabic ? 'حذف' : 'Delete', style: const TextStyle(color: Colors.white)),
+            child: Text(l.insuranceDeleteBtn, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -1103,7 +1095,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
 
   @override
   Widget build(BuildContext context) {
-    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
+    final l = context.l10n;
     final importFiles = ref.watch(importFilesProvider).asData?.value ?? [];
 
     return Dialog(
@@ -1135,14 +1127,12 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                       children: [
                         Text(
                           widget.certificateToEdit == null
-                              ? (isArabic ? 'إصدار شهادة تأمين البضائع المشحونة' : 'New Cargo Insurance Certificate')
-                              : (isArabic ? 'تعديل وثيقة التأمين ${widget.certificateToEdit!.certificateCode}' : 'Edit Certificate ${widget.certificateToEdit!.certificateCode}'),
+                              ? l.insuranceDialogNewTitle
+                              : l.insuranceDialogEditTitle(widget.certificateToEdit!.certificateCode),
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         Text(
-                          isArabic
-                              ? 'حساب القيمة المؤمنة (110% CIF) وقسط التأمين طبقاً لشروط معهد المكتتبين بلندن (ICC Clauses)'
-                              : '110% CIF Insured Value & Gross Premium Engine (London Institute Cargo Clauses)',
+                          l.insuranceDialogSubtitle,
                           style: const TextStyle(color: Colors.white60, fontSize: 11),
                         ),
                       ],
@@ -1173,8 +1163,8 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                             // 1. Linked Import File
                             SearchableDropdownField<int>(
                               value: _selectedImportFileId,
-                              labelText: isArabic ? 'ربط ملف الشحنة الاستيرادية *' : 'Link Import File *',
-                              hintText: isArabic ? 'اختر ملف الشحنة لاستدعاء البيانات تلقائياً...' : 'Select Import File to auto-fill...',
+                              labelText: l.insuranceFieldLinkImportFile,
+                              hintText: l.insuranceFieldLinkImportFileHint,
                               items: importFiles
                                   .map((f) => SearchableDropdownItem(
                                         value: f.importFileId,
@@ -1196,10 +1186,10 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                   child: TextFormField(
                                     controller: _insuredEntityCtrl,
                                     decoration: InputDecoration(
-                                      labelText: isArabic ? 'المؤمن له (المستورد / Consignee) *' : 'Insured Entity *',
+                                      labelText: l.insuranceFieldInsuredEntity,
                                       prefixIcon: const Icon(Icons.person_pin_rounded, size: 18),
                                     ),
-                                    validator: (v) => v == null || v.trim().isEmpty ? (isArabic ? 'اسم المستورد مطلوب' : 'Required') : null,
+                                    validator: (v) => v == null || v.trim().isEmpty ? l.insuranceFieldInsuredEntityRequired : null,
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -1207,16 +1197,16 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                   flex: 3,
                                   child: SearchableDropdownField<String>(
                                     value: _policyType,
-                                    labelText: isArabic ? 'نوع وثيقة التأمين *' : 'Policy Type *',
-                                    hintText: isArabic ? 'اختر نوع الوثيقة...' : 'Select type...',
+                                    labelText: l.insuranceFieldPolicyType,
+                                    hintText: l.insuranceFieldPolicyTypeHint,
                                     items: [
                                       SearchableDropdownItem(
                                         value: 'SPECIFIC',
-                                        label: isArabic ? 'وثيقة محددة لشحنة واحدة (Specific)' : 'Specific Shipment Policy',
+                                        label: l.insurancePolicyTypeSpecific,
                                       ),
                                       SearchableDropdownItem(
                                         value: 'OPEN_DECLARATION',
-                                        label: isArabic ? 'وثيقة تأمين مفتوحة سنوية (Open Policy)' : 'Open Floating Policy',
+                                        label: l.insurancePolicyTypeOpen,
                                       ),
                                     ],
                                     onChanged: (v) => setState(() => _policyType = v ?? 'SPECIFIC'),
@@ -1233,7 +1223,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                   child: TextFormField(
                                     controller: _insuranceCompanyCtrl,
                                     decoration: InputDecoration(
-                                      labelText: isArabic ? 'شركة التأمين المصدرة' : 'Insurance Company',
+                                      labelText: l.insuranceFieldInsuranceCompany,
                                       prefixIcon: const Icon(Icons.assured_workload_rounded, size: 18),
                                     ),
                                   ),
@@ -1243,7 +1233,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                   child: TextFormField(
                                     controller: _policyNoCtrl,
                                     decoration: InputDecoration(
-                                      labelText: isArabic ? 'رقم وثيقة / بوليصة التأمين' : 'Policy / Cert Number',
+                                      labelText: l.insuranceFieldPolicyNumber,
                                       prefixIcon: const Icon(Icons.confirmation_number_rounded, size: 18),
                                       hintText: 'POL-2026-XXXX',
                                     ),
@@ -1265,7 +1255,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    isArabic ? 'بيانات الشحن والرحلة وخط السير' : 'Voyage & Transport Details',
+                                    l.insuranceSecVoyageDetails,
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt),
                                   ),
                                   const SizedBox(height: 8),
@@ -1274,20 +1264,20 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                       Expanded(
                                         child: SearchableDropdownField<String>(
                                           value: _transportMode,
-                                          labelText: isArabic ? 'وسيلة النقل *' : 'Transport Mode *',
-                                          hintText: isArabic ? 'اختر وسيلة النقل...' : 'Select mode...',
+                                          labelText: l.insuranceFieldTransportMode,
+                                          hintText: l.insuranceFieldTransportModeHint,
                                           items: [
                                             SearchableDropdownItem(
                                               value: 'OCEAN',
-                                              label: isArabic ? '🚢 شحن بحري (Ocean)' : 'Ocean Freight',
+                                              label: l.insuranceTransportModeOcean,
                                             ),
                                             SearchableDropdownItem(
                                               value: 'AIR',
-                                              label: isArabic ? '✈️ شحن جوي (Air)' : 'Air Freight',
+                                              label: l.insuranceTransportModeAir,
                                             ),
                                             SearchableDropdownItem(
                                               value: 'ROAD',
-                                              label: isArabic ? '🚛 شحن بري (Road)' : 'Road Transport',
+                                              label: l.insuranceTransportModeRoad,
                                             ),
                                           ],
                                           onChanged: (v) {
@@ -1305,7 +1295,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                         child: TextFormField(
                                           controller: _carrierCtrl,
                                           decoration: InputDecoration(
-                                            labelText: isArabic ? 'الخط الملاحي / الناقل' : 'Carrier',
+                                            labelText: l.insuranceFieldCarrier,
                                             isDense: true,
                                           ),
                                         ),
@@ -1315,7 +1305,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                         child: TextFormField(
                                           controller: _vesselFlightCtrl,
                                           decoration: InputDecoration(
-                                            labelText: isArabic ? 'اسم السفينة / الرحلة' : 'Vessel / Flight No',
+                                            labelText: l.insuranceFieldVesselFlight,
                                             isDense: true,
                                           ),
                                         ),
@@ -1329,10 +1319,10 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                         child: TextFormField(
                                           controller: _polCtrl,
                                           decoration: InputDecoration(
-                                            labelText: isArabic ? 'ميناء الشحن (POL) *' : 'Port of Loading *',
+                                            labelText: l.insuranceFieldPol,
                                             isDense: true,
                                           ),
-                                          validator: (v) => v == null || v.trim().isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
+                                          validator: (v) => v == null || v.trim().isEmpty ? l.required : null,
                                         ),
                                       ),
                                       const SizedBox(width: 8),
@@ -1340,10 +1330,10 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                         child: TextFormField(
                                           controller: _podCtrl,
                                           decoration: InputDecoration(
-                                            labelText: isArabic ? 'ميناء الوصول (POD) *' : 'Port of Discharge *',
+                                            labelText: l.insuranceFieldPod,
                                             isDense: true,
                                           ),
-                                          validator: (v) => v == null || v.trim().isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
+                                          validator: (v) => v == null || v.trim().isEmpty ? l.required : null,
                                         ),
                                       ),
                                       const SizedBox(width: 8),
@@ -1351,7 +1341,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                         child: TextFormField(
                                           controller: _trackingRefCtrl,
                                           decoration: InputDecoration(
-                                            labelText: isArabic ? 'رقم بوليصة الشحن (B/L)' : 'B/L / AWB No',
+                                            labelText: l.insuranceFieldBlTracking,
                                             isDense: true,
                                           ),
                                         ),
@@ -1372,7 +1362,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                     controller: _invoiceValueCtrl,
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     decoration: InputDecoration(
-                                      labelText: isArabic ? 'قيمة الفاتورة (FOB) *' : 'Invoice Value (FOB) *',
+                                      labelText: l.insuranceFieldInvoiceValue,
                                       prefixIcon: const Icon(Icons.receipt_rounded, size: 18),
                                     ),
                                     onChanged: (_) => _runLiveCalculation(),
@@ -1385,7 +1375,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                     controller: _freightCostCtrl,
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     decoration: InputDecoration(
-                                      labelText: isArabic ? 'تكلفة النولون / الشحن' : 'Freight Cost',
+                                      labelText: l.insuranceFieldFreightCost,
                                       prefixIcon: const Icon(Icons.directions_boat_rounded, size: 18),
                                     ),
                                     onChanged: (_) => _runLiveCalculation(),
@@ -1396,14 +1386,14 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                   flex: 3,
                                   child: SearchableDropdownField<String>(
                                     value: _currency,
-                                    labelText: isArabic ? 'العملة *' : 'Currency *',
-                                    hintText: isArabic ? 'اختر العملة...' : 'Select...',
+                                    labelText: l.insuranceFieldCurrency,
+                                    hintText: l.insuranceFieldCurrencyHint,
                                     items: [
-                                      SearchableDropdownItem(value: 'USD', label: isArabic ? 'USD - دولار أمريكي' : 'USD - US Dollar'),
-                                      SearchableDropdownItem(value: 'EUR', label: isArabic ? 'EUR - يورو أوروبي' : 'EUR - Euro'),
-                                      SearchableDropdownItem(value: 'EGP', label: isArabic ? 'EGP - جنيه مصري' : 'EGP - Egyptian Pound'),
-                                      SearchableDropdownItem(value: 'CNY', label: isArabic ? 'CNY - يوان صيني' : 'CNY - Chinese Yuan'),
-                                      SearchableDropdownItem(value: 'GBP', label: isArabic ? 'GBP - جنيه إسترليني' : 'GBP - British Pound'),
+                                      SearchableDropdownItem(value: 'USD', label: l.insuranceCurrUsd),
+                                      SearchableDropdownItem(value: 'EUR', label: l.insuranceCurrEur),
+                                      SearchableDropdownItem(value: 'EGP', label: l.insuranceCurrEgp),
+                                      SearchableDropdownItem(value: 'CNY', label: l.insuranceCurrCny),
+                                      SearchableDropdownItem(value: 'GBP', label: l.insuranceCurrGbp),
                                     ],
                                     onChanged: (v) {
                                       setState(() => _currency = v ?? 'USD');
@@ -1427,30 +1417,30 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    isArabic ? 'شروط التغطية التأمينية وملاحق المخاطر الإضافية' : 'Coverage Clauses & Risk Extensions',
+                                    l.insuranceSecCoverageClauses,
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.emerald),
                                   ),
                                   const SizedBox(height: 8),
                                   SearchableDropdownField<String>(
                                     value: _coverageClause,
-                                    labelText: isArabic ? 'بند التغطية (Institute Cargo Clauses) *' : 'Coverage Clause *',
-                                    hintText: isArabic ? 'اختر بند التغطية...' : 'Select clause...',
+                                    labelText: l.insuranceFieldCoverageClause,
+                                    hintText: l.insuranceFieldCoverageClauseHint,
                                     items: [
                                       SearchableDropdownItem(
                                         value: 'ICC_A',
-                                        label: isArabic ? 'ICC (A) — أخطار شاملة معهد المكتتبين (أعلى تغطية - 0.25%)' : 'ICC (A) — All Risks (0.25%)',
+                                        label: l.insuranceClauseIccA,
                                       ),
                                       SearchableDropdownItem(
                                         value: 'AIR_ALL_RISKS',
-                                        label: isArabic ? 'Institute Clauses (Air) — تأمين جوي شامل لكافة الأخطار (0.20%)' : 'Air Cargo All Risks (0.20%)',
+                                        label: l.insuranceClauseAirAllRisks,
                                       ),
                                       SearchableDropdownItem(
                                         value: 'ICC_B',
-                                        label: isArabic ? 'ICC (B) — أخطار متوسطة محددة معهد المكتتبين (0.15%)' : 'ICC (B) — Intermediate (0.15%)',
+                                        label: l.insuranceClauseIccB,
                                       ),
                                       SearchableDropdownItem(
                                         value: 'ICC_C',
-                                        label: isArabic ? 'ICC (C) — الحد الأدنى للأخطار والحوادث الجسيمة (0.10%)' : 'ICC (C) — Minimum Cargo Risks (0.10%)',
+                                        label: l.insuranceClauseIccC,
                                       ),
                                     ],
                                     onChanged: (v) {
@@ -1480,15 +1470,11 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                isArabic
-                                                    ? 'تضمين ملحق أخطار الحروب والإضرابات (War & Strikes Clauses +0.05%)'
-                                                    : 'Include War & Strikes Clauses (+0.05%)',
+                                                l.insuranceWarAndStrikesTitle,
                                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                                               ),
                                               Text(
-                                                isArabic
-                                                    ? 'ملحق إلزامي للاعتمادات المستندية والتخليص الجمركي للشحنات'
-                                                    : 'Mandatory add-on for Letter of Credit (L/C) compliance',
+                                                l.insuranceWarAndStrikesSubtitle,
                                                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                                               ),
                                             ],
@@ -1519,7 +1505,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                isArabic ? '📊 محاكاة وحساب قسط التأمين الفوري' : '📊 Real-Time Premium Breakdown',
+                                '📊 ${l.insuranceSecBreakdownTitle}',
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                               ),
                               const SizedBox(height: 12),
@@ -1538,27 +1524,27 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                   child: Column(
                                     children: [
                                       _buildBreakdownRow(
-                                        isArabic ? 'قيمة البضاعة (CIF Base):' : 'CIF Base Value:',
+                                        l.insuranceBreakdownCifBase,
                                         '${_calculationPreview!.cifValue.toStringAsFixed(2)} $_currency',
                                         isBold: false,
                                       ),
                                       const Divider(height: 10),
                                       _buildBreakdownRow(
-                                        isArabic ? 'القيمة المؤمنة (110% CIF):' : 'Insured Value (110%):',
+                                        l.insuranceBreakdownInsuredValue,
                                         '${_calculationPreview!.insuredValue.toStringAsFixed(2)} $_currency',
                                         isBold: true,
                                         valueColor: AppTheme.cobalt,
                                       ),
                                       const Divider(height: 10),
                                       _buildBreakdownRow(
-                                        isArabic ? 'قسط التأمين الأساسي (${(_calculationPreview!.baseRate * 100).toStringAsFixed(2)}%):' : 'Base Premium:',
+                                        l.insuranceBreakdownBasePremium((_calculationPreview!.baseRate * 100).toStringAsFixed(2)),
                                         '${_calculationPreview!.basePremium.toStringAsFixed(2)} $_currency',
                                         isBold: false,
                                       ),
                                       if (_includeWarAndStrikes) ...[
                                         const SizedBox(height: 4),
                                         _buildBreakdownRow(
-                                          isArabic ? 'ملحق الحرب والإضرابات (0.05%):' : 'War & Strikes Add-on:',
+                                          l.insuranceBreakdownWarStrikes,
                                           '+ ${_calculationPreview!.warStrikesPremium.toStringAsFixed(2)} $_currency',
                                           isBold: false,
                                           valueColor: Colors.deepOrange,
@@ -1566,25 +1552,25 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                       ],
                                       const Divider(height: 10),
                                       _buildBreakdownRow(
-                                        isArabic ? 'صافي القسط بعد الحد الأدنى:' : 'Net Premium (Min Floor):',
+                                        l.insuranceBreakdownNetPremium,
                                         '${_calculationPreview!.netPremium.toStringAsFixed(2)} $_currency',
                                         isBold: false,
                                       ),
                                       const SizedBox(height: 4),
                                       _buildBreakdownRow(
-                                        isArabic ? 'رسوم إصدار ودمغات إدارية:' : 'Issuance Fee:',
+                                        l.insuranceBreakdownIssuanceFee,
                                         '+ ${_calculationPreview!.issuanceFee.toStringAsFixed(2)} $_currency',
                                         isBold: false,
                                       ),
                                       const SizedBox(height: 4),
                                       _buildBreakdownRow(
-                                        isArabic ? 'الضرائب والدمغات (5%):' : 'Taxes / Stamp Duty (5%):',
+                                        l.insuranceBreakdownTaxes,
                                         '+ ${_calculationPreview!.taxAmount.toStringAsFixed(2)} $_currency',
                                         isBold: false,
                                       ),
                                       const Divider(height: 14, thickness: 1.5),
                                       _buildBreakdownRow(
-                                        isArabic ? 'إجمالي قسط التأمين المستحق:' : 'Total Payable Premium:',
+                                        l.insuranceBreakdownTotalPayable,
                                         '${_calculationPreview!.totalPayablePremium.toStringAsFixed(2)} $_currency',
                                         isBold: true,
                                         valueColor: AppTheme.emerald,
@@ -1598,7 +1584,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
 
                               // Cargo Specifications
                               Text(
-                                isArabic ? 'وصف البضاعة والطرود المشحونة' : 'Cargo Description & Packages',
+                                l.insuranceSecCargoSpecs,
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                               ),
                               const SizedBox(height: 6),
@@ -1606,8 +1592,8 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                 controller: _goodsDescCtrl,
                                 maxLines: 2,
                                 decoration: InputDecoration(
-                                  labelText: isArabic ? 'الوصف الدقيق للبضاعة' : 'Goods Description',
-                                  hintText: isArabic ? 'مثال: خطوط إنتاج وقطع غيار صناعية...' : 'e.g. Industrial equipment',
+                                  labelText: l.insuranceFieldGoodsDesc,
+                                  hintText: l.insuranceFieldGoodsDescHint,
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -1618,7 +1604,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                       controller: _packageCountCtrl,
                                       keyboardType: TextInputType.number,
                                       decoration: InputDecoration(
-                                        labelText: isArabic ? 'عدد الطرود' : 'Packages',
+                                        labelText: l.insuranceFieldPackagesCount,
                                         isDense: true,
                                       ),
                                     ),
@@ -1629,7 +1615,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                       controller: _grossWeightCtrl,
                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                       decoration: InputDecoration(
-                                        labelText: isArabic ? 'الوزن القائم (كجم)' : 'Gross Wt (KG)',
+                                        labelText: l.insuranceFieldGrossWeight,
                                         isDense: true,
                                       ),
                                     ),
@@ -1653,8 +1639,8 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                                       : const Icon(Icons.check_circle_rounded),
                                   label: Text(
                                     _isSaving
-                                        ? (isArabic ? 'جاري حفظ الوثيقة...' : 'Saving...')
-                                        : (isArabic ? 'حفظ وإصدار مسودة الوثيقة' : 'Save Certificate Draft'),
+                                        ? l.insuranceSavingState
+                                        : l.insuranceSaveDraftBtn,
                                     style: const TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                   onPressed: _isSaving ? null : _saveCertificate,
@@ -1705,7 +1691,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
   Future<void> _saveCertificate() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l = context.l10n;
 
     final payload = {
       'import_file_id': _selectedImportFileId,
@@ -1749,7 +1735,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
         await ref.read(cargoInsuranceProvider.notifier).createCertificate(payload);
         messenger.showSnackBar(
           SnackBar(
-            content: Text(isArabic ? '✅ تم إنشاء وثيقة التأمين بنجاح!' : 'Insurance Certificate created!'),
+            content: Text(l.insuranceCreatedSuccessMsg),
             backgroundColor: AppTheme.emerald,
           ),
         );
@@ -1757,7 +1743,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
         await ref.read(cargoInsuranceProvider.notifier).updateCertificate(widget.certificateToEdit!.certificateId, payload);
         messenger.showSnackBar(
           SnackBar(
-            content: Text(isArabic ? '✅ تم تحديث وثيقة التأمين بنجاح!' : 'Insurance Certificate updated!'),
+            content: Text(l.insuranceUpdatedSuccessMsg),
             backgroundColor: AppTheme.emerald,
           ),
         );
@@ -1766,7 +1752,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(isArabic ? '❌ فشل حفظ الوثيقة: $e' : 'Failed to save certificate: $e'),
+          content: Text(l.insuranceSaveErrorMsg(e.toString())),
           backgroundColor: AppTheme.crimson,
         ),
       );
@@ -1785,7 +1771,7 @@ class _CargoInsuranceDetailsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l = context.l10n;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1817,12 +1803,12 @@ class _CargoInsuranceDetailsDialog extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'CERTIFICATE OF CARGO INSURANCE',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.1, color: AppTheme.charcoal),
+                        Text(
+                          l.insurancePreviewCertificateHeader,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.1, color: AppTheme.charcoal),
                         ),
                         Text(
-                          'شهادة التأمين الرسمية على البضائع المشحونة • ${certificate.certificateCode}',
+                          '${l.insuranceScreenTitle} • ${certificate.certificateCode}',
                           style: const TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -1837,7 +1823,7 @@ class _CargoInsuranceDetailsDialog extends StatelessWidget {
                     border: Border.all(color: certificate.status == 'ISSUED' ? Colors.green : Colors.orange),
                   ),
                   child: Text(
-                    certificate.status == 'ISSUED' ? 'OFFICIALLY ISSUED' : 'DRAFT CERTIFICATE',
+                    certificate.status == 'ISSUED' ? l.insurancePreviewOfficialIssuedBadge : l.insurancePreviewDraftBadge,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
@@ -1861,25 +1847,25 @@ class _CargoInsuranceDetailsDialog extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _buildInfoCard(
-                            title: '1. INSURED & POLICY DETAILS / بيانات المؤمن له',
+                            title: l.insurancePreviewSecInsuredDetails,
                             items: [
-                              MapEntry('Insured (Consignee):', certificate.insuredEntityName),
-                              MapEntry('Insurance Company:', certificate.insuranceCompanyName ?? 'Misr Insurance'),
-                              MapEntry('Policy Number:', certificate.policyNumber ?? '-'),
-                              MapEntry('Policy Type:', certificate.policyType),
+                              MapEntry(l.insurancePreviewInsuredLabel, certificate.insuredEntityName),
+                              MapEntry(l.insurancePreviewCompanyLabel, certificate.insuranceCompanyName ?? 'Misr Insurance'),
+                              MapEntry(l.insurancePreviewPolicyNoLabel, certificate.policyNumber ?? '-'),
+                              MapEntry(l.insurancePreviewPolicyTypeLabel, certificate.policyType),
                             ],
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: _buildInfoCard(
-                            title: '2. VOYAGE & ROUTE / خط السير والناقل',
+                            title: l.insurancePreviewSecRouteDetails,
                             items: [
-                              MapEntry('Transport Mode:', certificate.transportMode),
-                              MapEntry('Vessel / Flight:', '${certificate.vesselOrFlightNo ?? "-"} (Voyage: ${certificate.voyageNumber ?? "-"})'),
-                              MapEntry('Port of Loading (POL):', certificate.portOfLoading),
-                              MapEntry('Port of Discharge (POD):', certificate.portOfDischarge),
-                              MapEntry('Tracking / B/L Ref:', certificate.trackingReference ?? '-'),
+                              MapEntry(l.insurancePreviewTransportModeLabel, certificate.transportMode),
+                              MapEntry(l.insurancePreviewVesselFlightLabel, '${certificate.vesselOrFlightNo ?? "-"} (Voyage: ${certificate.voyageNumber ?? "-"})'),
+                              MapEntry(l.insurancePreviewPolLabel, certificate.portOfLoading),
+                              MapEntry(l.insurancePreviewPodLabel, certificate.portOfDischarge),
+                              MapEntry(l.insurancePreviewTrackingLabel, certificate.trackingReference ?? '-'),
                             ],
                           ),
                         ),
@@ -1893,25 +1879,25 @@ class _CargoInsuranceDetailsDialog extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _buildInfoCard(
-                            title: '3. VALUATION & INSURED SUM / القيمة التأمينية',
+                            title: l.insurancePreviewSecValuation,
                             items: [
-                              MapEntry('Commercial Invoice (FOB):', '${certificate.invoiceValue.toStringAsFixed(2)} ${certificate.currency}'),
-                              MapEntry('Freight & Logistics:', '${certificate.freightCost.toStringAsFixed(2)} ${certificate.currency}'),
-                              MapEntry('CIF Base Value:', '${certificate.cifValue.toStringAsFixed(2)} ${certificate.currency}'),
-                              MapEntry('Insured Sum (110% CIF):', '${certificate.insuredValue.toStringAsFixed(2)} ${certificate.currency}'),
+                              MapEntry(l.insurancePreviewInvoiceFobLabel, '${certificate.invoiceValue.toStringAsFixed(2)} ${certificate.currency}'),
+                              MapEntry(l.insurancePreviewFreightLabel, '${certificate.freightCost.toStringAsFixed(2)} ${certificate.currency}'),
+                              MapEntry(l.insurancePreviewCifBaseLabel, '${certificate.cifValue.toStringAsFixed(2)} ${certificate.currency}'),
+                              MapEntry(l.insurancePreviewInsuredSumLabel, '${certificate.insuredValue.toStringAsFixed(2)} ${certificate.currency}'),
                             ],
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: _buildInfoCard(
-                            title: '4. PREMIUM BREAKDOWN / تفاصيل القسط',
+                            title: l.insurancePreviewSecPremium,
                             items: [
-                              MapEntry('Coverage Clause:', certificate.coverageClause),
-                              MapEntry('Base Premium:', '${certificate.basePremium.toStringAsFixed(2)} ${certificate.currency}'),
-                              MapEntry('War & Strikes Add-on:', '${certificate.warStrikesPremium.toStringAsFixed(2)} ${certificate.currency}'),
-                              MapEntry('Issuance Fee & Taxes:', '${(certificate.issuanceFee + certificate.taxAmount).toStringAsFixed(2)} ${certificate.currency}'),
-                              MapEntry('Total Payable Gross Premium:', '${certificate.totalPayablePremium.toStringAsFixed(2)} ${certificate.currency}'),
+                              MapEntry(l.insurancePreviewCoverageClauseLabel, certificate.coverageClause),
+                              MapEntry(l.insurancePreviewBasePremiumLabel, '${certificate.basePremium.toStringAsFixed(2)} ${certificate.currency}'),
+                              MapEntry(l.insurancePreviewWarStrikesLabel, '${certificate.warStrikesPremium.toStringAsFixed(2)} ${certificate.currency}'),
+                              MapEntry(l.insurancePreviewFeesTaxesLabel, '${(certificate.issuanceFee + certificate.taxAmount).toStringAsFixed(2)} ${certificate.currency}'),
+                              MapEntry(l.insurancePreviewTotalGrossPremiumLabel, '${certificate.totalPayablePremium.toStringAsFixed(2)} ${certificate.currency}'),
                             ],
                           ),
                         ),
@@ -1931,15 +1917,15 @@ class _CargoInsuranceDetailsDialog extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            '5. CARGO SPECIFICATIONS & CLAUSES / تفاصيل البضاعة والشروط القانونية',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+                          Text(
+                            l.insurancePreviewSecCargoSpecs,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
                           ),
                           const SizedBox(height: 6),
-                          Text('• Description: ${certificate.goodsDescription ?? "General Commercial Cargo"}', style: const TextStyle(fontSize: 12)),
-                          Text('• Packages & Weight: ${certificate.packageCount ?? "-"} ${certificate.packageType ?? "Packages"} • Gross Wt: ${certificate.grossWeightKg ?? "-"} KG', style: const TextStyle(fontSize: 12)),
-                          Text("• Survey / Claims Settling Agent: ${certificate.surveyAgentInDestination ?? "Local Lloyd's Agent / Egypt"}", style: const TextStyle(fontSize: 12)),
-                          Text('• Claims Payable At: ${certificate.claimsPayableAt ?? "Cairo, Egypt"} in currency ${certificate.currency}', style: const TextStyle(fontSize: 12)),
+                          Text('• ${l.insurancePreviewDescPrefix} ${certificate.goodsDescription ?? "General Commercial Cargo"}', style: const TextStyle(fontSize: 12)),
+                          Text('• ${l.insurancePreviewPackagesPrefix} ${certificate.packageCount ?? "-"} ${certificate.packageType ?? "Packages"} • ${l.insurancePreviewGrossWtPrefix} ${certificate.grossWeightKg ?? "-"} KG', style: const TextStyle(fontSize: 12)),
+                          Text("• ${l.insurancePreviewSurveyAgentPrefix} ${certificate.surveyAgentInDestination ?? "Local Lloyd's Agent / Egypt"}", style: const TextStyle(fontSize: 12)),
+                          Text('• ${l.insurancePreviewClaimsPayablePrefix} ${certificate.claimsPayableAt ?? "Cairo, Egypt"} in currency ${certificate.currency}', style: const TextStyle(fontSize: 12)),
                         ],
                       ),
                     ),
@@ -1954,17 +1940,17 @@ class _CargoInsuranceDetailsDialog extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  isArabic ? 'وثيقة رسمية معتمدة للتخليص الجمركي والاعتمادات المستندية' : 'Official Document for Customs Clearance & Bank Form 4',
+                  l.insurancePreviewLegalDisclaimer,
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
                 ),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
                   icon: const Icon(Icons.print_rounded, size: 16),
-                  label: Text(isArabic ? 'طباعة / تصدير PDF' : 'Print / Export PDF'),
+                  label: Text(l.insurancePreviewPrintBtn),
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(isArabic ? '🖨️ جاهز للإرسال والطباعة الرسمية' : 'Ready for printing / PDF generation'),
+                        content: Text(l.insurancePreviewPrintReadySnack),
                         backgroundColor: AppTheme.cobalt,
                       ),
                     );

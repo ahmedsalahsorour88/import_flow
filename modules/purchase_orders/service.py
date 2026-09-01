@@ -59,10 +59,10 @@ class PurchaseOrderService:
 
             t_net = float(item.total_net_weight_kg or 0.0)
             if t_net <= 0 and net_u > 0 and q_pkg > 0:
-                t_net = round(q_pkg * net_u, 2)
+                t_net = q_pkg * net_u
             t_gross = float(item.total_gross_weight_kg or 0.0)
             if t_gross <= 0 and gross_u > 0 and q_pkg > 0:
-                t_gross = round(q_pkg * gross_u, 2)
+                t_gross = q_pkg * gross_u
             t_cbm = float(item.total_cbm or 0.0)
             chg_wt = float(item.chargeable_weight_kg or 0.0)
 
@@ -203,6 +203,7 @@ class PurchaseOrderService:
                     item_id=item.item_id,
                     po_id=item.po_id,
                     item_code=item.item_code,
+                    main_description=item.main_description,
                     description_ar=item.description_ar,
                     description_en=item.description_en,
                     country_of_origin=item.country_of_origin,
@@ -230,6 +231,7 @@ class PurchaseOrderService:
                     po_id=pitem.po_id,
                     hs_code=pitem.hs_code,
                     item_code=pitem.item_code,
+                    main_description=getattr(pitem, "main_description", None),
                     description=getattr(pitem, "description", None),
                     qty_pcs=float(pitem.qty_pcs),
                     qty_pkg=float(pitem.qty_pkg),

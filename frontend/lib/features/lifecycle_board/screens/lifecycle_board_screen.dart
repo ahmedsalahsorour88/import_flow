@@ -36,6 +36,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   void initState() {
     super.initState();
     _selectedStepCode = 'STEP_01';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(lifecycleBoardSummaryProvider);
+    });
   }
 
   @override
@@ -532,7 +535,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     horizontalMargin: 12,
                     columns: [
                       DataColumn(label: Text(l10n.colShipmentCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                      DataColumn(label: Text(l10n.colPreviousStep, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
                       DataColumn(label: Text(l10n.colCurrentStep, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                      DataColumn(label: Text(l10n.colNextStep, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
                       DataColumn(label: Text(l10n.colImportCompany, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
                       DataColumn(label: Text(l10n.colForeignSupplier, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
                       DataColumn(label: Text(l10n.colPurchaseOrder, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
@@ -565,20 +570,77 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                             ),
                           ),
 
-                          // 2. Step Name
+                          // 2. Previous Step (المسار السابق)
+                          DataCell(
+                            s.previousStepCode != null
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: Colors.grey.shade400),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.check_circle, size: 12, color: AppTheme.emerald),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          l10n.lifecycleStepName(s.previousStepCode!),
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : Text('—', style: TextStyle(color: Colors.grey.shade400)),
+                          ),
+
+                          // 3. Current Step (المسار الحالي)
                           DataCell(
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                               decoration: BoxDecoration(
-                                color: stepColor.withOpacity(0.12),
+                                color: stepColor.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: stepColor.withOpacity(0.3)),
+                                border: Border.all(color: stepColor, width: 1.2),
                               ),
-                              child: Text(
-                                l10n.lifecycleStepName(s.stepCode),
-                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: stepColor),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.bolt, size: 13, color: stepColor),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    l10n.lifecycleStepName(s.stepCode),
+                                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: stepColor),
+                                  ),
+                                ],
                               ),
                             ),
+                          ),
+
+                          // 4. Next Step (المسار التالي)
+                          DataCell(
+                            s.nextStepCode != null
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade50,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: Colors.amber.shade700.withOpacity(0.5)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.arrow_circle_left_outlined, size: 12, color: Colors.amber.shade900),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          l10n.lifecycleStepName(s.nextStepCode!),
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.amber.shade900),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : Text('—', style: TextStyle(color: Colors.grey.shade400)),
                           ),
 
                           // 3. Company

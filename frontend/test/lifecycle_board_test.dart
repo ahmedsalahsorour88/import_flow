@@ -28,9 +28,15 @@ void main() {
             'priority': 'High',
             'estimated_cost': 45000.0,
             'estimated_cost_currency': 'USD',
-            'step_code': 'STEP_01',
-            'step_name_en': 'Freight Studies',
-            'step_name_ar': 'دراسات ومفاضلة نولون الشحن',
+            'step_code': 'STEP_02',
+            'step_name_en': 'Customs Studies',
+            'step_name_ar': 'الدراسات والاستشارات الجمركية',
+            'previous_step_code': 'STEP_01',
+            'previous_step_name_en': 'Freight Studies',
+            'previous_step_name_ar': 'دراسات ومفاضلة نولون الشحن',
+            'next_step_code': 'STEP_03',
+            'next_step_name_en': 'Import Regulatory Requirements',
+            'next_step_name_ar': 'متطلبات واشتراطات الاستيراد للشحنة',
             'status': 'In-Progress',
             'started_at': '2026-08-17 12:00:00',
             'notes': 'Comparing freight rates',
@@ -46,6 +52,11 @@ void main() {
       expect(model.allShipments.length, 1);
       expect(model.allShipments[0].importFileCode, 'IMP-2026-0001');
       expect(model.allShipments[0].estimatedCost, 45000.0);
+      expect(model.allShipments[0].stepCode, 'STEP_02');
+      expect(model.allShipments[0].previousStepCode, 'STEP_01');
+      expect(model.allShipments[0].previousStepNameAr, 'دراسات ومفاضلة نولون الشحن');
+      expect(model.allShipments[0].nextStepCode, 'STEP_03');
+      expect(model.allShipments[0].nextStepNameAr, 'متطلبات واشتراطات الاستيراد للشحنة');
     });
   });
 }

@@ -15,6 +15,203 @@ from modules.customs_consultation.model import CustomsConsultationSession
 from modules.customs_tariff.model import CustomsTariff
 
 
+def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
+    """
+    Business Rule & Smart Tasks Sync:
+    1. Identify all uncompleted/pending regulatory requirements across the 5 pillars.
+    2. Generate/Update Smart Tasks for incomplete regulatory requirements for this Import File (linking ACID if present).
+    3. Auto-close tasks if requirements become Verified/Approved.
+    4. Auto-update ImportFile next_action and stage progression.
+    """
+    assessment = repo.get_assessment_by_id(db, assessment_id)
+    if not assessment:
+        return
+
+    import_file = None
+    if assessment.import_file_id:
+        import_file = db.query(ImportFile).filter(ImportFile.import_file_id == assessment.import_file_id).first()
+
+    file_code = assessment.import_file_code or (import_file.import_file_code if import_file else f"FILE-{assessment.import_file_id}")
+    acid_str = assessment.acid_number or (import_file.acid_number if import_file else None) or "قيد الإصدار لاحقاً"
+
+    # If import_file has an acid_number but assessment doesn't, sync it
+    if import_file and import_file.acid_number and not assessment.acid_number:
+        assessment.acid_number = import_file.acid_number
+        db.commit()
+
+    # Identify uncompleted / pending items
+    uncompleted = []
+    completed = []
+
+    # 1. Decree 43
+    if assessment.decree_43_applicable:
+        if not assessment.white_list_verified:
+            uncompleted.append({
+                "type": "Decree43",
+                "title": f"[{file_code}] [ACID: {acid_str}] توثيق قيد المصنع/المورد الأجنبي بالهيئة العامة للرقابة على الصادرات والواردات (قرار 43)",
+                "desc": "السلعة تخضع للقرار الوزاري 43 لسنة 2016 ويلزم التحقق من قيد المصنع بالقائمة البيضاء لدى GOEIC قبل الشحن",
+                "priority": "Critical",
+            })
+        else:
+            completed.append("Decree43")
+
+    # 2. Certificate of Origin
+    if assessment.coo_required:
+        if assessment.coo_status not in ["Verified", "Approved", "Received", "Obtained"]:
+            uncompleted.append({
+                "type": "COO",
+                "title": f"[{file_code}] [ACID: {acid_str}] استيفاء شهادة المنشأ ({assessment.coo_type or 'COO'}) وتوثيقها رسمياً",
+                "desc": f"يلزم استلام وتوثيق شهادة المنشأ الأصلية لتطبيق المعاملات التفضيلية والإفراج الجمركي - الحالة الحالية: {assessment.coo_status}",
+                "priority": "High",
+            })
+        else:
+            completed.append("COO")
+
+    # 3. Pre-Shipment Inspection
+    if assessment.inspection_required:
+        if assessment.inspection_status not in ["Verified", "Approved", "Received", "Completed", "Obtained"]:
+            uncompleted.append({
+                "type": "Inspection",
+                "title": f"[{file_code}] [ACID: {acid_str}] إصدار شهادة الفحص المسبق قبل الشحن ({assessment.inspection_body or 'SGS/CIQ'})",
+                "desc": f"الصنف يخضع للفحص الفني الإلزامي قبل الشحن من بلد المنشأ بواسطة {assessment.inspection_body or 'جهة الفحص المعين'}",
+                "priority": "Critical",
+            })
+        else:
+            completed.append("Inspection")
+
+    # 4. Import Permit / Regulatory Approvals
+    if assessment.import_permit_required:
+        if assessment.permit_status not in ["Verified", "Approved", "Received", "Obtained"]:
+            uncompleted.append({
+                "type": "Permit",
+                "title": f"[{file_code}] [ACID: {acid_str}] استخراج موافقة الاستيراد المسبقة من ({assessment.permit_issuing_authority or 'جهة العرض والرقابة'})",
+                "desc": f"يلزم الحصول على تصريح/موافقة استيرادية رسمية من {assessment.permit_issuing_authority or 'جهة الرقابة'} قبل الشحن",
+                "priority": "Critical",
+            })
+        else:
+            completed.append("Permit")
+
+    # 5. Technical Documents
+    if assessment.msds_required:
+        if assessment.msds_status not in ["Verified", "Approved", "Received", "Obtained"]:
+            uncompleted.append({
+                "type": "MSDS",
+                "title": f"[{file_code}] [ACID: {acid_str}] استيفاء صحيفة بيانات سلامة المادة (MSDS) معتمدة ومحدثة",
+                "desc": "يلزم تقديم شهادة الـ MSDS للصنف لتحديد متطلبات السلامة والتعامل المينائي والتخزين",
+                "priority": "Medium",
+            })
+        else:
+            completed.append("MSDS")
+
+    if assessment.halal_cert_required:
+        if assessment.halal_cert_status not in ["Verified", "Approved", "Received", "Obtained"]:
+            uncompleted.append({
+                "type": "Halal",
+                "title": f"[{file_code}] [ACID: {acid_str}] استيفاء شهادة الحلال الرسمية (Halal Certificate)",
+                "desc": "يلزم تقديم شهادة الحلال الصادرة من مركز معتمد من IS EG Halal",
+                "priority": "High",
+            })
+        else:
+            completed.append("Halal")
+
+    if assessment.coa_required:
+        if assessment.coa_status not in ["Verified", "Approved", "Received", "Obtained"]:
+            uncompleted.append({
+                "type": "COA",
+                "title": f"[{file_code}] [ACID: {acid_str}] استيفاء شهادة التحليل المخبري والمطابقة للمواصفات (COA)",
+                "desc": "يلزم استلام تقرير الفحص والتحليل الكيميائي/الميكانيكي من المصنع المنتج",
+                "priority": "Medium",
+            })
+        else:
+            completed.append("COA")
+
+    # Manage SmartTasks in DB
+    try:
+        from modules.smart_tasks.model import SmartTask
+        import modules.smart_tasks.repository as task_repo
+        from modules.smart_tasks.schemas import SmartTaskCreate
+
+        # 1. Create or ensure uncompleted tasks exist
+        for item in uncompleted:
+            existing_task = db.query(SmartTask).filter(
+                SmartTask.import_file_id == assessment.import_file_id,
+                SmartTask.notes.ilike(f"%REQ_TYPE:{item['type']}%"),
+                SmartTask.is_active == True,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            ).first()
+
+            if not existing_task:
+                task_schema = SmartTaskCreate(
+                    title=item["title"],
+                    description=item["desc"],
+                    task_type="Regulatory Compliance",
+                    import_file_id=assessment.import_file_id,
+                    import_file_code=file_code,
+                    phase_name="STEP_03: اشتراطات ومتطلبات الاستيراد",
+                    assigned_user=import_file.owner if import_file and import_file.owner else "Import Specialist",
+                    priority=item["priority"],
+                    reminder_type="Regulatory Compliance",
+                    status="Pending",
+                    due_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                    notes=f"REQ_TYPE:{item['type']} | ASSESSMENT:{assessment.assessment_code}",
+                )
+                task_repo.create_task(db, task_schema, created_by="Requirements Engine")
+            else:
+                existing_task.title = item["title"]
+
+        # 2. Auto-close completed requirements tasks
+        for c_type in completed:
+            open_tasks = db.query(SmartTask).filter(
+                SmartTask.import_file_id == assessment.import_file_id,
+                SmartTask.notes.ilike(f"%REQ_TYPE:{c_type}%"),
+                SmartTask.is_active == True,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            ).all()
+            for t in open_tasks:
+                t.status = "Completed"
+                t.is_auto_closed = True
+
+    except Exception:
+        pass
+
+    # 3. Synchronize ImportFile next action and stage activity
+    if import_file:
+        try:
+            from modules.lifecycle_board.service import sync_requirements_lifecycle_stage
+            import modules.lifecycle_board.repository as lifecycle_repo
+
+            if len(uncompleted) == 0 and assessment.overall_status in ["Complete", "Approved", "Cleared", "Confirmed"]:
+                # Complete STEP_03 and move to STEP_04
+                lifecycle_repo.save_or_update_activity(
+                    db,
+                    import_file_code=file_code,
+                    step_code="STEP_03",
+                    status="Completed",
+                    completed_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                )
+                lifecycle_repo.save_or_update_activity(
+                    db,
+                    import_file_code=file_code,
+                    step_code="STEP_04",
+                    status="In-Progress",
+                    started_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                )
+                import_file.current_stage = "المرحلة الثانية: بداية الشحنة"
+                import_file.current_module = "STEP_04: اعتمادات الميزانية وسداد الموردين"
+                import_file.next_action = "استكمال سداد دفعة المورد وطلب استخراج رقم ACID (STEP_05)"
+                import_file.progress_percent = max(float(import_file.progress_percent or 0), 30.0)
+            else:
+                # Mark STEP_01 and STEP_02 as Completed, and STEP_03 as In-Progress
+                sync_requirements_lifecycle_stage(db, assessment.import_file_id)
+                req_names = [r["type"] for r in uncompleted]
+                req_display = ", ".join(req_names[:3]) if req_names else "مراجعة المتطلبات"
+                import_file.next_action = f"استيفاء {len(uncompleted)} متطلبات رقابية معلقة ({req_display})"
+
+            db.commit()
+        except Exception:
+            pass
+
+
 def create_assessment_service(db: Session, payload: ImportRequirementCreate):
     validate_risk_level(payload.risk_level)
     validate_overall_status(payload.overall_status)
@@ -34,7 +231,15 @@ def create_assessment_service(db: Session, payload: ImportRequirementCreate):
     obj_data["assessment_code"] = code
     obj_data["created_at"] = datetime.now(timezone.utc)
     obj_data["updated_at"] = datetime.now(timezone.utc)
-    return repo.create_assessment(db, obj_data)
+    created = repo.create_assessment(db, obj_data)
+    
+    # Synchronize Smart Tasks and Stage Progression
+    try:
+        sync_regulatory_tasks_and_alerts(db, created.assessment_id)
+    except Exception:
+        pass
+
+    return created
 
 
 def update_assessment_service(db: Session, assessment_id: int, payload: ImportRequirementUpdate):
@@ -46,11 +251,26 @@ def update_assessment_service(db: Session, assessment_id: int, payload: ImportRe
     if "shipment_value_usd" in update_data:
         validate_shipment_value(update_data["shipment_value_usd"])
     update_data["updated_at"] = datetime.now(timezone.utc)
-    return repo.update_assessment(db, assessment_id, update_data)
+    updated = repo.update_assessment(db, assessment_id, update_data)
+    
+    # Synchronize Smart Tasks and Stage Progression
+    if updated:
+        try:
+            sync_regulatory_tasks_and_alerts(db, updated.assessment_id)
+        except Exception:
+            pass
+
+    return updated
 
 
 def restore_assessment_service(db: Session, assessment_id: int):
-    return repo.restore_assessment(db, assessment_id)
+    restored = repo.restore_assessment(db, assessment_id)
+    if restored:
+        try:
+            sync_regulatory_tasks_and_alerts(db, restored.assessment_id)
+        except Exception:
+            pass
+    return restored
 
 
 def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportRequirementPrefillResponse:

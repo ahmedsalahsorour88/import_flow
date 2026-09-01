@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
@@ -144,6 +143,7 @@ void showPriceListFormDialog(
 
   String itemSearchQuery = '';
   String selectedCategoryFilter = 'All';
+  bool isSaving = false;
 
   showDialog(
     context: context,
@@ -272,6 +272,7 @@ void showPriceListFormDialog(
 
         // Add Custom Surcharge / Ad-hoc Item Dialog
         Future<void> showAddCustomItemDialog() async {
+          final formKey = GlobalKey<FormState>();
           final customNameCtrl = TextEditingController();
           final customPriceCtrl = TextEditingController(text: '1000');
           final customNotesCtrl = TextEditingController();
@@ -293,84 +294,122 @@ void showPriceListFormDialog(
                 ),
                 content: SizedBox(
                   width: 480,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextFormField(
-                        controller: customNameCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'اسم البند / المصروف المخصص *',
-                          hintText: 'مثال: كشف عمال وتجميع وكلارك / حراسة أمنية',
-                          isDense: true,
-                          border: OutlineInputBorder(),
+                  child: SingleChildScrollView(
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextFormField(
+                          controller: customNameCtrl,
+                          validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال اسم البند أو المصروف المخصص' : null,
+                          decoration: const InputDecoration(
+                            labelText: 'اسم البند / المصروف المخصص *',
+                            hintText: 'مثال: كشف عمال وتجميع وكلارك / حراسة أمنية',
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      SearchableDropdownField<String>(
-                        value: customCategory,
-                        labelText: 'فئة المصروف',
-                        items: const [
-                          SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'Clearance Fees (أتعاب ومصاريف تخليص)'),
-                          SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'Procedures & Approvals (إجراءات وموافقات وفحص)'),
-                          SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'Inland Transport (نقل بري وشاحنات)'),
-                          SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'Port & Handling (موانئ وتعتيق وتفريغ)'),
-                          SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'Other Fees (مصاريف أخرى)'),
-                        ],
-                        onChanged: (v) => setInnerState(() => customCategory = v ?? customCategory),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: customPriceCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: const InputDecoration(
-                                labelText: 'السعر المعتمد *',
-                                isDense: true,
-                                border: OutlineInputBorder(),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: SearchableDropdownField<String>(
+                                value: customCategory,
+                                labelText: 'فئة المصروف *',
+                                items: const [
+                                  SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'Clearance Fees (أتعاب ومصاريف تخليص)'),
+                                  SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'Procedures & Approvals (إجراءات وموافقات وفحص)'),
+                                  SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'Inland Transport (نقل بري وشاحنات)'),
+                                  SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'Port & Handling (موانئ وتعتيق وتفريغ)'),
+                                  SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'Other Fees (مصاريف أخرى)'),
+                                ],
+                                onChanged: (v) => setInnerState(() => customCategory = v ?? customCategory),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 100,
-                            child: SearchableDropdownField<String>(
-                              value: customCurrency,
-                              items: const [
-                                SearchableDropdownItem(value: 'EGP', label: 'EGP'),
-                                SearchableDropdownItem(value: 'USD', label: 'USD'),
-                                SearchableDropdownItem(value: 'EUR', label: 'EUR'),
-                              ],
-                              onChanged: (v) => setInnerState(() => customCurrency = v ?? 'EGP'),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 2,
+                              child: SearchableDropdownField<String>(
+                                value: customUnit,
+                                labelText: 'الوحدة *',
+                                items: const [
+                                  SearchableDropdownItem(value: 'Per Shipment (لكل شحنة)', label: 'Per Shipment (لكل شحنة)'),
+                                  SearchableDropdownItem(value: 'Per Container (لكل حاوية)', label: 'Per Container (لكل حاوية)'),
+                                  SearchableDropdownItem(value: 'Per Invoice (لكل فاتورة)', label: 'Per Invoice (لكل فاتورة)'),
+                                  SearchableDropdownItem(value: 'Per Ton (لكل طن)', label: 'Per Ton (لكل طن)'),
+                                  SearchableDropdownItem(value: 'Per Day (لكل يوم)', label: 'Per Day (لكل يوم)'),
+                                  SearchableDropdownItem(value: 'Per Inspection (لكل كشف)', label: 'Per Inspection (لكل كشف)'),
+                                  SearchableDropdownItem(value: 'Per Certificate (لكل شهادة)', label: 'Per Certificate (لكل شهادة)'),
+                                ],
+                                onChanged: (v) => setInnerState(() => customUnit = v ?? customUnit),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: customNotesCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'ملاحظات وشروط البند المخصص',
-                          isDense: true,
-                          border: OutlineInputBorder(),
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: customPriceCtrl,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty) return 'يرجى تحديد السعر المعتمد';
+                                  if (double.tryParse(v.trim()) == null) return 'قيمة السعر غير صحيحة';
+                                  return null;
+                                },
+                                decoration: const InputDecoration(
+                                  labelText: 'السعر المعتمد *',
+                                  isDense: true,
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 100,
+                              child: SearchableDropdownField<String>(
+                                value: customCurrency,
+                                items: const [
+                                  SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                                  SearchableDropdownItem(value: 'USD', label: 'USD'),
+                                  SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                                ],
+                                onChanged: (v) => setInnerState(() => customCurrency = v ?? 'EGP'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: customNotesCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'ملاحظات وشروط البند المخصص',
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                actions: [
+              ),
+              actions: [
                   TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
                     icon: const Icon(Icons.check, size: 16),
                     label: const Text('إضافة البند'),
                     onPressed: () {
+                      if (!formKey.currentState!.validate()) return;
                       final name = customNameCtrl.text.trim();
-                      if (name.isEmpty) return;
                       final price = double.tryParse(customPriceCtrl.text.trim()) ?? 0.0;
 
                       setDlgState(() {
+                        selectedCategoryFilter = 'All';
+                        itemSearchQuery = '';
                         itemsState.insert(0, {
                           'expense_type_id': null,
                           'expense_name': name,
@@ -385,6 +424,13 @@ void showPriceListFormDialog(
                         });
                       });
                       Navigator.pop(c);
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(
+                          content: Text('✨ تم إضافة البند المخصص "$name" بنجاح إلى جدول الأسعار'),
+                          backgroundColor: AppTheme.emerald,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
                     },
                   ),
                 ],
@@ -401,12 +447,17 @@ void showPriceListFormDialog(
           return matchSearch && matchCat;
         }).toList();
 
+        final mediaQuery = MediaQuery.of(ctx);
+        final dialogWidth = (mediaQuery.size.width * 0.92).clamp(750.0, 1050.0);
+        final dialogHeight = (mediaQuery.size.height * 0.88).clamp(420.0, 750.0);
+
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Container(
-            width: 1000,
-            height: 780,
-            padding: const EdgeInsets.all(20),
+            width: dialogWidth,
+            height: dialogHeight,
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -713,12 +764,17 @@ void showPriceListFormDialog(
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 6),
 
                 // Actions Footer
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
+                Container(
+                  padding: const EdgeInsets.only(top: 8),
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: Colors.grey.shade300)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
                     Text(
                       l.totalExpensesCountSummary(
                         itemsState.length,
@@ -738,11 +794,18 @@ void showPriceListFormDialog(
                             backgroundColor: AppTheme.emerald,
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                           ),
-                          onPressed: () async {
+                          onPressed: isSaving ? null : () async {
                             final title = titleCtrl.text.trim();
                             if (title.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              ScaffoldMessenger.of(ctx).showSnackBar(
                                 SnackBar(content: Text(l.priceListTitleRequired), backgroundColor: Colors.red),
+                              );
+                              return;
+                            }
+
+                            if (selectedBroker == null) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text(l.selectBrokerRequired), backgroundColor: Colors.orange),
                               );
                               return;
                             }
@@ -758,14 +821,16 @@ void showPriceListFormDialog(
                               'expense_type_id': itm['expense_type_id'],
                               'expense_name': itm['expense_name'],
                               'category': itm['category'],
-                              'unit_type': itm['unit_type'],
-                              'standard_price': itm['standard_price'],
-                              'currency': itm['currency'],
+                              'unit_type': itm['unit_type'] ?? 'Per Shipment',
+                              'standard_price': itm['standard_price'] ?? 0.0,
+                              'currency': itm['currency'] ?? 'EGP',
                               'min_price': itm['min_price'],
                               'max_price': itm['max_price'],
-                              'notes': itm['notes'],
+                              'notes': itm['notes'] ?? '',
                               'is_active': itm['is_active'] ?? true,
                             }).toList();
+
+                            setDlgState(() => isSaving = true);
 
                             try {
                               if (isEditing) {
@@ -773,37 +838,37 @@ void showPriceListFormDialog(
                                   existingPriceList.priceListId,
                                   {
                                     'title': title,
+                                    'broker_id': selectedBroker,
+                                    'broker_name': brokerName,
                                     'port_name': portCtrl.text.trim(),
-                                    'effective_from': dateCtrl.text.trim(),
+                                    'effective_from': dateCtrl.text.trim().isNotEmpty ? dateCtrl.text.trim() : DateTime.now().toIso8601String().split('T').first,
                                     'version': version,
                                     'is_active': existingPriceList.isActive,
                                     'notes': notesCtrl.text.trim(),
                                     'items': itemsPayload,
                                   },
                                 );
+                                ref.invalidate(brokerPriceListsProvider);
+                                await ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
                                 if (ctx.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text('✅ ${l.priceListUpdatedSuccess}'), backgroundColor: AppTheme.emerald),
                                   );
                                 }
                               } else {
-                                if (selectedBroker == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(l.selectBrokerRequired), backgroundColor: Colors.orange),
-                                  );
-                                  return;
-                                }
                                 await ref.read(brokerPriceListsProvider.notifier).createPriceList({
                                   'title': title,
                                   'broker_id': selectedBroker,
                                   'broker_name': brokerName,
                                   'port_name': portCtrl.text.trim(),
-                                  'effective_from': dateCtrl.text.trim(),
+                                  'effective_from': dateCtrl.text.trim().isNotEmpty ? dateCtrl.text.trim() : DateTime.now().toIso8601String().split('T').first,
                                   'version': 1,
                                   'is_active': true,
                                   'notes': notesCtrl.text.trim(),
                                   'items': itemsPayload,
                                 });
+                                ref.invalidate(brokerPriceListsProvider);
+                                await ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
                                 if (ctx.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text('✅ ${l.priceListCreatedSuccess}'), backgroundColor: AppTheme.emerald),
@@ -812,16 +877,43 @@ void showPriceListFormDialog(
                               }
                               if (ctx.mounted) Navigator.pop(ctx);
                             } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                              String errorMsg = e.toString();
+                              if (e is DioException) {
+                                final resData = e.response?.data;
+                                if (resData is Map && resData.containsKey('detail')) {
+                                  errorMsg = resData['detail'].toString();
+                                } else if (resData != null) {
+                                  errorMsg = resData.toString();
+                                } else {
+                                  errorMsg = e.message ?? 'فشل الاتصال بالخادم';
+                                }
+                              }
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(
+                                    content: Text('❌ تعذر الحفظ: $errorMsg'),
+                                    backgroundColor: AppTheme.crimson,
+                                    duration: const Duration(seconds: 4),
+                                  ),
                                 );
+                              }
+                            } finally {
+                              if (ctx.mounted) {
+                                setDlgState(() => isSaving = false);
                               }
                             }
                           },
-                          icon: const Icon(Icons.save, color: Colors.white, size: 18),
+                          icon: isSaving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                )
+                              : const Icon(Icons.save, color: Colors.white, size: 18),
                           label: Text(
-                            isEditing ? l.savePriceListEditsBtn : l.createAndSavePriceListBtn,
+                            isSaving
+                                ? 'جاري الحفظ...'
+                                : (isEditing ? l.savePriceListEditsBtn : l.createAndSavePriceListBtn),
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                           ),
                         ),
@@ -829,11 +921,12 @@ void showPriceListFormDialog(
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        );
-      },
-    ),
-  );
+        ),
+      );
+    },
+  ),
+);
 }

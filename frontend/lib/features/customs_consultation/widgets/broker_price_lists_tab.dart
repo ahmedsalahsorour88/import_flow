@@ -23,14 +23,27 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
   int _managementSubTabIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(allPartnersProvider.notifier).fetchPartners();
+      ref.read(partnersProvider.notifier).fetchPartners();
+      ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
+      ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return _buildPriceListsAndCatalogTab();
   }
+
   Widget _buildPriceListsAndCatalogTab() {
     final l = context.l10n;
     final priceListsAsync = ref.watch(brokerPriceListsProvider);
     final expenseTypesAsync = ref.watch(clearanceExpenseTypesProvider);
-    final brokersList = (ref.watch(partnersProvider).value ?? [])
+    final allPartners = ref.watch(allPartnersProvider).value ?? ref.watch(partnersProvider).value ?? [];
+    final brokersList = allPartners
         .where((p) => p.partnerType.toLowerCase().contains('customs broker') || p.partnerType.toLowerCase().contains('مخلص'))
         .toList();
 

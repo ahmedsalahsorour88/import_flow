@@ -20,6 +20,10 @@ class VisualDraftCOOSheet extends StatefulWidget {
     this.onRefresh,
   });
 
+  static String sanitizeEnglishOnly(String input) => _VisualDraftCOOSheetState.sanitizeEnglishOnly(input);
+  static String extractCleanMainDescription(String input) => _VisualDraftCOOSheetState.extractCleanMainDescription(input);
+  static String formatCooHsCode(String input, {bool isChina = true}) => _VisualDraftCOOSheetState.formatCooHsCode(input, isChina: isChina);
+
   @override
   State<VisualDraftCOOSheet> createState() => _VisualDraftCOOSheetState();
 }
@@ -29,23 +33,70 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
 
   static String sanitizeEnglishOnly(String input) {
     if (input.isEmpty) return input;
-    // 1. Remove Arabic words inside parentheses e.g. (ميناء نينغبو تشوشان) or (الصين)
     var text = input.replaceAll(RegExp(r'\s*\([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s\.\-]+\)'), '');
-    // 2. Remove any remaining Arabic characters
     text = text.replaceAll(RegExp(r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]'), '');
-    // 3. Remove empty parentheses or double dashes/spaces
     text = text.replaceAll(RegExp(r'\(\s*\)'), '');
     text = text.replaceAll(RegExp(r'-\s*-+'), '-');
     text = text.replaceAll(RegExp(r'\s*-\s*$'), '');
     text = text.replaceAll(RegExp(r'^\s*-\s*'), '');
-    text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-    final upper = text.toUpperCase().trim();
-    if (upper == 'CN' || upper == 'CN -' || upper == 'CN - CHINA' || upper == 'CN-CHINA' || upper == 'CHINA') {
-      text = 'China';
-    } else if (upper == 'EG' || upper == 'EG -' || upper == 'EG - EGYPT' || upper == 'EGYPT') {
-      text = 'Egypt';
+
+    final lines = text.split('\n').map((l) {
+      var cleanLine = l.replaceAll(RegExp(r'[^\S\r\n]+'), ' ').trim();
+      final upper = cleanLine.toUpperCase().trim();
+      if (upper == 'CN' || upper == 'CN -' || upper == 'CN - CHINA' || upper == 'CN-CHINA' || upper == 'CHINA') {
+        cleanLine = 'China';
+      } else if (upper == 'EG' || upper == 'EG -' || upper == 'EG - EGYPT' || upper == 'EGYPT') {
+        cleanLine = 'Egypt';
+      }
+      return cleanLine;
+    }).where((l) => l.isNotEmpty).toList();
+
+    return lines.join('\n');
+  }
+
+  static String extractCleanMainDescription(String input) {
+    if (input.isEmpty) return 'Acoustic Panels';
+    var text = input.replaceAll(RegExp(r'\s*\([^\)]*\)'), '');
+    text = text.replaceAll(RegExp(r'\b[A-Za-z]{1,4}-\d{2,6}\b'), '');
+    text = text.replaceAll(RegExp(r'\b(PET|PVC|PU|PE|MDF|HDF|PP|ABS)\s+', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'\bN\s*/\s*M\b', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'ACID:[^\n]*', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'[\*\#]'), '');
+    text = text.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
+
+    if (text.contains(' / ')) {
+      final parts = text.split(' / ').map((p) => p.trim()).where((p) => p.isNotEmpty).toSet().toList();
+      text = parts.join(' / ');
+    }
+
+    if (text.isEmpty || text.toUpperCase() == 'COMMERCIAL CARGO' || text.contains('CN - China')) {
+      text = 'Acoustic Panels';
     }
     return text;
+  }
+
+  static String formatCooHsCode(String input, {bool isChina = true}) {
+    if (input.isEmpty) return isChina ? '56.02' : '5602290000';
+    if (!isChina) return input;
+
+    if (input.contains(',') || input.contains('\n') || input.contains(' / ')) {
+      final delimiter = input.contains('\n') ? '\n' : (input.contains(' / ') ? ' / ' : ', ');
+      final items = input
+          .split(RegExp(r'[,/\n]+'))
+          .map((s) => formatCooHsCode(s.trim(), isChina: true))
+          .where((s) => s.isNotEmpty)
+          .toSet()
+          .toList();
+      return items.join(delimiter);
+    }
+
+    final digits = input.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length >= 4) {
+      return '${digits.substring(0, 2)}.${digits.substring(2, 4)}';
+    } else if (digits.length >= 2) {
+      return digits;
+    }
+    return input;
   }
 
   @override
@@ -54,7 +105,17 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
     final isChina = widget.certificateType.toUpperCase().contains('CHINA') || widget.certificateType.toUpperCase().contains('CCPIT');
     final isEur1 = widget.certificateType.toUpperCase().contains('EUR.1') || widget.certificateType.toUpperCase().contains('EUR1');
 
-    final certNo = sanitizeEnglishOnly((t['certificate_number'] ?? 'DRAFT-COO').toString());
+    final cleanAcidNo = sanitizeEnglishOnly(widget.acidNumber).replaceAll(RegExp(r'[^0-9]'), '');
+    final rawCert = t['certificate_number']?.toString() ?? '';
+    final certNo = (rawCert.isNotEmpty && !rawCert.startsWith('26C') && !rawCert.startsWith('No A'))
+        ? sanitizeEnglishOnly(rawCert)
+        : (cleanAcidNo.isNotEmpty ? 'DRAFT-$cleanAcidNo' : 'DRAFT-5281534391023010013');
+
+    final tableRows = (t['table_rows'] as List<dynamic>?)
+            ?.map((r) => Map<String, dynamic>.from(r as Map))
+            .toList() ??
+        [];
+
     final exporter = sanitizeEnglishOnly((t['box_1_exporter'] ?? 'EXPORTER / PRODUCER').toString());
     final consignee = sanitizeEnglishOnly((t['box_2_consignee'] ?? t['box_3_consignee'] ?? 'IMPORTER / CONSIGNEE').toString());
     final transport = sanitizeEnglishOnly((t['box_3_means_of_transport'] ?? t['box_6_transport_details'] ?? 'BY SEA').toString());
@@ -65,9 +126,14 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
             .where((e) => e.isNotEmpty)
             .toList() ??
         [origin];
-    final hsCodes = (t['box_8_hs_code'] ?? t['hs_code'] ?? t['hs_codes'] ?? '560229').toString();
-    final hsCodesList = (t['hs_codes_list'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [hsCodes];
-    final goodsDesc = sanitizeEnglishOnly((t['box_6_marks_and_numbers'] ?? t['box_8_description_packages'] ?? 'COMMERCIAL CARGO').toString());
+    final hsCodes = isChina
+        ? formatCooHsCode((t['box_8_hs_code'] ?? t['hs_code'] ?? t['hs_codes'] ?? '560229').toString())
+        : (t['box_8_hs_code'] ?? t['hs_code'] ?? t['hs_codes'] ?? '560229').toString();
+    final hsCodesList = (t['hs_codes_list'] as List<dynamic>?)
+            ?.map((e) => isChina ? formatCooHsCode(e.toString()) : e.toString())
+            .toList() ??
+        [hsCodes];
+    final goodsDesc = sanitizeEnglishOnly((t['box_7_description_and_acid'] ?? t['box_8_description_packages'] ?? t['description'] ?? 'COMMERCIAL CARGO').toString());
     
     // Weight: strip trailing or duplicate G.W.
     var rawWeight = (t['box_9_quantity_and_weight'] ?? t['box_9_gross_mass'] ?? 'GROSS WEIGHT').toString();
@@ -76,7 +142,6 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
 
     final invoiceData = sanitizeEnglishOnly((t['box_10_invoice_number_and_date'] ?? t['box_10_invoices_and_acid'] ?? 'INVOICE INFO').toString());
     final remarks = sanitizeEnglishOnly((t['box_7_remarks'] ?? (isEur1 ? 'REVISED RULES' : 'N/A')).toString());
-    final cleanAcidNo = sanitizeEnglishOnly(widget.acidNumber);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -131,16 +196,38 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                   ),
                   icon: const Icon(Icons.table_chart_outlined, size: 14, color: Colors.green),
                   label: Text(context.l10n.cooVisualExcelButton, style: const TextStyle(fontSize: 11)),
-                  onPressed: () {
-                    final csv = CooExportService.exportCOOCsv(
+                  onPressed: () async {
+                    final path = await CooExportService.saveCOOCsvToFile(
                       templateData: t,
                       certificateType: widget.certificateType,
                       acidNumber: widget.acidNumber,
                     );
-                    Clipboard.setData(ClipboardData(text: csv));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(context.l10n.cooVisualExcelReadySnackbar), backgroundColor: Colors.green),
-                    );
+                    if (path != null && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('✅ تم حفظ ملف الإكسل بنجاح في: $path'),
+                          backgroundColor: Colors.green,
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                    } else {
+                      // Fallback copy to clipboard if cancelled or web
+                      final csv = CooExportService.exportCOOCsv(
+                        templateData: t,
+                        certificateType: widget.certificateType,
+                        acidNumber: widget.acidNumber,
+                      );
+                      Clipboard.setData(ClipboardData(text: csv));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(context.l10n.cooVisualExcelReadySnackbar),
+                            backgroundColor: Colors.green,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    }
                   },
                 ),
                 const SizedBox(width: 8),
@@ -176,6 +263,52 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
         ),
         const SizedBox(height: 12),
 
+        // ─── Egyptian Customs Compliance Alert Banner (Bilingual) ───
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+          ),
+          child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.verified_user_outlined, color: Color(0xFFD97706), size: 22),
+              SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Arabic Note
+                    Text(
+                      'ملاحظة جمركية: في مرحلة التخليص الجمركي بمصر، يُشترط أن يحتوي البند 11 على ختم وتوقيع المصدر، وأن يحتوي البند 12 على الختم الرسمي للجهة المعتمدة (ختم الجمارك وختم الغرفة التجارية) أو رمز التحقق الإلكتروني QR Code / Barcode في حال الشهادات الإلكترونية.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF92400E),
+                        height: 1.4,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    // English Note
+                    Text(
+                      'Customs Note: During the customs clearance process in Egypt, Box 11 must contain the exporter\'s signature and stamp, and Box 12 must contain the official stamp of the certifying authority (Customs stamp and Chamber of Commerce stamp) or an electronic verification QR Code / Barcode in the case of electronic certificates.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFB45309),
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
         // Official Visual Document Container (Like real paper)
         Container(
           decoration: BoxDecoration(
@@ -194,8 +327,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                   goodsDesc: goodsDesc,
                   hsCodesList: hsCodesList,
                   weight: weight,
-                  invoiceData: invoiceData,
-                  originsList: originsList,
+                  tableRows: tableRows,
                   acidNumber: cleanAcidNo,
                 )
               : _buildEur1Layout(
@@ -211,6 +343,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                   originsList: originsList,
                   remarks: remarks,
                   isEur1: isEur1,
+                  tableRows: tableRows,
                   acidNumber: cleanAcidNo,
                 ),
         ),
@@ -228,8 +361,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
     required String goodsDesc,
     required List<String> hsCodesList,
     required String weight,
-    required String invoiceData,
-    required List<String> originsList,
+    List<Map<String, dynamic>> tableRows = const [],
     required String acidNumber,
   }) {
     // Ensure Transport route has Port of departure + Country TO Port of destination + Country
@@ -243,17 +375,21 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
       cleanTransport = 'FROM $cleanTransport TO ALEXANDRIA EGYPT BY SEA';
     }
 
-    // Format clean Box 7 description with inline ACID
-    var cleanBox7 = goodsDesc.trim();
-    if (cleanBox7.isEmpty || cleanBox7 == 'COMMERCIAL CARGO' || cleanBox7.contains('CN - China') || cleanBox7.contains('Acoustic Panel N/M')) {
-      cleanBox7 = 'ACOUSTIC PANELS';
-    }
-    if (!cleanBox7.toUpperCase().contains('ACID:')) {
-      final validAcid = (acidNumber.isNotEmpty && acidNumber != 'CN - China') ? acidNumber : '5281534391023010013';
-      cleanBox7 = '$cleanBox7 ACID:$validAcid';
-    }
-    if (!cleanBox7.endsWith('***')) {
-      cleanBox7 = '$cleanBox7\n\n***';
+    final validAcid = (acidNumber.isNotEmpty && acidNumber != 'CN - China') ? acidNumber : '5281534391023010013';
+
+    // Format clean Box 7 description with main description, total packed line, stars line, and ACID line
+    String cleanBox7;
+    if (goodsDesc.contains('TOTAL PACKED IN') && goodsDesc.contains('ACID:')) {
+      final parts = goodsDesc.split('\n\n');
+      if (parts.isNotEmpty) {
+        parts[0] = extractCleanMainDescription(parts[0]);
+        cleanBox7 = parts.join('\n\n');
+      } else {
+        cleanBox7 = goodsDesc;
+      }
+    } else {
+      var baseDesc = extractCleanMainDescription(goodsDesc);
+      cleanBox7 = '$baseDesc\n\nTOTAL PACKED IN EIGHTY TWO (82) CARTONS ONLY\n\n*** *** *** *** ***\n\nACID:$validAcid';
     }
 
     return Column(
@@ -314,7 +450,15 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Serial No.', style: TextStyle(fontSize: 9.5, color: Colors.black87)),
-                          Text('Certificate No. $certNo', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black)),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              'Certificate No. $certNo',
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.end,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -442,42 +586,109 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
               const Divider(height: 1, color: Colors.black87),
 
               // Table Body Content
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Box 6: Marks
-                  _buildTableBodyCell('Acoustic Panel\nN/M', flex: 2),
-                  // Box 7: Description + ACID
-                  Expanded(
-                    flex: 4,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
-                      child: Text(
-                        cleanBox7,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10.5, color: Colors.black87, height: 1.3),
+              if (tableRows.isNotEmpty)
+                ...tableRows.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final r = entry.value;
+                  const rowMarks = 'N/M';
+                  final rawDesc = (r['description_and_acid'] ?? cleanBox7).toString();
+                  String rowDesc;
+                  if (rawDesc.contains('TOTAL PACKED IN') && rawDesc.contains('ACID:')) {
+                    final parts = rawDesc.split('\n\n');
+                    if (parts.isNotEmpty) {
+                      parts[0] = extractCleanMainDescription(parts[0]);
+                      rowDesc = parts.join('\n\n');
+                    } else {
+                      rowDesc = rawDesc;
+                    }
+                  } else {
+                    final base = extractCleanMainDescription((r['description'] ?? cleanBox7).toString());
+                    final pCnt = r['packages_count'] ?? 144;
+                    rowDesc = '$base\n\nTOTAL PACKED IN $pCnt CARTONS ONLY\n\n*** *** *** *** ***\n\nACID:$validAcid';
+                  }
+                  rowDesc = sanitizeEnglishOnly(rowDesc)
+                      .replaceAll(RegExp(r'\bN\s*/\s*M\b', caseSensitive: false), '')
+                      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+                      .trim();
+                  final rowHs = formatCooHsCode((r['hs_code'] ?? hsCodesList.join(', ')).toString());
+                  final rowQtyWt = sanitizeEnglishOnly((r['quantity_and_weight_str'] ?? weight).toString());
+                  final rowInv = sanitizeEnglishOnly((r['invoice_str'] ?? '').toString());
+
+                  return Column(
+                    children: [
+                      if (idx > 0) const Divider(height: 1, color: Colors.black45),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Box 6: Marks
+                          _buildTableBodyCell(rowMarks, flex: 2),
+                          // Box 7: Description + ACID
+                          Expanded(
+                            flex: 4,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                              child: Text(
+                                rowDesc,
+                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10.5, color: Colors.black87, height: 1.3),
+                              ),
+                            ),
+                          ),
+                          // Box 8: HS Code
+                          Expanded(
+                            flex: 2,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                              child: Text(rowHs, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5)),
+                            ),
+                          ),
+                          // Box 9: Quantity & Gross Weight
+                          _buildTableBodyCell(rowQtyWt, flex: 2),
+                          // Box 10: Invoices
+                          _buildTableBodyCell(rowInv, flex: 2, hasRightBorder: false),
+                        ],
+                      ),
+                    ],
+                  );
+                }).toList()
+              else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Box 6: Marks
+                    _buildTableBodyCell('N/M', flex: 2),
+                    // Box 7: Description + ACID
+                    Expanded(
+                      flex: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                        child: Text(
+                          cleanBox7,
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10.5, color: Colors.black87, height: 1.3),
+                        ),
                       ),
                     ),
-                  ),
-                  // Box 8: HS Code
-                  Expanded(
-                    flex: 2,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
-                      child: Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: hsCodesList.map((hs) => Text(hs, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5))).toList(),
+                    // Box 8: HS Code
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: hsCodesList.map((hs) => Text(hs, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5))).toList(),
+                        ),
                       ),
                     ),
-                  ),
-                  // Box 9: Quantity & Gross Weight
-                  _buildTableBodyCell(weight, flex: 2),
-                  // Box 10: Invoices
-                  _buildTableBodyCell(invoiceData, flex: 2, hasRightBorder: false),
-                ],
-              ),
+                    // Box 9: Quantity & Gross Weight
+                    _buildTableBodyCell(weight, flex: 2),
+                    // Box 10: Invoices
+                    _buildTableBodyCell(tableRows.isNotEmpty ? (tableRows[0]['invoice_str'] ?? '') : '', flex: 2, hasRightBorder: false),
+                  ],
+                ),
             ],
           ),
         ),
@@ -503,9 +714,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       'The undersigned hereby declares that the above details and statements are correct, that all the goods were produced in China and that they comply with the Rules of Origin of the People\'s Republic of China.',
                       style: TextStyle(fontSize: 9, height: 1.25, color: Colors.black87),
                     ),
-                    SizedBox(height: 14),
-                    Text('SUZHOU, CHINA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                    SizedBox(height: 8),
+                    SizedBox(height: 38),
                     Divider(height: 1, color: Colors.black54),
                     Text('Place and date, signature and stamp of authorized signatory', style: TextStyle(fontSize: 8, color: Colors.black54)),
                   ],
@@ -527,14 +736,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       'It is hereby certified that the declaration by the exporter is correct.',
                       style: TextStyle(fontSize: 9, height: 1.25, color: Colors.black87),
                     ),
-                    SizedBox(height: 6),
-                    Text(
-                      'ADDRESS: DONGWU NORTH ROAD GUOYU BUILDING 15A FLOOR WUZHONG DISTRICT SUZHOU CITY\nFAX: 0512-65252957 TEL: 0512-65252453',
-                      style: TextStyle(fontSize: 8.5, height: 1.2, color: Colors.black87),
-                    ),
-                    SizedBox(height: 8),
-                    Text('SUZHOU, CHINA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                    SizedBox(height: 8),
+                    SizedBox(height: 38),
                     Divider(height: 1, color: Colors.black54),
                     Text('Place and date, signature and stamp of certifying authority', style: TextStyle(fontSize: 8, color: Colors.black54)),
                   ],
@@ -561,6 +763,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
     required List<String> originsList,
     required String remarks,
     required bool isEur1,
+    List<Map<String, dynamic>> tableRows = const [],
     required String acidNumber,
   }) {
     return Column(
@@ -614,7 +817,15 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text('EUR.1', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black)),
-                            Text('No A $certNo', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.black)),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                certNo.startsWith('DRAFT') ? certNo : 'No A $certNo',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black),
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 2),
@@ -785,98 +996,197 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
               const Divider(height: 1, color: Colors.black87),
 
               // Table Body Content
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Box 8: Description + Packages + HS Code Badges
-                  Expanded(
-                    flex: 5,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
-                      child: Column(
+              if (tableRows.isNotEmpty)
+                ...tableRows.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final r = entry.value;
+                  final rowDesc = sanitizeEnglishOnly((r['description'] ?? goodsDesc).toString());
+                  final rowHs = (r['hs_code'] ?? hsCodesList.join(', ')).toString();
+                  final rowPkgs = r['packages_count']?.toString() ?? '144';
+                  final rowGw = r['gross_weight_kg'] != null ? '${(r['gross_weight_kg'] as num).toStringAsFixed(3)} KG' : (weight.isNotEmpty ? weight : '10,510.600 KG');
+                  final rowInv = sanitizeEnglishOnly((r['invoice_str'] ?? invoiceData).toString());
+
+                  return Column(
+                    children: [
+                      if (idx > 0) const Divider(height: 1, color: Colors.black45),
+                      Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(goodsDesc, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
-                          const SizedBox(height: 8),
-
-                          // Multi-HS code tags
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: hsCodesList.map((hs) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.purple.shade50,
-                                  borderRadius: BorderRadius.circular(3),
-                                  border: Border.all(color: Colors.purple.shade300),
-                                ),
-                                child: Text('🔖 $hs', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.purple)),
-                              );
-                            }).toList(),
+                          // Box 8: Description + Packages + HS Code Badge
+                          Expanded(
+                            flex: 5,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('$rowDesc ($rowPkgs PACKAGES)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                                  const SizedBox(height: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.purple.shade50,
+                                      borderRadius: BorderRadius.circular(3),
+                                      border: Border.all(color: Colors.purple.shade300),
+                                    ),
+                                    child: Text('🔖 $rowHs', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.purple)),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  CustomPaint(
+                                    size: const Size(double.infinity, 20),
+                                    painter: DiagonalLinePainter(),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 14),
 
-                          // Diagonal line watermark simulation to prevent additions
-                          CustomPaint(
-                            size: const Size(double.infinity, 30),
-                            painter: DiagonalLinePainter(),
+                          // Box 9: Gross Mass
+                          Expanded(
+                            flex: 2,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    rowGw,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 14),
+                                  CustomPaint(
+                                    size: const Size(double.infinity, 20),
+                                    painter: DiagonalLinePainter(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Box 10: Invoices & ACID
+                          Expanded(
+                            flex: 2,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('ACID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.green)),
+                                  Text(acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.green)),
+                                  if (rowInv.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(rowInv, style: const TextStyle(fontSize: 9.5, color: Colors.black87)),
+                                  ],
+                                  const SizedBox(height: 10),
+                                  CustomPaint(
+                                    size: const Size(double.infinity, 20),
+                                    painter: DiagonalLinePainter(),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
+                    ],
+                  );
+                }).toList()
+              else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Box 8: Description + Packages + HS Code Badges
+                    Expanded(
+                      flex: 5,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(goodsDesc, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                            const SizedBox(height: 8),
 
-                  // Box 9: Gross Mass
-                  Expanded(
-                    flex: 2,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            weight.isNotEmpty ? weight : '10,510.6 KG',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 20),
-                          CustomPaint(
-                            size: const Size(double.infinity, 30),
-                            painter: DiagonalLinePainter(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                            // Multi-HS code tags
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: hsCodesList.map((hs) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.purple.shade50,
+                                    borderRadius: BorderRadius.circular(3),
+                                    border: Border.all(color: Colors.purple.shade300),
+                                  ),
+                                  child: Text('🔖 $hs', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.purple)),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 14),
 
-                  // Box 10: Invoices & ACID
-                  Expanded(
-                    flex: 2,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('ACID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.green)),
-                          Text(acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.green)),
-                          if (invoiceData.isNotEmpty && invoiceData != 'INVOICE INFO') ...[
-                            const SizedBox(height: 4),
-                            Text(invoiceData, style: const TextStyle(fontSize: 9.5, color: Colors.black87)),
+                            // Diagonal line watermark simulation to prevent additions
+                            CustomPaint(
+                              size: const Size(double.infinity, 30),
+                              painter: DiagonalLinePainter(),
+                            ),
                           ],
-                          const SizedBox(height: 14),
-                          CustomPaint(
-                            size: const Size(double.infinity, 30),
-                            painter: DiagonalLinePainter(),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+
+                    // Box 9: Gross Mass
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              weight.isNotEmpty ? weight : '10,510.6 KG',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 20),
+                            CustomPaint(
+                              size: const Size(double.infinity, 30),
+                              painter: DiagonalLinePainter(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Box 10: Invoices & ACID
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('ACID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.green)),
+                            Text(acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.green)),
+                            if (invoiceData.isNotEmpty && invoiceData != 'INVOICE INFO') ...[
+                              const SizedBox(height: 4),
+                              Text(invoiceData, style: const TextStyle(fontSize: 9.5, color: Colors.black87)),
+                            ],
+                            const SizedBox(height: 14),
+                            CustomPaint(
+                              size: const Size(double.infinity, 30),
+                              painter: DiagonalLinePainter(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -1016,6 +1326,10 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
     bool hasBottomBorder = false,
     double? minHeight,
   }) {
+    final lines = value.split('\n');
+    final firstLine = lines.isNotEmpty ? lines[0] : '';
+    final otherLines = lines.length > 1 ? lines.sublist(1).join('\n') : '';
+
     return Container(
       width: double.infinity,
       constraints: minHeight != null ? BoxConstraints(minHeight: minHeight) : null,
@@ -1031,7 +1345,14 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
         children: [
           Text(label, style: const TextStyle(fontSize: 9, color: Colors.black54)),
           const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.black87)),
+          Text(firstLine, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.black87)),
+          if (otherLines.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              otherLines,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 9.5, color: Colors.black87, height: 1.25),
+            ),
+          ],
         ],
       ),
     );

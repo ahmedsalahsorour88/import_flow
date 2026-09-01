@@ -43,6 +43,12 @@ class ShipmentStageCardModel {
   final String stepCode;
   final String stepNameEn;
   final String stepNameAr;
+  final String? previousStepCode;
+  final String? previousStepNameEn;
+  final String? previousStepNameAr;
+  final String? nextStepCode;
+  final String? nextStepNameEn;
+  final String? nextStepNameAr;
   final String status;
   final String? startedAt;
   final String? notes;
@@ -60,6 +66,12 @@ class ShipmentStageCardModel {
     required this.stepCode,
     required this.stepNameEn,
     required this.stepNameAr,
+    this.previousStepCode,
+    this.previousStepNameEn,
+    this.previousStepNameAr,
+    this.nextStepCode,
+    this.nextStepNameEn,
+    this.nextStepNameAr,
     required this.status,
     this.startedAt,
     this.notes,
@@ -79,6 +91,12 @@ class ShipmentStageCardModel {
       stepCode: json['step_code'] ?? '',
       stepNameEn: json['step_name_en'] ?? '',
       stepNameAr: json['step_name_ar'] ?? '',
+      previousStepCode: json['previous_step_code'],
+      previousStepNameEn: json['previous_step_name_en'],
+      previousStepNameAr: json['previous_step_name_ar'],
+      nextStepCode: json['next_step_code'],
+      nextStepNameEn: json['next_step_name_en'],
+      nextStepNameAr: json['next_step_name_ar'],
       status: json['status'] ?? 'In-Progress',
       startedAt: json['started_at'],
       notes: json['notes'],

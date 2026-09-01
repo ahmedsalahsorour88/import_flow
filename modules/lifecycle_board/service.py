@@ -97,12 +97,29 @@ PHASES_DEFINITION = [
     },
 ]
 
+ORDERED_STEP_CODES = [
+    "STEP_01", "STEP_02", "STEP_03", "STEP_04", "STEP_05",
+    "STEP_06", "STEP_07", "STEP_08", "STEP_09", "STEP_10",
+    "STEP_11", "STEP_12", "STEP_13", "STEP_14", "STEP_15",
+    "STEP_16", "STEP_17", "STEP_18", "STEP_19", "STEP_20", "STEP_21"
+]
+
 STEP_TO_PHASE_MAP = {}
 STEP_NAME_MAP = {}
 for p in PHASES_DEFINITION:
     for code, names in p["step_names"].items():
         STEP_TO_PHASE_MAP[code] = p["phase_id"]
         STEP_NAME_MAP[code] = names
+
+
+def get_step_neighbors(step_code: str):
+    """Returns (prev_code, next_code) based on standard sequential workflow."""
+    if step_code not in ORDERED_STEP_CODES:
+        return None, None
+    idx = ORDERED_STEP_CODES.index(step_code)
+    prev_code = ORDERED_STEP_CODES[idx - 1] if idx > 0 else None
+    next_code = ORDERED_STEP_CODES[idx + 1] if idx < len(ORDERED_STEP_CODES) - 1 else None
+    return prev_code, next_code
 
 
 def get_board_summary_service(db: Session) -> LifecycleBoardSummaryResponse:
@@ -136,6 +153,20 @@ def get_board_summary_service(db: Session) -> LifecycleBoardSummaryResponse:
     for act, file_rec in records:
         unique_files.add(file_rec.import_file_code)
         names = STEP_NAME_MAP.get(act.step_code, (act.step_code, act.step_code))
+        
+        # Determine previous and next steps
+        prev_code, next_code = get_step_neighbors(act.step_code)
+        
+        # Check actual completed previous activity if exists
+        completed_acts = repo.get_all_activities(db, import_file_code=file_rec.import_file_code, status="Completed")
+        if completed_acts:
+            latest_comp = completed_acts[-1]
+            if latest_comp.step_code != act.step_code:
+                prev_code = latest_comp.step_code
+
+        prev_names = STEP_NAME_MAP.get(prev_code, (prev_code, prev_code)) if prev_code else (None, None)
+        next_names = STEP_NAME_MAP.get(next_code, (next_code, next_code)) if next_code else (None, None)
+
         all_shipment_cards.append(
             ShipmentStageCard(
                 import_file_code=file_rec.import_file_code,
@@ -150,6 +181,12 @@ def get_board_summary_service(db: Session) -> LifecycleBoardSummaryResponse:
                 step_code=act.step_code,
                 step_name_en=names[0],
                 step_name_ar=names[1],
+                previous_step_code=prev_code,
+                previous_step_name_en=prev_names[0],
+                previous_step_name_ar=prev_names[1],
+                next_step_code=next_code,
+                next_step_name_en=next_names[0],
+                next_step_name_ar=next_names[1],
                 status=act.status,
                 started_at=act.started_at,
                 notes=act.notes,
@@ -161,6 +198,181 @@ def get_board_summary_service(db: Session) -> LifecycleBoardSummaryResponse:
         total_active_files=len(unique_files),
         all_shipments=all_shipment_cards,
     )
+
+
+def sync_consultation_lifecycle_stage(db: Session, import_file_id: int):
+    """
+    Auto-advances shipment from Freight Studies (STEP_01) to Customs Studies (STEP_02)
+    and sets Import Regulatory Requirements (STEP_03) as the Next Planned Step.
+    """
+    from modules.import_files.model import ImportFile
+    from modules.smart_tasks.model import SmartTask
+    from modules.smart_tasks.schemas import SmartTaskCreate
+    import modules.smart_tasks.repository as task_repo
+    from datetime import date
+
+    file_rec = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not file_rec:
+        return
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    file_code = file_rec.import_file_code
+
+    # 1. Complete STEP_01 (Freight Studies) if not already completed
+    repo.save_or_update_activity(
+        db,
+        import_file_code=file_code,
+        step_code="STEP_01",
+        status="Completed",
+        completed_at=now_str,
+        notes="تم إنجاز دراسات النولون والشحن والانتقال للدراسات الجمركية",
+    )
+
+    # 2. Activate STEP_02 (Customs Studies) as In-Progress
+    repo.save_or_update_activity(
+        db,
+        import_file_code=file_code,
+        step_code="STEP_02",
+        status="In-Progress",
+        started_at=now_str,
+        notes="دراسة الاستشارة الجمركية والتعريفة قيد المراجعة والاعتماد",
+    )
+
+    # 3. Update ImportFile tracking attributes
+    file_rec.current_stage = "المرحلة الأولى: التخطيط والدراسات المسبقة"
+    file_rec.current_module = "STEP_02 الدراسات والاستشارات الجمركية"
+    file_rec.next_action = "STEP_03 مراجعة اشتراطات ومتطلبات الاستيراد للشحنة والموافقات الرقابية"
+    file_rec.progress_percent = 20.0
+    db.commit()
+
+    # 4. Generate/Update Smart Task for Next Step (STEP_03)
+    task_title_suffix = "مراجعة اشتراطات الاستيراد والموافقات الرقابية (STEP_03)"
+    existing_task = db.query(SmartTask).filter(
+        SmartTask.import_file_id == import_file_id,
+        SmartTask.title.ilike(f"%{task_title_suffix}%"),
+        SmartTask.is_active == True,
+    ).first()
+
+    if not existing_task:
+        schema = SmartTaskCreate(
+            title=f"[{file_code}] — {task_title_suffix}",
+            description=f"تم إنجاز وتوثيق الاستشارة الجمركية للشحنة {file_code}. المسار التالي المطلوب: استيفاء اشتراطات الاستيراد والجهات الرقابية واستخراج الموافقات المسبقة.",
+            task_type="System Generated",
+            import_file_id=import_file_id,
+            import_file_code=file_code,
+            phase_name="المرحلة الأولى: التخطيط والدراسات المسبقة",
+            assigned_user=file_rec.owner or "Kamal",
+            priority="High",
+            reminder_type="Import Regulatory Requirements",
+            status="Pending",
+            due_date=date.today().isoformat(),
+            notes=f"توليد آلي بعد اعتماد دراسة الاستشارة الجمركية للشحنة {file_code}",
+        )
+        task_repo.create_task(db, schema, created_by="Customs Engine Lifecycle")
+
+    # 5. Auto-close prior freight quote tasks
+    prior_tasks = db.query(SmartTask).filter(
+        SmartTask.import_file_id == import_file_id,
+        SmartTask.task_type == "System Generated",
+        SmartTask.status.in_(["Pending", "In Progress"]),
+        SmartTask.title.ilike("%نولون%"),
+        SmartTask.is_active == True,
+    ).all()
+    for pt in prior_tasks:
+        pt.status = "Completed"
+        pt.is_auto_closed = True
+    db.commit()
+
+
+def sync_requirements_lifecycle_stage(db: Session, import_file_id: int):
+    """
+    Auto-advances shipment from Customs Studies (STEP_02) to Import Regulatory Requirements (STEP_03)
+    and sets Finance Approvals & Budget (STEP_04) as the Next Planned Step.
+    """
+    from modules.import_files.model import ImportFile
+    from modules.smart_tasks.model import SmartTask
+    from modules.smart_tasks.schemas import SmartTaskCreate
+    import modules.smart_tasks.repository as task_repo
+    from datetime import date
+
+    file_rec = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not file_rec:
+        return
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    file_code = file_rec.import_file_code
+
+    # 1. Complete STEP_01 and STEP_02
+    repo.save_or_update_activity(
+        db,
+        import_file_code=file_code,
+        step_code="STEP_01",
+        status="Completed",
+        completed_at=now_str,
+    )
+    repo.save_or_update_activity(
+        db,
+        import_file_code=file_code,
+        step_code="STEP_02",
+        status="Completed",
+        completed_at=now_str,
+        notes="تم إنجاز وتوثيق الاستشارة الجمركية والتعريفة",
+    )
+
+    # 2. Activate STEP_03 (Import Regulatory Requirements) as In-Progress
+    repo.save_or_update_activity(
+        db,
+        import_file_code=file_code,
+        step_code="STEP_03",
+        status="In-Progress",
+        started_at=now_str,
+        notes="جاري تدقيق واستيفاء اشتراطات الاستيراد والموافقات الرقابية المسبقة",
+    )
+
+    # 3. Update ImportFile tracking attributes
+    file_rec.current_stage = "المرحلة الأولى: التخطيط والدراسات المسبقة"
+    file_rec.current_module = "STEP_03 متطلبات واشتراطات الاستيراد للشحنة"
+    file_rec.next_action = "STEP_04 مراجعة اعتمادات الميزانية والتحويل البنكي للمورد"
+    file_rec.progress_percent = 25.0
+    db.commit()
+
+    # 4. Generate/Update Smart Task for Next Step (STEP_04)
+    task_title_suffix = "مراجعة الاعتماد المالي وصرف دفعة المورد (STEP_04)"
+    existing_task = db.query(SmartTask).filter(
+        SmartTask.import_file_id == import_file_id,
+        SmartTask.title.ilike(f"%{task_title_suffix}%"),
+        SmartTask.is_active == True,
+    ).first()
+
+    if not existing_task:
+        schema = SmartTaskCreate(
+            title=f"[{file_code}] — {task_title_suffix}",
+            description=f"تم تسجيل دراسة الاشتراطات الاستيرادية للشحنة {file_code}. المسار التالي المطلوب: اعتماد الميزانية وتحويل الدفعة المالية للمورد تمهيداً لطلب رقم ACID.",
+            task_type="System Generated",
+            import_file_id=import_file_id,
+            import_file_code=file_code,
+            phase_name="المرحلة الثانية: بداية الشحنة",
+            assigned_user=file_rec.owner or "Kamal",
+            priority="High",
+            reminder_type="Financial Approval",
+            status="Pending",
+            due_date=date.today().isoformat(),
+            notes=f"توليد آلي بعد تقييم اشتراطات الاستيراد للشحنة {file_code}",
+        )
+        task_repo.create_task(db, schema, created_by="Requirements Engine Lifecycle")
+
+    # 5. Auto-close prior customs consultation tasks
+    prior_tasks = db.query(SmartTask).filter(
+        SmartTask.import_file_id == import_file_id,
+        SmartTask.task_type == "System Generated",
+        SmartTask.status.in_(["Pending", "In Progress"]),
+        SmartTask.title.ilike("%استشارة%"),
+        SmartTask.is_active == True,
+    ).all()
+    for pt in prior_tasks:
+        pt.status = "Completed"
+        pt.is_auto_closed = True
+    db.commit()
 
 
 def advance_step_service(db: Session, payload: StepAdvancePayload) -> Dict[str, Any]:

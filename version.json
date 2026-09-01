@@ -1,17 +1,17 @@
 {
   "major": 1,
   "minor": 0,
-  "patch": 100,
-  "version": "1.0.100",
-  "build_number": 101,
-  "updated_at": "2026-08-30 17:11:59",
+  "patch": 108,
+  "version": "1.0.108",
+  "build_number": 109,
+  "updated_at": "2026-09-01 11:23:23",
   "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.97/Sorour_Logistics_Setup_v1.0.97.exe",
   "installer_filename": "Sorour_Logistics_Setup_v1.0.97.exe",
   "installer_size_mb": 197.67,
   "release_notes": [
-    "إنشاء Release جديد على GitHub بالـ Tag v1.0.91 ورفع ملف Sorour_Logistics_Setup_v1.0.91.exe.",
-    "version.json — Modified: إضافة installer_url, installer_filename, installer_size_mb",
-    "modules/production_sync/schemas.py — Modified: إضافة InstallerInfoSchema وإضافة installer fields لـ RemoteUpdateCheckSchema",
-    "modules/production_sync/service.py — Modified: تحديث check_for_updates() بالـ installer fields وإضافة get_latest_installer_info()"
+    "frontend/lib/features/import_documentation/widgets/visual_draft_coo_sheet.dart — Modified (تفريغ البند 11 و 12، وإضافة البانر التنبيهي الجمركي ثنائي اللغة)",
+    "frontend/lib/features/import_documentation/services/coo_export_service.dart — Modified (تفريغ البند 11 و 12 في الـ PDF وإضافة الملاحظة الجمركية)",
+    "modules/import_documentation/service.py — Modified (تفريغ القيم الافتراضية لـ box_11_declaration_by_exporter و box_12_certification)",
+    "history/2026-08-31.md — Modified (توثيق المهمة)"
   ]
 }

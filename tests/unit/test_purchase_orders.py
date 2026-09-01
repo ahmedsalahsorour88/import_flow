@@ -14,7 +14,7 @@ from modules.import_companies.model import ImportCompany
 from modules.import_files.model import ImportFile
 from modules.incoterms.model import Incoterm
 from modules.projects.model import Project
-from modules.purchase_orders.schemas import POLineItemCreate, PurchaseOrderCreate, PurchaseOrderUpdate
+from modules.purchase_orders.schemas import POLineItemCreate, PackingListItemCreate, PurchaseOrderCreate, PurchaseOrderUpdate
 from modules.purchase_orders.service import PurchaseOrderService
 from modules.suppliers.model import Supplier
 
@@ -284,5 +284,113 @@ class TestPurchaseOrdersBackend:
             PurchaseOrderUpdate(po_reference="Updated Chiller Units 600kW"),
         )
         assert updated_po.po_reference == "Updated Chiller Units 600kW"
+
+    def test_create_po_with_line_item_main_description(self, db_session):
+        service = PurchaseOrderService(db_session)
+        comp = db_session.query(ImportCompany).first()
+        supp = db_session.query(Supplier).first()
+        inco = db_session.query(Incoterm).first()
+        curr = db_session.query(Currency).first()
+        proj = db_session.query(Project).first()
+
+        item = POLineItemCreate(
+            item_code="PET-001",
+            main_description="PET Acoustic Panels",
+            description_ar="ألواح امتصاص صوت PET (YH-652)",
+            description_en="PET Acoustic Panels (YH-652)",
+            quantity=100.0,
+            unit_of_measure="PCS",
+            unit_price=15.5,
+            cbm_per_unit=0.05,
+            gross_weight_kg=250.0,
+            net_weight_kg=240.0,
+        )
+
+        po_data = PurchaseOrderCreate(
+            po_number="PO-2026-MAIN-DESC",
+            proforma_invoice_number="INV-2026-MAIN",
+            project_id=proj.project_id,
+            company_id=comp.company_id,
+            supplier_id=supp.supplier_id,
+            incoterm_id=inco.incoterm_id,
+            currency_id=curr.currency_id,
+            exchange_rate=50.0,
+            items=[item],
+            packing_list_items=[],
+        )
+
+        po = service.create(po_data)
+        assert po.po_id is not None
+        assert len(po.items) == 1
+        assert po.items[0].main_description == "PET Acoustic Panels"
+        assert po.items[0].description_ar == "ألواح امتصاص صوت PET (YH-652)"
+
+    def test_create_and_update_packing_list_main_description(self, db_session):
+        service = PurchaseOrderService(db_session)
+
+        comp = db_session.query(ImportCompany).first()
+        supp = db_session.query(Supplier).first()
+        inco = db_session.query(Incoterm).first()
+        curr = db_session.query(Currency).first()
+        proj = db_session.query(Project).first()
+
+        pkg = PackingListItemCreate(
+            hs_code="5602290000",
+            item_code="PET-PKG-01",
+            main_description="PET Acoustic Panels",
+            description="PET Acoustic Panels (2400x1200x9mm) - 100 Cartons",
+            qty_pcs=100.0,
+            qty_pkg=10.0,
+            package_type="Carton",
+            length_cm=120.0,
+            width_cm=60.0,
+            height_cm=40.0,
+            net_weight_unit_kg=20.0,
+            gross_weight_unit_kg=22.0,
+        )
+
+        po_data = PurchaseOrderCreate(
+            po_number="PO-2026-PKG-MAIN-DESC",
+            proforma_invoice_number="INV-2026-PKG-MAIN",
+            project_id=proj.project_id,
+            company_id=comp.company_id,
+            supplier_id=supp.supplier_id,
+            incoterm_id=inco.incoterm_id,
+            currency_id=curr.currency_id,
+            exchange_rate=50.0,
+            items=[],
+            packing_list_items=[pkg],
+        )
+
+        po = service.create(po_data)
+        assert po.po_id is not None
+        assert len(po.packing_list_items) == 1
+        assert po.packing_list_items[0].main_description == "PET Acoustic Panels"
+        assert po.packing_list_items[0].description == "PET Acoustic Panels (2400x1200x9mm) - 100 Cartons"
+
+        # Update packing list item main_description
+        updated_pkg = PackingListItemCreate(
+            hs_code="5602290000",
+            item_code="PET-PKG-01",
+            main_description="Engineered Acoustic Panels",
+            description="Engineered Acoustic Panels (2400x1200x9mm) - 100 Cartons",
+            qty_pcs=100.0,
+            qty_pkg=10.0,
+            package_type="Carton",
+            length_cm=120.0,
+            width_cm=60.0,
+            height_cm=40.0,
+            net_weight_unit_kg=20.0,
+            gross_weight_unit_kg=22.0,
+        )
+
+        updated_po = service.update(
+            po.po_id,
+            PurchaseOrderUpdate(
+                packing_list_items=[updated_pkg],
+            ),
+        )
+        assert len(updated_po.packing_list_items) == 1
+        assert updated_po.packing_list_items[0].main_description == "Engineered Acoustic Panels"
 
 

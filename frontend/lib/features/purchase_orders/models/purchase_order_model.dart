@@ -66,6 +66,7 @@ class POLineItemModel {
   final int? itemId;
   final int? poId;
   final String? itemCode;
+  final String? mainDescription;
   final String descriptionAr;
   final String? descriptionEn;
   final String? countryOfOrigin;
@@ -86,6 +87,7 @@ class POLineItemModel {
     this.itemId,
     this.poId,
     this.itemCode,
+    this.mainDescription,
     required this.descriptionAr,
     this.descriptionEn,
     this.countryOfOrigin,
@@ -105,7 +107,9 @@ class POLineItemModel {
             ? totalPrice
             : (quantity * unitPrice);
 
-  String get itemDescription => descriptionAr.isNotEmpty ? descriptionAr : (descriptionEn ?? '');
+  String get itemDescription => mainDescription?.isNotEmpty == true
+      ? mainDescription!
+      : (descriptionAr.isNotEmpty ? descriptionAr : (descriptionEn ?? ''));
 
   factory POLineItemModel.fromJson(Map<String, dynamic> json) {
     final q = _numToDouble(json['quantity'], 1.0);
@@ -116,6 +120,7 @@ class POLineItemModel {
       itemId: _numToInt(json['item_id']),
       poId: _numToInt(json['po_id']),
       itemCode: json['item_code'] as String?,
+      mainDescription: json['main_description'] as String?,
       descriptionAr: json['description_ar'] as String? ?? '',
       descriptionEn: json['description_en'] as String?,
       countryOfOrigin: json['country_of_origin'] as String?,
@@ -138,6 +143,7 @@ class POLineItemModel {
     int? itemId,
     int? poId,
     String? itemCode,
+    String? mainDescription,
     String? descriptionAr,
     String? descriptionEn,
     String? countryOfOrigin,
@@ -160,6 +166,7 @@ class POLineItemModel {
       itemId: itemId ?? this.itemId,
       poId: poId ?? this.poId,
       itemCode: itemCode ?? this.itemCode,
+      mainDescription: mainDescription ?? this.mainDescription,
       descriptionAr: descriptionAr ?? this.descriptionAr,
       descriptionEn: descriptionEn ?? this.descriptionEn,
       countryOfOrigin: countryOfOrigin ?? this.countryOfOrigin,
@@ -183,6 +190,7 @@ class POLineItemModel {
       if (itemId != null) 'item_id': itemId,
       if (poId != null) 'po_id': poId,
       if (itemCode != null) 'item_code': itemCode,
+      if (mainDescription != null) 'main_description': mainDescription,
       'description_ar': descriptionAr,
       if (descriptionEn != null) 'description_en': descriptionEn,
       if (countryOfOrigin != null) 'country_of_origin': countryOfOrigin,
@@ -203,6 +211,7 @@ class PackingListItemModel {
   final int? poId;
   final String hsCode;
   final String itemCode;
+  final String? mainDescription;
   final String? description;
   final double qtyPcs;
   final double qtyPkg;
@@ -225,6 +234,7 @@ class PackingListItemModel {
     this.poId,
     required this.hsCode,
     required this.itemCode,
+    this.mainDescription,
     this.description,
     this.qtyPcs = 1.0,
     this.qtyPkg = 1.0,
@@ -259,6 +269,7 @@ class PackingListItemModel {
     int? poId,
     String? hsCode,
     String? itemCode,
+    String? mainDescription,
     String? description,
     double? qtyPcs,
     double? qtyPkg,
@@ -281,6 +292,7 @@ class PackingListItemModel {
       poId: poId ?? this.poId,
       hsCode: hsCode ?? this.hsCode,
       itemCode: itemCode ?? this.itemCode,
+      mainDescription: mainDescription ?? this.mainDescription,
       description: description ?? this.description,
       qtyPcs: qtyPcs ?? this.qtyPcs,
       qtyPkg: qtyPkg ?? this.qtyPkg,
@@ -306,6 +318,7 @@ class PackingListItemModel {
       poId: _numToInt(json['po_id']),
       hsCode: json['hs_code'] as String? ?? '',
       itemCode: json['item_code'] as String? ?? '',
+      mainDescription: json['main_description'] as String?,
       description: json['description'] as String?,
       qtyPcs: _numToDouble(json['qty_pcs'], 1.0),
       qtyPkg: _numToDouble(json['qty_pkg'], 1.0),
@@ -331,6 +344,7 @@ class PackingListItemModel {
       if (poId != null) 'po_id': poId,
       'hs_code': hsCode,
       'item_code': itemCode,
+      if (mainDescription != null) 'main_description': mainDescription,
       if (description != null) 'description': description,
       'qty_pcs': qtyPcs,
       'qty_pkg': qtyPkg,

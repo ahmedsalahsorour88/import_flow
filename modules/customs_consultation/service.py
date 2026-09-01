@@ -248,6 +248,15 @@ class CustomsConsultationService:
                 )
 
         db_session = CustomsConsultationRepository.create(db, session_in)
+        
+        # Auto-sync lifecycle stage to STEP_02 (Customs Studies) and set STEP_03 as next action
+        if db_session.import_file_id:
+            from modules.lifecycle_board.service import sync_consultation_lifecycle_stage
+            try:
+                sync_consultation_lifecycle_stage(db, db_session.import_file_id)
+            except Exception as e:
+                print(f"[Warning] Could not sync lifecycle stage: {e}")
+
         return CustomsConsultationService._compute_session_metrics(db, db_session)
 
     @staticmethod
@@ -301,6 +310,15 @@ class CustomsConsultationService:
             validate_checklist_items(update_in.checklist_items)
 
         updated_session = CustomsConsultationRepository.update(db, db_session, update_in)
+        
+        # Auto-sync lifecycle stage to STEP_02 (Customs Studies) and set STEP_03 as next action
+        if updated_session.import_file_id:
+            from modules.lifecycle_board.service import sync_consultation_lifecycle_stage
+            try:
+                sync_consultation_lifecycle_stage(db, updated_session.import_file_id)
+            except Exception as e:
+                print(f"[Warning] Could not sync lifecycle stage: {e}")
+
         return CustomsConsultationService._compute_session_metrics(db, updated_session)
 
     @staticmethod

@@ -78,6 +78,12 @@ class ShipmentStageCard(BaseModel):
     step_code: str
     step_name_en: str
     step_name_ar: str
+    previous_step_code: Optional[str] = None
+    previous_step_name_en: Optional[str] = None
+    previous_step_name_ar: Optional[str] = None
+    next_step_code: Optional[str] = None
+    next_step_name_en: Optional[str] = None
+    next_step_name_ar: Optional[str] = None
     status: str
     started_at: Optional[str] = None
     notes: Optional[str] = None

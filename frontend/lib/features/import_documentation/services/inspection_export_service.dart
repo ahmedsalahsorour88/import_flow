@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -307,6 +309,41 @@ class InspectionExportService {
       onLayout: (format) async => pdf.save(),
       name: 'Draft_Inspection_Certificate_${agency}_${acidNumber.replaceAll(RegExp(r'[^0-9]'), '')}.pdf',
     );
+  }
+
+  /// Exports and Saves Inspection Certificate PDF directly to a file chosen by the user
+  static Future<String?> saveInspectionPdfToFile({
+    required Map<String, dynamic> templateData,
+    required String agency,
+    required String certType,
+    required String acidNumber,
+    required List<String> standards,
+  }) async {
+    final pdf = await generateInspectionPdf(
+      templateData: templateData,
+      agency: agency,
+      certType: certType,
+      acidNumber: acidNumber,
+      standards: standards,
+    );
+
+    final cleanAcid = acidNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    final filename = 'Draft_Inspection_Certificate_${agency}_${cleanAcid.isNotEmpty ? cleanAcid : DateTime.now().millisecondsSinceEpoch}.pdf';
+
+    final savePath = await FilePicker.saveFile(
+      dialogTitle: 'حفظ مسودة شهادة الفحص والمطابقة بصيغة PDF',
+      fileName: filename,
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+
+    if (savePath != null && savePath.isNotEmpty) {
+      final file = File(savePath.endsWith('.pdf') ? savePath : '$savePath.pdf');
+      final bytes = await pdf.save();
+      await file.writeAsBytes(bytes);
+      return file.path;
+    }
+    return null;
   }
 
   /// Export CSV / Excel data string

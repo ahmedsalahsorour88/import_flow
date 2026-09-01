@@ -3192,8 +3192,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get selectImportFileOption => '-- Select Import File --';
   @override String get acidNotIssued => 'Not Issued';
   @override String get pleaseSelectImportFileError => 'Please select an import file';
-  @override String get acidNumberFieldLabel => 'Advanced Customs ACID Number *';
+  @override String get acidNumberFieldLabel => 'Advanced Customs ACID Number (Optional)';
   @override String get acidNumberRequiredError => 'ACID number is required';
+  @override String get acidNumberOptionalHint => 'Auto-fetched from Import File upon issuance';
   @override String get foreignSupplierFieldLabel => 'Foreign Supplier / Factory';
   @override String get foreignSupplierHint => 'Foreign supplier...';
   @override String get notSpecifiedOption => '-- Not Specified --';
@@ -3510,7 +3511,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get searchLifecycleTableHint => 'Search by file code, supplier, PO, or notes...';
   @override String shipmentsCountFormatted(dynamic count) => '$count Shipments';
   @override String get colShipmentCode => 'File Code';
+  @override String get colPreviousStep => 'Previous Step';
   @override String get colCurrentStep => 'Current Step';
+  @override String get colNextStep => 'Next Step';
   @override String get colImportCompany => 'Importer';
   @override String get colForeignSupplier => 'Foreign Supplier';
   @override String get colPurchaseOrder => 'PO Number';
@@ -5006,6 +5009,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get itemCode => 'Item Code';
   @override
+  String get mainDescription => 'Main Description';
+  @override
   String get unitPrice => 'Unit Price';
   @override
   String get lineTotal => 'Line Total';
@@ -5337,6 +5342,581 @@ class AppLocalizationsEn extends AppLocalizations {
   String get savePoEditsBtn => 'Save PO Changes';
   @override
   String get previewPoReportBtn => 'Preview PO Report';
+
+  // ── Marine & Cargo Insurance (CargoInsuranceScreen) ───────────────────────
+  @override
+  String get insuranceScreenTitle => 'Marine & Cargo Insurance Engine';
+  @override
+  String get insuranceTabCertificatesRegistry => 'Certificates Registry';
+  @override
+  String get insuranceTabNewCertificate => 'New Certificate';
+  @override
+  String get insuranceAiExtractorBtn => 'AI Insurance Co Extractor ✨';
+  @override
+  String get insuranceSmartUploadBtn => 'Smart Insurance Document Extractor';
+  @override
+  String insuranceExtractedSnackbar(String ref) => '✅ Extracted Cargo Insurance Document: $ref';
+  @override
+  String get insuranceExtractedDone => 'Completed';
+  @override
+  String get insuranceRefreshTooltip => 'Refresh Data';
+
+  @override
+  String insuranceFetchError(String err) => 'Error loading certificates: $err';
+  @override
+  String get insuranceRetryBtn => 'Retry';
+
+  @override
+  String get insuranceKpiTotalPolicies => 'Total Policies';
+  @override
+  String get insuranceKpiIssuedValid => 'Issued & Valid';
+  @override
+  String get insuranceKpiTotalInsured => 'Total Insured';
+  @override
+  String get insuranceKpiTotalPremiums => 'Total Premiums';
+  @override
+  String get insuranceRefreshRegistryBtn => 'Refresh Registry';
+  @override
+  String get insuranceNewCertificateBtn => 'New Certificate';
+
+  @override
+  String get insuranceSearchHint => 'Search certificate code, policy, insured, insurance company, port...';
+  @override
+  String get insuranceFilterAll => 'All';
+  @override
+  String get insuranceFilterIssued => 'Issued';
+  @override
+  String get insuranceFilterDraft => 'Draft';
+  @override
+  String get insuranceFilterCancelled => 'Cancelled';
+  @override
+  String get insuranceShowDeleted => 'Show Deleted';
+  @override
+  String get insuranceHideDeleted => 'Hide Deleted';
+
+  @override
+  String get insuranceNoMatchingFound => 'No certificates matching search found';
+  @override
+  String get insuranceNoDataFound => 'No insurance certificates recorded yet';
+  @override
+  String get insuranceEmptyHint => 'Click "New Certificate" to calculate and issue marine or air cargo insurance.';
+
+  @override
+  String get insuranceColCertCode => 'Cert Code';
+  @override
+  String get insuranceColIssueDate => 'Issue Date';
+  @override
+  String get insuranceColPolicyFile => 'Policy & File';
+  @override
+  String get insuranceColInsuredEntity => 'Insured Entity (Consignee)';
+  @override
+  String get insuranceColInsuranceCo => 'Insurance Company';
+  @override
+  String get insuranceColTransportRoute => 'Transport & Route';
+  @override
+  String get insuranceColInsuredValue => 'Insured Value (110%)';
+  @override
+  String get insuranceColCoverageClause => 'Coverage Clause';
+  @override
+  String get insuranceColGrossPremium => 'Gross Premium';
+  @override
+  String get insuranceColStatus => 'Status';
+  @override
+  String get insuranceColActions => 'Actions';
+
+  @override
+  String get insuranceStatusIssuedBadge => 'Issued';
+  @override
+  String get insuranceStatusCancelledBadge => 'Cancelled';
+  @override
+  String get insuranceStatusDraftBadge => 'Draft';
+
+  @override
+  String get insuranceViewTooltip => 'View Official Certificate';
+  @override
+  String get insuranceEditTooltip => 'Edit Certificate';
+  @override
+  String get insurancePrintTooltip => 'Print Certificate';
+  @override
+  String get insuranceDeleteTooltip => 'Delete Certificate';
+  @override
+  String get insuranceIssueCertificateTooltip => 'Issue Certificate';
+  @override
+  String get insuranceConfirmIssueTitle => 'Issue Certificate';
+  @override
+  String insuranceConfirmIssueMsg(String code) => 'Are you sure you want to officially issue certificate $code?';
+  @override
+  String get insuranceConfirmIssueBtn => 'Confirm Issue';
+  @override
+  String get insuranceIssueSuccessMsg => '✅ Certificate issued successfully!';
+  @override
+  String get insuranceConfirmDeleteTitle => 'Delete Certificate';
+  @override
+  String get insuranceConfirmDeleteMsg => 'Are you sure you want to delete this record?';
+  @override
+  String get insuranceDeleteBtn => 'Delete';
+
+  @override
+  String get insuranceDialogNewTitle => 'New Cargo Insurance Certificate';
+  @override
+  String insuranceDialogEditTitle(String code) => 'Edit Insurance Certificate $code';
+  @override
+  String get insuranceDialogSubtitle => '110% CIF Insured Value & Gross Premium Engine (London Institute Cargo Clauses)';
+  @override
+  String get insuranceFieldLinkImportFile => 'Link Import File *';
+  @override
+  String get insuranceFieldLinkImportFileHint => 'Select Import File to auto-fill...';
+  @override
+  String get insuranceFieldInsuredEntity => 'Insured Entity (Consignee) *';
+  @override
+  String get insuranceFieldInsuredEntityRequired => 'Insured entity is required';
+  @override
+  String get insuranceFieldPolicyType => 'Policy Type *';
+  @override
+  String get insuranceFieldPolicyTypeHint => 'Select policy type...';
+  @override
+  String get insurancePolicyTypeSpecific => 'Specific Shipment Policy';
+  @override
+  String get insurancePolicyTypeOpen => 'Open Floating Policy';
+  @override
+  String get insuranceFieldInsuranceCompany => 'Insurance Company';
+  @override
+  String get insuranceFieldPolicyNumber => 'Policy / Certificate Number';
+  @override
+  String get insuranceSecVoyageDetails => 'Voyage & Transport Details';
+  @override
+  String get insuranceFieldTransportMode => 'Transport Mode *';
+  @override
+  String get insuranceFieldTransportModeHint => 'Select mode...';
+  @override
+  String get insuranceTransportModeOcean => 'Ocean Freight';
+  @override
+  String get insuranceTransportModeAir => 'Air Freight';
+  @override
+  String get insuranceTransportModeRoad => 'Road Transport';
+  @override
+  String get insuranceFieldCarrier => 'Carrier';
+  @override
+  String get insuranceFieldVesselFlight => 'Vessel / Flight No';
+  @override
+  String get insuranceFieldPol => 'Port of Loading (POL) *';
+  @override
+  String get insuranceFieldPod => 'Port of Discharge (POD) *';
+  @override
+  String get insuranceFieldBlTracking => 'B/L or AWB Tracking Ref';
+  @override
+  String get insuranceFieldInvoiceValue => 'Invoice Value (FOB) *';
+  @override
+  String get insuranceFieldFreightCost => 'Freight Cost';
+  @override
+  String get insuranceFieldCurrency => 'Currency *';
+  @override
+  String get insuranceFieldCurrencyHint => 'Select currency...';
+  @override
+  String get insuranceCurrUsd => 'USD - US Dollar';
+  @override
+  String get insuranceCurrEur => 'EUR - Euro';
+  @override
+  String get insuranceCurrEgp => 'EGP - Egyptian Pound';
+  @override
+  String get insuranceCurrCny => 'CNY - Chinese Yuan';
+  @override
+  String get insuranceCurrGbp => 'GBP - British Pound';
+  @override
+  String get insuranceSecCoverageClauses => 'Coverage Clauses & Risk Extensions';
+  @override
+  String get insuranceFieldCoverageClause => 'Coverage Clause (ICC) *';
+  @override
+  String get insuranceFieldCoverageClauseHint => 'Select coverage clause...';
+  @override
+  String get insuranceClauseIccA => 'ICC (A) — All Risks (0.25%)';
+  @override
+  String get insuranceClauseAirAllRisks => 'Air Cargo All Risks (0.20%)';
+  @override
+  String get insuranceClauseIccB => 'ICC (B) — Intermediate Risks (0.15%)';
+  @override
+  String get insuranceClauseIccC => 'ICC (C) — Minimum Cargo Risks (0.10%)';
+  @override
+  String get insuranceWarAndStrikesTitle => 'Include War & Strikes Clauses (+0.05%)';
+  @override
+  String get insuranceWarAndStrikesSubtitle => 'Mandatory add-on for Letter of Credit (L/C) compliance';
+  @override
+  String get insuranceSecBreakdownTitle => 'Real-Time Premium Breakdown';
+  @override
+  String get insuranceBreakdownCifBase => 'CIF Base Value:';
+  @override
+  String get insuranceBreakdownInsuredValue => 'Insured Value (110% CIF):';
+  @override
+  String insuranceBreakdownBasePremium(String rate) => 'Base Premium ($rate%):';
+  @override
+  String get insuranceBreakdownWarStrikes => 'War & Strikes Add-on (0.05%):';
+  @override
+  String get insuranceBreakdownNetPremium => 'Net Premium (Min Floor):';
+  @override
+  String get insuranceBreakdownIssuanceFee => 'Issuance Fee & Stamp Duty:';
+  @override
+  String get insuranceBreakdownTaxes => 'Taxes & Levies (5%):';
+  @override
+  String get insuranceBreakdownTotalPayable => 'Total Payable Gross Premium:';
+  @override
+  String get insuranceSecCargoSpecs => 'Cargo Description & Packages';
+  @override
+  String get insuranceFieldGoodsDesc => 'Goods Description';
+  @override
+  String get insuranceFieldGoodsDescHint => 'e.g. Industrial machinery & spare parts';
+  @override
+  String get insuranceFieldPackagesCount => 'Packages Count';
+  @override
+  String get insuranceFieldGrossWeight => 'Gross Weight (KG)';
+  @override
+  String get insuranceSavingState => 'Saving certificate...';
+  @override
+  String get insuranceSaveDraftBtn => 'Save Certificate Draft';
+  @override
+  String get insuranceCreatedSuccessMsg => '✅ Insurance Certificate created successfully!';
+  @override
+  String get insuranceUpdatedSuccessMsg => '✅ Insurance Certificate updated successfully!';
+  @override
+  String insuranceSaveErrorMsg(String err) => '❌ Failed to save certificate: $err';
+
+  @override
+  String get insurancePreviewCertificateHeader => 'CERTIFICATE OF CARGO INSURANCE';
+  @override
+  String get insurancePreviewOfficialIssuedBadge => 'OFFICIALLY ISSUED';
+  @override
+  String get insurancePreviewDraftBadge => 'DRAFT CERTIFICATE';
+  @override
+  String get insurancePreviewSecInsuredDetails => '1. Insured & Policy Details';
+  @override
+  String get insurancePreviewInsuredLabel => 'Insured (Consignee):';
+  @override
+  String get insurancePreviewCompanyLabel => 'Insurance Company:';
+  @override
+  String get insurancePreviewPolicyNoLabel => 'Policy Number:';
+  @override
+  String get insurancePreviewPolicyTypeLabel => 'Policy Type:';
+  @override
+  String get insurancePreviewSecRouteDetails => '2. Voyage & Transport Route';
+  @override
+  String get insurancePreviewTransportModeLabel => 'Transport Mode:';
+  @override
+  String get insurancePreviewVesselFlightLabel => 'Vessel / Flight:';
+  @override
+  String get insurancePreviewPolLabel => 'Port of Loading (POL):';
+  @override
+  String get insurancePreviewPodLabel => 'Port of Discharge (POD):';
+  @override
+  String get insurancePreviewTrackingLabel => 'Tracking / B/L Ref:';
+  @override
+  String get insurancePreviewSecValuation => '3. Valuation & Insured Sum';
+  @override
+  String get insurancePreviewInvoiceFobLabel => 'Commercial Invoice (FOB):';
+  @override
+  String get insurancePreviewFreightLabel => 'Freight & Logistics:';
+  @override
+  String get insurancePreviewCifBaseLabel => 'CIF Base Value:';
+  @override
+  String get insurancePreviewInsuredSumLabel => 'Insured Sum (110% CIF):';
+  @override
+  String get insurancePreviewSecPremium => '4. Premium Breakdown';
+  @override
+  String get insurancePreviewCoverageClauseLabel => 'Coverage Clause:';
+  @override
+  String get insurancePreviewBasePremiumLabel => 'Base Premium:';
+  @override
+  String get insurancePreviewWarStrikesLabel => 'War & Strikes Add-on:';
+  @override
+  String get insurancePreviewFeesTaxesLabel => 'Fees, Stamp Duty & Taxes:';
+  @override
+  String get insurancePreviewTotalGrossPremiumLabel => 'Total Payable Gross Premium:';
+  @override
+  String get insurancePreviewSecCargoSpecs => '5. Cargo Specifications & Clauses';
+  @override
+  String get insurancePreviewDescPrefix => 'Description:';
+  @override
+  String get insurancePreviewPackagesPrefix => 'Packages & Weight:';
+  @override
+  String get insurancePreviewGrossWtPrefix => 'Gross Wt:';
+  @override
+  String get insurancePreviewSurveyAgentPrefix => 'Survey / Claims Settling Agent:';
+  @override
+  String get insurancePreviewClaimsPayablePrefix => 'Claims Payable At:';
+  @override
+  String get insurancePreviewLegalDisclaimer => 'Official Document for Customs Clearance & Bank Form 4';
+  @override
+  String get insurancePreviewPrintBtn => 'Print / Export PDF';
+  @override
+  String get insurancePreviewPrintReadySnack => '🖨️ Ready for printing / PDF generation';
+
+  // ─── HS Code Search & Customs Explorer Screen ──────────────────────────────
+  @override
+  String get hsExplorerTitle => 'HS Code Explorer & Tariff History';
+  @override
+  String get hsExplorerSubtitle => 'Real-time inquiries on Egyptian customs tariff codes, taxes, preferential agreements, regulatory requirements, and change history.';
+  @override
+  String get hsSearchPlaceholder => 'Search by HS Code, description, category, or decree code...';
+  @override
+  String get hsQuickSearchExamples => 'Quick Search Examples:';
+  @override
+  String get hsMatchingResultsHeader => 'Matching Tariff Items';
+  @override
+  String hsItemsCount(int count) => '$count items';
+  @override
+  String hsNoMatchingItemFound(String query) => 'No items matching "$query"';
+  @override
+  String hsDutyRateTag(dynamic rate) => 'Duty: $rate%';
+  @override
+  String get hsSelectFromListPrompt => 'Select a tariff item from the list to preview its comprehensive details and update history';
+  @override
+  String hsCategoryPrefix(String cat) => 'Category: $cat';
+  @override
+  String hsEffectiveFromPrefix(String from) => 'Effective from: $from';
+  @override
+  String hsEffectiveToPrefix(String to) => 'to $to';
+  @override
+  String get hsEffectiveActiveRecord => '(Approved Live Record)';
+  @override
+  String get hsDiffHistoryAction => 'Evolution & Diffs Analysis ➔';
+  @override
+  String get hsTabTaxRates => 'Taxes & Duties';
+  @override
+  String get hsTabAgreements => 'Trade Agreements';
+  @override
+  String get hsTabRegulatory => 'Regulatory Requirements';
+  @override
+  String get hsTabHistory => 'Update History & Timeline';
+  @override
+  String get hsTabQuickCalculator => 'Instant Duty Calculator';
+  @override
+  String get hsTaxRatesSectionHeader => 'Statutory Tax & Customs Duty Rates Breakdown:';
+  @override
+  String get hsTaxImportDutyTitle => 'Customs Import Duty';
+  @override
+  String get hsTaxImportDutySub => 'Percentage of CIF customs value';
+  @override
+  String get hsTaxVatTitle => 'Value Added Tax (VAT)';
+  @override
+  String get hsTaxVatSub => 'Percentage of comprehensive tax base';
+  @override
+  String get hsTaxScheduleTitle => 'Schedule Tax';
+  @override
+  String get hsTaxScheduleSub => 'Additional tax per tariff line';
+  @override
+  String get hsTaxDevFeeTitle => 'Development Fee';
+  @override
+  String get hsTaxDevFeeSub => 'Financial resources development fee';
+  @override
+  String get hsTaxImportFeeTitle => 'Import Surcharge Fee';
+  @override
+  String get hsTaxImportFeeSub => 'Specific/fixed import fee if applicable';
+  @override
+  String get hsTaxServiceFeeTitle => 'Customs Service Fees';
+  @override
+  String get hsTaxServiceFeeSub => 'Customs inspection & services';
+  @override
+  String get hsEgyptianCalculationRule => 'Egyptian Customs Calculation Rule: Import duty is applied first on total CIF value (FOB + Freight + Insurance), then VAT base is calculated as (CIF + Import Duty + Applicable Specific Fees).';
+  @override
+  String get hsNoAgreementsFound => 'No preferential trade agreements recorded for this item (Standard general tariff applies).';
+  @override
+  String get hsDefaultAgreementName => 'Preferential Agreement';
+  @override
+  String hsRequiredDocPrefix(String doc) => 'Required Document: $doc';
+  @override
+  String hsConditionsPrefix(String note) => 'Conditions: $note';
+  @override
+  String get hsFullExemptionBadge => 'Full Exemption (0%)';
+  @override
+  String hsReducedRateBadge(dynamic rate) => 'Reduced Rate ($rate%)';
+  @override
+  String get hsRegulatorySectionHeader => 'Prior Regulatory Approvals & Clearance Conditions:';
+  @override
+  String get hsReqAcidSystem => 'ACID Pre-Registration System';
+  @override
+  String get hsReqCertificateOfOrigin => 'Certificate of Origin (COO)';
+  @override
+  String get hsReqQualityInspection => 'Quality Conformity Inspection (COC)';
+  @override
+  String hsRegulatoryAuthorityPrefix(String auth) => 'Competent Regulatory Authority: $auth';
+  @override
+  String get hsDecreesAndNotesHeader => 'Restricting Regulatory Decrees & Circulars:';
+  @override
+  String hsHistorySummaryTitle(String code) => 'Historical Revision & Version Timeline for HS Code ($code)';
+  @override
+  String hsHistoryMultipleVersionsDesc(int count) => 'This item has ($count) recorded historical versions with different validity periods.';
+  @override
+  String get hsHistorySingleVersionDesc => 'The item is approved in its active live version and registered under audit protection.';
+  @override
+  String hsVersionsCountTag(int count) => '$count versions';
+  @override
+  String get hsTimelineSectionTitle => 'Tariff Versions Timeline:';
+  @override
+  String get hsNoHistoricalVersions => 'No previous version records registered.';
+  @override
+  String get hsActiveLiveVersionBadge => 'Active Live Version';
+  @override
+  String get hsArchivedSnapshotBadge => 'Archived Historical Snapshot';
+  @override
+  String hsRegistrationDatePrefix(String date) => 'Registered on: $date';
+  @override
+  String hsValidityPeriodPrefix(String from, String to) => 'Validity Period: From $from to $to';
+  @override
+  String hsApprovedDescPrefix(String desc) => 'Approved Description: $desc';
+  @override
+  String hsLinkedAgreementsTag(dynamic count) => 'Linked Agreements: $count';
+  @override
+  String get hsVersionDiffsSummaryHeader => 'Summary of Changes Between Historical Versions:';
+  @override
+  String hsDiffTitle(String older, String newer) => 'Historical Change: From version ($older) ➔ to version ($newer)';
+  @override
+  String hsDiffDutyChanged(dynamic oldRate, dynamic newRate) => 'Import Duty: changed from $oldRate% to $newRate%';
+  @override
+  String hsDiffVatChanged(dynamic oldRate, dynamic newRate) => 'VAT: changed from $oldRate% to $newRate%';
+  @override
+  String hsDiffScheduleChanged(dynamic oldRate, dynamic newRate) => 'Schedule Tax: changed from $oldRate% to $newRate%';
+  @override
+  String hsDiffAgreementsChanged(dynamic oldAg, dynamic newAg) => 'Trade Agreements: count changed from $oldAg to $newAg agreements';
+  @override
+  String get hsDiffMetadataChanged => 'Updated metadata, regulatory authorities, and document conditions';
+  @override
+  String get hsAuditTrailSectionTitle => 'System Audit Trail & Log History:';
+  @override
+  String get hsNoAuditLogsFound => 'No direct audit logs recorded yet (Generated by system).';
+  @override
+  String hsAuditPerformedBy(String by, String date) => 'By: $by • Date: $date';
+  @override
+  String get hsCalculatorSectionHeader => 'Instant Customs Duty & Tax Calculation for this Item:';
+  @override
+  String get hsCifValueLabel => 'Shipment CIF Value (in USD \$)';
+  @override
+  String get hsFreightValueLabel => 'Freight Cost (\$)';
+  @override
+  String get hsOriginCountryLabel => 'Country of Origin / Trade Agreement';
+  @override
+  String get hsOriginItalyEur1 => 'Italy (EU Partnership EUR.1)';
+  @override
+  String get hsOriginGermanyEur1 => 'Germany (EU Partnership EUR.1)';
+  @override
+  String get hsOriginChinaGeneral => 'China (Standard General Tariff)';
+  @override
+  String get hsOriginTurkeyFta => 'Turkey (FTA Trade Agreement)';
+  @override
+  String get hsOriginBrazilMercosur => 'Brazil (Mercosur Trade Agreement)';
+  @override
+  String get hsOriginSerbiaFta => 'Serbia (FTA Trade Agreement)';
+  @override
+  String get hsOriginUkPartnership => 'United Kingdom (Partnership Agreement)';
+  @override
+  String get hsCalculateDutyBtn => 'Calculate Duties';
+  @override
+  String hsTotalTaxesAndFeesDue(String amount) => 'Total Due Taxes & Customs Fees: $amount EGP';
+  @override
+  String hsNotePrefix(String note) => 'Note: $note';
+  @override
+  String hsImportDutyBreakdown(dynamic rate, String amount) => 'Import Duty ($rate%): $amount EGP';
+  @override
+  String hsVatBreakdown(dynamic rate, String amount) => 'VAT ($rate%): $amount EGP';
+  @override
+  String hsScheduleBreakdown(String amount) => 'Schedule Tax: $amount EGP';
+  @override
+  String hsServiceFeeBreakdown(String amount) => 'Service Fees: $amount EGP';
+  @override
+  String get hsDatePresentOngoing => 'Present (Ongoing)';
+  @override
+  String get hsDateToday => 'Today';
+  @override
+  String get hsDateInitial => 'Initial';
+  @override
+  String get hsActionExecuted => 'Action executed';
+
+  // Dynamic Report Builder
+  @override
+  String get dynReportBuilderTitle => 'Dynamic Custom Report Builder';
+  @override
+  String get dynReportBuilderSubtitle => 'Customize & generate shipment reports with Excel & PDF export';
+  @override
+  String dynCustomizeColumnsBtn(int visible, int total) => 'Customize Columns ($visible/$total)';
+  @override
+  String dynExportExcelBtn(int count) => 'Export Excel [$count]';
+  @override
+  String dynExportPdfBtn(int count) => 'Export PDF [$count]';
+  @override
+  String get dynFilterModeLabel => 'Shipping Mode';
+  @override
+  String get dynFilterPriorityLabel => 'Priority';
+  @override
+  String get dynSearchPlaceholder => 'Dynamic search by file code, company, or supplier...';
+  @override
+  String get dynModeAll => 'All';
+  @override
+  String get dynModeSeaFcl => 'Ocean FCL';
+  @override
+  String get dynModeSeaLcl => 'Ocean LCL';
+  @override
+  String get dynModeAir => 'Air Freight';
+  @override
+  String get dynModeCourier => 'Courier';
+  @override
+  String get dynModeLand => 'Land Freight';
+  @override
+  String get dynModeMultimodal => 'Multimodal';
+  @override
+  String get dynPriorityAll => 'All';
+  @override
+  String get dynPriorityHigh => 'High';
+  @override
+  String get dynPriorityCritical => 'Critical';
+  @override
+  String get dynPriorityMedium => 'Medium';
+  @override
+  String get dynColumnPickerTitle => 'Dynamic Column Picker';
+  @override
+  String get dynApplyColumnsBtn => 'Apply Selected Columns';
+  @override
+  String get dynExportCsvTitle => 'Dynamic Report Export (Excel CSV)';
+  @override
+  String get dynExportCsvGeneratedMsg => 'Custom report generated successfully. You can copy it to use in Excel:';
+  @override
+  String dynFetchReportError(String err) => 'Error fetching report data: $err';
+  @override
+  String get dynNoMatchingShipments => 'No shipments match the selected dynamic report filters.';
+  @override
+  String get dynPdfReportTitle => 'ImportFlow ERP — Dynamic Shipment Report';
+  @override
+  String get dynPdfConfidential => 'ImportFlow ERP — Confidential & Internal Use';
+  @override
+  String dynPdfGenerated(String date, int count) => 'Generated: $date | Total Records: $count';
+  @override
+  String get dynColImportFileCode => 'File Code';
+  @override
+  String get dynColCompanyName => 'Importing Company';
+  @override
+  String get dynColSupplierName => 'Foreign Supplier';
+  @override
+  String get dynColBrokerName => 'Customs Broker';
+  @override
+  String get dynColAcidNumber => 'ACID Number';
+  @override
+  String get dynColForm4No => 'Form 4 Number';
+  @override
+  String get dynColForm46No => 'Customs Declaration 46';
+  @override
+  String get dynColShipmentMode => 'Shipping Mode';
+  @override
+  String get dynColIncotermCode => 'Incoterm Rule';
+  @override
+  String get dynColPriority => 'Priority';
+  @override
+  String get dynColEstimatedCost => 'Estimated Value (PI)';
+  @override
+  String get dynColRequiredEta => 'Estimated Arrival (ETA)';
+  @override
+  String get dynColCurrentStage => 'Current Stage';
+  @override
+  String get dynColProgressPercent => 'Progress %';
+  @override
+  String get dynColOwner => 'Owner / Assignee';
+  @override
+  String get dynColStatus => 'File Status';
 }
 
 

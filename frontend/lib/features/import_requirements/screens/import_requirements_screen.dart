@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
@@ -10,6 +11,9 @@ import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
+import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
+import '../../operational_dashboard/providers/operational_dashboard_provider.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../models/import_requirement_model.dart';
 import '../providers/import_requirements_provider.dart';
 
@@ -553,6 +557,12 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         }
       }
 
+      // Invalidate board and dashboard states for instant live reflection
+      ref.invalidate(lifecycleBoardSummaryProvider);
+      ref.invalidate(operationalDashboardProvider);
+      ref.invalidate(smartTasksProvider);
+      ref.invalidate(importFilesProvider);
+
       _resetForm();
       _mainTabController.animateTo(1);
     } catch (e) {
@@ -749,7 +759,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               _buildStepNode(
                 step: '1',
                 title: l10n.acidIssuanceStep,
-                subtitle: _acidNumberCtrl.text.isNotEmpty ? _acidNumberCtrl.text : l10n.pending,
+                subtitle: _acidNumberCtrl.text.isNotEmpty
+                    ? _acidNumberCtrl.text
+                    : (ref.watch(localeProvider).languageCode == 'ar' ? 'يُستخرج لاحقاً (مرحلة ACID)' : 'Issued in ACID Phase'),
                 isCompleted: _acidNumberCtrl.text.isNotEmpty,
                 isActive: true,
               ),
@@ -892,10 +904,13 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                   controller: _acidNumberCtrl,
                   decoration: InputDecoration(
                     labelText: l10n.acidNumberFieldLabel,
+                    hintText: l10n.acidNumberOptionalHint,
+                    helperText: l10n.acidNumberOptionalHint,
+                    helperStyle: TextStyle(fontSize: 10, color: Colors.blueGrey.shade600),
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.numbers, color: AppTheme.cobalt, size: 18),
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? l10n.acidNumberRequiredError : null,
+                  validator: null, // Optional in Pre-Planning / Requirements Stage
                 ),
               ),
               const SizedBox(width: 12),

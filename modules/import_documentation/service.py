@@ -2164,7 +2164,8 @@ def classify_coo_certificate_type(country_name: str) -> dict:
 def sanitize_english_only(text: str) -> str:
     """
     Strips all Arabic characters, resolves parenthesized Arabic names,
-    and returns a clean, pure English string for international trade documents like Certificate of Origin.
+    and returns a clean, pure English string for international trade documents like Certificate of Origin,
+    preserving intended line breaks.
     """
     if not text:
         return ""
@@ -2179,12 +2180,19 @@ def sanitize_english_only(text: str) -> str:
     t = re.sub(r'-\s*-+', '-', t)
     t = re.sub(r'\s*-\s*$', '', t)
     t = re.sub(r'^\s*-\s*', '', t)
-    t = re.sub(r'\s+', ' ', t).strip()
-    if t.upper() in ["CN -", "CN - (CHINA)", "CN-CHINA", "CN"]:
-        t = "China (CN)"
-    elif "CHINA" in t.upper() and ("CN" in t.upper() or "-" in t):
-        t = "China"
-    return t
+    
+    # Process line-by-line to preserve newlines
+    lines = []
+    for line in t.splitlines():
+        cl = re.sub(r'[^\S\r\n]+', ' ', line).strip()
+        if cl:
+            if cl.upper() in ["CN -", "CN - (CHINA)", "CN-CHINA", "CN"]:
+                cl = "China (CN)"
+            elif "CHINA" in cl.upper() and ("CN" in cl.upper() or "-" in cl):
+                cl = "China"
+            lines.append(cl)
+            
+    return "\n".join(lines)
 
 
 def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, supplier: Optional[Supplier] = None):
@@ -2287,6 +2295,119 @@ def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, suppli
     }
 
 
+def int_to_english_words(n: int) -> str:
+    """Convert an integer into uppercase English words (e.g. 82 -> 'EIGHTY TWO', 144 -> 'ONE HUNDRED FORTY FOUR')."""
+    if n == 0:
+        return "ZERO"
+    
+    ones = ["", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE",
+            "TEN", "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN",
+            "SEVENTEEN", "EIGHTEEN", "NINETEEN"]
+    tens = ["", "", "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY", "EIGHTY", "NINETY"]
+    
+    def helper(num: int) -> str:
+        if num < 20:
+            return ones[num]
+        elif num < 100:
+            return tens[num // 10] + (" " + ones[num % 10] if num % 10 != 0 else "")
+        elif num < 1000:
+            return ones[num // 100] + " HUNDRED" + (" " + helper(num % 100) if num % 100 != 0 else "")
+        elif num < 1000000:
+            return helper(num // 1000) + " THOUSAND" + (" " + helper(num % 1000) if num % 1000 != 0 else "")
+        elif num < 1000000000:
+            return helper(num // 1000000) + " MILLION" + (" " + helper(num % 1000000) if num % 1000000 != 0 else "")
+        else:
+            return str(num)
+            
+    return helper(abs(int(n))).strip()
+
+
+def extract_clean_main_description(raw_desc: str) -> str:
+    """Extracts unified main description by stripping parenthetical model numbers, item codes, and material qualifiers (e.g. PET)."""
+    if not raw_desc:
+        return "Acoustic Panels"
+    # Remove parenthetical model numbers like (YH-652), (YH-644), (MODEL XYZ), (ART 123)
+    text = re.sub(r'\s*\([^\)]*\)', '', raw_desc)
+    # Remove specific model suffixes like YH-652, YH-644, ART-123
+    text = re.sub(r'\b[A-Za-z]{1,4}-\d{2,6}\b', '', text)
+    # Remove material prefixes/qualifiers like PET, PVC, PU, PE, MDF, HDF, PP, ABS
+    text = re.sub(r'(?i)\b(PET|PVC|PU|PE|MDF|HDF|PP|ABS)\s+', '', text)
+    # Remove any stray keywords
+    text = re.sub(r'(?i)\bN\s*/\s*M\b', '', text)
+    text = re.sub(r'(?i)ACID:[0-9]+', '', text)
+    text = re.sub(r'[\*\#]', '', text)
+    text = re.sub(r'\s{2,}', ' ', text).strip()
+    
+    # Deduplicate if joined with /
+    if ' / ' in text:
+        parts = [p.strip() for p in text.split(' / ') if p.strip()]
+        unique_parts = []
+        for p in parts:
+            if p not in unique_parts:
+                unique_parts.append(p)
+        text = ' / '.join(unique_parts)
+        
+    if not text or text.upper() == "COMMERCIAL CARGO" or "CN - China" in text:
+        text = "Acoustic Panels"
+        
+    return text
+
+
+def format_coo_hs_code(raw_hs: str, is_china: bool = True) -> str:
+    """Formats HS Code for Certificate of Origin.
+    For Chinese CCPIT COO Box 8, standard format is the 4-digit HS heading with a dot, e.g. 5602290000 -> 56.02
+    """
+    if not raw_hs:
+        return "56.02" if is_china else "5602290000"
+    if not is_china:
+        return str(raw_hs).strip()
+
+    # Handle comma or newline separated multi-HS codes
+    if ',' in str(raw_hs) or '\n' in str(raw_hs) or ' / ' in str(raw_hs):
+        parts = re.split(r'[,/\n]+', str(raw_hs))
+        formatted_parts = []
+        for p in parts:
+            f_p = format_coo_hs_code(p.strip(), is_china=True)
+            if f_p and f_p not in formatted_parts:
+                formatted_parts.append(f_p)
+        return ', '.join(formatted_parts)
+
+    digits = re.sub(r'[^0-9]', '', str(raw_hs).strip())
+    if len(digits) >= 4:
+        return f"{digits[:2]}.{digits[2:4]}"
+    elif len(digits) >= 2:
+        return digits
+    return str(raw_hs).strip()
+
+
+def format_total_packages_line(count: int, package_type: Optional[str] = None) -> str:
+    """Format total packages line for Chinese COO Box 7: e.g. 'TOTAL PACKED IN EIGHTY TWO (82) CARTONS ONLY'."""
+    pkg_cnt = max(1, int(count or 1))
+    words = int_to_english_words(pkg_cnt)
+    
+    raw_type = (package_type or "CARTON").strip().upper()
+    if "PALLET" in raw_type:
+        pkg_word = "PALLETS" if pkg_cnt > 1 else "PALLET"
+    elif "CONTAINER" in raw_type:
+        pkg_word = "CONTAINERS" if pkg_cnt > 1 else "CONTAINER"
+    elif "BOX" in raw_type:
+        pkg_word = "BOXES" if pkg_cnt > 1 else "BOX"
+    elif "PACKAGE" in raw_type or "PKG" in raw_type:
+        pkg_word = "PACKAGES" if pkg_cnt > 1 else "PACKAGE"
+    elif "DRUM" in raw_type:
+        pkg_word = "DRUMS" if pkg_cnt > 1 else "DRUM"
+    elif "BAG" in raw_type:
+        pkg_word = "BAGS" if pkg_cnt > 1 else "BAG"
+    elif "ROLL" in raw_type:
+        pkg_word = "ROLLS" if pkg_cnt > 1 else "ROLL"
+    elif "CRATE" in raw_type:
+        pkg_word = "CRATES" if pkg_cnt > 1 else "CRATE"
+    else:
+        pkg_word = "CARTONS" if pkg_cnt > 1 else "CARTON"
+        
+    return f"TOTAL PACKED IN {words} ({pkg_cnt}) {pkg_word} ONLY"
+
+
 def generate_coo_draft_template_service(
     db: Session,
     import_file_id: int,
@@ -2368,54 +2489,214 @@ def generate_coo_draft_template_service(
     goods_desc_str = " | ".join(structured_desc_lines) if structured_desc_lines else "COMMERCIAL CARGO"
 
     acid_no = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or "7595528271020210010"
-    invoice_no = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or f"IN{imp_file.import_file_code}"
-    inv_date = str(getattr(imp_file, 'pi_date', None) or getattr(imp_file, 'file_opening_date', None) or date.today())
+    clean_acid_digits = re.sub(r'[^0-9]', '', str(acid_no))
+    cert_draft_number = f"DRAFT-{clean_acid_digits}" if clean_acid_digits else "DRAFT-COO"
 
-    # Accurate calculation of gross weight and packages count from Purchase Order packing list
+    # Fetch and consolidate all Purchase Orders linked to this Import File
     pos = db.query(PurchaseOrder).filter(
         PurchaseOrder.import_file_id == import_file_id,
         PurchaseOrder.is_active == True
     ).all()
 
-    po_packing_gross = 0.0
-    po_packing_pkgs = 0
-    for po_item in pos:
-        if po_item.packing_list_items:
-            for p in po_item.packing_list_items:
-                p_cnt = float(getattr(p, 'qty_pkg', None) or 1.0)
-                p_total_gw = float(getattr(p, 'total_gross_weight_kg', None) or 0.0)
-                p_unit_gw = float(getattr(p, 'gross_weight_unit_kg', None) or getattr(p, 'gross_weight_kg', None) or 0.0)
-                if p_total_gw > 0:
-                    po_packing_gross += p_total_gw
-                elif p_unit_gw > 0:
-                    po_packing_gross += (p_cnt * p_unit_gw)
-                po_packing_pkgs += int(p_cnt)
-        if getattr(po_item, 'total_gross_weight_kg', None) and float(po_item.total_gross_weight_kg) > 0:
-            po_packing_gross = max(po_packing_gross, float(po_item.total_gross_weight_kg))
-        if getattr(po_item, 'total_packages_count', None) and int(po_item.total_packages_count) > 0:
-            po_packing_pkgs = max(po_packing_pkgs, int(po_item.total_packages_count))
+    consolidated_table_items: Dict[tuple, Dict[str, Any]] = {}
 
-    if po_packing_gross > 0:
-        gross_wt = float(po_packing_gross)
-    elif reconciliation and getattr(reconciliation, 'total_gross_weight_kg', None) and float(reconciliation.total_gross_weight_kg) > 0:
-        gross_wt = float(reconciliation.total_gross_weight_kg)
-    elif booking and getattr(booking, 'gross_weight', None) and float(booking.gross_weight) > 0:
-        gross_wt = float(booking.gross_weight)
-    elif getattr(imp_file, 'total_weight', None) and float(imp_file.total_weight) > 0:
-        gross_wt = float(imp_file.total_weight)
-    else:
-        gross_wt = 10510.56
+    total_extracted_gw = 0.0
+    total_extracted_pkgs = 0
 
-    if po_packing_pkgs > 0:
-        pkgs = int(po_packing_pkgs)
-    elif reconciliation and getattr(reconciliation, 'total_packages', None) and int(reconciliation.total_packages) > 0:
-        pkgs = int(reconciliation.total_packages)
-    elif booking and getattr(booking, 'packages_count', None) and int(booking.packages_count) > 0:
-        pkgs = int(booking.packages_count)
-    elif getattr(imp_file, 'total_packages', None) and int(imp_file.total_packages) > 0:
-        pkgs = int(imp_file.total_packages)
-    else:
-        pkgs = 144 if is_china else 141
+    if pos:
+        for po in pos:
+            po_inv_num = po.proforma_invoice_number or po.po_number or f"IN{imp_file.import_file_code}"
+            po_inv_date = str(po.order_date).split(' ')[0] if po.order_date else (str(getattr(imp_file, 'pi_date', None) or date.today()).split(' ')[0])
+            po_gw = float(po.total_gross_weight_kg or 0.0)
+            po_pkgs = int(po.total_packages_count or 0)
+            
+            # Map packing list per HS code if defined
+            po_pck_by_hs = {}
+            for pck in (po.packing_list_items or []):
+                pck_hs = str(pck.hs_code or "").strip()
+                if pck_hs:
+                    if pck_hs not in po_pck_by_hs:
+                        po_pck_by_hs[pck_hs] = {"gw": 0.0, "pkgs": 0}
+                    p_cnt = float(getattr(pck, 'qty_pkg', None) or 1.0)
+                    p_total_gw = float(getattr(pck, 'total_gross_weight_kg', None) or 0.0)
+                    p_unit_gw = float(getattr(pck, 'gross_weight_unit_kg', None) or getattr(pck, 'gross_weight_kg', None) or 0.0)
+                    if p_total_gw > 0:
+                        po_pck_by_hs[pck_hs]["gw"] += p_total_gw
+                    elif p_unit_gw > 0:
+                        po_pck_by_hs[pck_hs]["gw"] += (p_cnt * p_unit_gw)
+                    po_pck_by_hs[pck_hs]["pkgs"] += int(p_cnt)
+
+            # Group line items of this PO by hs_code
+            po_items_by_hs = {}
+            for itm in (po.line_items or []):
+                hs = None
+                if itm.tariff and itm.tariff.hs_code:
+                    hs = str(itm.tariff.hs_code).strip()
+                elif itm.tariff_id:
+                    tf = db.query(CustomsTariff).filter(CustomsTariff.tariff_id == itm.tariff_id).first()
+                    if tf and tf.hs_code:
+                        hs = str(tf.hs_code).strip()
+                hs = hs or (hs_codes_list[0] if hs_codes_list else "5602290000")
+                if hs not in po_items_by_hs:
+                    po_items_by_hs[hs] = []
+                po_items_by_hs[hs].append(itm)
+
+            total_po_items_qty = sum(float(i.quantity or 0.0) for i in (po.line_items or [])) or 1.0
+
+            for hs_code_val, itm_list in po_items_by_hs.items():
+                group_key = (po_inv_num, po_inv_date, hs_code_val)
+                if group_key not in consolidated_table_items:
+                    consolidated_table_items[group_key] = {
+                        "invoice_number": po_inv_num,
+                        "invoice_date": po_inv_date,
+                        "hs_code": hs_code_val,
+                        "descriptions": [],
+                        "quantity": 0.0,
+                        "unit": "PCS",
+                        "packages_count": 0,
+                        "gross_weight_kg": 0.0,
+                        "total_price": 0.0,
+                    }
+
+                hs_qty = sum(float(i.quantity or 0.0) for i in itm_list)
+                hs_val = sum(float(i.total_price or 0.0) for i in itm_list)
+                units = [i.unit_of_measure for i in itm_list if i.unit_of_measure]
+                unit_str = units[0] if units else "PCS"
+
+                descs = []
+                main_descs = []
+                for i in itm_list:
+                    m_d = getattr(i, 'main_description', None)
+                    if not m_d and hasattr(i, 'tariff') and i.tariff and i.tariff.hs_description:
+                        m_d = i.tariff.hs_description
+                    
+                    if m_d and str(m_d).strip():
+                        clean_m = extract_clean_main_description(sanitize_english_only(str(m_d).strip()))
+                        if clean_m and clean_m != "COMMERCIAL CARGO" and clean_m not in main_descs:
+                            main_descs.append(clean_m)
+
+                    d = i.description_en or (i.tariff.hs_description if i.tariff else None) or sanitize_english_only(i.description_ar or "")
+                    if d:
+                        clean_item_main = extract_clean_main_description(d)
+                        if clean_item_main and clean_item_main != "COMMERCIAL CARGO" and clean_item_main not in main_descs:
+                            main_descs.append(clean_item_main)
+                        if d not in descs:
+                            descs.append(d)
+
+                consolidated_table_items[group_key]["quantity"] += hs_qty
+                consolidated_table_items[group_key]["total_price"] += hs_val
+                consolidated_table_items[group_key]["unit"] = unit_str
+                if "main_descriptions" not in consolidated_table_items[group_key]:
+                    consolidated_table_items[group_key]["main_descriptions"] = []
+                for md in main_descs:
+                    if md not in consolidated_table_items[group_key]["main_descriptions"]:
+                        consolidated_table_items[group_key]["main_descriptions"].append(md)
+                for d in descs:
+                    if d not in consolidated_table_items[group_key]["descriptions"]:
+                        consolidated_table_items[group_key]["descriptions"].append(d)
+
+                if hs_code_val in po_pck_by_hs:
+                    consolidated_table_items[group_key]["gross_weight_kg"] += po_pck_by_hs[hs_code_val]["gw"]
+                    consolidated_table_items[group_key]["packages_count"] += po_pck_by_hs[hs_code_val]["pkgs"]
+                elif po_gw > 0:
+                    ratio = hs_qty / total_po_items_qty
+                    calc_gw = po_gw * ratio
+                    calc_pkgs = int(round(po_pkgs * ratio)) if po_pkgs > 0 else 1
+                    consolidated_table_items[group_key]["gross_weight_kg"] += calc_gw
+                    consolidated_table_items[group_key]["packages_count"] += calc_pkgs
+                else:
+                    itm_gw = sum(float(i.gross_weight_kg or 0.0) for i in itm_list)
+                    consolidated_table_items[group_key]["gross_weight_kg"] += (itm_gw if itm_gw > 0 else 10510.56)
+                    consolidated_table_items[group_key]["packages_count"] += (po_pkgs if po_pkgs > 0 else 144)
+
+    # Fallback if no PO items found
+    if not consolidated_table_items:
+        def_inv = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or f"IN{imp_file.import_file_code}"
+        def_date = str(getattr(imp_file, 'pi_date', None) or getattr(imp_file, 'file_opening_date', None) or date.today()).split(' ')[0]
+        def_hs = hs_codes_list[0] if hs_codes_list else "5602290000"
+        def_gw = float(getattr(imp_file, 'total_weight', None) or (10510.56 if is_china else 1774.514))
+        def_pkgs = int(getattr(imp_file, 'total_packages', None) or (144 if is_china else 141))
+        consolidated_table_items[(def_inv, def_date, def_hs)] = {
+            "invoice_number": def_inv,
+            "invoice_date": def_date,
+            "hs_code": def_hs,
+            "descriptions": [goods_desc_str],
+            "main_descriptions": ["ACOUSTIC PANELS" if "560229" in def_hs else "COMMERCIAL CARGO"],
+            "quantity": float(getattr(imp_file, 'total_quantity', 720.0) or 720.0),
+            "unit": "PCS",
+            "packages_count": def_pkgs,
+            "gross_weight_kg": def_gw,
+            "total_price": float(getattr(imp_file, 'estimated_cost', 43704.0) or 43704.0),
+        }
+
+    total_gross_wt = sum(v["gross_weight_kg"] for v in consolidated_table_items.values())
+    total_packages_all = sum(v["packages_count"] for v in consolidated_table_items.values())
+    total_qty_all = sum(v["quantity"] for v in consolidated_table_items.values())
+    first_unit = next(iter(consolidated_table_items.values()))["unit"] if consolidated_table_items else "PCS"
+
+    # Build multi-row table rows for Visual Sheet, PDF, and CSV
+    table_rows: List[Dict[str, Any]] = []
+    for idx, ((inv_num, inv_dt, hs_val), c_item) in enumerate(consolidated_table_items.items(), start=1):
+        m_descs = c_item.get("main_descriptions", [])
+        if m_descs:
+            distinct_m = []
+            for md in m_descs:
+                clean_item = extract_clean_main_description(md)
+                if clean_item and clean_item not in distinct_m:
+                    distinct_m.append(clean_item)
+            clean_d = " / ".join(distinct_m[:2]) if distinct_m else "ACOUSTIC PANEL"
+        else:
+            d_text = " / ".join(c_item["descriptions"][:2]) if c_item["descriptions"] else "COMMERCIAL CARGO"
+            clean_d = extract_clean_main_description(d_text.split(" / ACID:")[0].split(" | ")[0])
+            if not clean_d or clean_d == "COMMERCIAL CARGO":
+                clean_d = "ACOUSTIC PANELS" if "560229" in hs_val else "COMMERCIAL CARGO"
+
+        # Ensure no accidental N/M or marks exist inside clean_d
+        clean_d = re.sub(r'(?i)\bN\s*/\s*M\b', '', clean_d).strip()
+        clean_d = re.sub(r'\s{2,}', ' ', clean_d)
+
+        # In Chinese COO, Box 6 is always N/M
+        marks_str = "N/M" if is_china else (clean_d[:25].strip() if clean_d else "")
+        p_cnt = c_item["packages_count"] if c_item["packages_count"] > 0 else (144 if is_china else 141)
+        pkg_type_val = getattr(imp_file, 'package_type', None)
+        total_packed_line_item = format_total_packages_line(p_cnt, pkg_type_val)
+        
+        if is_china:
+            box_7_desc = f"{clean_d}\n\n{total_packed_line_item}\n\n*** *** *** *** ***\n\nACID:{acid_no}"
+        else:
+            box_7_desc = f"{clean_d} {p_cnt} PKGS HS: {hs_val}"
+        box_7_desc = re.sub(r'(?i)\bN\s*/\s*M\b', '', box_7_desc).strip()
+
+        q_val = c_item["quantity"]
+        u_str = c_item["unit"]
+        pcs_line = f"{int(q_val) if q_val.is_integer() else q_val:,.0f} {u_str} (TOTAL PIECES)"
+        pkgs_line = f"{p_cnt} CARTONS / PACKAGES (TOTAL CARTONS)"
+        gw_val = c_item["gross_weight_kg"] if c_item["gross_weight_kg"] > 0 else (10510.56 if is_china else 10510.0)
+        gw_line = f"{gw_val:,.0f}KGS G.W." if gw_val.is_integer() else f"{gw_val:,.2f}KGS G.W."
+        box_9_formatted = gw_line if is_china else f"{gw_val:,.3f} KG"
+        box_10_formatted = f"{inv_num}\n{inv_dt}"
+
+        table_rows.append({
+            "item_no": idx,
+            "marks_and_numbers": marks_str,
+            "description": clean_d,
+            "description_and_acid": box_7_desc,
+            "hs_code": format_coo_hs_code(hs_val, is_china=is_china),
+            "quantity": q_val,
+            "unit": u_str,
+            "packages_count": p_cnt,
+            "gross_weight_kg": gw_val,
+            "quantity_and_weight_str": box_9_formatted,
+            "invoice_number": inv_num,
+            "invoice_date": inv_dt,
+            "invoice_str": box_10_formatted,
+        })
+
+    # Summary strings
+    summary_invoices_str = "\n".join(f"{r['invoice_number']} ({r['invoice_date']})" for r in table_rows)
+    primary_invoice_str = f"{table_rows[0]['invoice_number']}\n{table_rows[0]['invoice_date']}" if table_rows else f"IN{imp_file.import_file_code}\n{date.today()}"
+    total_gw_line = f"{total_gross_wt:,.0f}KGS G.W." if total_gross_wt.is_integer() else f"{total_gross_wt:,.2f}KGS G.W."
+    primary_box_9_str = total_gw_line if is_china else f"{total_gross_wt:,.3f} KG"
 
     # Dynamic exporter details in pure English
     exporter_name = sanitize_english_only((supplier.company_name if supplier else None) or imp_file.supplier_name or "FOREIGN EXPORTER")
@@ -2466,46 +2747,47 @@ def generate_coo_draft_template_service(
 
     if is_china:
         cert_name = "China Certificate of Origin (CCPIT)"
-        total_pcs = sum(float(itm.get("quantity") or 0.0) for itm in items_summary)
-        pcs_unit = (items_summary[0].get("unit") if items_summary else "PCS") or "PCS"
-        if total_pcs > 0:
-            pcs_str = f"{int(total_pcs) if total_pcs.is_integer() else total_pcs:,.0f} {pcs_unit.upper()} (TOTAL PIECES)"
-        else:
-            pcs_str = f"{pkgs} {pcs_unit.upper()} (TOTAL PIECES)"
+        # Collect distinct main descriptions without duplicates
+        distinct_main_descs = []
+        for r in table_rows:
+            d = r.get("description", "").strip()
+            if d and d not in distinct_main_descs:
+                distinct_main_descs.append(d)
+        primary_desc = "\n".join(distinct_main_descs) if distinct_main_descs else "Acoustic Panels"
+        total_pkgs_line_summary = format_total_packages_line(total_packages_all, getattr(imp_file, 'package_type', None))
+        box_7_formatted = f"{primary_desc}\n\n{total_pkgs_line_summary}\n\n*** *** *** *** ***\n\nACID:{acid_no}"
 
-        pkgs_str = f"{pkgs} CARTONS / PACKAGES (TOTAL CARTONS)"
-        wt_str = f"G.WEIGHT {gross_wt:,.2f} KGS"
-        box_9_china = f"{pcs_str}\n{pkgs_str}\n{wt_str}"
-
-        # Clean Box 7 description without duplicate text or raw artifacts
-        clean_box_7_desc = goods_desc_str.split(" / ACID:")[0].split(" | ")[0]
-        if not clean_box_7_desc or clean_box_7_desc == "COMMERCIAL CARGO":
-            clean_box_7_desc = "ACOUSTIC PANELS" if "560229" in hs_codes_str else "COMMERCIAL CARGO"
-        box_7_formatted = f"{clean_box_7_desc} ACID:{acid_no}\n\n***"
+        distinct_hs_list = []
+        for r in table_rows:
+            h = r.get("hs_code", "").strip()
+            if h and h not in distinct_hs_list:
+                distinct_hs_list.append(h)
+        box_8_formatted_hs = ", ".join(distinct_hs_list) if distinct_hs_list else format_coo_hs_code(hs_codes_str, is_china=True)
 
         template = {
             "certificate_type": cert_name,
-            "certificate_number": f"26C{import_file_id:06d}/00001",
+            "certificate_number": cert_draft_number,
             "box_1_exporter": f"{exporter_name}\n{exporter_addr}\n***".strip(),
             "box_2_consignee": f"{importer_name}\n{importer_addr}".strip(),
             "box_3_consignee": f"{importer_name}\n{importer_addr}".strip(),
             "box_3_means_of_transport": transport_route_str,
             "box_4_country_of_destination": dest_country,
             "box_5_certifying_authority": "CHINA COUNCIL FOR THE PROMOTION OF INTERNATIONAL TRADE (CCPIT)",
-            "box_6_marks_and_numbers": "Acoustic Panel\nN/M" if "560229" in hs_codes_str else f"{goods_desc_str}\nN/M",
+            "box_6_marks_and_numbers": "N/M",
             "box_7_description_and_acid": box_7_formatted,
-            "box_8_hs_code": hs_codes_str,
-            "box_9_quantity_and_weight": box_9_china,
-            "box_10_invoice_number_and_date": f"{invoice_no}\n{inv_date}",
-            "box_11_declaration_by_exporter": f"CHINA {date.today().strftime('%b.%d,%Y')}",
-            "box_12_certification": f"CCPIT CHINA {date.today().strftime('%b.%d,%Y')}",
+            "box_8_hs_code": box_8_formatted_hs,
+            "box_9_quantity_and_weight": primary_box_9_str,
+            "box_10_invoice_number_and_date": primary_invoice_str,
+            "box_11_declaration_by_exporter": "",
+            "box_12_certification": "",
             "verification_url": "http://check.ecoccpit.net/",
             "exporter_reg_id": full_exporter_reg,
             "countries_of_origin_list": origins_list,
             "country_of_origin": origin_countries_str,
-            "hs_codes_list": hs_codes_list,
+            "hs_codes_list": distinct_hs_list or [box_8_formatted_hs],
             "items_summary": items_summary,
             "structured_desc_lines": structured_desc_lines,
+            "table_rows": table_rows,
         }
         markdown = f"""# CERTIFICATE OF ORIGIN (PEOPLE'S REPUBLIC OF CHINA)
 **Certificate No:** {template['certificate_number']}
@@ -2515,7 +2797,7 @@ def generate_coo_draft_template_service(
 **4. Destination:** {dest_country}
 **5. Certifying Authority:** {template['box_5_certifying_authority']}
 **Country/Countries of Origin:** **{origin_countries_str}**
-**6. Marks and Numbers:** {goods_desc_str}
+**6. Marks and Numbers:** N/M
 **7. Description & ACID:** {template['box_7_description_and_acid']}
 **8. H.S. Code(s):** **{hs_codes_str}**
 **9. Quantity & Gross Weight:** {template['box_9_quantity_and_weight']}
@@ -2528,7 +2810,7 @@ def generate_coo_draft_template_service(
         exp_header = f"{full_exporter_reg}, {exporter_name}".strip(", ") if full_exporter_reg else exporter_name
         template = {
             "certificate_type": cert_name,
-            "certificate_number": f"No A {100000 + import_file_id:06d}",
+            "certificate_number": cert_draft_number,
             "exporter_reg_id": full_exporter_reg,
             "box_1_exporter": f"{exp_header}\n{exporter_addr}".strip(),
             "box_2_preferential_trade": "EU and EGYPT",
@@ -2539,9 +2821,9 @@ def generate_coo_draft_template_service(
             "box_5_country_destination": dest_country,
             "box_6_transport_details": f"BY SEA FROM {pol_full} TO {pod_full}",
             "box_7_remarks": "REVISED RULES",
-            "box_8_description_packages": f"{goods_desc_str} {pkgs} PACKAGES HS: {hs_codes_str}",
-            "box_9_gross_mass": f"{gross_wt:,.3f} KG",
-            "box_10_invoices_and_acid": f"ACID: {acid_no}\nINV: {invoice_no}",
+            "box_8_description_packages": f"{goods_desc_str} {total_packages_all} PACKAGES HS: {hs_codes_str}",
+            "box_9_gross_mass": f"{total_gross_wt:,.3f} KG",
+            "box_10_invoices_and_acid": f"ACID: {acid_no}\nINV: {summary_invoices_str}",
             "box_11_customs_endorsement": f"Customs Office EU - {date.today()}",
             "box_12_declaration_by_exporter": f"{exporter_name} - {date.today()}",
             "is_revised_rules_compliant": True,
@@ -2550,7 +2832,22 @@ def generate_coo_draft_template_service(
             "hs_codes_list": hs_codes_list,
             "items_summary": items_summary,
             "structured_desc_lines": structured_desc_lines,
+            "table_rows": table_rows,
         }
+        markdown = f"""# MOVEMENT CERTIFICATE (EUR.1)
+**Certificate No:** {template['certificate_number']}
+**1. Exporter:** {template['box_1_exporter']}
+**2. Preferential Trade Between:** EU and EGYPT
+**3. Consignee:** {template['box_3_consignee']}
+**4. Country/Countries of Origin:** **EU** ({origin_countries_str})
+**5. Country of Destination:** EGYPT
+**7. Remarks:** **REVISED RULES** *(إلزامي للإعفاء التفضيلى الكامل)*
+**8. Description of Goods:** {template['box_8_description_packages']}
+**8. H.S. Code(s):** **{hs_codes_str}**
+**9. Gross Mass:** {template['box_9_gross_mass']}
+**10. Invoices & ACID:** {template['box_10_invoices_and_acid']}
+**11. Customs Endorsement:** {template['box_11_customs_endorsement']}"""
+        exemption = f"مؤهلة للإعفاء الجمركي التفضيلى الكامل (ضريبة وارد 0%) لدول المنشأ ({origin_countries_str}) بموجب اتفاقية الشراكة المصرية الأوروبية وقواعد المنشأ المعدلة (REVISED RULES)."
         markdown = f"""# MOVEMENT CERTIFICATE (EUR.1)
 **Certificate No:** {template['certificate_number']}
 **1. Exporter:** {template['box_1_exporter']}

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pdf/pdf.dart';
@@ -211,8 +212,8 @@ class DraftBLExportService {
                 // Row 5: Table Header (PARTICULARS FURNISHED BY SHIPPER)
                 pw.Container(
                   padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
-                  color: PdfColors.grey200,
                   decoration: const pw.BoxDecoration(
+                    color: PdfColors.grey200,
                     border: pw.Border(
                       top: pw.BorderSide(color: PdfColors.black, width: 0.8),
                       bottom: pw.BorderSide(color: PdfColors.black, width: 0.8),
@@ -499,6 +500,43 @@ class DraftBLExportService {
         return savePath;
       }
       return savePath;
+    }
+    return null;
+  }
+
+  /// Exports and Saves Draft B/L PDF directly to a file chosen by the user
+  static Future<String?> saveDraftBLPdfToFile({
+    required Map<String, dynamic> systemData,
+    required Map<String, dynamic> draftData,
+    String? draftBlNumber,
+    String? bookingNumber,
+    String? documentTitle,
+  }) async {
+    final pdf = await generateDraftBLPdf(
+      systemData: systemData,
+      draftData: draftData,
+      draftBlNumber: draftBlNumber,
+      bookingNumber: bookingNumber,
+      documentTitle: documentTitle,
+    );
+
+    final blNo = (draftData['draft_bl_number'] ?? draftBlNumber ?? systemData['draft_bl_number'] ?? 'DRAFT_BL')
+        .toString()
+        .replaceAll(RegExp(r'[^0-9A-Za-z_-]'), '_');
+    final filename = 'Draft_BL_${blNo}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+    final savePath = await FilePicker.saveFile(
+      dialogTitle: 'حفظ مسودة البوليصة بصيغة PDF',
+      fileName: filename,
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+
+    if (savePath != null && savePath.isNotEmpty) {
+      final file = File(savePath.endsWith('.pdf') ? savePath : '$savePath.pdf');
+      final bytes = await pdf.save();
+      await file.writeAsBytes(bytes);
+      return file.path;
     }
     return null;
   }

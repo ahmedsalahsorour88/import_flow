@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../models/customs_tariff_model.dart';
@@ -93,6 +94,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final tariffsAsync = ref.watch(customsTariffProvider);
     final allTariffs = tariffsAsync.value ?? [];
 
@@ -127,7 +129,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top Bar Header
-            const Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
@@ -135,11 +137,11 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.saved_search, color: AppTheme.cobalt, size: 28),
-                        SizedBox(width: 10),
+                        const Icon(Icons.saved_search, color: AppTheme.cobalt, size: 28),
+                        const SizedBox(width: 10),
                         Text(
-                          'محرك البحث الجمركي الشامل وتاريخ البند (HS Code Explorer & Updates)',
-                          style: TextStyle(
+                          l.hsExplorerTitle,
+                          style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.charcoal,
@@ -147,14 +149,14 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                         ),
                       ],
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'استعلام لحظي عن بنود التعريفة الجمركية المصرية، الضرائب، الاتفاقيات التفضيلية، الاشتراطات الرقابية وسجل التعديلات.',
-                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                      l.hsExplorerSubtitle,
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
                     ),
                   ],
                 ),
-                BackToDashboardButton(),
+                const BackToDashboardButton(),
               ],
             ),
             const SizedBox(height: 16),
@@ -179,7 +181,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                           controller: _searchCtrl,
                           onChanged: (v) => setState(() {}),
                           decoration: InputDecoration(
-                            hintText: 'ابحث برقم البند (HS Code) أو الوصف أو التصنيف أو كود المنشور (مثل: 8415820010، تكييف، ر6663)...',
+                            hintText: l.hsSearchPlaceholder,
                             prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
                             suffixIcon: _searchCtrl.text.isNotEmpty
                                 ? IconButton(
@@ -201,9 +203,9 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      const Text(
-                        'أمثلة سريعة للبحث:',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                      Text(
+                        l.hsQuickSearchExamples,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -212,176 +214,178 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                           child: Row(
                             children: _quickQueries.map((q) {
                               return Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: ActionChip(
-                                  label: Text(q, style: const TextStyle(fontSize: 11)),
-                                  backgroundColor: _searchCtrl.text == q
-                                      ? AppTheme.cobalt.withOpacity(0.15)
-                                      : Colors.grey.shade100,
-                                  labelStyle: TextStyle(
-                                    color: _searchCtrl.text == q ? AppTheme.cobalt : Colors.black87,
-                                    fontWeight: _searchCtrl.text == q ? FontWeight.bold : FontWeight.normal,
-                                  ),
-                                  onPressed: () {
-                                    _searchCtrl.text = q;
-                                    setState(() {});
-                                  },
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ActionChip(
+                                label: Text(q, style: const TextStyle(fontSize: 11)),
+                                backgroundColor: _searchCtrl.text == q
+                                    ? AppTheme.cobalt.withOpacity(0.15)
+                                    : Colors.grey.shade100,
+                                labelStyle: TextStyle(
+                                  color: _searchCtrl.text == q ? AppTheme.cobalt : Colors.black87,
+                                  fontWeight: _searchCtrl.text == q ? FontWeight.bold : FontWeight.normal,
                                 ),
-                              );
-                            }).toList(),
-                          ),
+                                onPressed: () {
+                                  _searchCtrl.text = q;
+                                  setState(() {});
+                                },
+                              ),
+                            );
+                          }).toList(),
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Main Content Area: Left Master List / Right Detail 360° Explorer
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left List of Matching Tariffs
+                Container(
+                  width: 340,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              l.hsMatchingResultsHeader,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                l.hsItemsCount(filtered.length),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: filtered.isEmpty
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.search_off, size: 40, color: Colors.grey.shade400),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        l.hsNoMatchingItemFound(_searchCtrl.text),
+                                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                itemCount: filtered.length,
+                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                itemBuilder: (context, idx) {
+                                  final item = filtered[idx];
+                                  final isSelected = _selectedTariff?.tariffId == item.tariffId;
+
+                                  return ListTile(
+                                    selected: isSelected,
+                                    selectedTileColor: AppTheme.cobalt.withOpacity(0.08),
+                                    title: Text(
+                                      item.hsCode,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: isSelected ? AppTheme.cobalt : AppTheme.charcoal,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      item.hsDescription,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                    trailing: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade50,
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: Colors.green.shade300),
+                                      ),
+                                      child: Text(
+                                        l.hsDutyRateTag(item.customsDutyRate),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green.shade800,
+                                        ),
+                                      ),
+                                    ),
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedTariff = item;
+                                        _dutyBreakdown = null;
+                                      });
+                                    },
+                                  );
+                                },
+                              ),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+                ),
+                const SizedBox(width: 16),
 
-            // Main Content Area: Left Master List / Right Detail 360° Explorer
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Left List of Matching Tariffs
-                  Container(
-                    width: 340,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // Right 360° Detail & Updates Explorer
+                Expanded(
+                  child: _selectedTariff == null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text(
-                                'نتائج البنود المطابقة',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.cobalt.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '${filtered.length} بند',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt),
-                                ),
-                              ),
+                              Icon(Icons.touch_app_outlined, size: 48, color: Colors.grey.shade400),
+                              const SizedBox(height: 12),
+                              Text(l.hsSelectFromListPrompt),
                             ],
                           ),
-                        ),
-                        Expanded(
-                          child: filtered.isEmpty
-                              ? Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(20),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.search_off, size: 40, color: Colors.grey.shade400),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'لا يوجد بند يطابق "${_searchCtrl.text}"',
-                                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              : ListView.separated(
-                                  itemCount: filtered.length,
-                                  separatorBuilder: (_, __) => const Divider(height: 1),
-                                  itemBuilder: (context, idx) {
-                                    final item = filtered[idx];
-                                    final isSelected = _selectedTariff?.tariffId == item.tariffId;
-
-                                    return ListTile(
-                                      selected: isSelected,
-                                      selectedTileColor: AppTheme.cobalt.withOpacity(0.08),
-                                      title: Text(
-                                        item.hsCode,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          color: isSelected ? AppTheme.cobalt : AppTheme.charcoal,
-                                        ),
-                                      ),
-                                      subtitle: Text(
-                                        item.hsDescription,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontSize: 11),
-                                      ),
-                                      trailing: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.shade50,
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(color: Colors.green.shade300),
-                                        ),
-                                        child: Text(
-                                          'وارد: ${item.customsDutyRate}%',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.green.shade800,
-                                          ),
-                                        ),
-                                      ),
-                                      onTap: () {
-                                        setState(() {
-                                          _selectedTariff = item;
-                                          _dutyBreakdown = null;
-                                        });
-                                      },
-                                    );
-                                  },
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Right 360° Detail & Updates Explorer
-                  Expanded(
-                    child: _selectedTariff == null
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.touch_app_outlined, size: 48, color: Colors.grey.shade400),
-                                const SizedBox(height: 12),
-                                const Text('اختر بنداً جمركياً من القائمة لمعاينة تفاصيله الشاملة وسجل تحديثاته'),
-                              ],
-                            ),
-                          )
-                        : _buildDetailedExplorer(_selectedTariff!),
-                  ),
-                ],
-              ),
+                        )
+                      : _buildDetailedExplorer(_selectedTariff!),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildDetailedExplorer(CustomsTariffModel tariff) {
+    final l = context.l10n;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -435,13 +439,13 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                         children: [
                           if (tariff.customsCategory != null) ...[
                             Text(
-                              'التصنيف: ${tariff.customsCategory}',
+                              l.hsCategoryPrefix(tariff.customsCategory!),
                               style: TextStyle(color: Colors.grey.shade300, fontSize: 11),
                             ),
                             const SizedBox(width: 12),
                           ],
                           Text(
-                            'ساري من: ${tariff.effectiveFrom.toIso8601String().split('T').first} ${tariff.effectiveTo != null ? "إلى ${tariff.effectiveTo!.toIso8601String().split('T').first}" : "(سجل معتمد)"}',
+                            '${l.hsEffectiveFromPrefix(tariff.effectiveFrom.toIso8601String().split('T').first)} ${tariff.effectiveTo != null ? l.hsEffectiveToPrefix(tariff.effectiveTo!.toIso8601String().split('T').first) : l.hsEffectiveActiveRecord}',
                             style: const TextStyle(color: AppTheme.emerald, fontSize: 11, fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -459,14 +463,14 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.amber.shade400),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.history_edu, color: Colors.amber, size: 16),
-                        SizedBox(width: 6),
+                        const Icon(Icons.history_edu, color: Colors.amber, size: 16),
+                        const SizedBox(width: 6),
                         Text(
-                          'تحليل الاختلافات والتاريخ ➔',
-                          style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
+                          l.hsDiffHistoryAction,
+                          style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -485,12 +489,12 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
               unselectedLabelColor: Colors.grey.shade700,
               indicatorColor: AppTheme.cobalt,
               indicatorWeight: 3,
-              tabs: const [
-                Tab(icon: Icon(Icons.calculate_outlined, size: 18), text: 'الضرائب والرسوم'),
-                Tab(icon: Icon(Icons.public_outlined, size: 18), text: 'الاتفاقيات التفضيلية'),
-                Tab(icon: Icon(Icons.account_balance_outlined, size: 18), text: 'الاشتراطات الرقابية'),
-                Tab(icon: Icon(Icons.history_edu_outlined, size: 18), text: 'سجل التحديثات والتاريخ'),
-                Tab(icon: Icon(Icons.point_of_sale_outlined, size: 18), text: 'حاسبة فورية للبند'),
+              tabs: [
+                Tab(icon: const Icon(Icons.calculate_outlined, size: 18), text: l.hsTabTaxRates),
+                Tab(icon: const Icon(Icons.public_outlined, size: 18), text: l.hsTabAgreements),
+                Tab(icon: const Icon(Icons.account_balance_outlined, size: 18), text: l.hsTabRegulatory),
+                Tab(icon: const Icon(Icons.history_edu_outlined, size: 18), text: l.hsTabHistory),
+                Tab(icon: const Icon(Icons.point_of_sale_outlined, size: 18), text: l.hsTabQuickCalculator),
               ],
             ),
           ),
@@ -514,6 +518,8 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
   }
 
   Widget _buildHistoryTab(CustomsTariffModel tariff) {
+    final l = context.l10n;
+
     return FutureBuilder<Map<String, dynamic>?>(
       future: ref.read(customsTariffProvider.notifier).fetchTariffHistory(tariff.hsCode),
       builder: (context, snapshot) {
@@ -547,14 +553,14 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'سجل التعديلات والإصدارات التاريخية للبند الجمركي (${tariff.hsCode})',
+                            l.hsHistorySummaryTitle(tariff.hsCode),
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             versions.length > 1
-                                ? 'يحتوي هذا البند على (${versions.length}) إصدارات تاريخية مسجلة بفترات سريان مختلفة.'
-                                : 'البند معتمد بإصداره الأساسي الساري حالياً، ومسجل بنظام الحماية التاريخية من التعديل العشوائي.',
+                                ? l.hsHistoryMultipleVersionsDesc(versions.length)
+                                : l.hsHistorySingleVersionDesc,
                             style: const TextStyle(fontSize: 11, color: Colors.black87),
                           ),
                         ],
@@ -568,7 +574,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                         border: Border.all(color: Colors.amber.shade400),
                       ),
                       child: Text(
-                        '${versions.length} إصدارات',
+                        l.hsVersionsCountTag(versions.length),
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
                       ),
                     ),
@@ -578,9 +584,9 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
               const SizedBox(height: 16),
 
               // Section 1: Version Timeline
-              const Text(
-                '📅 جدول الفترات وسريان الإصدارات (Tariff Versions Timeline):',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+              Text(
+                l.hsTimelineSectionTitle,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
               ),
               const SizedBox(height: 10),
 
@@ -593,15 +599,15 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.grey.shade300),
                   ),
-                  child: const Center(
-                    child: Text('لا توجد سجلات إصدارات سابقة مسجلة.'),
+                  child: Center(
+                    child: Text(l.hsNoHistoricalVersions),
                   ),
                 )
               else
                 ...versions.map((ver) {
                   final isActive = ver['is_current_active'] == true;
                   final effFrom = ver['effective_from'] ?? '—';
-                  final effTo = ver['effective_to'] ?? 'الآن (مستمر)';
+                  final effTo = ver['effective_to'] ?? l.hsDatePresentOngoing;
                   final duty = ver['customs_duty_rate'] ?? 0.0;
                   final vat = ver['vat_rate'] ?? 0.0;
                   final sched = ver['schedule_tax_rate'] ?? 0.0;
@@ -637,7 +643,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    isActive ? 'الإصدار الحالي الساري (Active Live Version)' : 'إصدار تاريخي سابق (Archived Snapshot)',
+                                    isActive ? l.hsActiveLiveVersionBadge : l.hsArchivedSnapshotBadge,
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
@@ -653,7 +659,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  'تاريخ التسجيل: $createdAt',
+                                  l.hsRegistrationDatePrefix(createdAt),
                                   style: TextStyle(fontSize: 10, color: isActive ? Colors.green.shade800 : Colors.grey.shade700),
                                 ),
                               ),
@@ -667,12 +673,12 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'فترة السريان والتطبيق: من $effFrom حتى $effTo',
+                                      l.hsValidityPeriodPrefix(effFrom, effTo),
                                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      'الوصف المعتمد: ${ver['hs_description'] ?? '—'}',
+                                      l.hsApprovedDescPrefix(ver['hs_description'] ?? '—'),
                                       style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
                                     ),
                                   ],
@@ -686,29 +692,29 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                             runSpacing: 4,
                             children: [
                               Chip(
-                                label: Text('ضريبة الوارد: $duty%'),
+                                label: Text('${l.hsTaxImportDutyTitle}: $duty%'),
                                 backgroundColor: Colors.blue.shade50,
                                 labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                               ),
                               Chip(
-                                label: Text('القيمة المضافة: $vat%'),
+                                label: Text('${l.hsTaxVatTitle}: $vat%'),
                                 backgroundColor: Colors.green.shade50,
                                 labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                               ),
                               if (sched > 0)
                                 Chip(
-                                  label: Text('ضريبة الجدول: $sched%'),
+                                  label: Text('${l.hsTaxScheduleTitle}: $sched%'),
                                   backgroundColor: Colors.purple.shade50,
                                   labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                                 ),
                               if (dev > 0)
                                 Chip(
-                                  label: Text('رسم التنمية: $dev%'),
+                                  label: Text('${l.hsTaxDevFeeTitle}: $dev%'),
                                   backgroundColor: Colors.orange.shade50,
                                   labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                                 ),
                               Chip(
-                                label: Text('الاتفاقيات المربوطة: $agCount'),
+                                label: Text(l.hsLinkedAgreementsTag(agCount)),
                                 backgroundColor: Colors.teal.shade50,
                                 labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                               ),
@@ -723,9 +729,9 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
               // Section 1.5: Comparative Version Diffs Timeline
               if (versions.length > 1) ...[
                 const SizedBox(height: 16),
-                const Text(
-                  '🔄 ملخص التغيرات بين الإصدارات التاريخية (Version Evolution & Diffs):',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                Text(
+                  l.hsVersionDiffsSummaryHeader,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                 ),
                 const SizedBox(height: 8),
                 Builder(builder: (context) {
@@ -734,8 +740,8 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                     final newer = versions[i];
                     final older = versions[i + 1];
 
-                    final newerDate = newer['effective_from'] ?? 'اليوم';
-                    final olderDate = older['effective_from'] ?? 'البداية';
+                    final newerDate = newer['effective_from'] ?? l.hsDateToday;
+                    final olderDate = older['effective_from'] ?? l.hsDateInitial;
 
                     final nDuty = _numToDouble(newer['customs_duty_rate']);
                     final oDuty = _numToDouble(older['customs_duty_rate']);
@@ -751,19 +757,19 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
 
                     List<String> changeDetails = [];
                     if (nDuty != oDuty) {
-                      changeDetails.add('ضريبة الوارد: تغيرت من $oDuty% إلى $nDuty%');
+                      changeDetails.add(l.hsDiffDutyChanged(oDuty, nDuty));
                     }
                     if (nVat != oVat) {
-                      changeDetails.add('ضريبة القيمة المضافة: تغيرت من $oVat% إلى $nVat%');
+                      changeDetails.add(l.hsDiffVatChanged(oVat, nVat));
                     }
                     if (nSched != oSched) {
-                      changeDetails.add('ضريبة الجدول: تغيرت من $oSched% إلى $nSched%');
+                      changeDetails.add(l.hsDiffScheduleChanged(oSched, nSched));
                     }
                     if (nAg != oAg) {
-                      changeDetails.add('الاتفاقيات التفضيلية: تغير عدد الاتفاقيات من $oAg إلى $nAg اتفاقية');
+                      changeDetails.add(l.hsDiffAgreementsChanged(oAg, nAg));
                     }
                     if (changeDetails.isEmpty) {
-                      changeDetails.add('تحديث بيانات وصفية وجهات رقابية واشتراطات مستندية للبند');
+                      changeDetails.add(l.hsDiffMetadataChanged);
                     }
 
                     diffWidgets.add(
@@ -783,7 +789,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                                 const Icon(Icons.compare_arrows, color: AppTheme.cobalt, size: 18),
                                 const SizedBox(width: 6),
                                 Text(
-                                  'التعديل التاريخي: من إصدار ($olderDate) ➔ إلى إصدار ($newerDate)',
+                                  l.hsDiffTitle(olderDate, newerDate),
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                                 ),
                               ],
@@ -817,9 +823,9 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
               const SizedBox(height: 20),
 
               // Section 2: Audit Logs Trail
-              const Text(
-                '🛡️ سجل تدقيق العمليات والتغييرات (System Audit Trail):',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+              Text(
+                l.hsAuditTrailSectionTitle,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
               ),
               const SizedBox(height: 10),
 
@@ -832,8 +838,8 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.grey.shade300),
                   ),
-                  child: const Center(
-                    child: Text('لم تسجل عمليات تدقيق مباشرة بعد (البيانات منشأة آلياً).'),
+                  child: Center(
+                    child: Text(l.hsNoAuditLogsFound),
                   ),
                 )
               else
@@ -841,7 +847,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                   final action = log['action'] ?? 'ACTIVITY';
                   final performedBy = log['performed_by'] ?? 'System';
                   final createdAt = log['created_at'] != null ? log['created_at'].toString().replaceFirst('T', ' ') : '—';
-                  final summary = log['changes_summary'] ?? 'تم تنفيذ العملية';
+                  final summary = log['changes_summary'] ?? l.hsActionExecuted;
 
                   Color actionColor = AppTheme.cobalt;
                   if (action == 'CREATE') actionColor = AppTheme.emerald;
@@ -882,7 +888,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'بواسطة: $performedBy • التاريخ: $createdAt',
+                                l.hsAuditPerformedBy(performedBy, createdAt),
                                 style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                               ),
                             ],
@@ -900,13 +906,15 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
   }
 
   Widget _buildTaxRatesTab(CustomsTariffModel tariff) {
+    final l = context.l10n;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('تفاصيل نسب الضرائب والرسوم المقررة قانوناً:',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+          Text(l.hsTaxRatesSectionHeader,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
           const SizedBox(height: 12),
           GridView.count(
             crossAxisCount: 3,
@@ -916,12 +924,12 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
             mainAxisSpacing: 10,
             childAspectRatio: 2.2,
             children: [
-              _taxCard('ضريبة الوارد (Import Duty)', '${tariff.customsDutyRate}%', 'نسبة من القيمة الجمركية CIF', Colors.blue),
-              _taxCard('ضريبة القيمة المضافة (VAT)', '${tariff.vatRate}%', 'نسبة من الوعاء الضريبي الشامل', Colors.green),
-              _taxCard('ضريبة الجدول (Schedule Tax)', '${tariff.scheduleTaxRate}%', 'ضريبة إضافية حسب بند التعريفة', Colors.purple),
-              _taxCard('رسم التنمية (Development Fee)', '${tariff.developmentFeeRate}%', 'رسم تنمية الموارد المالية', Colors.orange),
-              _taxCard('رسم الوارد (Import Fee)', '${tariff.importFeeRate}%', 'رسم وارد نوعي/ثابت إن وجد', Colors.deepOrange),
-              _taxCard('رسوم الخدمات الجمركية', '${tariff.customsServiceFeeRate}%', 'خدمات وفحص جمركي', Colors.teal),
+              _taxCard(l.hsTaxImportDutyTitle, '${tariff.customsDutyRate}%', l.hsTaxImportDutySub, Colors.blue),
+              _taxCard(l.hsTaxVatTitle, '${tariff.vatRate}%', l.hsTaxVatSub, Colors.green),
+              _taxCard(l.hsTaxScheduleTitle, '${tariff.scheduleTaxRate}%', l.hsTaxScheduleSub, Colors.purple),
+              _taxCard(l.hsTaxDevFeeTitle, '${tariff.developmentFeeRate}%', l.hsTaxDevFeeSub, Colors.orange),
+              _taxCard(l.hsTaxImportFeeTitle, '${tariff.importFeeRate}%', l.hsTaxImportFeeSub, Colors.deepOrange),
+              _taxCard(l.hsTaxServiceFeeTitle, '${tariff.customsServiceFeeRate}%', l.hsTaxServiceFeeSub, Colors.teal),
             ],
           ),
           const SizedBox(height: 16),
@@ -932,14 +940,14 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.blue.shade200),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.info_outline, color: AppTheme.cobalt, size: 20),
-                SizedBox(width: 8),
+                const Icon(Icons.info_outline, color: AppTheme.cobalt, size: 20),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'قاعدة الاحتساب الجمركي المصري: يتم تطبيق ضريبة الوارد أولاً على إجمالي القيمة الجمركية (FOB + نولون + تأمين CIF)، ثم يتم حساب الوعاء الضريبي لضريبة القيمة المضافة = (CIF + ضريبة الوارد + أي رسوم نوعية).',
-                    style: TextStyle(fontSize: 12, color: AppTheme.charcoal),
+                    l.hsEgyptianCalculationRule,
+                    style: const TextStyle(fontSize: 12, color: AppTheme.charcoal),
                   ),
                 ),
               ],
@@ -972,6 +980,8 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
   }
 
   Widget _buildAgreementsTab(CustomsTariffModel tariff) {
+    final l = context.l10n;
+
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: ref.read(customsTariffProvider.notifier).fetchAgreements(tariff.hsCode),
       builder: (context, snapshot) {
@@ -987,7 +997,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
               children: [
                 Icon(Icons.policy_outlined, size: 40, color: Colors.grey.shade400),
                 const SizedBox(height: 8),
-                const Text('لا توجد اتفاقيات تفضيلية مسجلة لهذا البند (يطبق النظام الأساسي العام).'),
+                Text(l.hsNoAgreementsFound),
               ],
             ),
           );
@@ -1015,7 +1025,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                 title: Row(
                   children: [
                     Text(
-                      ag['agreement_name'] ?? 'اتفاقية تفضيلية',
+                      ag['agreement_name'] ?? l.hsDefaultAgreementName,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     const SizedBox(width: 8),
@@ -1040,9 +1050,9 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (ag['required_document'] != null)
-                        Text('المستند المطلوب: ${ag['required_document']}', style: const TextStyle(fontSize: 11)),
+                        Text(l.hsRequiredDocPrefix(ag['required_document']), style: const TextStyle(fontSize: 11)),
                       if (ag['conditions_note'] != null)
-                        Text('الشروط: ${ag['conditions_note']}',
+                        Text(l.hsConditionsPrefix(ag['conditions_note']),
                             style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
                     ],
                   ),
@@ -1055,7 +1065,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                     border: Border.all(color: isZero ? Colors.green.shade300 : Colors.amber.shade300),
                   ),
                   child: Text(
-                    isZero ? 'إعفاء كامل (0%)' : 'فئة مخفضة ($prefRate%)',
+                    isZero ? l.hsFullExemptionBadge : l.hsReducedRateBadge(prefRate),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 11,
@@ -1072,21 +1082,23 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
   }
 
   Widget _buildRegulatoryTab(CustomsTariffModel tariff) {
+    final l = context.l10n;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('الاشتراطات والموافقات الرقابية المسبقة للإفراج:',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+          Text(l.hsRegulatorySectionHeader,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
           const SizedBox(height: 12),
           Row(
             children: [
-              _reqChip('نظام التسجيل المسبق ACID', tariff.requiresAcid),
+              _reqChip(l.hsReqAcidSystem, tariff.requiresAcid),
               const SizedBox(width: 8),
-              _reqChip('شهادة المنشأ (COO)', tariff.requiresCoo),
+              _reqChip(l.hsReqCertificateOfOrigin, tariff.requiresCoo),
               const SizedBox(width: 8),
-              _reqChip('فحص المطابقة النوعي', tariff.requiresInspection),
+              _reqChip(l.hsReqQualityInspection, tariff.requiresInspection),
             ],
           ),
           const SizedBox(height: 16),
@@ -1104,7 +1116,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'الجهة الرقابية المعنية بالإفراج: ${tariff.regulatoryAuthority}',
+                      l.hsRegulatoryAuthorityPrefix(tariff.regulatoryAuthority!),
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.purple),
                     ),
                   ),
@@ -1124,13 +1136,13 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.rule, color: AppTheme.orange, size: 18),
-                      SizedBox(width: 6),
+                      const Icon(Icons.rule, color: AppTheme.orange, size: 18),
+                      const SizedBox(width: 6),
                       Text(
-                        'القرارات والمنشورات الرقابية المقيدة للبند (Decrees & Approvals):',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                        l.hsDecreesAndNotesHeader,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                       ),
                     ],
                   ),
@@ -1169,13 +1181,15 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
   }
 
   Widget _buildQuickCalculatorTab(CustomsTariffModel tariff) {
+    final l = context.l10n;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('احتساب فوري للرسوم الجمركية والضرائب لهذا البند:',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+          Text(l.hsCalculatorSectionHeader,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -1183,9 +1197,9 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                 child: TextFormField(
                   controller: _cifValueCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'قيمة الشحنة CIF (بالدولار \$)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l.hsCifValueLabel,
+                    border: const OutlineInputBorder(),
                     isDense: true,
                   ),
                 ),
@@ -1195,9 +1209,9 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                 child: TextFormField(
                   controller: _freightCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'قيمة النولون Freight (\$)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l.hsFreightValueLabel,
+                    border: const OutlineInputBorder(),
                     isDense: true,
                   ),
                 ),
@@ -1206,19 +1220,19 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
               Expanded(
                 child: DropdownButtonFormField<String>(
                   value: _selectedOriginCountry,
-                  decoration: const InputDecoration(
-                    labelText: 'بلد المنشأ / الاتفاقية',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l.hsOriginCountryLabel,
+                    border: const OutlineInputBorder(),
                     isDense: true,
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'ITALY', child: Text('إيطاليا (الشراكة الأوروبية EUR.1)')),
-                    DropdownMenuItem(value: 'GERMANY', child: Text('ألمانيا (الشراكة الأوروبية EUR.1)')),
-                    DropdownMenuItem(value: 'CHINA', child: Text('الصين (النظام الأساسي العام)')),
-                    DropdownMenuItem(value: 'TURKEY', child: Text('تركيا (اتفاقية التجارة الحرة)')),
-                    DropdownMenuItem(value: 'BRAZIL', child: Text('البرازيل (اتفاقية الميركسور)')),
-                    DropdownMenuItem(value: 'SERBIA', child: Text('صربيا (اتفاقية التجارة الحرة)')),
-                    DropdownMenuItem(value: 'UK', child: Text('المملكة المتحدة (اتفاقية الشراكة)')),
+                  items: [
+                    DropdownMenuItem(value: 'ITALY', child: Text(l.hsOriginItalyEur1)),
+                    DropdownMenuItem(value: 'GERMANY', child: Text(l.hsOriginGermanyEur1)),
+                    DropdownMenuItem(value: 'CHINA', child: Text(l.hsOriginChinaGeneral)),
+                    DropdownMenuItem(value: 'TURKEY', child: Text(l.hsOriginTurkeyFta)),
+                    DropdownMenuItem(value: 'BRAZIL', child: Text(l.hsOriginBrazilMercosur)),
+                    DropdownMenuItem(value: 'SERBIA', child: Text(l.hsOriginSerbiaFta)),
+                    DropdownMenuItem(value: 'UK', child: Text(l.hsOriginUkPartnership)),
                   ],
                   onChanged: (val) {
                     if (val != null) setState(() => _selectedOriginCountry = val);
@@ -1237,7 +1251,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                         height: 16,
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                     : const Icon(Icons.calculate, size: 18),
-                label: const Text('احسب الرسوم'),
+                label: Text(l.hsCalculateDutyBtn),
                 onPressed: _isCalculating ? null : () => _calculateDuty(tariff),
               ),
             ],
@@ -1258,7 +1272,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'إجمالي الضرائب والرسوم المستحقة: ${_dutyBreakdown!.totalTaxesAndFees.toStringAsFixed(2)} جنيه مصري',
+                        l.hsTotalTaxesAndFeesDue(_dutyBreakdown!.totalTaxesAndFees.toStringAsFixed(2)),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -1267,7 +1281,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                       ),
                       if (_dutyBreakdown!.conditionsNote != null && _dutyBreakdown!.conditionsNote!.isNotEmpty)
                         Chip(
-                          label: Text('الملاحظة: ${_dutyBreakdown!.conditionsNote!}'),
+                          label: Text(l.hsNotePrefix(_dutyBreakdown!.conditionsNote!)),
                           backgroundColor: Colors.white,
                           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                         ),
@@ -1277,10 +1291,10 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('ضريبة الوارد (${_dutyBreakdown!.customsDutyRate}%): ${_dutyBreakdown!.importDutyAmount.toStringAsFixed(2)} ج.م'),
-                      Text('ضريبة القيمة المضافة (${_dutyBreakdown!.vatRate}%): ${_dutyBreakdown!.vatAmount.toStringAsFixed(2)} ج.م'),
-                      Text('ضريبة الجدول: ${_dutyBreakdown!.scheduleTaxAmount.toStringAsFixed(2)} ج.م'),
-                      Text('رسوم الخدمات: ${_dutyBreakdown!.customsServiceFeeAmount.toStringAsFixed(2)} ج.م'),
+                      Text(l.hsImportDutyBreakdown(_dutyBreakdown!.customsDutyRate, _dutyBreakdown!.importDutyAmount.toStringAsFixed(2))),
+                      Text(l.hsVatBreakdown(_dutyBreakdown!.vatRate, _dutyBreakdown!.vatAmount.toStringAsFixed(2))),
+                      Text(l.hsScheduleBreakdown(_dutyBreakdown!.scheduleTaxAmount.toStringAsFixed(2))),
+                      Text(l.hsServiceFeeBreakdown(_dutyBreakdown!.customsServiceFeeAmount.toStringAsFixed(2))),
                     ],
                   ),
                 ],

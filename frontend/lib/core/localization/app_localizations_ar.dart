@@ -3192,8 +3192,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get selectImportFileOption => '-- اختر ملف الشحنة --';
   @override String get acidNotIssued => 'لم يصدر';
   @override String get pleaseSelectImportFileError => 'يرجى اختيار ملف الشحنة';
-  @override String get acidNumberFieldLabel => 'رقم القيد الجمركي المسبق للشحنة *';
+  @override String get acidNumberFieldLabel => 'رقم القيد الجمركي المسبق للشحنة (اختياري)';
   @override String get acidNumberRequiredError => 'مطلوب إدخال رقم القيد الجمركي المسبق';
+  @override String get acidNumberOptionalHint => 'يُستدعى آلياً من ملف الشحنة عند استخراجه لاحقاً';
   @override String get foreignSupplierFieldLabel => 'المورد الخارجي / المصنع';
   @override String get foreignSupplierHint => 'المورد الأجنبي...';
   @override String get notSpecifiedOption => '-- غير محدد --';
@@ -3510,7 +3511,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get searchLifecycleTableHint => 'بحث بكود الشحنة، المورد، أمر الشراء، أو الملاحظات...';
   @override String shipmentsCountFormatted(dynamic count) => '$count شحنة';
   @override String get colShipmentCode => 'كود الشحنة';
-  @override String get colCurrentStep => 'الخطوة الحالية';
+  @override String get colPreviousStep => 'المسار السابق';
+  @override String get colCurrentStep => 'المسار الحالي';
+  @override String get colNextStep => 'المسار التالي';
   @override String get colImportCompany => 'الشركة المستوردة';
   @override String get colForeignSupplier => 'المورد الأجنبي';
   @override String get colPurchaseOrder => 'أمر الشراء';
@@ -5006,6 +5009,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get itemCode => 'كود الصنف';
   @override
+  String get mainDescription => 'الوصف الرئيسي';
+  @override
   String get unitPrice => 'سعر الوحدة';
   @override
   String get lineTotal => 'الإجمالي';
@@ -5337,6 +5342,581 @@ class AppLocalizationsAr extends AppLocalizations {
   String get savePoEditsBtn => 'حفظ تعديلات أمر الشراء';
   @override
   String get previewPoReportBtn => 'معاينة تقرير أمر الشراء';
+
+  // ── Marine & Cargo Insurance (CargoInsuranceScreen) ───────────────────────
+  @override
+  String get insuranceScreenTitle => 'شهادات التأمين على البضائع المشحونة';
+  @override
+  String get insuranceTabCertificatesRegistry => 'سجل شهادات التأمين';
+  @override
+  String get insuranceTabNewCertificate => 'إصدار وثيقة جديدة';
+  @override
+  String get insuranceAiExtractorBtn => 'تكويد شركة تأمين بالذكاء الاصطناعي ✨';
+  @override
+  String get insuranceSmartUploadBtn => 'رفع واستخراج وثيقة التأمين الذكي';
+  @override
+  String insuranceExtractedSnackbar(String ref) => '✅ تم استخراج مستند الشحن والتأمين: $ref';
+  @override
+  String get insuranceExtractedDone => 'مكتمل';
+  @override
+  String get insuranceRefreshTooltip => 'تحديث البيانات';
+
+  @override
+  String insuranceFetchError(String err) => 'حدث خطأ أثناء جلب وثائق التأمين: $err';
+  @override
+  String get insuranceRetryBtn => 'إعادة المحاولة';
+
+  @override
+  String get insuranceKpiTotalPolicies => 'إجمالي الوثائق';
+  @override
+  String get insuranceKpiIssuedValid => 'وثائق معتمدة';
+  @override
+  String get insuranceKpiTotalInsured => 'إجمالي القيمة المؤمنة';
+  @override
+  String get insuranceKpiTotalPremiums => 'إجمالي الأقساط';
+  @override
+  String get insuranceRefreshRegistryBtn => 'تحديث السجل';
+  @override
+  String get insuranceNewCertificateBtn => 'إصدار وثيقة تأمين جديدة';
+
+  @override
+  String get insuranceSearchHint => 'بحث برقم الوثيقة، رقم البوليصة، المستورد، شركة التأمين، الميناء...';
+  @override
+  String get insuranceFilterAll => 'الكل';
+  @override
+  String get insuranceFilterIssued => 'معتمدة';
+  @override
+  String get insuranceFilterDraft => 'مسودة';
+  @override
+  String get insuranceFilterCancelled => 'ملغاة';
+  @override
+  String get insuranceShowDeleted => 'عرض المحذوف';
+  @override
+  String get insuranceHideDeleted => 'إخفاء المحذوف';
+
+  @override
+  String get insuranceNoMatchingFound => 'لم يتم العثور على وثائق تطابق البحث';
+  @override
+  String get insuranceNoDataFound => 'لا توجد وثائق تأمين مسجلة حالياً';
+  @override
+  String get insuranceEmptyHint => 'اضغط على "إصدار وثيقة تأمين جديدة" لحساب وتوليد شهادة التأمين البحري أو الجوي';
+
+  @override
+  String get insuranceColCertCode => 'كود الوثيقة';
+  @override
+  String get insuranceColIssueDate => 'تاريخ الإصدار';
+  @override
+  String get insuranceColPolicyFile => 'رقم البوليصة وملف الشحنة';
+  @override
+  String get insuranceColInsuredEntity => 'المؤمن له (المستورد)';
+  @override
+  String get insuranceColInsuranceCo => 'شركة التأمين';
+  @override
+  String get insuranceColTransportRoute => 'وسيلة النقل وخط السير';
+  @override
+  String get insuranceColInsuredValue => 'القيمة المؤمنة (110%)';
+  @override
+  String get insuranceColCoverageClause => 'بند التغطية';
+  @override
+  String get insuranceColGrossPremium => 'إجمالي القسط المستحق';
+  @override
+  String get insuranceColStatus => 'الحالة';
+  @override
+  String get insuranceColActions => 'الإجراءات';
+
+  @override
+  String get insuranceStatusIssuedBadge => 'معتمدة';
+  @override
+  String get insuranceStatusCancelledBadge => 'ملغاة';
+  @override
+  String get insuranceStatusDraftBadge => 'مسودة';
+
+  @override
+  String get insuranceViewTooltip => 'عرض الشهادة الرسمية';
+  @override
+  String get insuranceEditTooltip => 'تعديل الوثيقة';
+  @override
+  String get insurancePrintTooltip => 'طباعة شهادة التأمين';
+  @override
+  String get insuranceDeleteTooltip => 'حذف الوثيقة';
+  @override
+  String get insuranceIssueCertificateTooltip => 'اعتماد وإصدار الوثيقة';
+  @override
+  String get insuranceConfirmIssueTitle => 'اعتماد وثيقة التأمين';
+  @override
+  String insuranceConfirmIssueMsg(String code) => 'هل أنت متأكد من اعتماد وإصدار وثيقة التأمين $code رسمياً؟';
+  @override
+  String get insuranceConfirmIssueBtn => 'تأكيد الاعتماد';
+  @override
+  String get insuranceIssueSuccessMsg => '✅ تم اعتماد وإصدار الوثيقة بنجاح!';
+  @override
+  String get insuranceConfirmDeleteTitle => 'حذف الوثيقة';
+  @override
+  String get insuranceConfirmDeleteMsg => 'هل تريد حذف هذا السجل نهائياً؟';
+  @override
+  String get insuranceDeleteBtn => 'حذف';
+
+  @override
+  String get insuranceDialogNewTitle => 'إصدار شهادة تأمين البضائع المشحونة';
+  @override
+  String insuranceDialogEditTitle(String code) => 'تعديل وثيقة التأمين $code';
+  @override
+  String get insuranceDialogSubtitle => 'حساب القيمة المؤمنة (110% CIF) وقسط التأمين طبقاً لشروط معهد المكتتبين بلندن';
+  @override
+  String get insuranceFieldLinkImportFile => 'ربط ملف الشحنة الاستيرادية *';
+  @override
+  String get insuranceFieldLinkImportFileHint => 'اختر ملف الشحنة لاستدعاء البيانات تلقائياً...';
+  @override
+  String get insuranceFieldInsuredEntity => 'المؤمن له (المستورد) *';
+  @override
+  String get insuranceFieldInsuredEntityRequired => 'اسم المستورد مطلوب';
+  @override
+  String get insuranceFieldPolicyType => 'نوع وثيقة التأمين *';
+  @override
+  String get insuranceFieldPolicyTypeHint => 'اختر نوع الوثيقة...';
+  @override
+  String get insurancePolicyTypeSpecific => 'وثيقة محددة لشحنة واحدة';
+  @override
+  String get insurancePolicyTypeOpen => 'وثيقة تأمين مفتوحة سنوية';
+  @override
+  String get insuranceFieldInsuranceCompany => 'شركة التأمين المصدرة';
+  @override
+  String get insuranceFieldPolicyNumber => 'رقم وثيقة التأمين';
+  @override
+  String get insuranceSecVoyageDetails => 'بيانات الشحن والرحلة وخط السير';
+  @override
+  String get insuranceFieldTransportMode => 'وسيلة النقل *';
+  @override
+  String get insuranceFieldTransportModeHint => 'اختر وسيلة النقل...';
+  @override
+  String get insuranceTransportModeOcean => 'شحن بحري';
+  @override
+  String get insuranceTransportModeAir => 'شحن جوي';
+  @override
+  String get insuranceTransportModeRoad => 'شحن بري';
+  @override
+  String get insuranceFieldCarrier => 'الخط الملاحي أو الناقل';
+  @override
+  String get insuranceFieldVesselFlight => 'اسم السفينة أو الرحلة';
+  @override
+  String get insuranceFieldPol => 'ميناء الشحن (POL) *';
+  @override
+  String get insuranceFieldPod => 'ميناء الوصول (POD) *';
+  @override
+  String get insuranceFieldBlTracking => 'رقم بوليصة الشحن (B/L)';
+  @override
+  String get insuranceFieldInvoiceValue => 'قيمة الفاتورة (FOB) *';
+  @override
+  String get insuranceFieldFreightCost => 'تكلفة النولون أو الشحن';
+  @override
+  String get insuranceFieldCurrency => 'العملة *';
+  @override
+  String get insuranceFieldCurrencyHint => 'اختر العملة...';
+  @override
+  String get insuranceCurrUsd => 'دولار أمريكي (USD)';
+  @override
+  String get insuranceCurrEur => 'يورو أوروبي (EUR)';
+  @override
+  String get insuranceCurrEgp => 'جنيه مصري (EGP)';
+  @override
+  String get insuranceCurrCny => 'يوان صيني (CNY)';
+  @override
+  String get insuranceCurrGbp => 'جنيه إسترليني (GBP)';
+  @override
+  String get insuranceSecCoverageClauses => 'شروط التغطية التأمينية وملاحق المخاطر الإضافية';
+  @override
+  String get insuranceFieldCoverageClause => 'بند التغطية (شروط المعهد) *';
+  @override
+  String get insuranceFieldCoverageClauseHint => 'اختر بند التغطية...';
+  @override
+  String get insuranceClauseIccA => 'شروط المعهد (أ) — أخطار شاملة معهد المكتتبين (0.25%)';
+  @override
+  String get insuranceClauseAirAllRisks => 'شروط المعهد (جوي) — تأمين جوي شامل لكافة الأخطار (0.20%)';
+  @override
+  String get insuranceClauseIccB => 'شروط المعهد (ب) — أخطار متوسطة محددة معهد المكتتبين (0.15%)';
+  @override
+  String get insuranceClauseIccC => 'شروط المعهد (ج) — الحد الأدنى للأخطار والحوادث الجسيمة (0.10%)';
+  @override
+  String get insuranceWarAndStrikesTitle => 'تضمين ملحق أخطار الحروب والإضرابات (+0.05%)';
+  @override
+  String get insuranceWarAndStrikesSubtitle => 'ملحق إلزامي للاعتمادات المستندية والتخليص الجمركي للشحنات';
+  @override
+  String get insuranceSecBreakdownTitle => 'محاكاة وحساب قسط التأمين الفوري';
+  @override
+  String get insuranceBreakdownCifBase => 'قيمة البضاعة (CIF Base):';
+  @override
+  String get insuranceBreakdownInsuredValue => 'القيمة المؤمنة (110% CIF):';
+  @override
+  String insuranceBreakdownBasePremium(String rate) => 'قسط التأمين الأساسي ($rate%):';
+  @override
+  String get insuranceBreakdownWarStrikes => 'ملحق الحرب والإضرابات (0.05%):';
+  @override
+  String get insuranceBreakdownNetPremium => 'صافي القسط بعد الحد الأدنى:';
+  @override
+  String get insuranceBreakdownIssuanceFee => 'رسوم إصدار ودمغات إدارية:';
+  @override
+  String get insuranceBreakdownTaxes => 'الضرائب والدمغات (5%):';
+  @override
+  String get insuranceBreakdownTotalPayable => 'إجمالي قسط التأمين المستحق:';
+  @override
+  String get insuranceSecCargoSpecs => 'وصف البضاعة والطرود المشحونة';
+  @override
+  String get insuranceFieldGoodsDesc => 'الوصف الدقيق للبضاعة';
+  @override
+  String get insuranceFieldGoodsDescHint => 'مثال: خطوط إنتاج وقطع غيار صناعية...';
+  @override
+  String get insuranceFieldPackagesCount => 'عدد الطرود';
+  @override
+  String get insuranceFieldGrossWeight => 'الوزن القائم (كجم)';
+  @override
+  String get insuranceSavingState => 'جاري حفظ الوثيقة...';
+  @override
+  String get insuranceSaveDraftBtn => 'حفظ وإصدار مسودة الوثيقة';
+  @override
+  String get insuranceCreatedSuccessMsg => '✅ تم إنشاء وثيقة التأمين بنجاح!';
+  @override
+  String get insuranceUpdatedSuccessMsg => '✅ تم تحديث وثيقة التأمين بنجاح!';
+  @override
+  String insuranceSaveErrorMsg(String err) => '❌ فشل حفظ الوثيقة: $err';
+
+  @override
+  String get insurancePreviewCertificateHeader => 'شهادة التأمين الرسمية على البضائع المشحونة';
+  @override
+  String get insurancePreviewOfficialIssuedBadge => 'معتمدة رسمياً';
+  @override
+  String get insurancePreviewDraftBadge => 'مسودة وثيقة';
+  @override
+  String get insurancePreviewSecInsuredDetails => '1. بيانات المؤمن له والوثيقة';
+  @override
+  String get insurancePreviewInsuredLabel => 'المؤمن له (المستورد):';
+  @override
+  String get insurancePreviewCompanyLabel => 'شركة التأمين:';
+  @override
+  String get insurancePreviewPolicyNoLabel => 'رقم الوثيقة:';
+  @override
+  String get insurancePreviewPolicyTypeLabel => 'نوع الوثيقة:';
+  @override
+  String get insurancePreviewSecRouteDetails => '2. خط السير وبيانات الناقل';
+  @override
+  String get insurancePreviewTransportModeLabel => 'وسيلة النقل:';
+  @override
+  String get insurancePreviewVesselFlightLabel => 'السفينة أو الرحلة:';
+  @override
+  String get insurancePreviewPolLabel => 'ميناء الشحن (POL):';
+  @override
+  String get insurancePreviewPodLabel => 'ميناء الوصول (POD):';
+  @override
+  String get insurancePreviewTrackingLabel => 'رقم التتبع / البوليصة:';
+  @override
+  String get insurancePreviewSecValuation => '3. القيمة التأمينية والأساس';
+  @override
+  String get insurancePreviewInvoiceFobLabel => 'الفاتورة التجارية (FOB):';
+  @override
+  String get insurancePreviewFreightLabel => 'النولون والشحن:';
+  @override
+  String get insurancePreviewCifBaseLabel => 'قيمة البضاعة (CIF):';
+  @override
+  String get insurancePreviewInsuredSumLabel => 'المبلغ المؤمن عليه (110%):';
+  @override
+  String get insurancePreviewSecPremium => '4. تفاصيل واحتساب القسط';
+  @override
+  String get insurancePreviewCoverageClauseLabel => 'بند التغطية:';
+  @override
+  String get insurancePreviewBasePremiumLabel => 'القسط الأساسي:';
+  @override
+  String get insurancePreviewWarStrikesLabel => 'ملحق أخطار الحروب:';
+  @override
+  String get insurancePreviewFeesTaxesLabel => 'الرسوم والدمغات والضرائب:';
+  @override
+  String get insurancePreviewTotalGrossPremiumLabel => 'إجمالي قسط التأمين النهائي:';
+  @override
+  String get insurancePreviewSecCargoSpecs => '5. تفاصيل البضاعة والشروط القانونية';
+  @override
+  String get insurancePreviewDescPrefix => 'الوصف:';
+  @override
+  String get insurancePreviewPackagesPrefix => 'الطرود والوزن:';
+  @override
+  String get insurancePreviewGrossWtPrefix => 'الوزن الإجمالي:';
+  @override
+  String get insurancePreviewSurveyAgentPrefix => 'وكيل المعاينة وتسوية التعويضات:';
+  @override
+  String get insurancePreviewClaimsPayablePrefix => 'مكان سداد التعويضات:';
+  @override
+  String get insurancePreviewLegalDisclaimer => 'وثيقة رسمية معتمدة للتخليص الجمركي والاعتمادات المستندية نموذج 4';
+  @override
+  String get insurancePreviewPrintBtn => 'طباعة وتصدير PDF';
+  @override
+  String get insurancePreviewPrintReadySnack => '🖨️ جاهز للإرسال والطباعة الرسمية';
+
+  // ─── HS Code Search & Customs Explorer Screen ──────────────────────────────
+  @override
+  String get hsExplorerTitle => 'محرك البحث الجمركي الشامل وتاريخ البند';
+  @override
+  String get hsExplorerSubtitle => 'استعلام لحظي عن بنود التعريفة الجمركية المصرية، الضرائب، الاتفاقيات التفضيلية، الاشتراطات الرقابية وسجل التعديلات.';
+  @override
+  String get hsSearchPlaceholder => 'ابحث برقم البند أو الوصف أو التصنيف أو كود المنشور...';
+  @override
+  String get hsQuickSearchExamples => 'أمثلة سريعة للبحث:';
+  @override
+  String get hsMatchingResultsHeader => 'نتائج البنود المطابقة';
+  @override
+  String hsItemsCount(int count) => '$count بند';
+  @override
+  String hsNoMatchingItemFound(String query) => 'لا يوجد بند يطابق "$query"';
+  @override
+  String hsDutyRateTag(dynamic rate) => 'وارد: $rate%';
+  @override
+  String get hsSelectFromListPrompt => 'اختر بنداً جمركياً من القائمة لمعاينة تفاصيله الشاملة وسجل تحديثاته';
+  @override
+  String hsCategoryPrefix(String cat) => 'التصنيف: $cat';
+  @override
+  String hsEffectiveFromPrefix(String from) => 'ساري من: $from';
+  @override
+  String hsEffectiveToPrefix(String to) => 'إلى $to';
+  @override
+  String get hsEffectiveActiveRecord => '(سجل معتمد)';
+  @override
+  String get hsDiffHistoryAction => 'تحليل الاختلافات والتاريخ ➔';
+  @override
+  String get hsTabTaxRates => 'الضرائب والرسوم';
+  @override
+  String get hsTabAgreements => 'الاتفاقيات التفضيلية';
+  @override
+  String get hsTabRegulatory => 'الاشتراطات الرقابية';
+  @override
+  String get hsTabHistory => 'سجل التحديثات والتاريخ';
+  @override
+  String get hsTabQuickCalculator => 'حاسبة فورية للبند';
+  @override
+  String get hsTaxRatesSectionHeader => 'تفاصيل نسب الضرائب والرسوم المقررة قانوناً:';
+  @override
+  String get hsTaxImportDutyTitle => 'ضريبة الوارد';
+  @override
+  String get hsTaxImportDutySub => 'نسبة من القيمة الجمركية CIF';
+  @override
+  String get hsTaxVatTitle => 'ضريبة القيمة المضافة';
+  @override
+  String get hsTaxVatSub => 'نسبة من الوعاء الضريبي الشامل';
+  @override
+  String get hsTaxScheduleTitle => 'ضريبة الجدول';
+  @override
+  String get hsTaxScheduleSub => 'ضريبة إضافية حسب بند التعريفة';
+  @override
+  String get hsTaxDevFeeTitle => 'رسم التنمية';
+  @override
+  String get hsTaxDevFeeSub => 'رسم تنمية الموارد المالية';
+  @override
+  String get hsTaxImportFeeTitle => 'رسم الوارد';
+  @override
+  String get hsTaxImportFeeSub => 'رسم وارد نوعي/ثابت إن وجد';
+  @override
+  String get hsTaxServiceFeeTitle => 'رسوم الخدمات الجمركية';
+  @override
+  String get hsTaxServiceFeeSub => 'خدمات وفحص جمركي';
+  @override
+  String get hsEgyptianCalculationRule => 'قاعدة الاحتساب الجمركي المصري: يتم تطبيق ضريبة الوارد أولاً على إجمالي القيمة الجمركية (FOB + نولون + تأمين CIF)، ثم يتم حساب الوعاء الضريبي لضريبة القيمة المضافة = (CIF + ضريبة الوارد + أي رسوم نوعية).';
+  @override
+  String get hsNoAgreementsFound => 'لا توجد اتفاقيات تفضيلية مسجلة لهذا البند (يطبق النظام الأساسي العام).';
+  @override
+  String get hsDefaultAgreementName => 'اتفاقية تفضيلية';
+  @override
+  String hsRequiredDocPrefix(String doc) => 'المستند المطلوب: $doc';
+  @override
+  String hsConditionsPrefix(String note) => 'الشروط: $note';
+  @override
+  String get hsFullExemptionBadge => 'إعفاء كامل (0%)';
+  @override
+  String hsReducedRateBadge(dynamic rate) => 'فئة مخفضة ($rate%)';
+  @override
+  String get hsRegulatorySectionHeader => 'الاشتراطات والموافقات الرقابية المسبقة للإفراج:';
+  @override
+  String get hsReqAcidSystem => 'نظام التسجيل المسبق ACID';
+  @override
+  String get hsReqCertificateOfOrigin => 'شهادة المنشأ (COO)';
+  @override
+  String get hsReqQualityInspection => 'فحص المطابقة النوعي';
+  @override
+  String hsRegulatoryAuthorityPrefix(String auth) => 'الجهة الرقابية المعنية بالإفراج: $auth';
+  @override
+  String get hsDecreesAndNotesHeader => 'القرارات والمنشورات الرقابية المقيدة للبند:';
+  @override
+  String hsHistorySummaryTitle(String code) => 'سجل التعديلات والإصدارات التاريخية للبند الجمركي ($code)';
+  @override
+  String hsHistoryMultipleVersionsDesc(int count) => 'يحتوي هذا البند على ($count) إصدارات تاريخية مسجلة بفترات سريان مختلفة.';
+  @override
+  String get hsHistorySingleVersionDesc => 'البند معتمد بإصداره الأساسي الساري حالياً، ومسجل بنظام الحماية التاريخية من التعديل العشوائي.';
+  @override
+  String hsVersionsCountTag(int count) => '$count إصدارات';
+  @override
+  String get hsTimelineSectionTitle => 'جدول الفترات وسريان الإصدارات:';
+  @override
+  String get hsNoHistoricalVersions => 'لا توجد سجلات إصدارات سابقة مسجلة.';
+  @override
+  String get hsActiveLiveVersionBadge => 'الإصدار الحالي الساري';
+  @override
+  String get hsArchivedSnapshotBadge => 'إصدار تاريخي سابق';
+  @override
+  String hsRegistrationDatePrefix(String date) => 'تاريخ التسجيل: $date';
+  @override
+  String hsValidityPeriodPrefix(String from, String to) => 'فترة السريان والتطبيق: من $from حتى $to';
+  @override
+  String hsApprovedDescPrefix(String desc) => 'الوصف المعتمد: $desc';
+  @override
+  String hsLinkedAgreementsTag(dynamic count) => 'الاتفاقيات المربوطة: $count';
+  @override
+  String get hsVersionDiffsSummaryHeader => 'ملخص التغيرات بين الإصدارات التاريخية:';
+  @override
+  String hsDiffTitle(String older, String newer) => 'التعديل التاريخي: من إصدار ($older) ➔ إلى إصدار ($newer)';
+  @override
+  String hsDiffDutyChanged(dynamic oldRate, dynamic newRate) => 'ضريبة الوارد: تغيرت من $oldRate% إلى $newRate%';
+  @override
+  String hsDiffVatChanged(dynamic oldRate, dynamic newRate) => 'ضريبة القيمة المضافة: تغيرت من $oldRate% إلى $newRate%';
+  @override
+  String hsDiffScheduleChanged(dynamic oldRate, dynamic newRate) => 'ضريبة الجدول: تغيرت من $oldRate% إلى $newRate%';
+  @override
+  String hsDiffAgreementsChanged(dynamic oldAg, dynamic newAg) => 'الاتفاقيات التفضيلية: تغير عدد الاتفاقيات من $oldAg إلى $newAg اتفاقية';
+  @override
+  String get hsDiffMetadataChanged => 'تحديث بيانات وصفية وجهات رقابية واشتراطات مستندية للبند';
+  @override
+  String get hsAuditTrailSectionTitle => 'سجل تدقيق العمليات والتغييرات:';
+  @override
+  String get hsNoAuditLogsFound => 'لم تسجل عمليات تدقيق مباشرة بعد (البيانات منشأة آلياً).';
+  @override
+  String hsAuditPerformedBy(String by, String date) => 'بواسطة: $by • التاريخ: $date';
+  @override
+  String get hsCalculatorSectionHeader => 'احتساب فوري للرسوم الجمركية والضرائب لهذا البند:';
+  @override
+  String get hsCifValueLabel => 'قيمة الشحنة CIF (بالدولار \$)';
+  @override
+  String get hsFreightValueLabel => 'قيمة النولون Freight (\$)';
+  @override
+  String get hsOriginCountryLabel => 'بلد المنشأ / الاتفاقية';
+  @override
+  String get hsOriginItalyEur1 => 'إيطاليا (الشراكة الأوروبية EUR.1)';
+  @override
+  String get hsOriginGermanyEur1 => 'ألمانيا (الشراكة الأوروبية EUR.1)';
+  @override
+  String get hsOriginChinaGeneral => 'الصين (النظام الأساسي العام)';
+  @override
+  String get hsOriginTurkeyFta => 'تركيا (اتفاقية التجارة الحرة)';
+  @override
+  String get hsOriginBrazilMercosur => 'البرازيل (اتفاقية الميركسور)';
+  @override
+  String get hsOriginSerbiaFta => 'صربيا (اتفاقية التجارة الحرة)';
+  @override
+  String get hsOriginUkPartnership => 'المملكة المتحدة (اتفاقية الشراكة)';
+  @override
+  String get hsCalculateDutyBtn => 'احسب الرسوم';
+  @override
+  String hsTotalTaxesAndFeesDue(String amount) => 'إجمالي الضرائب والرسوم المستحقة: $amount جنيه مصري';
+  @override
+  String hsNotePrefix(String note) => 'الملاحظة: $note';
+  @override
+  String hsImportDutyBreakdown(dynamic rate, String amount) => 'ضريبة الوارد ($rate%): $amount ج.م';
+  @override
+  String hsVatBreakdown(dynamic rate, String amount) => 'ضريبة القيمة المضافة ($rate%): $amount ج.م';
+  @override
+  String hsScheduleBreakdown(String amount) => 'ضريبة الجدول: $amount ج.م';
+  @override
+  String hsServiceFeeBreakdown(String amount) => 'رسوم الخدمات: $amount ج.م';
+  @override
+  String get hsDatePresentOngoing => 'الآن (مستمر)';
+  @override
+  String get hsDateToday => 'اليوم';
+  @override
+  String get hsDateInitial => 'البداية';
+  @override
+  String get hsActionExecuted => 'تم تنفيذ العملية';
+
+  // Dynamic Report Builder
+  @override
+  String get dynReportBuilderTitle => 'مُنشئ التقارير الديناميكية والمخصصة';
+  @override
+  String get dynReportBuilderSubtitle => 'تخصيص وتوليد تقارير الشحنات والعمليات وتصديرها بصيغ Excel و PDF';
+  @override
+  String dynCustomizeColumnsBtn(int visible, int total) => 'تخصيص الأعمدة ($visible/$total)';
+  @override
+  String dynExportExcelBtn(int count) => 'تصدير Excel [$count]';
+  @override
+  String dynExportPdfBtn(int count) => 'تصدير PDF [$count]';
+  @override
+  String get dynFilterModeLabel => 'وسيلة النقل';
+  @override
+  String get dynFilterPriorityLabel => 'الأولوية';
+  @override
+  String get dynSearchPlaceholder => 'بحث ديناميكي برقم الملف أو الشركة أو المورد...';
+  @override
+  String get dynModeAll => 'الكل';
+  @override
+  String get dynModeSeaFcl => 'بحري FCL';
+  @override
+  String get dynModeSeaLcl => 'بحري LCL';
+  @override
+  String get dynModeAir => 'شحن جوي';
+  @override
+  String get dynModeCourier => 'بريد سريع';
+  @override
+  String get dynModeLand => 'نقل بري';
+  @override
+  String get dynModeMultimodal => 'متعدد الوسائط';
+  @override
+  String get dynPriorityAll => 'الكل';
+  @override
+  String get dynPriorityHigh => 'مرتفعة';
+  @override
+  String get dynPriorityCritical => 'حرجة جداً';
+  @override
+  String get dynPriorityMedium => 'متوسطة';
+  @override
+  String get dynColumnPickerTitle => 'مُخصص الأعمدة الديناميكية';
+  @override
+  String get dynApplyColumnsBtn => 'تطبيق اختيار الأعمدة';
+  @override
+  String get dynExportCsvTitle => 'تصدير التقرير الديناميكي (Excel CSV)';
+  @override
+  String get dynExportCsvGeneratedMsg => 'تم توليد كود التقرير المخصص بنجاح، يمكنك نسخه لاستخدامه في Excel:';
+  @override
+  String dynFetchReportError(String err) => 'خطأ في جلب بيانات التقرير: $err';
+  @override
+  String get dynNoMatchingShipments => 'لا توجد شحنات مطابقة لفلاتر التقرير الديناميكي.';
+  @override
+  String get dynPdfReportTitle => 'نظام ImportFlow ERP — تقرير الشحنات الديناميكي';
+  @override
+  String get dynPdfConfidential => 'ImportFlow ERP — سري ومخصص للاستخدام الداخلي';
+  @override
+  String dynPdfGenerated(String date, int count) => 'تاريخ التوليد: $date | عدد السجلات: $count';
+  @override
+  String get dynColImportFileCode => 'كود الملف';
+  @override
+  String get dynColCompanyName => 'الشركة المستوردة';
+  @override
+  String get dynColSupplierName => 'المورد الأجنبي';
+  @override
+  String get dynColBrokerName => 'المخلص الجمركي';
+  @override
+  String get dynColAcidNumber => 'رقم ACID';
+  @override
+  String get dynColForm4No => 'رقم نموذج 4';
+  @override
+  String get dynColForm46No => 'إقرار 46 جمارك';
+  @override
+  String get dynColShipmentMode => 'وسيلة النقل';
+  @override
+  String get dynColIncotermCode => 'الشرط التجاري';
+  @override
+  String get dynColPriority => 'الأولوية';
+  @override
+  String get dynColEstimatedCost => 'القيمة التقديرية';
+  @override
+  String get dynColRequiredEta => 'تاريخ الوصول المتوقع';
+  @override
+  String get dynColCurrentStage => 'المرحلة الحالية';
+  @override
+  String get dynColProgressPercent => 'نسبة الإنجاز %';
+  @override
+  String get dynColOwner => 'المسؤول';
+  @override
+  String get dynColStatus => 'حالة الملف';
 }
 
 

@@ -127,10 +127,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
   // Customs Calculator State Controllers
   final TextEditingController _exchangeRateController = TextEditingController(text: '50.0');
+  final TextEditingController _freightForeignController = TextEditingController(text: '0.0');
+  String _freightCurrency = 'USD';
+  final TextEditingController _freightExchangeRateController = TextEditingController(text: '50.0');
   final TextEditingController _freightEgpController = TextEditingController(text: '0.0');
   final TextEditingController _insuranceEgpController = TextEditingController(text: '0.0');
+  String _insuranceOption = '0.5%'; // '0.5%', '1.0%', 'Custom'
   String _customsCurrency = 'USD';
   bool _isCustomsCalculatorExpanded = true;
+  bool _groupByHsCode = true;
 
   // Customs Recalculation & Forecast Variance State
   CustomsRecalculationResponseModel? _recalculationResult;
@@ -211,6 +216,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     _notesController.dispose();
     _estimatedDutiesController.dispose();
     _exchangeRateController.dispose();
+    _freightForeignController.dispose();
+    _freightExchangeRateController.dispose();
     _freightEgpController.dispose();
     _insuranceEgpController.dispose();
     super.dispose();
@@ -427,6 +434,29 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     }
   }
 
+  void _updateFreightExchangeRateForCurrency(String currencyCode) {
+    final currencies = ref.read(currenciesProvider).value ?? [];
+    final matchedCurrency = currencies
+        .where((c) => c.currencyCode.toUpperCase() == currencyCode.toUpperCase())
+        .firstOrNull;
+    if (matchedCurrency != null) {
+      final rate = matchedCurrency.latestCustomsRate ??
+          matchedCurrency.latestCommercialRate;
+      if (rate != null && rate > 0) {
+        _freightExchangeRateController.text = rate.toStringAsFixed(4);
+      }
+    }
+    _recalculateFreightEgp();
+  }
+
+  void _recalculateFreightEgp() {
+    final foreignAmt = double.tryParse(_freightForeignController.text.trim()) ?? 0.0;
+    final rate = double.tryParse(_freightExchangeRateController.text.trim()) ?? 0.0;
+    if (foreignAmt > 0 && rate > 0) {
+      _freightEgpController.text = (foreignAmt * rate).toStringAsFixed(2);
+    }
+  }
+
   /// Finds the highest totalQuotationAmount across all shipping scenario items
   /// linked to [fileId], converts it to EGP using the customs exchange rate,
   /// and auto-populates the freight field.
@@ -457,6 +487,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final freightEgp = highestQuotation * rate;
 
     setState(() {
+      _freightForeignController.text = highestQuotation.toStringAsFixed(2);
+      _freightCurrency = highestCurrency;
+      _freightExchangeRateController.text = rate.toStringAsFixed(4);
       _freightEgpController.text = freightEgp.toStringAsFixed(2);
     });
 
@@ -735,8 +768,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     }
 
     final double exchangeRate = double.tryParse(_exchangeRateController.text.trim()) ?? 50.0;
-    final double totalFreightEgp = double.tryParse(_freightEgpController.text.trim()) ?? 0.0;
-    final double totalInsuranceEgp = double.tryParse(_insuranceEgpController.text.trim()) ?? 0.0;
+    final double freightForeign = double.tryParse(_freightForeignController.text.trim()) ?? 0.0;
+    final double freightFxRate = double.tryParse(_freightExchangeRateController.text.trim()) ?? exchangeRate;
+    final double totalFreightEgp = freightForeign > 0
+        ? (freightForeign * freightFxRate)
+        : (double.tryParse(_freightEgpController.text.trim()) ?? 0.0);
 
     // 1. Calculate Aggregate Total of ALL Invoices attached to the Import File
     double totalInvoicesForeign = 0.0;
@@ -755,6 +791,23 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           'po': po,
         });
       }
+    }
+
+    // Pre-calculate FOB and Insurance
+    final double poItemsFobSum = flatLineEntries.fold(0.0, (s, e) => s + (e['item'] as POLineItemModel).totalPrice);
+    final double effectiveFobForeign = totalInvoicesForeign > 0 ? totalInvoicesForeign : poItemsFobSum;
+    final double totalFobEgp = effectiveFobForeign * exchangeRate;
+    final double candfBaseEgp = totalFobEgp + totalFreightEgp;
+
+    double totalInsuranceEgp = 0.0;
+    if (_insuranceOption == '0.5%') {
+      totalInsuranceEgp = candfBaseEgp * 0.005;
+      _insuranceEgpController.text = totalInsuranceEgp.toStringAsFixed(2);
+    } else if (_insuranceOption == '1.0%') {
+      totalInsuranceEgp = candfBaseEgp * 0.01;
+      _insuranceEgpController.text = totalInsuranceEgp.toStringAsFixed(2);
+    } else {
+      totalInsuranceEgp = double.tryParse(_insuranceEgpController.text.trim()) ?? 0.0;
     }
 
     // Pre-index tariffs for instant O(1) lookups
@@ -828,9 +881,6 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     }
 
     // Case B: PO Line items exist -> Scale proportionally to Total Invoices if Invoices exist
-    final double poItemsFobSum = flatLineEntries.fold(0.0, (s, e) => s + (e['item'] as POLineItemModel).totalPrice);
-    final double effectiveFobForeign = totalInvoicesForeign > 0 ? totalInvoicesForeign : poItemsFobSum;
-    final double totalFobEgp = effectiveFobForeign * exchangeRate;
     final double scaleFactor = (totalInvoicesForeign > 0 && poItemsFobSum > 0) ? (totalInvoicesForeign / poItemsFobSum) : 1.0;
 
     // Known Agreement Origin Sets
@@ -974,6 +1024,91 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     }
 
     return result;
+  }
+
+  List<CustomsItemCalcRow> _getAggregatedCustomsLines(List<CustomsItemCalcRow> rawLines) {
+    if (!_groupByHsCode) return rawLines;
+
+    final Map<String, List<CustomsItemCalcRow>> grouped = {};
+    for (final line in rawLines) {
+      grouped.putIfAbsent(line.hsCode, () => []).add(line);
+    }
+
+    final List<CustomsItemCalcRow> aggregated = [];
+    for (final entry in grouped.entries) {
+      final hs = entry.key;
+      final lines = entry.value;
+      if (lines.length == 1) {
+        aggregated.add(lines.first);
+        continue;
+      }
+
+      // Merge descriptions cleanly
+      final distinctDescriptions = lines.map((l) => l.description.trim()).toSet().toList();
+      final String mergedDesc = distinctDescriptions.length == 1
+          ? distinctDescriptions.first
+          : distinctDescriptions.join(' • ');
+
+      final double totalQty = lines.fold(0.0, (s, l) => s + l.qty);
+      final String unit = lines.first.unit;
+      final double totalForeignPrice = lines.fold(0.0, (s, l) => s + l.foreignPrice);
+      final double totalFobEgp = lines.fold(0.0, (s, l) => s + l.fobEgp);
+      final double totalFreightEgp = lines.fold(0.0, (s, l) => s + l.freightEgp);
+      final double totalInsuranceEgp = lines.fold(0.0, (s, l) => s + l.insuranceEgp);
+      final double totalCifEgp = lines.fold(0.0, (s, l) => s + l.cifEgp);
+      
+      final first = lines.first;
+      final double totalDutyAmountEgp = lines.fold(0.0, (s, l) => s + l.dutyAmountEgp);
+      final double totalVatBaseEgp = lines.fold(0.0, (s, l) => s + l.vatBaseEgp);
+      final double totalVatAmountEgp = lines.fold(0.0, (s, l) => s + l.vatAmountEgp);
+      final double totalScheduleTaxAmountEgp = lines.fold(0.0, (s, l) => s + l.scheduleTaxAmountEgp);
+      final double totalDevFeeAmountEgp = lines.fold(0.0, (s, l) => s + l.developmentFeeAmountEgp);
+      final double totalSvcAmountEgp = lines.fold(0.0, (s, l) => s + l.customsServiceFeeAmountEgp);
+      final double totalTaxes = lines.fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp);
+
+      final distinctOrigins = lines
+          .map((l) => l.countryOfOrigin)
+          .where((o) => o != null && o.isNotEmpty)
+          .cast<String>()
+          .toSet()
+          .toList();
+
+      aggregated.add(CustomsItemCalcRow(
+        hsCode: hs,
+        description: mergedDesc,
+        qty: totalQty,
+        unit: unit,
+        foreignPrice: totalForeignPrice,
+        fobEgp: totalFobEgp,
+        freightEgp: totalFreightEgp,
+        insuranceEgp: totalInsuranceEgp,
+        cifEgp: totalCifEgp,
+        dutyRate: first.dutyRate,
+        baseDutyRate: first.baseDutyRate,
+        dutyAmountEgp: totalDutyAmountEgp,
+        vatRate: first.vatRate,
+        vatBaseEgp: totalVatBaseEgp,
+        vatAmountEgp: totalVatAmountEgp,
+        scheduleTaxRate: first.scheduleTaxRate,
+        scheduleTaxAmountEgp: totalScheduleTaxAmountEgp,
+        developmentFeeRate: first.developmentFeeRate,
+        developmentFeeAmountEgp: totalDevFeeAmountEgp,
+        customsServiceFeeRate: first.customsServiceFeeRate,
+        customsServiceFeeAmountEgp: totalSvcAmountEgp,
+        totalTaxesAndDutiesEgp: totalTaxes,
+        requiresCoo: lines.any((l) => l.requiresCoo),
+        requiresInspection: lines.any((l) => l.requiresInspection),
+        requiresAcid: lines.any((l) => l.requiresAcid),
+        regulatoryAuthority: first.regulatoryAuthority,
+        priorApprovalNote: first.priorApprovalNote,
+        countryOfOrigin: distinctOrigins.isNotEmpty ? distinctOrigins.join(' / ') : null,
+        appliedAgreementName: first.appliedAgreementName,
+        hasExemption: lines.any((l) => l.hasExemption),
+        exemptionConditionsNote: first.exemptionConditionsNote,
+        requiredDocument: first.requiredDocument,
+      ));
+    }
+    return aggregated;
   }
 
   void _addChecklistItem() {
@@ -1356,15 +1491,24 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final liveReadinessPct = totalDocs > 0 ? ((approvedDocs / totalDocs) * 100).toInt() : 0;
 
     // Calculation Lines & Totals
-    final calcLines = _calculateCustomsLines();
+    final rawCalcLines = _calculateCustomsLines();
+    final calcLines = _getAggregatedCustomsLines(rawCalcLines);
     final double exchangeRate = double.tryParse(_exchangeRateController.text.trim()) ?? 50.0;
-    final double totalFreightEgp = double.tryParse(_freightEgpController.text.trim()) ?? 0.0;
+    final double freightForeign = double.tryParse(_freightForeignController.text.trim()) ?? 0.0;
+    final double freightFxRate = double.tryParse(_freightExchangeRateController.text.trim()) ?? exchangeRate;
+    final double totalFreightEgp = freightForeign > 0
+        ? (freightForeign * freightFxRate)
+        : (double.tryParse(_freightEgpController.text.trim()) ?? 0.0);
     final double totalInsuranceEgp = double.tryParse(_insuranceEgpController.text.trim()) ?? 0.0;
-    final totalFobEgp = calcLines.fold(0.0, (s, l) => s + l.fobEgp);
-    final totalCifEgp = calcLines.fold(0.0, (s, l) => s + l.cifEgp);
-    final totalDutyEgp = calcLines.fold(0.0, (s, l) => s + l.dutyAmountEgp);
-    final totalVatEgp = calcLines.fold(0.0, (s, l) => s + l.vatAmountEgp);
-    final totalTaxesAndDutiesEgp = calcLines.fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp);
+    final totalFobForeign = rawCalcLines.fold(0.0, (s, l) => s + l.foreignPrice);
+    final totalFobEgp = rawCalcLines.fold(0.0, (s, l) => s + l.fobEgp);
+    final totalCandFEgp = totalFobEgp + totalFreightEgp;
+    final totalCandFForeign = exchangeRate > 0 ? (totalCandFEgp / exchangeRate) : 0.0;
+    final totalCifEgp = rawCalcLines.fold(0.0, (s, l) => s + l.cifEgp);
+    final totalCifForeign = exchangeRate > 0 ? (totalCifEgp / exchangeRate) : 0.0;
+    final totalDutyEgp = rawCalcLines.fold(0.0, (s, l) => s + l.dutyAmountEgp);
+    final totalVatEgp = rawCalcLines.fold(0.0, (s, l) => s + l.vatAmountEgp);
+    final totalTaxesAndDutiesEgp = rawCalcLines.fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp);
 
     final tabs = widget.isTaxReviewMode
         ? [
@@ -1791,51 +1935,110 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               final selFile = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
                               if (selFile == null) return const SizedBox.shrink();
 
+                              final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
+                              final matchingPOs = allPOs.where((p) =>
+                                  (p.importFileId != null && p.importFileId == selFile.importFileId) ||
+                                  (selFile.importFileCode.isNotEmpty && p.importFileCode != null && p.importFileCode == selFile.importFileCode) ||
+                                  (selFile.poIds != null && p.poId != null && selFile.poIds!.contains(p.poId))).toList();
+
+                              // Group PO totals by currency
+                              final Map<String, double> poTotalsByCur = {};
+                              for (final po in matchingPOs) {
+                                final cur = po.currencyCode?.isNotEmpty == true
+                                    ? po.currencyCode!
+                                    : (currenciesList.where((c) => c.currencyId == po.currencyId).firstOrNull?.currencyCode ?? _customsCurrency);
+                                poTotalsByCur[cur] = (poTotalsByCur[cur] ?? 0.0) + po.totalAmountFob;
+                              }
+                              final poSummaryText = poTotalsByCur.entries
+                                  .map((e) => '${e.value.toStringAsFixed(2)} ${e.key}')
+                                  .join(' + ');
+
+                              // Group Invoices totals by currency
                               final invCount = selFile.invoicesData.length;
-                              final double totalInvAmt = selFile.invoicesData.fold(0.0, (s, inv) => s + inv.amount);
+                              final Map<String, double> invTotalsByCur = {};
+                              for (final inv in selFile.invoicesData) {
+                                final cur = inv.currency.isNotEmpty ? inv.currency : _customsCurrency;
+                                invTotalsByCur[cur] = (invTotalsByCur[cur] ?? 0.0) + inv.amount;
+                              }
+                              final invSummaryText = invTotalsByCur.entries
+                                  .map((e) => '${e.value.toStringAsFixed(2)} ${e.key}')
+                                  .join(' + ');
 
                               return Container(
                                 margin: const EdgeInsets.only(top: 10),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                 decoration: BoxDecoration(
                                   color: AppTheme.cobalt.withOpacity(0.06),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
                                 ),
-                                child: Wrap(
-                                  spacing: 16,
-                                  runSpacing: 6,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
+                                    Wrap(
+                                      spacing: 16,
+                                      runSpacing: 8,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
                                       children: [
-                                        const Icon(Icons.receipt_long, size: 16, color: AppTheme.cobalt),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'إجمالي الفواتير المربوطة: $invCount فواتير (${totalInvAmt > 0 ? totalInvAmt.toStringAsFixed(2) : "0.00"} $_customsCurrency)',
-                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                        // 1. Purchase Orders Summary
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.shopping_cart, size: 16, color: AppTheme.emerald),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'أوامر الشراء المرتبطة: ${matchingPOs.length} أمر شراء'
+                                              '${poSummaryText.isNotEmpty ? " — (الإجمالي: $poSummaryText)" : ""}',
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                            ),
+                                          ],
                                         ),
+                                        // 2. Invoices Summary
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.receipt_long, size: 16, color: AppTheme.cobalt),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'الفواتير المعتمدة: $invCount فواتير'
+                                              '${invSummaryText.isNotEmpty ? " — (الإجمالي: $invSummaryText)" : (invCount > 0 ? " — (${invTotalsByCur.values.fold(0.0, (s, a) => s + a).toStringAsFixed(2)} $_customsCurrency)" : "")}',
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                            ),
+                                          ],
+                                        ),
+                                        if (selFile.projectNames != null && selFile.projectNames!.isNotEmpty)
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.business, size: 16, color: Colors.blueGrey),
+                                              const SizedBox(width: 6),
+                                              Text('المشروع: ${selFile.projectNames}', style: const TextStyle(fontSize: 12, color: AppTheme.charcoal)),
+                                            ],
+                                          ),
                                       ],
                                     ),
-                                    if (selFile.poNumber != null && selFile.poNumber!.isNotEmpty)
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.shopping_cart_checkout, size: 16, color: AppTheme.emerald),
-                                          const SizedBox(width: 6),
-                                          Text('أمر الشراء: ${selFile.poNumber}', style: const TextStyle(fontSize: 12, color: AppTheme.charcoal)),
-                                        ],
+                                    if (matchingPOs.length > 1) ...[
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        children: matchingPOs.map((po) {
+                                          final cur = po.currencyCode ?? _customsCurrency;
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: Colors.grey.shade300),
+                                            ),
+                                            child: Text(
+                                              '#${po.poNumber}: ${po.totalAmountFob.toStringAsFixed(2)} $cur',
+                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                            ),
+                                          );
+                                        }).toList(),
                                       ),
-                                    if (selFile.projectNames != null && selFile.projectNames!.isNotEmpty)
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.business, size: 16, color: AppTheme.charcoal),
-                                          const SizedBox(width: 6),
-                                          Text('المشروع: ${selFile.projectNames}', style: const TextStyle(fontSize: 12, color: AppTheme.charcoal)),
-                                        ],
-                                      ),
+                                    ],
                                   ],
                                 ),
                               );
@@ -1940,14 +2143,14 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                           ),
                           if (_isCustomsCalculatorExpanded) ...[
                             const Divider(height: 24),
-                            // Inputs Bar: Currency, Exchange Rate, Study Date, Freight, Insurance
+                            // Row 1: Valuation Currency, Customs Official FX Rate, Study Date
                             Row(
                               children: [
                                 Expanded(
                                   flex: 2,
                                   child: SearchableDropdownField<String>(
                                     value: _customsCurrency,
-                                    labelText: l.quoteCurrencyCol,
+                                    labelText: 'عملة البضاعة / الفاتورة (Invoice Currency)',
                                     items: (ref.watch(currenciesProvider).value ?? []).isNotEmpty
                                         ? (ref.watch(currenciesProvider).value ?? [])
                                             .map((c) => SearchableDropdownItem<String>(
@@ -1978,7 +2181,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   child: TextFormField(
                                     controller: _exchangeRateController,
                                     keyboardType: TextInputType.number,
-                                    decoration: InputDecoration(labelText: '${l.customsExchangeRate} (EGP)', border: const OutlineInputBorder()),
+                                    decoration: InputDecoration(
+                                      labelText: 'سعر الصرف الجمركي للبضاعة (EGP)',
+                                      border: const OutlineInputBorder(),
+                                      prefixIcon: const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 18),
+                                    ),
                                     onChanged: (_) => setState(() {}),
                                   ),
                                 ),
@@ -2010,28 +2217,261 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  flex: 2,
-                                  child: TextFormField(
-                                    controller: _freightEgpController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: InputDecoration(labelText: '${l.freightEgpLabel} (EGP)', border: const OutlineInputBorder()),
-                                    onChanged: (_) => setState(() {}),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Row 2: Ocean Freight Data in a dedicated separate row (بيانات النولون البحري وسعر الصرف في سطر منفصل)
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.blue.shade200),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 18),
+                                      const SizedBox(width: 6),
+                                      const Text(
+                                        'بيانات النولون البحري / الجوي (Ocean / Air Freight)',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                      ),
+                                      const Spacer(),
+                                      if (_selectedImportFileId != null)
+                                        TextButton.icon(
+                                          style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                                          icon: const Icon(Icons.download, size: 16, color: AppTheme.cobalt),
+                                          label: const Text('جلب أعلى نولون من دراسة الشحن', style: TextStyle(fontSize: 11)),
+                                          onPressed: () => _autoFetchFreightFromScenarios(_selectedImportFileId!),
+                                        ),
+                                    ],
                                   ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 2,
+                                        child: TextFormField(
+                                          controller: _freightForeignController,
+                                          keyboardType: TextInputType.number,
+                                          decoration: const InputDecoration(
+                                            labelText: 'قيمة النولون بالعملة الأجنبية',
+                                            border: OutlineInputBorder(),
+                                          ),
+                                          onChanged: (_) => setState(() => _recalculateFreightEgp()),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        flex: 2,
+                                        child: SearchableDropdownField<String>(
+                                          value: _freightCurrency,
+                                          labelText: 'عملة النولون (Freight Currency)',
+                                          items: (ref.watch(currenciesProvider).value ?? []).isNotEmpty
+                                              ? (ref.watch(currenciesProvider).value ?? [])
+                                                  .map((c) => SearchableDropdownItem<String>(
+                                                        value: c.currencyCode,
+                                                        label: '${c.currencyCode} - ${c.currencyName}',
+                                                      ))
+                                                  .toList()
+                                              : const [
+                                                  SearchableDropdownItem(value: 'USD', label: 'USD'),
+                                                  SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                                                  SearchableDropdownItem(value: 'GBP', label: 'GBP'),
+                                                  SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                                                ],
+                                          onChanged: (v) {
+                                            if (v != null) {
+                                              setState(() {
+                                                _freightCurrency = v;
+                                                _updateFreightExchangeRateForCurrency(v);
+                                              });
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        flex: 2,
+                                        child: TextFormField(
+                                          controller: _freightExchangeRateController,
+                                          keyboardType: TextInputType.number,
+                                          decoration: InputDecoration(
+                                            labelText: 'سعر صرف عملة النولون (EGP)',
+                                            border: const OutlineInputBorder(),
+                                            prefixIcon: const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 16),
+                                          ),
+                                          onChanged: (_) => setState(() => _recalculateFreightEgp()),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        flex: 2,
+                                        child: TextFormField(
+                                          controller: _freightEgpController,
+                                          keyboardType: TextInputType.number,
+                                          decoration: InputDecoration(
+                                            labelText: '${l.freightEgpLabel} (EGP)',
+                                            border: const OutlineInputBorder(),
+                                            prefixIcon: const Icon(Icons.attach_money, color: AppTheme.emerald, size: 18),
+                                          ),
+                                          onChanged: (_) => setState(() {}),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Row 3: Marine Insurance calculation (التأمين البحري التقديري 0.5% أو 1.0%)
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.orange.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.security, color: AppTheme.orange, size: 18),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'نسبة التأمين التقديري الجمركي:',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  SegmentedButton<String>(
+                                    segments: const [
+                                      ButtonSegment(value: '0.5%', label: Text('0.5% (القياسي للجمارك)')),
+                                      ButtonSegment(value: '1.0%', label: Text('1.0%')),
+                                      ButtonSegment(value: 'Custom', label: Text('مخصص')),
+                                    ],
+                                    selected: {_insuranceOption},
+                                    onSelectionChanged: (set) {
+                                      setState(() {
+                                        _insuranceOption = set.first;
+                                      });
+                                    },
+                                    style: const ButtonStyle(
+                                      visualDensity: VisualDensity.compact,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _insuranceEgpController,
+                                      readOnly: _insuranceOption != 'Custom',
+                                      keyboardType: TextInputType.number,
+                                      decoration: InputDecoration(
+                                        labelText: '${l.insuranceEgpLabel} (EGP)',
+                                        border: const OutlineInputBorder(),
+                                        filled: _insuranceOption != 'Custom',
+                                        fillColor: _insuranceOption != 'Custom' ? Colors.grey.shade100 : null,
+                                        helperText: _insuranceOption != 'Custom' ? 'محسوب تلقائياً من (C&F × $_insuranceOption)' : null,
+                                      ),
+                                      onChanged: (_) => setState(() {}),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+
+                            // Row 4: Highlighted Declared Customs CIF Value Box (إجمالي القيمة المقر عنها للأغراض الجمركية)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppTheme.charcoal.withOpacity(0.04),
+                                    AppTheme.emerald.withOpacity(0.08),
+                                  ],
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  flex: 2,
-                                  child: TextFormField(
-                                    controller: _insuranceEgpController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: InputDecoration(labelText: '${l.insuranceEgpLabel} (EGP)', border: const OutlineInputBorder()),
-                                    onChanged: (_) => setState(() {}),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.emerald.withOpacity(0.4), width: 1.2),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.verified, color: AppTheme.emerald, size: 18),
+                                            const SizedBox(width: 6),
+                                            const Text(
+                                              'إجمالي القيمة المقر عنها للأغراض الجمركية (Declared CIF Value Base):',
+                                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'قيمة البضاعة FOB (${totalFobForeign.toStringAsFixed(2)} $_customsCurrency) + النولون (${totalFreightEgp.toStringAsFixed(2)} EGP) = C&F (${totalCandFEgp.toStringAsFixed(2)} EGP) + التأمين (${totalInsuranceEgp.toStringAsFixed(2)} EGP)',
+                                          style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                        ),
+                                      ],
+                                    ),
                                   ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        '${totalCifEgp.toStringAsFixed(2)} EGP',
+                                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                      ),
+                                      if (exchangeRate > 0)
+                                        Text(
+                                          '≈ ${totalCifForeign.toStringAsFixed(2)} $_customsCurrency',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.cobalt),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Row 5: Table Header Controls & Toolbar
+                            Row(
+                              children: [
+                                const Icon(Icons.table_chart, color: AppTheme.cobalt, size: 18),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'جدول تفاصيل التعريفة الجمركية (${calcLines.length} ${_groupByHsCode ? "بند تعريفة مجمع" : "بند تفصيلي"})',
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                ),
+                                const Spacer(),
+                                FilterChip(
+                                  selected: _groupByHsCode,
+                                  label: Text(
+                                    _groupByHsCode ? '✓ مجمع حسب بند التعريفة (HS Code)' : 'عرض تفصيلي لكل بند',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: _groupByHsCode ? Colors.white : AppTheme.charcoal,
+                                    ),
+                                  ),
+                                  selectedColor: AppTheme.cobalt,
+                                  checkmarkColor: Colors.white,
+                                  onSelected: (val) {
+                                    setState(() {
+                                      _groupByHsCode = val;
+                                    });
+                                  },
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 10),
+
                             if (_recalculationResult != null) ...[
                               const SizedBox(height: 16),
                               RecalculationVarianceComparisonCard(
@@ -2040,7 +2480,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 onClose: () => setState(() => _recalculationResult = null),
                               ),
                             ],
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 10),
 
                             // HS Code Line Items Calculation Table
                             if (calcLines.isEmpty)
@@ -2066,6 +2506,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     DataColumn(label: Text(l.customsTariffItemCol)),
                                     DataColumn(label: Text(l.itemDescriptionAndOriginCol)),
                                     DataColumn(label: Text(l.quantityAndUnitCol)),
+                                    DataColumn(label: Text('القيمة بالعملة ($_customsCurrency)')),
                                     DataColumn(label: Text(l.fobEgpCol)),
                                     DataColumn(label: Text(l.cifEgpCol)),
                                     DataColumn(label: Text(l.customsDutyCol)),
@@ -2111,6 +2552,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           ),
                                         ),
                                         DataCell(Text('${line.qty.toStringAsFixed(0)} ${line.unit}')),
+                                        DataCell(Text('${line.foreignPrice.toStringAsFixed(2)} $_customsCurrency', style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.cobalt))),
                                         DataCell(Text(line.fobEgp.toStringAsFixed(2))),
                                         DataCell(Text(line.cifEgp.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold))),
                                         DataCell(
@@ -2274,8 +2716,16 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   alignment: WrapAlignment.spaceBetween,
                                   crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
-                                    ConsultationMetricBadge(title: l.fobEgpCol, value: '${totalFobEgp.toStringAsFixed(2)} EGP', color: Colors.grey.shade800),
-                                    ConsultationMetricBadge(title: l.cifEgpCol, value: '${totalCifEgp.toStringAsFixed(2)} EGP', color: AppTheme.cobalt),
+                                    ConsultationMetricBadge(
+                                      title: l.fobEgpCol,
+                                      value: '${totalFobForeign.toStringAsFixed(2)} $_customsCurrency\n(${totalFobEgp.toStringAsFixed(2)} EGP)',
+                                      color: Colors.grey.shade800,
+                                    ),
+                                    ConsultationMetricBadge(
+                                      title: l.cifEgpCol,
+                                      value: '${totalCifForeign.toStringAsFixed(2)} $_customsCurrency\n(${totalCifEgp.toStringAsFixed(2)} EGP)',
+                                      color: AppTheme.cobalt,
+                                    ),
                                     ConsultationMetricBadge(title: l.customsDutyCol, value: '${totalDutyEgp.toStringAsFixed(2)} EGP', color: Colors.indigo),
                                     ConsultationMetricBadge(title: l.vatCol, value: '${totalVatEgp.toStringAsFixed(2)} EGP', color: Colors.teal),
                                     ConsultationMetricBadge(title: l.totalTaxesAndDutiesCol, value: '${totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP', color: AppTheme.crimson),

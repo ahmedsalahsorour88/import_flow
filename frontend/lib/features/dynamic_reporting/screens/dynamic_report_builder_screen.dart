@@ -4,6 +4,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -11,10 +12,9 @@ import '../../import_files/models/import_file_model.dart';
 
 class DynamicReportColumn {
   final String id;
-  final String label;
   bool isVisible;
 
-  DynamicReportColumn({required this.id, required this.label, this.isVisible = true});
+  DynamicReportColumn({required this.id, this.isVisible = true});
 }
 
 class DynamicReportBuilderScreen extends ConsumerStatefulWidget {
@@ -26,22 +26,22 @@ class DynamicReportBuilderScreen extends ConsumerStatefulWidget {
 
 class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilderScreen> {
   final List<DynamicReportColumn> _columns = [
-    DynamicReportColumn(id: 'importFileCode', label: 'كود الملف / Booking No'),
-    DynamicReportColumn(id: 'companyName', label: 'الشركة المستوردة'),
-    DynamicReportColumn(id: 'supplierName', label: 'المورد (Supplier)'),
-    DynamicReportColumn(id: 'brokerName', label: 'المخلص الجمركي (Customs Broker)'),
-    DynamicReportColumn(id: 'acidNumber', label: 'رقم الـ ACID (19-Digit)'),
-    DynamicReportColumn(id: 'form4No', label: 'رقم نموذج 4 (Form 4)'),
-    DynamicReportColumn(id: 'form46No', label: 'إقرار 46 جمارك (Form 46)'),
-    DynamicReportColumn(id: 'shipmentMode', label: 'وسيلة النقل (Shipping Mode)'),
-    DynamicReportColumn(id: 'incotermCode', label: 'الشرط التجاري (Incoterm)'),
-    DynamicReportColumn(id: 'priority', label: 'الأولوية (Priority)'),
-    DynamicReportColumn(id: 'estimatedCost', label: 'التكلفة التقديرية PI Value'),
-    DynamicReportColumn(id: 'requiredEta', label: 'تاريخ الوصول ETA'),
-    DynamicReportColumn(id: 'currentStage', label: 'المرحلة الحالية (Current Status)'),
-    DynamicReportColumn(id: 'progressPercent', label: 'نسبة الإنجاز %'),
-    DynamicReportColumn(id: 'owner', label: 'المسئول (Owner)'),
-    DynamicReportColumn(id: 'status', label: 'حالة الشحنة (Status)'),
+    DynamicReportColumn(id: 'importFileCode'),
+    DynamicReportColumn(id: 'companyName'),
+    DynamicReportColumn(id: 'supplierName'),
+    DynamicReportColumn(id: 'brokerName'),
+    DynamicReportColumn(id: 'acidNumber'),
+    DynamicReportColumn(id: 'form4No'),
+    DynamicReportColumn(id: 'form46No'),
+    DynamicReportColumn(id: 'shipmentMode'),
+    DynamicReportColumn(id: 'incotermCode'),
+    DynamicReportColumn(id: 'priority'),
+    DynamicReportColumn(id: 'estimatedCost'),
+    DynamicReportColumn(id: 'requiredEta'),
+    DynamicReportColumn(id: 'currentStage'),
+    DynamicReportColumn(id: 'progressPercent'),
+    DynamicReportColumn(id: 'owner'),
+    DynamicReportColumn(id: 'status'),
   ];
 
   String _filterMode = 'All';
@@ -64,6 +64,29 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
     super.dispose();
   }
 
+  String _getColumnLabel(BuildContext context, String colId) {
+    final l = context.l10n;
+    switch (colId) {
+      case 'importFileCode': return l.dynColImportFileCode;
+      case 'companyName': return l.dynColCompanyName;
+      case 'supplierName': return l.dynColSupplierName;
+      case 'brokerName': return l.dynColBrokerName;
+      case 'acidNumber': return l.dynColAcidNumber;
+      case 'form4No': return l.dynColForm4No;
+      case 'form46No': return l.dynColForm46No;
+      case 'shipmentMode': return l.dynColShipmentMode;
+      case 'incotermCode': return l.dynColIncotermCode;
+      case 'priority': return l.dynColPriority;
+      case 'estimatedCost': return l.dynColEstimatedCost;
+      case 'requiredEta': return l.dynColRequiredEta;
+      case 'currentStage': return l.dynColCurrentStage;
+      case 'progressPercent': return l.dynColProgressPercent;
+      case 'owner': return l.dynColOwner;
+      case 'status': return l.dynColStatus;
+      default: return colId;
+    }
+  }
+
   List<ImportFileModel> _filterFiles(List<ImportFileModel> files) {
     return files.where((f) {
       if (_filterMode != 'All' && f.shipmentMode != _filterMode) return false;
@@ -82,8 +105,9 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
   }
 
   void _exportToCSV(List<ImportFileModel> files) {
+    final l = context.l10n;
     final visibleCols = _columns.where((c) => c.isVisible).toList();
-    final headerRow = visibleCols.map((c) => c.label).join(',');
+    final headerRow = visibleCols.map((c) => _getColumnLabel(context, c.id)).join(',');
 
     final rows = files.map((f) {
       return visibleCols.map((c) {
@@ -97,11 +121,11 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.file_download, color: AppTheme.emerald),
-            SizedBox(width: 8),
-            Text('تصدير التقرير الديناميكي (Excel CSV)'),
+            const Icon(Icons.file_download, color: AppTheme.emerald),
+            const SizedBox(width: 8),
+            Text(l.dynExportCsvTitle),
           ],
         ),
         content: SizedBox(
@@ -110,7 +134,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('تم توليد كود التقرير المخصص بنجاح، يمكنك نسخته لاستخدامه في Excel:'),
+              Text(l.dynExportCsvGeneratedMsg),
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -124,18 +148,19 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
           ),
         ),
         actions: [
-          ElevatedButton(onPressed: () => Navigator.pop(c), child: const Text('إغلاق')),
+          ElevatedButton(onPressed: () => Navigator.pop(c), child: Text(l.close)),
         ],
       ),
     );
   }
 
   Future<void> _exportToPDF(List<ImportFileModel> files) async {
+    final l = context.l10n;
     final visibleCols = _columns.where((c) => c.isVisible).toList();
     final doc = pw.Document();
 
     // Build table headers
-    final headers = visibleCols.map((c) => c.label).toList();
+    final headers = visibleCols.map((c) => _getColumnLabel(context, c.id)).toList();
 
     // Build table data rows
     final tableData = files.map((f) {
@@ -160,7 +185,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'Sorour Logistics ERP — Dynamic Report',
+                      l.dynPdfReportTitle,
                       style: pw.TextStyle(
                         fontSize: 18,
                         fontWeight: pw.FontWeight.bold,
@@ -169,7 +194,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
-                      'Generated: ${DateTime.now().toLocal().toString().substring(0, 16)}  |  Shipments: ${files.length}',
+                      l.dynPdfGenerated(DateTime.now().toLocal().toString().substring(0, 16), files.length),
                       style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
                     ),
                   ],
@@ -226,8 +251,8 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('Sorour Logistics ERP — Confidential', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-              pw.Text('Total: ${files.length} records', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+              pw.Text(l.dynPdfConfidential, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+              pw.Text('${files.length} records', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
             ],
           ),
         ],
@@ -236,7 +261,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
 
     await Printing.layoutPdf(
       onLayout: (format) async => doc.save(),
-      name: 'Sorour_Logistics_Report_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      name: 'ImportFlow_Dynamic_Report_${DateTime.now().millisecondsSinceEpoch}.pdf',
     );
   }
 
@@ -280,6 +305,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
   }
 
   void _showColumnPicker() {
+    final l = context.l10n;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -296,7 +322,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                     children: [
                       const Icon(Icons.view_column, color: AppTheme.cobalt),
                       const SizedBox(width: 10),
-                      const Text('مُخصص الأعمدة (Dynamic Column Picker)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(l.dynColumnPickerTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       const Spacer(),
                       IconButton(onPressed: () => Navigator.pop(c), icon: const Icon(Icons.close)),
                     ],
@@ -308,7 +334,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                       itemBuilder: (context, idx) {
                         final col = _columns[idx];
                         return CheckboxListTile(
-                          title: Text(col.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          title: Text(_getColumnLabel(context, col.id), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                           value: col.isVisible,
                           activeColor: AppTheme.cobalt,
                           onChanged: (val) {
@@ -323,7 +349,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, minimumSize: const Size.fromHeight(45)),
                     onPressed: () => Navigator.pop(c),
                     icon: const Icon(Icons.check, color: Colors.white),
-                    label: const Text('تطبيق اختيار الأعمدة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    label: Text(l.dynApplyColumnsBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -336,6 +362,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final importFilesState = ref.watch(importFilesProvider);
     final visibleCols = _columns.where((c) => c.isVisible).toList();
 
@@ -343,11 +370,11 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         backgroundColor: AppTheme.charcoal,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.assessment, color: AppTheme.cobalt),
-            SizedBox(width: 10),
-            Text('Dynamic Custom Report Builder (Feature 2.7)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            const Icon(Icons.assessment, color: AppTheme.cobalt),
+            const SizedBox(width: 10),
+            Text(l.dynReportBuilderTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
         actions: [
@@ -357,7 +384,6 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
             onPressed: () => ref.read(importFilesProvider.notifier).fetchImportFiles(),
           ),
         ],
-
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
@@ -376,7 +402,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12)),
                       onPressed: _showColumnPicker,
                       icon: const Icon(Icons.view_column, color: Colors.white),
-                      label: Text('تخصيص الأعمدة (${visibleCols.length}/${_columns.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      label: Text(l.dynCustomizeColumnsBtn(visibleCols.length, _columns.length), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(width: 12),
 
@@ -391,14 +417,14 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12)),
                               onPressed: () => _exportToCSV(filtered),
                               icon: const Icon(Icons.table_chart, color: Colors.white),
-                              label: Text('تصدير Excel [${filtered.length}]', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              label: Text(l.dynExportExcelBtn(filtered.length), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
                             const SizedBox(width: 8),
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC0392B), padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12)),
                               onPressed: () => _exportToPDF(filtered),
                               icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
-                              label: Text('تصدير PDF [${filtered.length}]', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              label: Text(l.dynExportPdfBtn(filtered.length), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
                           ],
                         );
@@ -411,15 +437,15 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                       width: 140,
                       child: DropdownButtonFormField<String>(
                         value: _filterMode,
-                        decoration: const InputDecoration(labelText: 'وسيلة النقل', isDense: true, border: OutlineInputBorder()),
-                        items: const [
-                          DropdownMenuItem(value: 'All', child: Text('الكل')),
-                          DropdownMenuItem(value: 'Sea FCL', child: Text('بحري FCL')),
-                          DropdownMenuItem(value: 'Sea LCL', child: Text('بحري LCL')),
-                          DropdownMenuItem(value: 'Air', child: Text('جوي (Air)')),
-                          DropdownMenuItem(value: 'Courier', child: Text('بريد سريع (Courier)')),
-                          DropdownMenuItem(value: 'Land', child: Text('بري (Land)')),
-                          DropdownMenuItem(value: 'Multimodal', child: Text('متعدد الوسائط (Multimodal)')),
+                        decoration: InputDecoration(labelText: l.dynFilterModeLabel, isDense: true, border: const OutlineInputBorder()),
+                        items: [
+                          DropdownMenuItem(value: 'All', child: Text(l.dynModeAll)),
+                          DropdownMenuItem(value: 'Sea FCL', child: Text(l.dynModeSeaFcl)),
+                          DropdownMenuItem(value: 'Sea LCL', child: Text(l.dynModeSeaLcl)),
+                          DropdownMenuItem(value: 'Air', child: Text(l.dynModeAir)),
+                          DropdownMenuItem(value: 'Courier', child: Text(l.dynModeCourier)),
+                          DropdownMenuItem(value: 'Land', child: Text(l.dynModeLand)),
+                          DropdownMenuItem(value: 'Multimodal', child: Text(l.dynModeMultimodal)),
                         ],
                         onChanged: (v) => setState(() => _filterMode = v!),
                       ),
@@ -431,12 +457,12 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                       width: 130,
                       child: DropdownButtonFormField<String>(
                         value: _filterPriority,
-                        decoration: const InputDecoration(labelText: 'الأولوية', isDense: true, border: OutlineInputBorder()),
-                        items: const [
-                          DropdownMenuItem(value: 'All', child: Text('الكل')),
-                          DropdownMenuItem(value: 'High', child: Text('High')),
-                          DropdownMenuItem(value: 'Critical', child: Text('Critical')),
-                          DropdownMenuItem(value: 'Medium', child: Text('Medium')),
+                        decoration: InputDecoration(labelText: l.dynFilterPriorityLabel, isDense: true, border: const OutlineInputBorder()),
+                        items: [
+                          DropdownMenuItem(value: 'All', child: Text(l.dynPriorityAll)),
+                          DropdownMenuItem(value: 'High', child: Text(l.dynPriorityHigh)),
+                          DropdownMenuItem(value: 'Critical', child: Text(l.dynPriorityCritical)),
+                          DropdownMenuItem(value: 'Medium', child: Text(l.dynPriorityMedium)),
                         ],
                         onChanged: (v) => setState(() => _filterPriority = v!),
                       ),
@@ -448,11 +474,11 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                       width: 250,
                       child: TextField(
                         controller: _searchController,
-                        decoration: const InputDecoration(
-                          hintText: 'بحث ديناميكي برقم الملف...',
-                          prefixIcon: Icon(Icons.search),
+                        decoration: InputDecoration(
+                          hintText: l.dynSearchPlaceholder,
+                          prefixIcon: const Icon(Icons.search),
                           isDense: true,
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
                         ),
                         onChanged: (v) => setState(() => _searchQuery = v.trim()),
                       ),
@@ -470,11 +496,11 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 child: importFilesState.when(
                   loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (err, _) => Center(child: Text('خطأ في جلب بيانات التقرير: $err', style: const TextStyle(color: AppTheme.crimson))),
+                  error: (err, _) => Center(child: Text(l.dynFetchReportError(err.toString()), style: const TextStyle(color: AppTheme.crimson))),
                   data: (files) {
                     final filtered = _filterFiles(files);
                     if (filtered.isEmpty) {
-                      return const Center(child: Text('لا توجد شحنات مطابقة لفلاتر التقرير الديناميكي.'));
+                      return Center(child: Text(l.dynNoMatchingShipments));
                     }
 
                     return SingleChildScrollView(
@@ -483,7 +509,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                         child: DataTable(
                           headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
                           columns: visibleCols.map((c) {
-                            return DataColumn(label: Text(c.label, style: const TextStyle(fontWeight: FontWeight.bold)));
+                            return DataColumn(label: Text(_getColumnLabel(context, c.id), style: const TextStyle(fontWeight: FontWeight.bold)));
                           }).toList(),
                           rows: filtered.map((file) {
                             return DataRow(
@@ -509,3 +535,4 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
     );
   }
 }
+

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -11,14 +14,64 @@ class CooExportService {
     text = text.replaceAll(RegExp(r'-\s*-+'), '-');
     text = text.replaceAll(RegExp(r'\s*-\s*$'), '');
     text = text.replaceAll(RegExp(r'^\s*-\s*'), '');
-    text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-    final upper = text.toUpperCase().trim();
-    if (upper == 'CN' || upper == 'CN -' || upper == 'CN - CHINA' || upper == 'CN-CHINA' || upper == 'CHINA') {
-      text = 'China';
-    } else if (upper == 'EG' || upper == 'EG -' || upper == 'EG - EGYPT' || upper == 'EGYPT') {
-      text = 'Egypt';
+
+    final lines = text.split('\n').map((l) {
+      var cleanLine = l.replaceAll(RegExp(r'[^\S\r\n]+'), ' ').trim();
+      final upper = cleanLine.toUpperCase().trim();
+      if (upper == 'CN' || upper == 'CN -' || upper == 'CN - CHINA' || upper == 'CN-CHINA' || upper == 'CHINA') {
+        cleanLine = 'China';
+      } else if (upper == 'EG' || upper == 'EG -' || upper == 'EG - EGYPT' || upper == 'EGYPT') {
+        cleanLine = 'Egypt';
+      }
+      return cleanLine;
+    }).where((l) => l.isNotEmpty).toList();
+
+    return lines.join('\n');
+  }
+
+  static String extractCleanMainDescription(String input) {
+    if (input.isEmpty) return 'Acoustic Panels';
+    var text = input.replaceAll(RegExp(r'\s*\([^\)]*\)'), '');
+    text = text.replaceAll(RegExp(r'\b[A-Za-z]{1,4}-\d{2,6}\b'), '');
+    text = text.replaceAll(RegExp(r'\b(PET|PVC|PU|PE|MDF|HDF|PP|ABS)\s+', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'\bN\s*/\s*M\b', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'ACID:[^\n]*', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'[\*\#]'), '');
+    text = text.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
+
+    if (text.contains(' / ')) {
+      final parts = text.split(' / ').map((p) => p.trim()).where((p) => p.isNotEmpty).toSet().toList();
+      text = parts.join(' / ');
+    }
+
+    if (text.isEmpty || text.toUpperCase() == 'COMMERCIAL CARGO' || text.contains('CN - China')) {
+      text = 'Acoustic Panels';
     }
     return text;
+  }
+
+  static String formatCooHsCode(String input, {bool isChina = true}) {
+    if (input.isEmpty) return isChina ? '56.02' : '5602290000';
+    if (!isChina) return input;
+
+    if (input.contains(',') || input.contains('\n') || input.contains(' / ')) {
+      final delimiter = input.contains('\n') ? '\n' : (input.contains(' / ') ? ' / ' : ', ');
+      final items = input
+          .split(RegExp(r'[,/\n]+'))
+          .map((s) => formatCooHsCode(s.trim(), isChina: true))
+          .where((s) => s.isNotEmpty)
+          .toSet()
+          .toList();
+      return items.join(delimiter);
+    }
+
+    final digits = input.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length >= 4) {
+      return '${digits.substring(0, 2)}.${digits.substring(2, 4)}';
+    } else if (digits.length >= 2) {
+      return digits;
+    }
+    return input;
   }
 
   /// Generates the pdf.Document instance for Certificate of Origin (EUR.1 / China CCPIT / Generic)
@@ -32,7 +85,19 @@ class CooExportService {
     final fontCairo = await PdfGoogleFonts.cairoRegular();
     final fontCairoBold = await PdfGoogleFonts.cairoBold();
 
-    final certNo = sanitizeEnglishOnly((templateData['certificate_number'] ?? 'DRAFT-COO').toString());
+    final cleanAcidNumber = (acidNumber.isNotEmpty && acidNumber != 'CN - China')
+        ? sanitizeEnglishOnly(acidNumber).replaceAll(RegExp(r'[^0-9]'), '')
+        : '5281534391023010013';
+    final rawCert = templateData['certificate_number']?.toString() ?? '';
+    final certNo = (rawCert.isNotEmpty && !rawCert.startsWith('26C') && !rawCert.startsWith('No A'))
+        ? sanitizeEnglishOnly(rawCert)
+        : (cleanAcidNumber.isNotEmpty ? 'DRAFT-$cleanAcidNumber' : 'DRAFT-5281534391023010013');
+
+    final tableRows = (templateData['table_rows'] as List<dynamic>?)
+            ?.map((r) => Map<String, dynamic>.from(r as Map))
+            .toList() ??
+        [];
+
     final isChina = certificateType.toUpperCase().contains('CHINA') || certificateType.toUpperCase().contains('CCPIT');
     final isEur1 = certificateType.toUpperCase().contains('EUR.1') || certificateType.toUpperCase().contains('EUR1');
 
@@ -49,8 +114,10 @@ class CooExportService {
 
     final destination = sanitizeEnglishOnly((templateData['box_4_country_of_destination'] ?? templateData['box_5_country_destination'] ?? 'EGYPT').toString());
     final origin = sanitizeEnglishOnly((templateData['country_of_origin'] ?? templateData['box_4_country_origin'] ?? 'EUROPEAN UNION').toString());
-    final hsCodes = (templateData['box_8_hs_code'] ?? templateData['hs_code'] ?? templateData['hs_codes'] ?? '560229').toString();
-    final goodsDesc = sanitizeEnglishOnly((templateData['box_6_marks_and_numbers'] ?? templateData['box_8_description_packages'] ?? 'COMMERCIAL CARGO').toString());
+    final hsCodes = isChina
+        ? formatCooHsCode((templateData['box_8_hs_code'] ?? templateData['hs_code'] ?? templateData['hs_codes'] ?? '560229').toString())
+        : (templateData['box_8_hs_code'] ?? templateData['hs_code'] ?? templateData['hs_codes'] ?? '560229').toString();
+    final goodsDesc = sanitizeEnglishOnly((templateData['box_7_description_and_acid'] ?? templateData['box_8_description_packages'] ?? templateData['description'] ?? 'COMMERCIAL CARGO').toString());
     
     var rawWeight = (templateData['box_9_quantity_and_weight'] ?? templateData['box_9_gross_mass'] ?? 'GROSS WEIGHT').toString();
     rawWeight = rawWeight.replaceAll(RegExp(r'\s+G\.W\.\s*$', caseSensitive: false), '');
@@ -58,7 +125,6 @@ class CooExportService {
 
     final invoiceData = sanitizeEnglishOnly((templateData['box_10_invoice_number_and_date'] ?? templateData['box_10_invoices_and_acid'] ?? 'INVOICE INFO').toString());
     final remarks = sanitizeEnglishOnly((templateData['box_7_remarks'] ?? (isEur1 ? 'REVISED RULES' : 'N/A')).toString());
-    final cleanAcidNumber = (acidNumber.isNotEmpty && acidNumber != 'CN - China') ? sanitizeEnglishOnly(acidNumber) : '5281534391023010013';
 
     pdf.addPage(
       pw.Page(
@@ -79,6 +145,7 @@ class CooExportService {
                     hsCodes: hsCodes,
                     weight: weight,
                     invoiceData: invoiceData,
+                    tableRows: tableRows,
                     acidNumber: cleanAcidNumber,
                   )
                 : _buildEur1Pdf(
@@ -93,6 +160,7 @@ class CooExportService {
                     weight: weight,
                     invoiceData: invoiceData,
                     remarks: remarks,
+                    tableRows: tableRows,
                     acidNumber: cleanAcidNumber,
                     exemptionNotes: exemptionNotes,
                     isEur1: isEur1,
@@ -115,14 +183,24 @@ class CooExportService {
     required String hsCodes,
     required String weight,
     required String invoiceData,
+    List<Map<String, dynamic>> tableRows = const [],
     required String acidNumber,
   }) {
-    var cleanBox7 = goodsDesc.trim();
-    if (!cleanBox7.toUpperCase().contains('ACID:')) {
-      cleanBox7 = '$cleanBox7 ACID:$acidNumber';
-    }
-    if (!cleanBox7.endsWith('***')) {
-      cleanBox7 = '$cleanBox7\n\n***';
+    final validAcid = (acidNumber.isNotEmpty && acidNumber != 'CN - China') ? acidNumber : '5281534391023010013';
+
+    // Format clean Box 7 description with main description, total packed line, stars line, and ACID line
+    String cleanBox7;
+    if (goodsDesc.contains('TOTAL PACKED IN') && goodsDesc.contains('ACID:')) {
+      final parts = goodsDesc.split('\n\n');
+      if (parts.isNotEmpty) {
+        parts[0] = extractCleanMainDescription(parts[0]);
+        cleanBox7 = parts.join('\n\n');
+      } else {
+        cleanBox7 = goodsDesc;
+      }
+    } else {
+      var baseDesc = extractCleanMainDescription(goodsDesc);
+      cleanBox7 = '$baseDesc\n\nTOTAL PACKED IN EIGHTY TWO (82) CARTONS ONLY\n\n*** *** *** *** ***\n\nACID:$validAcid';
     }
 
     return pw.Column(
@@ -247,23 +325,75 @@ class CooExportService {
                 ),
               ),
               pw.Divider(height: 1, color: PdfColors.black),
-              pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  _buildPdfTableBodyCell('Acoustic Panel\nN/M', flex: 2),
-                  pw.Expanded(
-                    flex: 4,
-                    child: pw.Container(
-                      padding: const pw.EdgeInsets.all(6),
-                      decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 0.8))),
-                      child: pw.Text(cleanBox7, style: const pw.TextStyle(fontSize: 8, height: 1.2)),
+              if (tableRows.isNotEmpty)
+                ...tableRows.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final r = entry.value;
+                  const rowMarks = 'N/M';
+                  final rawDesc = (r['description_and_acid'] ?? cleanBox7).toString();
+                  String rowDesc;
+                  if (rawDesc.contains('TOTAL PACKED IN') && rawDesc.contains('ACID:')) {
+                    final parts = rawDesc.split('\n\n');
+                    if (parts.isNotEmpty) {
+                      parts[0] = extractCleanMainDescription(parts[0]);
+                      rowDesc = parts.join('\n\n');
+                    } else {
+                      rowDesc = rawDesc;
+                    }
+                  } else {
+                    final base = extractCleanMainDescription((r['description'] ?? cleanBox7).toString());
+                    final pCnt = r['packages_count'] ?? 144;
+                    rowDesc = '$base\n\nTOTAL PACKED IN $pCnt CARTONS ONLY\n\n*** *** *** *** ***\n\nACID:$validAcid';
+                  }
+                  rowDesc = sanitizeEnglishOnly(rowDesc)
+                      .replaceAll(RegExp(r'\bN\s*/\s*M\b', caseSensitive: false), '')
+                      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+                      .trim();
+                  final rowHs = formatCooHsCode((r['hs_code'] ?? hsCodes).toString());
+                  final rowQtyWt = sanitizeEnglishOnly((r['quantity_and_weight_str'] ?? weight).toString());
+                  final rowInv = sanitizeEnglishOnly((r['invoice_str'] ?? invoiceData).toString());
+
+                  return pw.Column(
+                    children: [
+                      if (idx > 0) pw.Divider(height: 0.8, color: PdfColors.grey400),
+                      pw.Row(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          _buildPdfTableBodyCell(rowMarks, flex: 2),
+                          pw.Expanded(
+                            flex: 4,
+                            child: pw.Container(
+                              padding: const pw.EdgeInsets.all(6),
+                              decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 0.8))),
+                              child: pw.Text(rowDesc, style: const pw.TextStyle(fontSize: 8, height: 1.2)),
+                            ),
+                          ),
+                          _buildPdfTableBodyCell(rowHs, flex: 2),
+                          _buildPdfTableBodyCell(rowQtyWt, flex: 2),
+                          _buildPdfTableBodyCell(rowInv, flex: 2, hasRightBorder: false),
+                        ],
+                      ),
+                    ],
+                  );
+                }).toList()
+              else
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    _buildPdfTableBodyCell('N/M', flex: 2),
+                    pw.Expanded(
+                      flex: 4,
+                      child: pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 0.8))),
+                        child: pw.Text(cleanBox7, style: const pw.TextStyle(fontSize: 8, height: 1.2)),
+                      ),
                     ),
-                  ),
-                  _buildPdfTableBodyCell(hsCodes, flex: 2),
-                  _buildPdfTableBodyCell(weight, flex: 2),
-                  _buildPdfTableBodyCell(invoiceData, flex: 2, hasRightBorder: false),
-                ],
-              ),
+                    _buildPdfTableBodyCell(hsCodes, flex: 2),
+                    _buildPdfTableBodyCell(weight, flex: 2),
+                    _buildPdfTableBodyCell(invoiceData, flex: 2, hasRightBorder: false),
+                  ],
+                ),
             ],
           ),
         ),
@@ -288,7 +418,6 @@ class CooExportService {
                         style: const pw.TextStyle(fontSize: 7, height: 1.2),
                       ),
                       pw.Spacer(),
-                      pw.Text('SUZHOU, CHINA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8)),
                       pw.Divider(height: 1, color: PdfColors.black),
                       pw.Text('Place and date, signature and stamp of authorized signatory', style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700)),
                     ],
@@ -305,13 +434,7 @@ class CooExportService {
                       pw.Text('12. Certification', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold)),
                       pw.SizedBox(height: 2),
                       pw.Text('It is hereby certified that the declaration by the exporter is correct.', style: const pw.TextStyle(fontSize: 7)),
-                      pw.SizedBox(height: 4),
-                      pw.Text(
-                        'ADDRESS: DONGWU NORTH ROAD GUOYU BUILDING 15A FLOOR WUZHONG DISTRICT SUZHOU CITY\nFAX: 0512-65252957 TEL: 0512-65252453',
-                        style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey800),
-                      ),
                       pw.Spacer(),
-                      pw.Text('SUZHOU, CHINA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8)),
                       pw.Divider(height: 1, color: PdfColors.black),
                       pw.Text('Place and date, signature and stamp of certifying authority', style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700)),
                     ],
@@ -321,6 +444,22 @@ class CooExportService {
             ],
           ),
         ),
+
+        // Customs Compliance Note
+        pw.SizedBox(height: 4),
+        pw.Container(
+          padding: const pw.EdgeInsets.all(4),
+          decoration: pw.BoxDecoration(
+            color: PdfColors.amber50,
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
+            border: pw.Border.all(color: PdfColors.amber700, width: 0.5),
+          ),
+          child: pw.Text(
+            'Customs Note: During the customs clearance process in Egypt, Box 11 must contain the exporter\'s signature and stamp, and Box 12 must contain the official stamp of the certifying authority (Customs stamp and Chamber of Commerce stamp) or an electronic verification QR Code / Barcode in the case of electronic certificates.',
+            style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.brown900),
+          ),
+        ),
+        pw.SizedBox(height: 4),
 
         // Page Footer
         pw.Container(
@@ -345,6 +484,7 @@ class CooExportService {
     required String weight,
     required String invoiceData,
     required String remarks,
+    List<Map<String, dynamic>> tableRows = const [],
     required String acidNumber,
     String? exemptionNotes,
     required bool isEur1,
@@ -367,15 +507,24 @@ class CooExportService {
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
+            // Box 1: Exporter
             pw.Expanded(
               flex: 5,
-              child: _buildPdfBoxCell('1. Exporter (Name, full address, country)', exporter, minHeight: 90, hasRightBorder: true, hasBottomBorder: true),
+              child: _buildPdfBoxCell(
+                '1. Exporter (Name, full address, country)',
+                exporter,
+                minHeight: 110,
+                hasRightBorder: true,
+                hasBottomBorder: true,
+              ),
             ),
+
+            // Right 50%: EUR.1 Header + Box 2
             pw.Expanded(
               flex: 5,
               child: pw.Column(
                 children: [
-                  // EUR.1 Header Box
+                  // EUR.1 Header & Cert No
                   pw.Container(
                     padding: const pw.EdgeInsets.all(6),
                     decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black, width: 0.8))),
@@ -476,65 +625,134 @@ class CooExportService {
                 ),
               ),
               pw.Divider(height: 1, color: PdfColors.black),
-              pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  // Box 8
-                  pw.Expanded(
-                    flex: 5,
-                    child: pw.Container(
-                      padding: const pw.EdgeInsets.all(6),
-                      decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 0.8))),
-                      child: pw.Column(
+              if (tableRows.isNotEmpty)
+                ...tableRows.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final r = entry.value;
+                  final rowDesc = sanitizeEnglishOnly((r['description'] ?? goodsDesc).toString());
+                  final rowHs = (r['hs_code'] ?? hsCodes).toString();
+                  final rowPkgs = r['packages_count']?.toString() ?? '144';
+                  final rowGw = r['gross_weight_kg'] != null ? '${(r['gross_weight_kg'] as num).toStringAsFixed(3)} KG' : (weight.isNotEmpty ? weight : '10,510.600 KG');
+                  final rowInv = sanitizeEnglishOnly((r['invoice_str'] ?? invoiceData).toString());
+
+                  return pw.Column(
+                    children: [
+                      if (idx > 0) pw.Divider(height: 0.8, color: PdfColors.grey400),
+                      pw.Row(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Text(goodsDesc, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
-                          pw.SizedBox(height: 4),
-                          pw.Text('HS CODES: $hsCodes', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8, color: PdfColors.purple900)),
-                          pw.SizedBox(height: 10),
-                          pw.Text('----------------------------------------------------', style: const pw.TextStyle(color: PdfColors.grey500, fontSize: 6)),
-                        ],
-                      ),
-                    ),
-                  ),
+                          // Box 8
+                          pw.Expanded(
+                            flex: 5,
+                            child: pw.Container(
+                              padding: const pw.EdgeInsets.all(6),
+                              decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 0.8))),
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                children: [
+                                  pw.Text('$rowDesc ($rowPkgs PACKAGES)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
+                                  pw.SizedBox(height: 3),
+                                  pw.Text('HS: $rowHs', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8, color: PdfColors.purple900)),
+                                ],
+                              ),
+                            ),
+                          ),
 
-                  // Box 9: Gross Mass
-                  pw.Expanded(
-                    flex: 2,
-                    child: pw.Container(
-                      padding: const pw.EdgeInsets.all(6),
-                      decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 0.8))),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.center,
-                        children: [
-                          pw.Text(weight.isNotEmpty ? weight : '1774,514 KG', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
-                        ],
-                      ),
-                    ),
-                  ),
+                          // Box 9: Gross Mass
+                          pw.Expanded(
+                            flex: 2,
+                            child: pw.Container(
+                              padding: const pw.EdgeInsets.all(6),
+                              decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 0.8))),
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                                children: [
+                                  pw.Text(rowGw, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
+                                ],
+                              ),
+                            ),
+                          ),
 
-                  // Box 10: Invoices & ACID
-                  pw.Expanded(
-                    flex: 2,
-                    child: pw.Container(
-                      padding: const pw.EdgeInsets.all(6),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text('ACID: $acidNumber', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7.5, color: PdfColors.green900)),
-                          if (invoiceData.isNotEmpty && invoiceData != 'INVOICE INFO')
-                            pw.Text(invoiceData, style: const pw.TextStyle(fontSize: 7.5)),
+                          // Box 10: Invoices & ACID
+                          pw.Expanded(
+                            flex: 2,
+                            child: pw.Container(
+                              padding: const pw.EdgeInsets.all(6),
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                children: [
+                                  pw.Text('ACID: $acidNumber', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7.5, color: PdfColors.green900)),
+                                  if (rowInv.isNotEmpty)
+                                    pw.Text(rowInv, style: const pw.TextStyle(fontSize: 7.5)),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
+                    ],
+                  );
+                }).toList()
+              else
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    // Box 8
+                    pw.Expanded(
+                      flex: 5,
+                      child: pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 0.8))),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(goodsDesc, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
+                            pw.SizedBox(height: 4),
+                            pw.Text('HS CODES: $hsCodes', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8, color: PdfColors.purple900)),
+                            pw.SizedBox(height: 10),
+                            pw.Text('----------------------------------------------------', style: const pw.TextStyle(color: PdfColors.grey500, fontSize: 6)),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+
+                    // Box 9: Gross Mass
+                    pw.Expanded(
+                      flex: 2,
+                      child: pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 0.8))),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
+                          children: [
+                            pw.Text(weight.isNotEmpty ? weight : '1774,514 KG', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Box 10: Invoices & ACID
+                    pw.Expanded(
+                      flex: 2,
+                      child: pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('ACID: $acidNumber', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7.5, color: PdfColors.green900)),
+                            if (invoiceData.isNotEmpty && invoiceData != 'INVOICE INFO')
+                              pw.Text(invoiceData, style: const pw.TextStyle(fontSize: 7.5)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
 
-        // Bottom Section: Box 11 (Customs Endorsement) vs Box 12 (Declaration by Exporter)
+        // Row 4: Box 11 (Customs Endorsement) vs Box 12 (Exporter Declaration)
         pw.Expanded(
           child: pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -550,19 +768,10 @@ class CooExportService {
                     children: [
                       pw.Text('11. CUSTOMS ENDORSEMENT', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold)),
                       pw.SizedBox(height: 2),
-                      pw.Text('Declaration certified | Export document (2)', style: const pw.TextStyle(fontSize: 6.5)),
-                      pw.Text('Customs office: Vilnius regional customs office', style: const pw.TextStyle(fontSize: 6.5)),
-                      pw.Text('Issuing country: Lithuania', style: const pw.TextStyle(fontSize: 6.5)),
+                      pw.Text('Declaration certified. Export document: Form EUR.1', style: const pw.TextStyle(fontSize: 6.5)),
+                      pw.Text('Customs office: Customs Office EU', style: const pw.TextStyle(fontSize: 6.5)),
                       pw.Spacer(),
-                      pw.Row(
-                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                        children: [
-                          pw.Text('Date: 2026-08-11', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7)),
-                          pw.Text('Stamp: A-004 • LT VM', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7, color: PdfColors.blue900)),
-                        ],
-                      ),
-                      pw.Divider(height: 1, color: PdfColors.black),
-                      pw.Center(child: pw.Text('(Signature)', style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700))),
+                      pw.Text('Stamp', style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700)),
                     ],
                   ),
                 ),
@@ -578,7 +787,7 @@ class CooExportService {
                     children: [
                       pw.Text('12. DECLARATION BY THE EXPORTER', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold)),
                       pw.SizedBox(height: 2),
-                      pw.Text('I, the undersigned, declare that the goods described above meet the conditions required for the issue of this certificate.', style: const pw.TextStyle(fontSize: 6.5, height: 1.15)),
+                      pw.Text('I, the undersigned, declare that the goods described above meet the conditions required for the issue of this certificate.', style: const pw.TextStyle(fontSize: 6.5)),
                       pw.Spacer(),
                       pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -614,6 +823,10 @@ class CooExportService {
     bool hasBottomBorder = false,
     double? minHeight,
   }) {
+    final lines = value.split('\n');
+    final firstLine = lines.isNotEmpty ? lines[0] : '';
+    final otherLines = lines.length > 1 ? lines.sublist(1).join('\n') : '';
+
     return pw.Container(
       padding: const pw.EdgeInsets.all(6),
       height: minHeight,
@@ -628,7 +841,11 @@ class CooExportService {
         children: [
           pw.Text(label, style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
           pw.SizedBox(height: 2),
-          pw.Text(value, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
+          pw.Text(firstLine, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
+          if (otherLines.isNotEmpty) ...[
+            pw.SizedBox(height: 1.5),
+            pw.Text(otherLines, style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.black)),
+          ],
         ],
       ),
     );
@@ -687,18 +904,59 @@ class CooExportService {
     );
   }
 
+  /// Exports and Saves Certificate of Origin PDF directly to a file chosen by the user
+  static Future<String?> saveCOOPdfToFile({
+    required Map<String, dynamic> templateData,
+    required String certificateType,
+    required String acidNumber,
+    String? exemptionNotes,
+  }) async {
+    final pdf = await generateCOOPdf(
+      templateData: templateData,
+      certificateType: certificateType,
+      acidNumber: acidNumber,
+      exemptionNotes: exemptionNotes,
+    );
+
+    final certClean = acidNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    final defaultName = 'Draft_Certificate_of_Origin_${certClean.isNotEmpty ? certClean : DateTime.now().millisecondsSinceEpoch}.pdf';
+
+    final savePath = await FilePicker.saveFile(
+      dialogTitle: 'حفظ مسودة شهادة المنشأ بصيغة PDF',
+      fileName: defaultName,
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+
+    if (savePath != null && savePath.isNotEmpty) {
+      final file = File(savePath.endsWith('.pdf') ? savePath : '$savePath.pdf');
+      final bytes = await pdf.save();
+      await file.writeAsBytes(bytes);
+      return file.path;
+    }
+    return null;
+  }
+
   /// Export CSV / Excel data string
   static String exportCOOCsv({
     required Map<String, dynamic> templateData,
     required String certificateType,
     required String acidNumber,
   }) {
+    final isChina = certificateType.toUpperCase().contains('CHINA') || certificateType.toUpperCase().contains('CCPIT');
     final certNo = sanitizeEnglishOnly((templateData['certificate_number'] ?? 'DRAFT-COO').toString());
     final origin = sanitizeEnglishOnly((templateData['country_of_origin'] ?? 'EUROPEAN UNION').toString());
-    final hsCodes = (templateData['box_8_hs_code'] ?? templateData['hs_codes'] ?? '560229').toString();
+    final hsCodes = isChina
+        ? formatCooHsCode((templateData['box_8_hs_code'] ?? templateData['hs_codes'] ?? '560229').toString())
+        : (templateData['box_8_hs_code'] ?? templateData['hs_codes'] ?? '560229').toString();
     final exporter = sanitizeEnglishOnly((templateData['box_1_exporter'] ?? '').toString().replaceAll('\n', ' '));
     final consignee = sanitizeEnglishOnly((templateData['box_2_consignee'] ?? templateData['box_3_consignee'] ?? '').toString().replaceAll('\n', ' '));
     final cleanAcidNo = sanitizeEnglishOnly(acidNumber);
+
+    final tableRows = (templateData['table_rows'] as List<dynamic>?)
+            ?.map((r) => Map<String, dynamic>.from(r as Map))
+            .toList() ??
+        [];
 
     final sb = StringBuffer();
     sb.writeln('Field,Value');
@@ -712,6 +970,55 @@ class CooExportService {
     sb.writeln('Destination,"EGYPT"');
     sb.writeln('Generated Date,"${DateTime.now().toIso8601String()}"');
 
+    if (tableRows.isNotEmpty) {
+      sb.writeln('');
+      sb.writeln('--- CONSOLIDATED LINE ITEMS BREAKDOWN ---');
+      sb.writeln('Item No,Invoice Number,Invoice Date,H.S. Code,Description,Quantity,Unit,Packages,Gross Weight (KG)');
+      for (final r in tableRows) {
+        final itemNo = r['item_no'] ?? '';
+        final invNum = r['invoice_number'] ?? '';
+        final invDt = r['invoice_date'] ?? '';
+        final hs = isChina ? formatCooHsCode((r['hs_code'] ?? '').toString()) : (r['hs_code'] ?? '');
+        final desc = sanitizeEnglishOnly((r['description'] ?? '').toString());
+        final qty = r['quantity'] ?? '';
+        final unit = r['unit'] ?? '';
+        final pkgs = r['packages_count'] ?? '';
+        final gw = r['gross_weight_kg'] ?? '';
+        sb.writeln('"$itemNo","$invNum","$invDt","$hs","$desc","$qty","$unit","$pkgs","$gw"');
+      }
+    }
+
     return sb.toString();
+  }
+
+  /// Exports and Saves Certificate of Origin CSV / Excel directly to a file chosen by the user
+  static Future<String?> saveCOOCsvToFile({
+    required Map<String, dynamic> templateData,
+    required String certificateType,
+    required String acidNumber,
+  }) async {
+    final csv = exportCOOCsv(
+      templateData: templateData,
+      certificateType: certificateType,
+      acidNumber: acidNumber,
+    );
+
+    final certClean = acidNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    final defaultName = 'Draft_Certificate_of_Origin_${certClean.isNotEmpty ? certClean : DateTime.now().millisecondsSinceEpoch}.csv';
+
+    final savePath = await FilePicker.saveFile(
+      dialogTitle: 'حفظ مسودة شهادة المنشأ بصيغة Excel / CSV',
+      fileName: defaultName,
+      type: FileType.custom,
+      allowedExtensions: ['csv', 'xlsx'],
+    );
+
+    if (savePath != null && savePath.isNotEmpty) {
+      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
+      // Write with UTF-8 BOM so Excel opens properly in Arabic and English
+      await file.writeAsString('\uFEFF$csv', encoding: utf8);
+      return file.path;
+    }
+    return null;
   }
 }

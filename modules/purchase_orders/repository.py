@@ -112,6 +112,7 @@ class PurchaseOrderRepository:
 
             po_item = POLineItem(
                 item_code=item.item_code.strip() if item.item_code else None,
+                main_description=item.main_description.strip() if item.main_description else None,
                 description_ar=item.description_ar.strip(),
                 description_en=item.description_en.strip() if item.description_en else None,
                 country_of_origin=item.country_of_origin.strip() if item.country_of_origin else None,
@@ -164,6 +165,7 @@ class PurchaseOrderRepository:
                 pli = PackingListItem(
                     hs_code=pitem.hs_code.strip(),
                     item_code=pitem.item_code.strip(),
+                    main_description=pitem.main_description.strip() if getattr(pitem, "main_description", None) else None,
                     description=pitem.description.strip() if getattr(pitem, "description", None) else None,
                     qty_pcs=pitem.qty_pcs,
                     qty_pkg=pitem.qty_pkg,
@@ -279,6 +281,7 @@ class PurchaseOrderRepository:
 
                 po_item = POLineItem(
                     item_code=item_dict.get("item_code"),
+                    main_description=item_dict.get("main_description", "").strip() if item_dict.get("main_description") else None,
                     description_ar=item_dict.get("description_ar", "").strip(),
                     description_en=item_dict.get("description_en"),
                     country_of_origin=item_dict.get("country_of_origin", "").strip() if item_dict.get("country_of_origin") else None,
@@ -336,6 +339,7 @@ class PurchaseOrderRepository:
                 pli = PackingListItem(
                     hs_code=str(pitem.get("hs_code", "")).strip(),
                     item_code=str(pitem.get("item_code", "")).strip(),
+                    main_description=str(pitem.get("main_description", "")).strip() if pitem.get("main_description") else None,
                     description=str(pitem.get("description", "")).strip() if pitem.get("description") else None,
                     qty_pcs=q_pcs,
                     qty_pkg=q_pkg,

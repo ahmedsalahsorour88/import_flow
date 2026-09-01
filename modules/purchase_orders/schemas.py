@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class POLineItemBase(BaseModel):
     item_code: Optional[str] = Field(None, max_length=50)
+    main_description: Optional[str] = Field(None, max_length=250, description="الوصف الرئيسي للصنف / Main Description")
     description_ar: str = Field(..., min_length=2, max_length=250)
     description_en: Optional[str] = Field(None, max_length=250)
     country_of_origin: Optional[str] = Field(None, max_length=100, description="بلد المنشأ للصنف")
@@ -42,6 +43,7 @@ class POLineItemResponse(POLineItemBase):
 class PackingListItemBase(BaseModel):
     hs_code: str = Field(..., min_length=2, max_length=50)
     item_code: str = Field(..., min_length=1, max_length=50)
+    main_description: Optional[str] = Field(None, max_length=250, description="Main description of product / الوصف الرئيسي")
     description: Optional[str] = Field(None, max_length=250, description="Product description in packing list")
     qty_pcs: float = Field(1.0, gt=0)
     qty_pkg: float = Field(1.0, gt=0)

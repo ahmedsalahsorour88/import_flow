@@ -91,6 +91,7 @@ class POLineItem(Base):
     po_id = Column(Integer, ForeignKey("purchase_orders.po_id"), nullable=False, index=True)
 
     item_code = Column(String(50), nullable=True)
+    main_description = Column(String(250), nullable=True) # الوصف الرئيسي للصنف / Main Description
     description_ar = Column(String(250), nullable=False)
     description_en = Column(String(250), nullable=True)
     country_of_origin = Column(String(100), nullable=True) # بلد المنشأ للصنف
@@ -128,6 +129,7 @@ class PackingListItem(Base):
 
     hs_code = Column(String(50), nullable=False)
     item_code = Column(String(50), nullable=False)
+    main_description = Column(String(250), nullable=True)
     description = Column(String(250), nullable=True)
     qty_pcs = Column(Numeric(12, 2), nullable=False, default=1.0)
     qty_pkg = Column(Numeric(12, 2), nullable=False, default=1.0)

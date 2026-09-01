@@ -90,104 +90,118 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                   // ── Metrics & Toolbar Strip ──────────────────────────────
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 12),
+                        horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       color: AppTheme.charcoal.withOpacity(0.03),
                       border:
                           Border(bottom: BorderSide(color: Colors.grey.shade200)),
                     ),
-                    child: Row(
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        ConsultationMetricBadge(
-                            title: l.totalStudiesMetric, value: '$totalCount', color: AppTheme.charcoal),
-                        const SizedBox(width: 10),
-                        ConsultationMetricBadge(
-                            title: l.clearanceReadyStatus, value: '$readyCount', color: AppTheme.emerald),
-                        const SizedBox(width: 10),
-                        ConsultationMetricBadge(
-                            title: l.openBlockingIssues,
-                            value: '$blockedCount',
-                            color: blockedCount > 0
-                                ? AppTheme.crimson
-                                : Colors.grey),
-                        const SizedBox(width: 10),
-                        ConsultationMetricBadge(
-                            title: l.avgReadinessMetric,
-                            value: '${avgReadiness.toStringAsFixed(0)}%',
-                            color: AppTheme.cobalt),
-                        const Spacer(),
-                        // Search field
-                        SizedBox(
-                          width: 260,
-                          child: TextField(
-                            decoration: InputDecoration(
-                              hintText: l.searchConsultationsHint,
-                              prefixIcon:
-                                  const Icon(Icons.search, size: 18),
-                              border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8)),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
-                              isDense: true,
-                            ),
-                            onChanged: (v) =>
-                                setState(() => _searchQuery = v),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        // Status Filter
-                        SizedBox(
-                          width: 175,
-                          child: SearchableDropdownField<String>(
-                            value: _statusFilter,
-                            labelText: l.statusFilterLabel,
-                            items: [
-                              SearchableDropdownItem(
-                                  value: 'All', label: l.allStatuses),
-                              SearchableDropdownItem(
-                                  value: 'Pending Review',
-                                  label: l.statusPendingReview),
-                              SearchableDropdownItem(
-                                  value: 'In Progress',
-                                  label: l.statusInProgress),
-                              SearchableDropdownItem(
-                                  value: 'Action Required',
-                                  label: l.statusActionRequired),
-                              SearchableDropdownItem(
-                                  value: 'Clearance Ready',
-                                  label: l.statusClearanceReady),
-                              SearchableDropdownItem(
-                                  value: 'Blocked', label: l.statusBlocked),
-                            ],
-                            onChanged: (v) =>
-                                setState(() => _statusFilter = v!),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        FilterChip(
-                          avatar: Icon(_showInactive ? Icons.visibility_off : Icons.visibility, size: 16),
-                          label: Text(_showInactive ? l.hideArchivedChip : l.showArchivedChip),
-                          selected: _showInactive,
-                          selectedColor: Colors.red.shade100,
-                          onSelected: (val) {
-                            setState(() => _showInactive = val);
-                            ref.read(customsConsultationsProvider.notifier).fetchConsultations(includeInactive: val);
-                          },
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.cobalt.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '${filtered.length}',
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                        // Left group: Metric Badges
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            ConsultationMetricBadge(
+                                title: l.totalStudiesMetric, value: '$totalCount', color: AppTheme.charcoal),
+                            ConsultationMetricBadge(
+                                title: l.clearanceReadyStatus, value: '$readyCount', color: AppTheme.emerald),
+                            ConsultationMetricBadge(
+                                title: l.openBlockingIssues,
+                                value: '$blockedCount',
+                                color: blockedCount > 0
+                                    ? AppTheme.crimson
+                                    : Colors.grey),
+                            ConsultationMetricBadge(
+                                title: l.avgReadinessMetric,
+                                value: '${avgReadiness.toStringAsFixed(0)}%',
                                 color: AppTheme.cobalt),
-                          ),
+                          ],
+                        ),
+
+                        // Right group: Search & Filter Controls
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            // Search field
+                            SizedBox(
+                              width: 220,
+                              child: TextField(
+                                decoration: InputDecoration(
+                                  hintText: l.searchConsultationsHint,
+                                  prefixIcon:
+                                      const Icon(Icons.search, size: 18),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8)),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                  isDense: true,
+                                ),
+                                onChanged: (v) =>
+                                    setState(() => _searchQuery = v),
+                              ),
+                            ),
+                            // Status Filter
+                            SizedBox(
+                              width: 160,
+                              child: SearchableDropdownField<String>(
+                                value: _statusFilter,
+                                labelText: l.statusFilterLabel,
+                                items: [
+                                  SearchableDropdownItem(
+                                      value: 'All', label: l.allStatuses),
+                                  SearchableDropdownItem(
+                                      value: 'Pending Review',
+                                      label: l.statusPendingReview),
+                                  SearchableDropdownItem(
+                                      value: 'In Progress',
+                                      label: l.statusInProgress),
+                                  SearchableDropdownItem(
+                                      value: 'Action Required',
+                                      label: l.statusActionRequired),
+                                  SearchableDropdownItem(
+                                      value: 'Clearance Ready',
+                                      label: l.statusClearanceReady),
+                                  SearchableDropdownItem(
+                                      value: 'Blocked', label: l.statusBlocked),
+                                ],
+                                onChanged: (v) =>
+                                    setState(() => _statusFilter = v!),
+                              ),
+                            ),
+                            FilterChip(
+                              avatar: Icon(_showInactive ? Icons.visibility_off : Icons.visibility, size: 16),
+                              label: Text(_showInactive ? l.hideArchivedChip : l.showArchivedChip),
+                              selected: _showInactive,
+                              selectedColor: Colors.red.shade100,
+                              onSelected: (val) {
+                                setState(() => _showInactive = val);
+                                ref.read(customsConsultationsProvider.notifier).fetchConsultations(includeInactive: val);
+                              },
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${filtered.length}',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.cobalt),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

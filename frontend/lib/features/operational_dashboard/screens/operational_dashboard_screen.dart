@@ -396,6 +396,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
 
   Widget _buildShipmentCard(ImportFileModel s) {
     final l = context.l10n;
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -455,6 +456,95 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               ],
             ),
             const SizedBox(height: 12),
+            // 3-Way Stage Pathway: Previous -> Current -> Next
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Row(
+                children: [
+                  // Previous Step
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.check_circle, size: 12, color: AppTheme.emerald),
+                        const SizedBox(width: 4),
+                        Text(
+                          s.currentModule.contains('STEP_02') || s.currentModule.contains('Customs') || s.currentModule.contains('جمرك')
+                              ? (isArabic ? 'المسار السابق: دراسات النولون (STEP_01)' : 'Prev: Freight Studies (STEP_01)')
+                              : (isArabic ? 'المسار السابق: تخطيط الملف' : 'Prev: File Planning'),
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(Icons.arrow_forward, size: 14, color: AppTheme.cobalt),
+                  ),
+                  // Current Step
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: AppTheme.cobalt, width: 1.2),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.bolt, size: 13, color: AppTheme.cobalt),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${isArabic ? "المسار الحالي" : "Current"}: ${s.currentModule}',
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(Icons.arrow_forward, size: 14, color: AppTheme.orange),
+                  ),
+                  // Next Step
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.amber.shade700.withOpacity(0.5)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.arrow_circle_left_outlined, size: 13, color: Colors.amber.shade900),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              '${isArabic ? "المسار التالي المطلوب" : "Next Step"}: ${s.nextAction ?? (isArabic ? "مراجعة اشتراطات الاستيراد (STEP_03)" : "Import Regulatory Requirements")}',
+                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             // Milestone Progress Tracker (Feature 2.6)
             ShipmentMilestoneTracker(importFile: s),
 
@@ -549,7 +639,19 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     IconData actionIcon = Icons.arrow_forward;
 
     final mod = s.currentModule.toString();
-    if (mod.contains('Phase 1') || mod.contains('BP-001') || mod.contains('BP-007')) {
+    if (mod.contains('STEP_02') || mod.contains('الدراسات والاستشارات الجمركية') || mod.contains('Customs Studies') || mod.contains('BP-002')) {
+      nextStepTitle = isArabic ? 'المسار التالي: استيفاء اشتراطات ومتطلبات الاستيراد (STEP_03)' : 'Next Step: Import Regulatory Requirements (STEP_03)';
+      nextStepDesc = isArabic ? 'مراجعة بنود التعريفة والموافقات المسبقة من الجهات الرقابية وهيئات الفحص والتسجيل' : 'Review regulatory requirements and prior approvals for shipment HS codes';
+      responsible = isArabic ? 'أخصائي الاستيراد والتخليص الجمركي' : 'Import Specialist';
+      targetNavIndex = 23;
+      actionIcon = Icons.fact_check_outlined;
+    } else if (mod.contains('STEP_01') || mod.contains('دراسات ومفاضلة نولون') || mod.contains('Freight Studies')) {
+      nextStepTitle = isArabic ? 'المسار التالي: إعداد الاستشارة والدراسة الجمركية (STEP_02)' : 'Next Step: Customs Consultation & Tariff (STEP_02)';
+      nextStepDesc = isArabic ? 'مراجعة بنود التعريفة الجمركية واحتساب الضرائب والرسوم المقدرة وتكليف المخلص' : 'Review HS codes, calculate estimated taxes and assign customs broker';
+      responsible = isArabic ? 'المستخلص الجمركي / مدير الاستيراد' : 'Customs Broker / Import Manager';
+      targetNavIndex = 23;
+      actionIcon = Icons.calculate_outlined;
+    } else if (mod.contains('Phase 1') || mod.contains('BP-001') || mod.contains('BP-007')) {
       nextStepTitle = isArabic ? 'P2: الاعتماد المالي وصرف الدفعة' : 'P2: Financial Approval & Payment';
       nextStepDesc = isArabic ? 'مراجعة الميزانية وإصدار طلب الصرف والتحويل البنكي للمورد' : 'Review budget, issue payment request and bank transfer to supplier';
       responsible = isArabic ? 'المدير المالي / الإدارة المالية' : 'Financial Manager';
@@ -818,8 +920,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
 
   Widget _buildRiskAlertsBanner(List<dynamic> shipments) {
     final l = context.l10n;
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
     final criticals = shipments.where((s) => s.priority == 'Critical' || s.priority == 'High').toList();
-    if (criticals.isEmpty) return const SizedBox.shrink();
+    final tasksState = ref.watch(smartTasksProvider);
+    final regTasks = tasksState.tasks.where((t) => (t.taskType == 'Regulatory Compliance' || (t.phaseName != null && t.phaseName!.contains('STEP_03'))) && t.status != 'Completed').toList();
+
+    if (criticals.isEmpty && regTasks.isEmpty) return const SizedBox.shrink();
 
     return Card(
       elevation: 2,
@@ -835,20 +941,47 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 const Icon(Icons.shield_outlined, color: AppTheme.orange, size: 22),
                 const SizedBox(width: 8),
                 Text(l.riskAlertsCenter, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                const Spacer(),
+                if (regTasks.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.red.shade300)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.rule_folder, size: 12, color: AppTheme.crimson),
+                        const SizedBox(width: 4),
+                        Text(
+                          isArabic ? '${regTasks.length} متطلب رقابي معلق' : '${regTasks.length} Pending Reg Requirements',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: criticals.take(4).map((s) {
-                return Chip(
-                  avatar: const Icon(Icons.warning, color: AppTheme.crimson, size: 14),
-                  label: Text('${s.importFileCode} — ${s.currentStage}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  backgroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: Colors.amber.shade200)),
-                );
-              }).toList(),
+              children: [
+                ...regTasks.take(3).map((t) {
+                  return Chip(
+                    avatar: const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson, size: 14),
+                    label: Text(t.title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson)),
+                    backgroundColor: Colors.red.shade50,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: Colors.red.shade200)),
+                  );
+                }),
+                ...criticals.take(3).map((s) {
+                  return Chip(
+                    avatar: const Icon(Icons.warning, color: AppTheme.orange, size: 14),
+                    label: Text('${s.importFileCode} — ${s.currentStage}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: Colors.amber.shade200)),
+                  );
+                }),
+              ],
             ),
           ],
         ),

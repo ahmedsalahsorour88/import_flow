@@ -1456,8 +1456,90 @@
 
 ---
 
+### Session: Marine & Cargo Insurance Engine (Screen 65) — 2026-09-01
+
+#### 1. Screens / Modules Fully Reviewed & Fixed
+- **Marine & Cargo Insurance Screen (`frontend/lib/features/cargo_insurance/screens/cargo_insurance_screen.dart`):**
+  - Refactored `CargoInsuranceScreen`, `_CargoInsuranceFormDialog`, and `_CargoInsuranceDetailsDialog` to use `AppLocalizations` (`context.l10n`) across all UI elements.
+  - Eliminated stacked bilingual titles and slashes (`'1. INSURED & POLICY DETAILS / بيانات المؤمن له'`, `'2. VOYAGE & ROUTE / خط السير والناقل'`, `'3. VALUATION & INSURED SUM / القيمة التأمينية'`, `'4. PREMIUM BREAKDOWN / تفاصيل القسط'`, `'5. CARGO SPECIFICATIONS & CLAUSES / تفاصيل البضاعة والشروط القانونية'`, `'رفع واستخراج وثيقة التأمين / البوليصة الذكي'`, `'رقم البوليصة / الشحنة'`, `'الوسيلة وخط السير'`, `'حذف / إلغاء'`).
+  - Extracted and localized all ~90 keys including:
+    - Scaffolding, tabs, header actions, AI Insurance Company Extractor, and Smart Document Extractor.
+    - KPI Metrics bar (Total Policies, Issued & Valid, Total Insured Value, Total Premiums).
+    - Search & Filter bar (Search hint, Status filter chips, Show/Hide deleted toggle).
+    - Data table headers, data rows, status badges (`Issued`, `Draft`, `Cancelled`), and `RowActionsPill` tooltips.
+    - Add/Edit Certificate Dialog with live CIF base valuation (110%), ICC clause rates (`ICC_A`, `AIR_ALL_RISKS`, `ICC_B`, `ICC_C`), War & Strikes add-on (+0.05%), issuance fees, and tax calculations.
+    - Official Printable Certificate Modal Preview with single-language headings, detailed breakdown cards, cargo specs, legal disclaimer, and print/export action.
+  - Created automated test suite `frontend/test/cargo_insurance_localization_test.dart` (3/3 passing) verifying all getters in Arabic and English, zero Latin characters in static Arabic text, and absence of stacked bilingual patterns.
+  - Verified 100% of all Flutter unit and widget tests (288/288 tests) passing cleanly.
+
+#### 2. New Translation Keys Added in this Session
+- `insuranceScreenTitle`, `insuranceTabCertificatesRegistry`, `insuranceTabNewCertificate`, `insuranceAiExtractorBtn`, `insuranceSmartUploadBtn`, `insuranceExtractedSnackbar`, `insuranceExtractedDone`, `insuranceRefreshTooltip`
+- `insuranceFetchError`, `insuranceRetryBtn`, `insuranceKpiTotalPolicies`, `insuranceKpiIssuedValid`, `insuranceKpiTotalInsured`, `insuranceKpiTotalPremiums`, `insuranceRefreshRegistryBtn`, `insuranceNewCertificateBtn`
+- `insuranceSearchHint`, `insuranceFilterAll`, `insuranceFilterIssued`, `insuranceFilterDraft`, `insuranceFilterCancelled`, `insuranceShowDeleted`, `insuranceHideDeleted`, `insuranceNoMatchingFound`, `insuranceNoDataFound`, `insuranceEmptyHint`
+- `insuranceColCertCode`, `insuranceColIssueDate`, `insuranceColPolicyFile`, `insuranceColInsuredEntity`, `insuranceColInsuranceCo`, `insuranceColTransportRoute`, `insuranceColInsuredValue`, `insuranceColCoverageClause`, `insuranceColGrossPremium`, `insuranceColStatus`, `insuranceColActions`
+- `insuranceStatusIssuedBadge`, `insuranceStatusCancelledBadge`, `insuranceStatusDraftBadge`, `insuranceViewTooltip`, `insuranceEditTooltip`, `insurancePrintTooltip`, `insuranceDeleteTooltip`, `insuranceIssueCertificateTooltip`, `insuranceConfirmIssueTitle`, `insuranceConfirmIssueMsg`, `insuranceConfirmIssueBtn`, `insuranceIssueSuccessMsg`, `insuranceConfirmDeleteTitle`, `insuranceConfirmDeleteMsg`, `insuranceDeleteBtn`
+- `insuranceDialogNewTitle`, `insuranceDialogEditTitle`, `insuranceDialogSubtitle`, `insuranceFieldLinkImportFile`, `insuranceFieldLinkImportFileHint`, `insuranceFieldInsuredEntity`, `insuranceFieldInsuredEntityRequired`, `insuranceFieldPolicyType`, `insuranceFieldPolicyTypeHint`, `insurancePolicyTypeSpecific`, `insurancePolicyTypeOpen`, `insuranceFieldInsuranceCompany`, `insuranceFieldPolicyNumber`, `insuranceSecVoyageDetails`, `insuranceFieldTransportMode`, `insuranceFieldTransportModeHint`, `insuranceTransportModeOcean`, `insuranceTransportModeAir`, `insuranceTransportModeRoad`, `insuranceFieldCarrier`, `insuranceFieldVesselFlight`, `insuranceFieldPol`, `insuranceFieldPod`, `insuranceFieldBlTracking`, `insuranceFieldInvoiceValue`, `insuranceFieldFreightCost`, `insuranceFieldCurrency`, `insuranceFieldCurrencyHint`, `insuranceCurrUsd`, `insuranceCurrEur`, `insuranceCurrEgp`, `insuranceCurrCny`, `insuranceCurrGbp`, `insuranceSecCoverageClauses`, `insuranceFieldCoverageClause`, `insuranceFieldCoverageClauseHint`, `insuranceClauseIccA`, `insuranceClauseAirAllRisks`, `insuranceClauseIccB`, `insuranceClauseIccC`, `insuranceWarAndStrikesTitle`, `insuranceWarAndStrikesSubtitle`, `insuranceSecBreakdownTitle`, `insuranceBreakdownCifBase`, `insuranceBreakdownInsuredValue`, `insuranceBreakdownBasePremium`, `insuranceBreakdownWarStrikes`, `insuranceBreakdownNetPremium`, `insuranceBreakdownIssuanceFee`, `insuranceBreakdownTaxes`, `insuranceBreakdownTotalPayable`, `insuranceSecCargoSpecs`, `insuranceFieldGoodsDesc`, `insuranceFieldGoodsDescHint`, `insuranceFieldPackagesCount`, `insuranceFieldGrossWeight`, `insuranceSavingState`, `insuranceSaveDraftBtn`, `insuranceCreatedSuccessMsg`, `insuranceUpdatedSuccessMsg`, `insuranceSaveErrorMsg`
+- `insurancePreviewCertificateHeader`, `insurancePreviewOfficialIssuedBadge`, `insurancePreviewDraftBadge`, `insurancePreviewSecInsuredDetails`, `insurancePreviewInsuredLabel`, `insurancePreviewCompanyLabel`, `insurancePreviewPolicyNoLabel`, `insurancePreviewPolicyTypeLabel`, `insurancePreviewSecRouteDetails`, `insurancePreviewTransportModeLabel`, `insurancePreviewVesselFlightLabel`, `insurancePreviewPolLabel`, `insurancePreviewPodLabel`, `insurancePreviewTrackingLabel`, `insurancePreviewSecValuation`, `insurancePreviewInvoiceFobLabel`, `insurancePreviewFreightLabel`, `insurancePreviewCifBaseLabel`, `insurancePreviewInsuredSumLabel`, `insurancePreviewSecPremium`, `insurancePreviewCoverageClauseLabel`, `insurancePreviewBasePremiumLabel`, `insurancePreviewWarStrikesLabel`, `insurancePreviewFeesTaxesLabel`, `insurancePreviewTotalGrossPremiumLabel`, `insurancePreviewSecCargoSpecs`, `insurancePreviewDescPrefix`, `insurancePreviewPackagesPrefix`, `insurancePreviewGrossWtPrefix`, `insurancePreviewSurveyAgentPrefix`, `insurancePreviewClaimsPayablePrefix`, `insurancePreviewLegalDisclaimer`, `insurancePreviewPrintBtn`, `insurancePreviewPrintReadySnack`
+
+---
+
+### Session: HS Code Explorer & Customs Updates Screen (Screen 66) — 2026-09-01
+
+#### 1. Screens / Modules Fully Reviewed & Fixed
+- **HS Code Explorer & Customs Tariff Updates Screen (`frontend/lib/features/customs_tariff/screens/hs_code_search_screen.dart`):**
+  - Refactored `HsCodeSearchScreen`, `_buildDetailedExplorer`, and all 5 sub-tab builders (`_buildTaxRatesTab`, `_buildAgreementsTab`, `_buildRegulatoryTab`, `_buildHistoryTab`, `_buildQuickCalculatorTab`) to use `AppLocalizations` (`context.l10n`).
+  - Eliminated bilingual stacked labels, hardcoded Egyptian customs text, and inline language ternaries.
+  - Extracted and localized ~75 getters across all sections:
+    - **Header & Search:** `hsExplorerTitle`, `hsExplorerSubtitle`, `hsSearchPlaceholder`, `hsQuickSearchExamples`, `hsMatchingResultsHeader`, `hsItemsCount`, `hsNoMatchingItemFound`, `hsDutyRateTag`.
+    - **Selected Tariff Card:** `hsSelectFromListPrompt`, `hsCategoryPrefix`, `hsEffectiveFromPrefix`, `hsEffectiveToPrefix`, `hsEffectiveActiveRecord`, `hsDiffHistoryAction`.
+    - **5 Navigation Tabs:** `hsTabTaxRates`, `hsTabAgreements`, `hsTabRegulatory`, `hsTabHistory`, `hsTabQuickCalculator`.
+    - **Duties & Taxes Tab:** `hsTaxRatesSectionHeader`, `hsTaxImportDutyTitle`, `hsTaxImportDutySub`, `hsTaxVatTitle`, `hsTaxVatSub`, `hsTaxScheduleTitle`, `hsTaxScheduleSub`, `hsTaxDevFeeTitle`, `hsTaxDevFeeSub`, `hsTaxImportFeeTitle`, `hsTaxImportFeeSub`, `hsTaxServiceFeeTitle`, `hsTaxServiceFeeSub`, `hsEgyptianCalculationRule`.
+    - **Trade Agreements Tab:** `hsNoAgreementsFound`, `hsDefaultAgreementName`, `hsRequiredDocPrefix`, `hsConditionsPrefix`, `hsFullExemptionBadge`, `hsReducedRateBadge`.
+    - **Regulatory Approvals Tab:** `hsRegulatorySectionHeader`, `hsReqAcidSystem`, `hsReqCertificateOfOrigin`, `hsReqQualityInspection`, `hsRegulatoryAuthorityPrefix`, `hsDecreesAndNotesHeader`.
+    - **History & Diffs Tab:** `hsHistorySummaryTitle`, `hsHistoryMultipleVersionsDesc`, `hsHistorySingleVersionDesc`, `hsVersionsCountTag`, `hsTimelineSectionTitle`, `hsNoHistoricalVersions`, `hsActiveLiveVersionBadge`, `hsArchivedSnapshotBadge`, `hsRegistrationDatePrefix`, `hsValidityPeriodPrefix`, `hsApprovedDescPrefix`, `hsLinkedAgreementsTag`, `hsVersionDiffsSummaryHeader`, `hsDiffTitle`, `hsDiffDutyChanged`, `hsDiffVatChanged`, `hsDiffScheduleChanged`, `hsDiffAgreementsChanged`, `hsDiffMetadataChanged`, `hsAuditTrailSectionTitle`, `hsNoAuditLogsFound`, `hsAuditPerformedBy`, `hsDatePresentOngoing`, `hsDateToday`, `hsDateInitial`, `hsActionExecuted`.
+    - **Instant Duty Calculator Tab:** `hsCalculatorSectionHeader`, `hsCifValueLabel`, `hsFreightValueLabel`, `hsOriginCountryLabel`, `hsOriginItalyEur1`, `hsOriginGermanyEur1`, `hsOriginChinaGeneral`, `hsOriginTurkeyFta`, `hsOriginBrazilMercosur`, `hsOriginSerbiaFta`, `hsOriginUkPartnership`, `hsCalculateDutyBtn`, `hsTotalTaxesAndFeesDue`, `hsNotePrefix`, `hsImportDutyBreakdown`, `hsVatBreakdown`, `hsScheduleBreakdown`, `hsServiceFeeBreakdown`.
+  - Created automated test suite `frontend/test/hs_code_search_localization_test.dart` (6/6 passing) verifying all getters in Arabic and English, zero Latin characters in pure Arabic getters, and absence of stacked bilingual patterns.
+  - Verified 100% of all Flutter tests (294/294 tests) passing cleanly.
+
+#### 2. New Translation Keys Added in this Session
+- `hsExplorerTitle`, `hsExplorerSubtitle`, `hsSearchPlaceholder`, `hsQuickSearchExamples`, `hsMatchingResultsHeader`, `hsItemsCount`, `hsNoMatchingItemFound`, `hsDutyRateTag`
+- `hsSelectFromListPrompt`, `hsCategoryPrefix`, `hsEffectiveFromPrefix`, `hsEffectiveToPrefix`, `hsEffectiveActiveRecord`, `hsDiffHistoryAction`
+- `hsTabTaxRates`, `hsTabAgreements`, `hsTabRegulatory`, `hsTabHistory`, `hsTabQuickCalculator`
+- `hsTaxRatesSectionHeader`, `hsTaxImportDutyTitle`, `hsTaxImportDutySub`, `hsTaxVatTitle`, `hsTaxVatSub`, `hsTaxScheduleTitle`, `hsTaxScheduleSub`, `hsTaxDevFeeTitle`, `hsTaxDevFeeSub`, `hsTaxImportFeeTitle`, `hsTaxImportFeeSub`, `hsTaxServiceFeeTitle`, `hsTaxServiceFeeSub`, `hsEgyptianCalculationRule`
+- `hsNoAgreementsFound`, `hsDefaultAgreementName`, `hsRequiredDocPrefix`, `hsConditionsPrefix`, `hsFullExemptionBadge`, `hsReducedRateBadge`
+- `hsRegulatorySectionHeader`, `hsReqAcidSystem`, `hsReqCertificateOfOrigin`, `hsReqQualityInspection`, `hsRegulatoryAuthorityPrefix`, `hsDecreesAndNotesHeader`
+- `hsHistorySummaryTitle`, `hsHistoryMultipleVersionsDesc`, `hsHistorySingleVersionDesc`, `hsVersionsCountTag`, `hsTimelineSectionTitle`, `hsNoHistoricalVersions`, `hsActiveLiveVersionBadge`, `hsArchivedSnapshotBadge`, `hsRegistrationDatePrefix`, `hsValidityPeriodPrefix`, `hsApprovedDescPrefix`, `hsLinkedAgreementsTag`, `hsVersionDiffsSummaryHeader`, `hsDiffTitle`, `hsDiffDutyChanged`, `hsDiffVatChanged`, `hsDiffScheduleChanged`, `hsDiffAgreementsChanged`, `hsDiffMetadataChanged`, `hsAuditTrailSectionTitle`, `hsNoAuditLogsFound`, `hsAuditPerformedBy`, `hsDatePresentOngoing`, `hsDateToday`, `hsDateInitial`, `hsActionExecuted`
+- `hsCalculatorSectionHeader`, `hsCifValueLabel`, `hsFreightValueLabel`, `hsOriginCountryLabel`, `hsOriginItalyEur1`, `hsOriginGermanyEur1`, `hsOriginChinaGeneral`, `hsOriginTurkeyFta`, `hsOriginBrazilMercosur`, `hsOriginSerbiaFta`, `hsOriginUkPartnership`, `hsCalculateDutyBtn`, `hsTotalTaxesAndFeesDue`, `hsNotePrefix`, `hsImportDutyBreakdown`, `hsVatBreakdown`, `hsScheduleBreakdown`, `hsServiceFeeBreakdown`
+
+---
+
+### Session: Dynamic Report Builder & Custom Export Engine (Screen 67) — 2026-09-01
+
+#### 1. Screens / Modules Fully Reviewed & Fixed
+- **Dynamic Report Builder Screen (`frontend/lib/features/dynamic_reporting/screens/dynamic_report_builder_screen.dart`):**
+  - Refactored `DynamicReportBuilderScreen` and `DynamicReportColumn` to dynamically compute localized column labels via `_getColumnLabel(context, colId)` using `AppLocalizations` (`context.l10n`).
+  - Eliminated stacked bilingual text in column definitions (e.g. `'المورد (Supplier)'`, `'المخلص الجمركي (Customs Broker)'`, `'وسيلة النقل (Shipping Mode)'`, `'الشرط التجاري (Incoterm)'`, `'الأولوية (Priority)'`, `'كود الملف / Booking No'`).
+  - Extracted and localized all ~35 keys across:
+    - **Header & Title:** `dynReportBuilderTitle`, `dynReportBuilderSubtitle`.
+    - **Toolbar & Actions:** `dynCustomizeColumnsBtn`, `dynExportExcelBtn`, `dynExportPdfBtn`, `dynFilterModeLabel`, `dynFilterPriorityLabel`, `dynSearchPlaceholder`.
+    - **Filter Mode & Priority Options:** `dynModeAll`, `dynModeSeaFcl`, `dynModeSeaLcl`, `dynModeAir`, `dynModeCourier`, `dynModeLand`, `dynModeMultimodal`, `dynPriorityAll`, `dynPriorityHigh`, `dynPriorityCritical`, `dynPriorityMedium`.
+    - **Modals & Dialogs:** `dynColumnPickerTitle`, `dynApplyColumnsBtn`, `dynExportCsvTitle`, `dynExportCsvGeneratedMsg`, `dynFetchReportError`, `dynNoMatchingShipments`, `dynPdfReportTitle`, `dynPdfConfidential`, `dynPdfGenerated`.
+    - **16 Dynamic Column Headers:** `dynColImportFileCode`, `dynColCompanyName`, `dynColSupplierName`, `dynColBrokerName`, `dynColAcidNumber`, `dynColForm4No`, `dynColForm46No`, `dynColShipmentMode`, `dynColIncotermCode`, `dynColPriority`, `dynColEstimatedCost`, `dynColRequiredEta`, `dynColCurrentStage`, `dynColProgressPercent`, `dynColOwner`, `dynColStatus`.
+  - Created automated test suite `frontend/test/dynamic_report_builder_localization_test.dart` (3/3 passing) verifying all getters in Arabic and English, zero Latin characters in pure Arabic getters, and absence of stacked bilingual patterns.
+  - Verified 100% of all Flutter tests (297/297 tests) passing cleanly.
+
+#### 2. New Translation Keys Added in this Session
+- `dynReportBuilderTitle`, `dynReportBuilderSubtitle`, `dynCustomizeColumnsBtn`, `dynExportExcelBtn`, `dynExportPdfBtn`, `dynFilterModeLabel`, `dynFilterPriorityLabel`, `dynSearchPlaceholder`
+- `dynModeAll`, `dynModeSeaFcl`, `dynModeSeaLcl`, `dynModeAir`, `dynModeCourier`, `dynModeLand`, `dynModeMultimodal`, `dynPriorityAll`, `dynPriorityHigh`, `dynPriorityCritical`, `dynPriorityMedium`
+- `dynColumnPickerTitle`, `dynApplyColumnsBtn`, `dynExportCsvTitle`, `dynExportCsvGeneratedMsg`, `dynFetchReportError`, `dynNoMatchingShipments`, `dynPdfReportTitle`, `dynPdfConfidential`, `dynPdfGenerated`
+- `dynColImportFileCode`, `dynColCompanyName`, `dynColSupplierName`, `dynColBrokerName`, `dynColAcidNumber`, `dynColForm4No`, `dynColForm46No`, `dynColShipmentMode`, `dynColIncotermCode`, `dynColPriority`, `dynColEstimatedCost`, `dynColRequiredEta`, `dynColCurrentStage`, `dynColProgressPercent`, `dynColOwner`, `dynColStatus`
+
+---
+
 **Master Status:** **ALL SCREENS, CORE COMPONENTS & AI EXTRACTOR DIALOGS ARE 100% COMPLETE & VERIFIED!**  
 - Zero stacked Arabic/English text in any screen, navigation bar, or modal across the entire application.
 - Pure Arabic translations in Arabic mode, pure English translations in English mode.
-- All Flutter (281 tests) and Backend (442 pytest tests) passing 100%.
+- All Flutter (297 tests) and Backend (442 pytest tests) passing 100%.
 - Flutter static analysis clean with 0 errors.
+
+

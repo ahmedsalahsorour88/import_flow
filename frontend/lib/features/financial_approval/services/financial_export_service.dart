@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../../../core/services/file_save_helper.dart';
 import '../models/financial_approval_model.dart';
 
 class FinancialExportService {
@@ -297,19 +298,13 @@ class FinancialExportService {
     buffer.writeln('إجمالي الميزانية الكلية المعتمدة (EGP),,$grandTotalEgp');
 
     final filename = 'Budget_Approval_${budget.budgetCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
-    final savePath = await FilePicker.saveFile(
+    return FileSaveHelper.saveText(
+      context: context,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
       dialogTitle: 'حفظ تقرير اعتماد الميزانية بصيغة Excel / CSV',
-      fileName: filename,
-      type: FileType.custom,
       allowedExtensions: ['csv', 'xlsx'],
     );
-
-    if (savePath != null && savePath.isNotEmpty) {
-      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
-      await file.writeAsString(buffer.toString(), encoding: utf8);
-      return file.path;
-    }
-    return null;
   }
 
   /// Generates printable PDF for a Single Payment Request (BP-012)
@@ -526,19 +521,13 @@ class FinancialExportService {
     }
 
     final filename = 'Financial_History_Registry_${DateTime.now().millisecondsSinceEpoch}.csv';
-    final savePath = await FilePicker.saveFile(
+    return FileSaveHelper.saveText(
+      context: context,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
       dialogTitle: 'حفظ سجل العمليات المالي بصيغة Excel / CSV',
-      fileName: filename,
-      type: FileType.custom,
       allowedExtensions: ['csv', 'xlsx'],
     );
-
-    if (savePath != null && savePath.isNotEmpty) {
-      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
-      await file.writeAsString(buffer.toString(), encoding: utf8);
-      return file.path;
-    }
-    return null;
   }
 
   /// Exports full Import Budgets List to UTF-8 BOM CSV / Excel
@@ -574,19 +563,13 @@ class FinancialExportService {
     }
 
     final filename = 'Import_Budgets_Registry_${DateTime.now().millisecondsSinceEpoch}.csv';
-    final savePath = await FilePicker.saveFile(
+    return FileSaveHelper.saveText(
+      context: context,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
       dialogTitle: 'حفظ سجل الميزانيات الاستيرادية بصيغة Excel / CSV',
-      fileName: filename,
-      type: FileType.custom,
       allowedExtensions: ['csv', 'xlsx'],
     );
-
-    if (savePath != null && savePath.isNotEmpty) {
-      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
-      await file.writeAsString(buffer.toString(), encoding: utf8);
-      return file.path;
-    }
-    return null;
   }
 
   /// Exports a Single Payment Request (BP-012) to UTF-8 BOM CSV / Excel
@@ -622,19 +605,13 @@ class FinancialExportService {
     }
 
     final filename = 'Payment_Request_${payment.paymentCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
-    final savePath = await FilePicker.saveFile(
+    return FileSaveHelper.saveText(
+      context: context,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
       dialogTitle: 'حفظ إذن طلب السداد بصيغة Excel / CSV',
-      fileName: filename,
-      type: FileType.custom,
       allowedExtensions: ['csv', 'xlsx'],
     );
-
-    if (savePath != null && savePath.isNotEmpty) {
-      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
-      await file.writeAsString(buffer.toString(), encoding: utf8);
-      return file.path;
-    }
-    return null;
   }
 
   static String generatePaymentWhatsAppText(PaymentRequestModel pay) {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/financial_settlement_model.dart';
 import '../providers/financial_settlement_provider.dart';
@@ -57,26 +58,58 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
     }
   }
 
-  void _triggerDownload(String endpoint, String filename) {
-    final downloadUrl = '${ApiConstants.baseUrl}/financial-settlement/${widget.settlementId}/$endpoint';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.download_done, color: Colors.white),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                context.l10n.odooJournalExportingSnack(filename, downloadUrl),
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppTheme.cobalt,
-        duration: const Duration(seconds: 4),
-      ),
-    );
+  bool _isExporting = false;
+
+  Future<void> _downloadOdooCsv(int settlementId) async {
+    setState(() => _isExporting = true);
+    try {
+      final notifier = ref.read(financialSettlementProvider.notifier);
+      final csvData = await notifier.downloadOdooCsv(settlementId);
+      final filename = 'odoo_landed_cost_settlement_$settlementId.csv';
+
+      if (!mounted) return;
+      await FileSaveHelper.saveText(
+        context: context,
+        textContent: csvData,
+        defaultFileName: filename,
+        dialogTitle: 'حفظ قيود اليومية لبرنامج Odoo بصيغة CSV',
+        allowedExtensions: ['csv'],
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${context.l10n.errorPrefix}: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _downloadOdooExcel(int settlementId) async {
+    setState(() => _isExporting = true);
+    try {
+      final notifier = ref.read(financialSettlementProvider.notifier);
+      final bytes = await notifier.downloadOdooExcel(settlementId);
+      final filename = 'accounting_landed_cost_voucher_$settlementId.xlsx';
+
+      if (!mounted) return;
+      await FileSaveHelper.saveBytes(
+        context: context,
+        bytes: bytes,
+        defaultFileName: filename,
+        dialogTitle: 'حفظ مستند القيد والتكلفة الإجمالية بصيغة Excel',
+        allowedExtensions: ['xlsx', 'xls'],
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${context.l10n.errorPrefix}: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
   }
 
   @override
@@ -333,12 +366,14 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              icon: const Icon(Icons.file_download, color: Colors.white),
+              icon: _isExporting
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.file_download, color: Colors.white),
               label: Text(
                 context.l10n.odooJournalExportCsvBtn,
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
               ),
-              onPressed: () => _triggerDownload('export-odoo-csv', 'odoo_landed_cost_${entry.settlementId}.csv'),
+              onPressed: _isExporting ? null : () => _downloadOdooCsv(entry.settlementId),
             ),
 
             const SizedBox(width: 12),
@@ -350,12 +385,14 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              icon: const Icon(Icons.table_view, color: Colors.white),
+              icon: _isExporting
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.table_view, color: Colors.white),
               label: Text(
                 context.l10n.odooJournalExportExcelBtn,
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
               ),
-              onPressed: () => _triggerDownload('export-odoo-excel', 'accounting_landed_cost_voucher_${entry.settlementId}.xlsx'),
+              onPressed: _isExporting ? null : () => _downloadOdooExcel(entry.settlementId),
             ),
 
             const Spacer(),

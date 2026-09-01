@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
@@ -236,11 +237,13 @@ class _OriginalDocumentsCollectionTabState
       final bytes = await notifier.downloadExcel(_selectedImportFile!.importFileId);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l.excelExportSuccess(bytes.length)),
-          backgroundColor: const Color(0xFF27AE60),
-        ),
+      final defaultName = 'Original_Documents_${_selectedImportFile!.importFileCode}.xlsx';
+      await FileSaveHelper.saveBytes(
+        context: context,
+        bytes: bytes,
+        defaultFileName: defaultName,
+        dialogTitle: 'حفظ مستندات وأصول الشحنة بصيغة Excel',
+        allowedExtensions: ['xlsx', 'xls'],
       );
     } catch (e) {
       if (!mounted) return;

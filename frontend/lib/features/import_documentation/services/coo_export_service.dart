@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../../../core/services/file_save_helper.dart';
 
 class CooExportService {
   static String sanitizeEnglishOnly(String input) {
@@ -1021,21 +1022,15 @@ class CooExportService {
 
     final certClean = acidNumber.replaceAll(RegExp(r'[^0-9]'), '');
     final defaultName = 'Draft_Certificate_of_Origin_${certClean.isNotEmpty ? certClean : DateTime.now().millisecondsSinceEpoch}.pdf';
+    final bytes = await pdf.save();
 
-    final savePath = await FilePicker.saveFile(
+    return FileSaveHelper.saveBytes(
+      context: null,
+      bytes: bytes,
+      defaultFileName: defaultName,
       dialogTitle: 'حفظ مسودة شهادة المنشأ بصيغة PDF',
-      fileName: defaultName,
-      type: FileType.custom,
       allowedExtensions: ['pdf'],
     );
-
-    if (savePath != null && savePath.isNotEmpty) {
-      final file = File(savePath.endsWith('.pdf') ? savePath : '$savePath.pdf');
-      final bytes = await pdf.save();
-      await file.writeAsBytes(bytes);
-      return file.path;
-    }
-    return null;
   }
 
   /// Export CSV / Excel data string
@@ -1107,19 +1102,12 @@ class CooExportService {
     final certClean = acidNumber.replaceAll(RegExp(r'[^0-9]'), '');
     final defaultName = 'Draft_Certificate_of_Origin_${certClean.isNotEmpty ? certClean : DateTime.now().millisecondsSinceEpoch}.csv';
 
-    final savePath = await FilePicker.saveFile(
+    return FileSaveHelper.saveText(
+      context: null,
+      textContent: csv,
+      defaultFileName: defaultName,
       dialogTitle: 'حفظ مسودة شهادة المنشأ بصيغة Excel / CSV',
-      fileName: defaultName,
-      type: FileType.custom,
       allowedExtensions: ['csv', 'xlsx'],
     );
-
-    if (savePath != null && savePath.isNotEmpty) {
-      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
-      // Write with UTF-8 BOM so Excel opens properly in Arabic and English
-      await file.writeAsString('\uFEFF$csv', encoding: utf8);
-      return file.path;
-    }
-    return null;
   }
 }

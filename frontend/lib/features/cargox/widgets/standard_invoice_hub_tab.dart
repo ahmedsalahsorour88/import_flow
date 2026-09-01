@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -125,11 +126,13 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       final bytes = await notifier.downloadExcelTemplate(_selectedImportFile!.importFileId);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.standardInvoiceGeneratedSuccess(_selectedImportFile!.importFileCode, bytes.length)),
-          backgroundColor: const Color(0xFF27AE60),
-        ),
+      final defaultName = 'Standard_Commercial_Invoice_${_selectedImportFile!.importFileCode}.xlsx';
+      await FileSaveHelper.saveBytes(
+        context: context,
+        bytes: bytes,
+        defaultFileName: defaultName,
+        dialogTitle: 'حفظ نموذج الفاتورة التجارية القياسية Excel',
+        allowedExtensions: ['xlsx', 'xls'],
       );
     } catch (e) {
       if (!mounted) return;

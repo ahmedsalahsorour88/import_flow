@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -104,8 +105,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
     }).toList();
   }
 
-  void _exportToCSV(List<ImportFileModel> files) {
-    final l = context.l10n;
+  Future<void> _exportToCSV(List<ImportFileModel> files) async {
     final visibleCols = _columns.where((c) => c.isVisible).toList();
     final headerRow = visibleCols.map((c) => _getColumnLabel(context, c.id)).join(',');
 
@@ -117,40 +117,14 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
     }).toList();
 
     final csvContent = '$headerRow\n${rows.join('\n')}';
+    final filename = 'ImportFlow_Dynamic_Report_${DateTime.now().millisecondsSinceEpoch}.csv';
 
-    showDialog(
+    await FileSaveHelper.saveText(
       context: context,
-      builder: (c) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.file_download, color: AppTheme.emerald),
-            const SizedBox(width: 8),
-            Text(l.dynExportCsvTitle),
-          ],
-        ),
-        content: SizedBox(
-          width: 500,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l.dynExportCsvGeneratedMsg),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(12),
-                height: 150,
-                decoration: BoxDecoration(color: Colors.grey.shade100, border: Border.all(color: Colors.grey.shade400), borderRadius: BorderRadius.circular(6)),
-                child: SingleChildScrollView(
-                  child: SelectableText(csvContent, style: const TextStyle(fontFamily: 'monospace', fontSize: 11)),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          ElevatedButton(onPressed: () => Navigator.pop(c), child: Text(l.close)),
-        ],
-      ),
+      textContent: csvContent,
+      defaultFileName: filename,
+      dialogTitle: 'تصدير التقرير الديناميكي بصيغة Excel / CSV',
+      allowedExtensions: ['csv', 'xlsx'],
     );
   }
 
@@ -259,9 +233,16 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (format) async => doc.save(),
-      name: 'ImportFlow_Dynamic_Report_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    final bytes = await doc.save();
+    final filename = 'ImportFlow_Dynamic_Report_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+    if (!mounted) return;
+    await FileSaveHelper.saveBytes(
+      context: context,
+      bytes: bytes,
+      defaultFileName: filename,
+      dialogTitle: 'تصدير التقرير الديناميكي بصيغة PDF',
+      allowedExtensions: ['pdf'],
     );
   }
 

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -1123,7 +1124,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     );
   }
 
-  void _downloadCalcCSV(BuildContext context, CBMCalculationModel calc) {
+  Future<void> _downloadCalcCSV(BuildContext context, CBMCalculationModel calc) async {
     final buffer = StringBuffer();
     buffer.writeln('Sorour Logistics ERP - Cargo Volume & Weight Measurement Report');
     buffer.writeln('Calc Code,${calc.calcCode}');
@@ -1143,12 +1144,13 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       buffer.writeln('${i + 1},${item.packageType},${item.quantity},${item.lengthCm},${item.widthCm},${item.heightCm},${item.grossWeightPerUnitKg},${item.isStackable ? "Stackable" : "Non-Stackable"},${item.totalCbm},$lineGross');
     }
 
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('تم نسخ وتنزيل تقرير بيانات الجلسة ${calc.calcCode} بصيغة CSV بنجاح!'),
-        backgroundColor: AppTheme.emerald,
-      ),
+    final filename = 'CBM_Report_${calc.calcCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    await FileSaveHelper.saveText(
+      context: context,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
+      dialogTitle: 'حفظ تقرير قياسات وأوزان الشحنة CBM بصيغة Excel / CSV',
+      allowedExtensions: ['csv', 'xlsx'],
     );
   }
 

@@ -98,5 +98,29 @@ class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCo
       rethrow;
     }
   }
+
+  Future<String> downloadOdooCsv(int settlementId) async {
+    try {
+      final response = await _dio.get<String>(
+        '${ApiConstants.baseUrl}/financial-settlement/$settlementId/export-odoo-csv',
+      );
+      return response.data ?? '';
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<int>> downloadOdooExcel(int settlementId) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        '${ApiConstants.baseUrl}/financial-settlement/$settlementId/export-odoo-excel',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data ?? [];
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
+
 

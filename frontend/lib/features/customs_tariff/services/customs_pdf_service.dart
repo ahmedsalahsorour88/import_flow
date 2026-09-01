@@ -4,6 +4,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import '../../../core/services/file_save_helper.dart';
 
 class CustomsPdfService {
   /// Generates a PDF byte array for a multi-item customs duty estimation statement.
@@ -347,21 +348,12 @@ class CustomsPdfService {
 
     final String defaultFileName = 'Nafeza_Customs_Statement_${DateTime.now().millisecondsSinceEpoch}.pdf';
     
-    final String? savePath = await FilePicker.saveFile(
+    return FileSaveHelper.saveBytes(
+      context: null,
+      bytes: pdfBytes,
+      defaultFileName: defaultFileName,
       dialogTitle: 'حفظ بيان التقدير الجمركي بصيغة PDF',
-      fileName: defaultFileName,
-      type: FileType.custom,
       allowedExtensions: ['pdf'],
     );
-
-    if (savePath != null && savePath.isNotEmpty) {
-      final file = File(savePath);
-      await file.writeAsBytes(pdfBytes);
-      return savePath;
-    }
-
-    // Fallback to native Printing share/save
-    await Printing.sharePdf(bytes: pdfBytes, filename: defaultFileName);
-    return defaultFileName;
   }
 }

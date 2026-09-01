@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../../../core/services/file_save_helper.dart';
 
 class DraftBLExportService {
   /// Generates the pdf.Document instance for Maritime Draft B/L
@@ -488,20 +489,13 @@ class DraftBLExportService {
     buffer.writeln('تاريخ التصدير,${DateTime.now().toIso8601String()}');
 
     final filename = 'Draft_BL_${blNo.toString().replaceAll('/', '_')}_${DateTime.now().millisecondsSinceEpoch}.csv';
-    final savePath = await FilePicker.saveFile(
+    return FileSaveHelper.saveText(
+      context: null,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
       dialogTitle: 'حفظ مسودة البوليصة بصيغة Excel / CSV',
-      fileName: filename,
-      type: FileType.custom,
       allowedExtensions: ['csv', 'xlsx'],
     );
-
-    if (savePath != null && savePath.isNotEmpty) {
-      if (kIsWeb) {
-        return savePath;
-      }
-      return savePath;
-    }
-    return null;
   }
 
   /// Exports and Saves Draft B/L PDF directly to a file chosen by the user
@@ -524,21 +518,15 @@ class DraftBLExportService {
         .toString()
         .replaceAll(RegExp(r'[^0-9A-Za-z_-]'), '_');
     final filename = 'Draft_BL_${blNo}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final bytes = await pdf.save();
 
-    final savePath = await FilePicker.saveFile(
+    return FileSaveHelper.saveBytes(
+      context: null,
+      bytes: bytes,
+      defaultFileName: filename,
       dialogTitle: 'حفظ مسودة البوليصة بصيغة PDF',
-      fileName: filename,
-      type: FileType.custom,
       allowedExtensions: ['pdf'],
     );
-
-    if (savePath != null && savePath.isNotEmpty) {
-      final file = File(savePath.endsWith('.pdf') ? savePath : '$savePath.pdf');
-      final bytes = await pdf.save();
-      await file.writeAsBytes(bytes);
-      return file.path;
-    }
-    return null;
   }
 
   static pw.Widget _buildCell(String title, String val, {int flex = 1}) {

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../../../core/services/file_save_helper.dart';
 import '../models/customs_consultation_model.dart';
 
 class NafezaFeeItem {
@@ -186,20 +187,14 @@ class CustomsExportService {
       buffer.writeln('');
     }
 
-    // Save dialog via FilePicker
+    // Save dialog via FileSaveHelper
     final defaultFileName = 'Customs_Study_${DateTime.now().millisecondsSinceEpoch}.csv';
-    final savePath = await FilePicker.saveFile(
+    return FileSaveHelper.saveText(
+      context: null,
+      textContent: buffer.toString(),
+      defaultFileName: defaultFileName,
       dialogTitle: 'حفظ دراسة الجمارك وبيان نافذة بصيغة Excel / CSV',
-      fileName: defaultFileName,
-      type: FileType.custom,
       allowedExtensions: ['csv', 'xlsx'],
     );
-
-    if (savePath != null && savePath.isNotEmpty) {
-      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
-      await file.writeAsString(buffer.toString(), encoding: utf8);
-      return file.path;
-    }
-    return null;
   }
 }

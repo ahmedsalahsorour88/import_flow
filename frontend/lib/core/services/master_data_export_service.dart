@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'file_save_helper.dart';
 
 import '../../features/import_companies/models/import_company_model.dart';
 import '../../features/suppliers/models/supplier_model.dart';
@@ -210,19 +211,13 @@ class MasterDataExportService {
     }
 
     final filename = 'Importer_${company.importerId}_${DateTime.now().millisecondsSinceEpoch}.csv';
-    final savePath = await FilePicker.saveFile(
+    return FileSaveHelper.saveText(
+      context: null,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
       dialogTitle: 'حفظ بيانات الشركة المستوردة بصيغة Excel / CSV',
-      fileName: filename,
-      type: FileType.custom,
       allowedExtensions: ['csv', 'xlsx'],
     );
-
-    if (savePath != null && savePath.isNotEmpty) {
-      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
-      await file.writeAsString(buffer.toString(), encoding: utf8);
-      return file.path;
-    }
-    return null;
   }
 
   static String generateImporterWhatsAppText(ImportCompanyModel comp) {
@@ -490,19 +485,13 @@ Sorour Logistics ERP
     buffer.writeln('العلامات والبراندات,"${(supplier.brands ?? "-").replaceAll('"', '""')}"');
 
     final filename = 'Supplier_${supplier.supplierCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
-    final savePath = await FilePicker.saveFile(
+    return FileSaveHelper.saveText(
+      context: null,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
       dialogTitle: 'حفظ بيانات المورد الأجنبي بصيغة Excel / CSV',
-      fileName: filename,
-      type: FileType.custom,
       allowedExtensions: ['csv', 'xlsx'],
     );
-
-    if (savePath != null && savePath.isNotEmpty) {
-      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
-      await file.writeAsString(buffer.toString(), encoding: utf8);
-      return file.path;
-    }
-    return null;
   }
 
   static String generateSupplierWhatsAppText(SupplierModel sup) {
@@ -772,19 +761,13 @@ Sorour Logistics ERP
     buffer.writeln('حالة السجل,${partner.isActive ? "نشط" : "غير نشط"}');
 
     final filename = 'Partner_${partner.partnerCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
-    final savePath = await FilePicker.saveFile(
+    return FileSaveHelper.saveText(
+      context: null,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
       dialogTitle: 'حفظ بيانات الشريك بصيغة Excel / CSV',
-      fileName: filename,
-      type: FileType.custom,
       allowedExtensions: ['csv', 'xlsx'],
     );
-
-    if (savePath != null && savePath.isNotEmpty) {
-      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
-      await file.writeAsString(buffer.toString(), encoding: utf8);
-      return file.path;
-    }
-    return null;
   }
 
   static String generatePartnerWhatsAppText(PartnerModel p) {

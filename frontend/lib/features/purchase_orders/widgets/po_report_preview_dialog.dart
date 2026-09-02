@@ -621,18 +621,19 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 700),
+            constraints: const BoxConstraints(minWidth: 850),
             child: Table(
               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
               border: TableBorder(horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1)),
               columnWidths: const {
                 0: FixedColumnWidth(36),
-                1: FixedColumnWidth(110),
-                2: FixedColumnWidth(260),
-                3: FixedColumnWidth(120),
-                4: FixedColumnWidth(90),
-                5: FixedColumnWidth(110),
-                6: FixedColumnWidth(120),
+                1: FixedColumnWidth(100),
+                2: FixedColumnWidth(160),
+                3: FixedColumnWidth(220),
+                4: FixedColumnWidth(110),
+                5: FixedColumnWidth(90),
+                6: FixedColumnWidth(100),
+                7: FixedColumnWidth(115),
               },
               children: [
                 TableRow(
@@ -640,6 +641,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                   children: [
                     const _HeaderCell('#'),
                     _HeaderCell(l.poReportColItemCode),
+                    _HeaderCell(l.mainDescription),
                     _HeaderCell(l.poReportColDescription),
                     _HeaderCell(l.poReportColHsCode),
                     _HeaderCell(l.poReportColQtyUnit),
@@ -659,12 +661,14 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                   final desc = isArabic
                       ? (itm.descriptionAr.isNotEmpty ? itm.descriptionAr : (itm.descriptionEn ?? '-'))
                       : (itm.descriptionEn?.isNotEmpty == true ? itm.descriptionEn! : itm.descriptionAr);
+                  final mainDesc = itm.mainDescription?.isNotEmpty == true ? itm.mainDescription! : '-';
 
                   return TableRow(
                     decoration: BoxDecoration(color: idx % 2 == 1 ? const Color(0xFFFDFDFD) : Colors.white),
                     children: [
                       _DataCell('${idx + 1}', align: TextAlign.center),
                       _DataCell(itm.itemCode ?? '-', isBold: true, color: AppTheme.cobalt),
+                      _DataCell(mainDesc, isBold: itm.mainDescription?.isNotEmpty == true, color: AppTheme.charcoal),
                       _DataCell(desc),
                       _DataCell(hs.isNotEmpty ? hs : (isArabic ? '⚠️ غير مسجل' : '⚠️ Unregistered'), color: hs.isNotEmpty ? AppTheme.charcoal : Colors.red),
                       _DataCell('${itm.quantity.toStringAsFixed(0)} ${itm.unitOfMeasure}'),
@@ -678,6 +682,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                   children: [
                     const _DataCell(''),
                     _DataCell(l.poReportGrandTotal, isBold: true, color: AppTheme.charcoal),
+                    const _DataCell(''),
                     _DataCell(l.poReportItemsCountUnit(widget.items.length), isBold: true),
                     const _DataCell(''),
                     _DataCell('${totalInvoiceQty.toStringAsFixed(0)} pcs', isBold: true),
@@ -710,20 +715,21 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 800),
+            constraints: const BoxConstraints(minWidth: 950),
             child: Table(
               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
               border: TableBorder(horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1)),
               columnWidths: const {
                 0: FixedColumnWidth(36),
-                1: FixedColumnWidth(110),
-                2: FixedColumnWidth(220),
-                3: FixedColumnWidth(80),
-                4: FixedColumnWidth(90),
-                5: FixedColumnWidth(110),
-                6: FixedColumnWidth(90),
-                7: FixedColumnWidth(85),
-                8: FixedColumnWidth(80),
+                1: FixedColumnWidth(100),
+                2: FixedColumnWidth(140),
+                3: FixedColumnWidth(180),
+                4: FixedColumnWidth(80),
+                5: FixedColumnWidth(90),
+                6: FixedColumnWidth(100),
+                7: FixedColumnWidth(90),
+                8: FixedColumnWidth(85),
+                9: FixedColumnWidth(80),
               },
               children: [
                 TableRow(
@@ -731,6 +737,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                   children: [
                     const _HeaderCell('#'),
                     _HeaderCell(l.poReportColItemCode),
+                    _HeaderCell(l.mainDescription),
                     _HeaderCell(l.poReportColDescription),
                     _HeaderCell(l.poReportColPkgType),
                     _HeaderCell(l.poReportTotalPkgsAndPcs),
@@ -748,11 +755,20 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                       ? '${p.lengthCm.toStringAsFixed(0)}×${p.widthCm.toStringAsFixed(0)}×${p.heightCm.toStringAsFixed(0)}'
                       : l.poReportDirectVolume;
 
+                  String mainDesc = p.mainDescription ?? '';
+                  if (mainDesc.isEmpty) {
+                    final matchedItem = widget.items.where((i) => i.itemCode != null && i.itemCode == p.itemCode).firstOrNull;
+                    if (matchedItem != null && matchedItem.mainDescription?.isNotEmpty == true) {
+                      mainDesc = matchedItem.mainDescription!;
+                    }
+                  }
+
                   return TableRow(
                     decoration: BoxDecoration(color: idx % 2 == 1 ? const Color(0xFFFDFDFD) : Colors.white),
                     children: [
                       _DataCell('${idx + 1}', align: TextAlign.center),
                       _DataCell(p.itemCode, isBold: true, color: AppTheme.cobalt),
+                      _DataCell(mainDesc.isNotEmpty ? mainDesc : '-', isBold: mainDesc.isNotEmpty, color: AppTheme.charcoal),
                       _DataCell(p.description != null && p.description!.isNotEmpty ? p.description! : '-'),
                       _DataCell(p.packageType),
                       _DataCell('${p.qtyPkg.toStringAsFixed(0)} / ${p.qtyPcs.toStringAsFixed(0)}'),
@@ -768,6 +784,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                   children: [
                     const _DataCell(''),
                     _DataCell(l.poReportTotalPacking, isBold: true, color: AppTheme.charcoal),
+                    const _DataCell(''),
                     _DataCell(l.poReportRowsCountUnit(widget.packingItems.length), isBold: true),
                     const _DataCell(''),
                     _DataCell(
@@ -913,21 +930,29 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
     sb.writeln('================================================================\n');
 
     sb.writeln('--- ${l.poReportSec1InvoiceItems} ---');
-    sb.writeln('# | ${l.poReportColItemCode} | ${l.poReportColDescription} | ${l.poReportColHsCode} | ${l.poReportColQtyUnit} | ${l.poReportColUnitPrice} | ${l.poReportColTotalAmount}');
+    sb.writeln('# | ${l.poReportColItemCode} | ${l.mainDescription} | ${l.poReportColDescription} | ${l.poReportColHsCode} | ${l.poReportColQtyUnit} | ${l.poReportColUnitPrice} | ${l.poReportColTotalAmount}');
     for (int i = 0; i < widget.items.length; i++) {
       final it = widget.items[i];
       final itemTot = it.totalPrice > 0 ? it.totalPrice : (it.quantity * it.unitPrice);
       final desc = isArabic ? it.descriptionAr : (it.descriptionEn?.isNotEmpty == true ? it.descriptionEn! : it.descriptionAr);
-      sb.writeln('${i + 1} | ${it.itemCode ?? "-"} | $desc | ${it.hsCode ?? "-"} | ${it.quantity} ${it.unitOfMeasure} | ${it.unitPrice.toStringAsFixed(2)} ${widget.currency} | ${itemTot.toStringAsFixed(2)} ${widget.currency}');
+      final mainDesc = it.mainDescription?.isNotEmpty == true ? it.mainDescription! : "-";
+      sb.writeln('${i + 1} | ${it.itemCode ?? "-"} | $mainDesc | $desc | ${it.hsCode ?? "-"} | ${it.quantity} ${it.unitOfMeasure} | ${it.unitPrice.toStringAsFixed(2)} ${widget.currency} | ${itemTot.toStringAsFixed(2)} ${widget.currency}');
     }
 
     sb.writeln('\n--- ${l.poReportSec2PackingList} ---');
-    sb.writeln('# | ${l.poReportColItemCode} | ${l.poReportColDescription} | ${l.poReportColPkgType} | ${l.poReportTotalPkgsAndPcs} | ${l.poReportColDimensions} | ${l.poReportGrossWeight} | ${l.poReportVolumeCbm}');
+    sb.writeln('# | ${l.poReportColItemCode} | ${l.mainDescription} | ${l.poReportColDescription} | ${l.poReportColPkgType} | ${l.poReportTotalPkgsAndPcs} | ${l.poReportColDimensions} | ${l.poReportGrossWeight} | ${l.poReportVolumeCbm}');
     for (int i = 0; i < widget.packingItems.length; i++) {
       final p = widget.packingItems[i];
       final dim = (p.lengthCm > 0 && p.widthCm > 0 && p.heightCm > 0) ? '${p.lengthCm}x${p.widthCm}x${p.heightCm}' : l.poReportDirectVolume;
       final grs = p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : p.grossWeightUnitKg * p.qtyPkg;
-      sb.writeln('${i + 1} | ${p.itemCode} | ${p.description ?? "-"} | ${p.packageType} | ${p.qtyPkg}/${p.qtyPcs} | $dim | ${grs.toStringAsFixed(1)} kg | ${p.calculatedCbm.toStringAsFixed(3)} m³');
+      String mainDesc = p.mainDescription ?? '';
+      if (mainDesc.isEmpty) {
+        final matchedItem = widget.items.where((it) => it.itemCode != null && it.itemCode == p.itemCode).firstOrNull;
+        if (matchedItem != null && matchedItem.mainDescription?.isNotEmpty == true) {
+          mainDesc = matchedItem.mainDescription!;
+        }
+      }
+      sb.writeln('${i + 1} | ${p.itemCode} | ${mainDesc.isNotEmpty ? mainDesc : "-"} | ${p.description ?? "-"} | ${p.packageType} | ${p.qtyPkg}/${p.qtyPcs} | $dim | ${grs.toStringAsFixed(1)} kg | ${p.calculatedCbm.toStringAsFixed(3)} m³');
     }
 
     if (widget.palletItems.isNotEmpty) {

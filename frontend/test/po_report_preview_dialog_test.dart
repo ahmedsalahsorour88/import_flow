@@ -10,6 +10,7 @@ void main() {
       POLineItemModel(
         itemId: 1,
         itemCode: 'ITEM-001',
+        mainDescription: 'أثاث مكتبي رئيسي',
         descriptionAr: 'طاولة مكتبية',
         descriptionEn: 'Office Table',
         quantity: 100.0,
@@ -20,6 +21,7 @@ void main() {
       POLineItemModel(
         itemId: 2,
         itemCode: 'ITEM-002',
+        mainDescription: 'كراسي مكتبية',
         descriptionAr: 'كرسي مريح',
         descriptionEn: 'Ergonomic Chair',
         quantity: 50.0,
@@ -32,6 +34,7 @@ void main() {
     final samplePacking = [
       PackingListItemModel(
         itemCode: 'ITEM-001',
+        mainDescription: 'أثاث مكتبي رئيسي',
         hsCode: '9403100000',
         description: 'طاولة مكتبية',
         qtyPkg: 10.0,
@@ -108,6 +111,11 @@ void main() {
     // Grand Total: 6070 + 1000 = 7070.00 USD
     expect(find.text('7070.00 USD'), findsNWidgets(2)); // Badge + Table Grand Total row
 
+    // Verify Main Description in Arabic
+    expect(find.text('الوصف الرئيسي'), findsWidgets);
+    expect(find.text('أثاث مكتبي رئيسي'), findsWidgets);
+    expect(find.text('كراسي مكتبية'), findsOneWidget);
+
     // Test Language Switcher button: switch to English
     expect(find.text('English'), findsOneWidget);
     await tester.tap(find.text('English'));
@@ -115,6 +123,7 @@ void main() {
 
     // Check that UI is now in English
     expect(find.text('Purchase Order & Packing List Preview'), findsOneWidget);
+    expect(find.text('Main Description'), findsWidgets);
     expect(find.text('Grand Total'), findsOneWidget);
     expect(find.text('Copy Report Text'), findsOneWidget);
     expect(find.text('Save & Approve Purchase Order'), findsOneWidget);
@@ -126,6 +135,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('معاينة تقرير أمر الشراء وقائمة التعبئة المعتمدة'), findsOneWidget);
+    expect(find.text('الوصف الرئيسي'), findsWidgets);
     expect(find.text('الإجمالي الكلي'), findsOneWidget);
   });
 }

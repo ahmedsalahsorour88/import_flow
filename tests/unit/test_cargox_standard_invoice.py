@@ -598,3 +598,64 @@ def test_zip_generation_multi_invoice(test_db):
         assert len(file_list) == extraction.invoices_count
         for fn in file_list:
             assert fn.endswith(".xlsx"), f"الملف {fn} يجب أن يكون .xlsx"
+
+
+def test_customs_packing_list_generation_and_track_crud(test_db):
+    """
+    Test توليد شيت الباكينج ليست الجمركي وعمليات الـ CRUD وتصدير الإكسل للمسار الجمركي.
+    """
+    from modules.cargox.excel_invoice_service import generate_customs_packing_list_excel_bytes
+    from modules.cargox.schemas import CustomsInvoiceTrackCreate, CustomsInvoiceTrackUpdate
+
+    app.dependency_overrides[get_db] = lambda: test_db
+    client = TestClient(app)
+
+    # 1. Create Track
+    req = CustomsInvoiceTrackCreate(
+        import_file_id=1,
+        extraction_mode="all_consolidated",
+        grouping_mode="by_hs_code",
+        notes="مسار تجريبي للباكينج ليست",
+    )
+    track = CargoXExtractionEngine.create_customs_track(test_db, req, created_by="TESTER")
+    assert track.track_id is not None
+    assert track.track_code.startswith("CX-CUST-")
+    assert track.customs_packing_list_data is not None
+    assert track.customs_packages_count > 0
+
+    # 2. Test Packing List Excel Bytes Generation
+    extraction = CargoXExtractionEngine.extract(test_db, 1, ExtractionRequest())
+    payload = extraction.results[0].payload
+    pl_bytes = generate_customs_packing_list_excel_bytes(payload, track_code=track.track_code)
+    assert len(pl_bytes) > 500
+    assert pl_bytes[:2] == b"PK"  # Valid ZIP/XLSX magic bytes
+
+    # 3. Test Update Track via API
+    res_up = client.put(
+        f"/api/v1/cargox/customs-track/{track.track_id}",
+        json={"status": "APPROVED", "notes": "تم الاعتماد الجمركي بنجاح"},
+    )
+    assert res_up.status_code == 200
+    up_json = res_up.json()
+    assert up_json["status"] == "APPROVED"
+    assert up_json["notes"] == "تم الاعتماد الجمركي بنجاح"
+
+    # 4. Test Export Invoice Excel via API
+    res_inv_ex = client.get(f"/api/v1/cargox/customs-track/{track.track_id}/export-excel")
+    assert res_inv_ex.status_code == 200
+    assert len(res_inv_ex.content) > 1000
+
+    # 5. Test Export Packing List Excel via API
+    res_pl_ex = client.get(f"/api/v1/cargox/customs-track/{track.track_id}/export-packing-list-excel")
+    assert res_pl_ex.status_code == 200
+    assert len(res_pl_ex.content) > 1000
+
+    # 6. Test Delete Track via API
+    res_del = client.delete(f"/api/v1/cargox/customs-track/{track.track_id}")
+    assert res_del.status_code == 200
+    assert res_del.json()["status"] == "success"
+
+    # Verify soft deletion in list
+    res_list = client.get("/api/v1/cargox/customs-track/by-file/1")
+    assert res_list.status_code == 200
+    assert all(t["track_id"] != track.track_id for t in res_list.json())

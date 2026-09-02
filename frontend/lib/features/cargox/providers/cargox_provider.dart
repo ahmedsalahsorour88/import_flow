@@ -340,5 +340,49 @@ class StandardInvoiceNotifier extends StateNotifier<AsyncValue<List<StandardInvo
       return [];
     }
   }
+
+  Future<CustomsInvoiceTrackModel> updateCustomsTrack(int trackId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.baseUrl}/cargox/customs-track/$trackId',
+        data: payload,
+      );
+      return CustomsInvoiceTrackModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<void> deleteCustomsTrack(int trackId) async {
+    try {
+      await _dio.delete('${ApiConstants.baseUrl}/cargox/customs-track/$trackId');
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<List<int>> downloadTrackExcel(int trackId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/cargox/customs-track/$trackId/export-excel',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data as List<int>;
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<List<int>> downloadTrackPackingListExcel(int trackId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/cargox/customs-track/$trackId/export-packing-list-excel',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data as List<int>;
+    } catch (err) {
+      rethrow;
+    }
+  }
 }
 

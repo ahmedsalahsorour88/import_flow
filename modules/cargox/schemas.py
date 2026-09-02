@@ -428,6 +428,20 @@ class CustomsInvoiceTrackCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class CustomsInvoiceTrackUpdate(BaseModel):
+    """
+    تعديل نسخة جمركية (Customs Invoice Track).
+    """
+    status: Optional[str] = None  # "DRAFT" | "APPROVED" | "SEALED"
+    notes: Optional[str] = None
+    customs_total_amount: Optional[float] = None
+    customs_gross_weight: Optional[float] = None
+    customs_net_weight: Optional[float] = None
+    customs_packages_count: Optional[int] = None
+    customs_invoice_data: Optional[Any] = None
+    customs_packing_list_data: Optional[Any] = None
+
+
 class CustomsInvoiceTrackResponse(BaseModel):
     """استجابة نسخة الفاتورة الجمركية المحفوظة."""
     model_config = ConfigDict(from_attributes=True)

@@ -929,6 +929,35 @@ class CargoXExtractionEngine:
         total_net = sum(r.payload.net_weight for r in extraction.results)
         source_invs = [r.invoice_number for r in extraction.results if r.invoice_number]
 
+        # بناء لقطة الباكينج ليست الجمركي (Customs Packing List Data)
+        packing_items = []
+        for res_idx, r in enumerate(extraction.results, start=1):
+            for itm in r.payload.items:
+                packing_items.append({
+                    "package_no": f"PKG-{len(packing_items)+1:02d}",
+                    "invoice_number": r.invoice_number,
+                    "product_code": itm.product_code,
+                    "hs_code": itm.hs_code,
+                    "manufacturer": itm.manufacturer,
+                    "description": itm.description,
+                    "quantity": itm.quantity,
+                    "qty_unit": itm.qty_unit,
+                    "net_weight_kg": itm.net_weight_kg,
+                    "gross_weight_kg": itm.gross_weight_kg,
+                })
+
+        packing_list_snapshot = {
+            "track_code": track_code,
+            "import_file_code": file.import_file_code,
+            "acid_number": file.acid_number,
+            "seller_name": file.supplier_name,
+            "buyer_name": file.company_name,
+            "total_packages": len(packing_items),
+            "total_gross_weight": round(total_gross, 2),
+            "total_net_weight": round(total_net, 2),
+            "items": packing_items,
+        }
+
         track = CargoXCustomsInvoiceTrack(
             track_code=track_code,
             import_file_id=payload.import_file_id,
@@ -939,9 +968,10 @@ class CargoXExtractionEngine:
             customs_total_amount=round(total_amount, 2),
             customs_gross_weight=round(total_gross, 2),
             customs_net_weight=round(total_net, 2),
-            customs_packages_count=0,
+            customs_packages_count=len(packing_items),
             line_items_count=extraction.total_line_items,
             customs_invoice_data=all_results_data if len(all_results_data) > 1 else (all_results_data[0] if all_results_data else {}),
+            customs_packing_list_data=packing_list_snapshot,
             status="DRAFT",
             notes=payload.notes,
             created_by=created_by,
@@ -951,6 +981,61 @@ class CargoXExtractionEngine:
         db.commit()
         db.refresh(track)
         return track
+
+    @staticmethod
+    def update_customs_track(
+        db: Session,
+        track_id: int,
+        payload_dict: Dict,
+        updated_by: str = "SYSTEM",
+    ) -> CargoXCustomsInvoiceTrack:
+        """تحديث بيانات المسار الجمركي (الحالة، الملاحظات، المجاميع)."""
+        track = db.query(CargoXCustomsInvoiceTrack).filter(
+            CargoXCustomsInvoiceTrack.track_id == track_id,
+            CargoXCustomsInvoiceTrack.is_active.is_(True),
+        ).first()
+        if not track:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"المسار الجمركي رقم {track_id} غير موجود.",
+            )
+
+        for field in [
+            "status", "notes", "customs_total_amount", "customs_gross_weight",
+            "customs_net_weight", "customs_packages_count", "customs_invoice_data",
+            "customs_packing_list_data"
+        ]:
+            if field in payload_dict and payload_dict[field] is not None:
+                setattr(track, field, payload_dict[field])
+
+        track.updated_by = updated_by
+        track.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(track)
+        return track
+
+    @staticmethod
+    def delete_customs_track(
+        db: Session,
+        track_id: int,
+        deleted_by: str = "SYSTEM",
+    ) -> bool:
+        """حذف منطقي (Soft Delete) للمسار الجمركي."""
+        track = db.query(CargoXCustomsInvoiceTrack).filter(
+            CargoXCustomsInvoiceTrack.track_id == track_id,
+            CargoXCustomsInvoiceTrack.is_active.is_(True),
+        ).first()
+        if not track:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"المسار الجمركي رقم {track_id} غير موجود.",
+            )
+
+        track.is_active = False
+        track.updated_by = deleted_by
+        track.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        return True
 
     # -------------------------------------------------------------------------
     # Private Helpers

@@ -918,6 +918,8 @@ class CustomsInvoiceTrackModel {
   final double customsNetWeight;
   final int customsPackagesCount;
   final int lineItemsCount;
+  final dynamic customsInvoiceData;
+  final dynamic customsPackingListData;
   final String status;
   final String? notes;
   final bool isActive;
@@ -937,6 +939,8 @@ class CustomsInvoiceTrackModel {
     this.customsNetWeight = 0.0,
     this.customsPackagesCount = 0,
     this.lineItemsCount = 0,
+    this.customsInvoiceData,
+    this.customsPackingListData,
     this.status = 'DRAFT',
     this.notes,
     this.isActive = true,
@@ -958,6 +962,8 @@ class CustomsInvoiceTrackModel {
       customsNetWeight: (json['customs_net_weight'] as num?)?.toDouble() ?? 0.0,
       customsPackagesCount: json['customs_packages_count'] as int? ?? 0,
       lineItemsCount: json['line_items_count'] as int? ?? 0,
+      customsInvoiceData: json['customs_invoice_data'],
+      customsPackingListData: json['customs_packing_list_data'],
       status: json['status'] as String? ?? 'DRAFT',
       notes: json['notes'] as String?,
       isActive: json['is_active'] as bool? ?? true,

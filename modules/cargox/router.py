@@ -253,9 +253,19 @@ def update_standard_invoice_session_status(
 
 import io
 import zipfile
-from .schemas import ExtractionRequest, ExtractionResponse, CustomsInvoiceTrackCreate, CustomsInvoiceTrackResponse
+from .schemas import (
+    ExtractionRequest,
+    ExtractionResponse,
+    CustomsInvoiceTrackCreate,
+    CustomsInvoiceTrackUpdate,
+    CustomsInvoiceTrackResponse,
+    StandardInvoicePayload,
+)
 from .service import CargoXExtractionEngine
-from .excel_invoice_service import generate_standard_invoice_excel_bytes
+from .excel_invoice_service import (
+    generate_standard_invoice_excel_bytes,
+    generate_customs_packing_list_excel_bytes,
+)
 
 
 @router.post("/standard-invoice/extract/{import_file_id}", response_model=ExtractionResponse)
@@ -325,7 +335,7 @@ def list_customs_tracks_by_file(
     db: Session = Depends(get_db),
 ):
     """
-    CGX-003: قايمة كافة النسخ الجمركية المحفوظة لملف استيراد معين.
+    CGX-003: قائمة كافة النسخ الجمركية المحفوظة لملف استيراد معين.
     """
     from .model import CargoXCustomsInvoiceTrack
     tracks = (
@@ -338,3 +348,128 @@ def list_customs_tracks_by_file(
         .all()
     )
     return tracks
+
+
+@router.get("/customs-track/{track_id}", response_model=CustomsInvoiceTrackResponse)
+def get_customs_track_by_id(
+    track_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    الحصول على تفاصيل مسار جمركي معين.
+    """
+    from .model import CargoXCustomsInvoiceTrack
+    track = (
+        db.query(CargoXCustomsInvoiceTrack)
+        .filter(
+            CargoXCustomsInvoiceTrack.track_id == track_id,
+            CargoXCustomsInvoiceTrack.is_active.is_(True),
+        )
+        .first()
+    )
+    if not track:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"المسار الجمركي {track_id} غير موجود.")
+    return track
+
+
+@router.put("/customs-track/{track_id}", response_model=CustomsInvoiceTrackResponse)
+def update_customs_track_by_id(
+    track_id: int,
+    payload: CustomsInvoiceTrackUpdate,
+    db: Session = Depends(get_db),
+):
+    """
+    تعديل مسار جمركي (الحالة، الملاحظات، القيم).
+    """
+    return CargoXExtractionEngine.update_customs_track(
+        db, track_id, payload.model_dump(exclude_unset=True), updated_by="ADMIN"
+    )
+
+
+@router.delete("/customs-track/{track_id}")
+def delete_customs_track_by_id(
+    track_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    حذف منطقي (Soft Delete) لمسار جمركي.
+    """
+    CargoXExtractionEngine.delete_customs_track(db, track_id, deleted_by="ADMIN")
+    return {"status": "success", "message": f"تم حذف المسار الجمركي {track_id} بنجاح."}
+
+
+@router.get("/customs-track/{track_id}/export-excel")
+def export_customs_track_excel(
+    track_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    تحميل ملف Excel التجاري المعتمد الخاص بالمسار الجمركي.
+    """
+    from .model import CargoXCustomsInvoiceTrack
+    track = (
+        db.query(CargoXCustomsInvoiceTrack)
+        .filter(
+            CargoXCustomsInvoiceTrack.track_id == track_id,
+            CargoXCustomsInvoiceTrack.is_active.is_(True),
+        )
+        .first()
+    )
+    if not track:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"المسار الجمركي {track_id} غير موجود.")
+
+    data = track.customs_invoice_data
+    if isinstance(data, list) and len(data) > 0:
+        data = data[0]
+    elif not isinstance(data, dict):
+        data = {}
+
+    payload = StandardInvoicePayload(**data) if data else StandardInvoicePayload()
+    excel_bytes = generate_standard_invoice_excel_bytes(payload)
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename=Customs_Invoice_{track.track_code}.xlsx"
+        },
+    )
+
+
+@router.get("/customs-track/{track_id}/export-packing-list-excel")
+def export_customs_track_packing_list_excel(
+    track_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    تحميل ملف Excel لقائمة التعبئة الجمركية (Customs Packing List) المعتمدة للمسار الجمركي.
+    """
+    from .model import CargoXCustomsInvoiceTrack
+    track = (
+        db.query(CargoXCustomsInvoiceTrack)
+        .filter(
+            CargoXCustomsInvoiceTrack.track_id == track_id,
+            CargoXCustomsInvoiceTrack.is_active.is_(True),
+        )
+        .first()
+    )
+    if not track:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"المسار الجمركي {track_id} غير موجود.")
+
+    data = track.customs_invoice_data
+    if isinstance(data, list) and len(data) > 0:
+        data = data[0]
+    elif not isinstance(data, dict):
+        data = {}
+
+    payload = StandardInvoicePayload(**data) if data else StandardInvoicePayload()
+    excel_bytes = generate_customs_packing_list_excel_bytes(payload, track_code=track.track_code)
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename=Customs_Packing_List_{track.track_code}.xlsx"
+        },
+    )

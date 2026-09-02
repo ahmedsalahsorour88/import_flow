@@ -10,6 +10,8 @@ import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/cargox_model.dart';
 import '../providers/cargox_provider.dart';
+import '../services/cargox_pdf_service.dart';
+import 'package:printing/printing.dart';
 
 String _formatDateTime(DateTime dt) {
   final str = dt.toIso8601String();
@@ -1304,6 +1306,90 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                     ),
                   ),
                 ],
+
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+
+                // Track Actions Bar
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.start,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    // 1. View Details Modal Button
+                    ElevatedButton.icon(
+                      onPressed: () => _showTrackDetailsDialog(track),
+                      icon: const Icon(Icons.remove_red_eye_outlined, size: 16),
+                      label: const Text('مشاهدة وتفاصيل البنود'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2C3E50),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                    ),
+
+                    // 2. PDF Preview & Print Button
+                    ElevatedButton.icon(
+                      onPressed: () => _showTrackPdfPreviewDialog(track),
+                      icon: const Icon(Icons.picture_as_pdf, size: 16),
+                      label: const Text('معاينة وطباعة PDF'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF27AE60),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                    ),
+
+                    // 3. Export Invoice Excel Button
+                    OutlinedButton.icon(
+                      onPressed: () => _downloadTrackExcelFile(track),
+                      icon: const Icon(Icons.download, size: 16),
+                      label: const Text('إكسل الفاتورة (.xlsx)'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF27AE60),
+                        side: const BorderSide(color: Color(0xFF27AE60)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+
+                    // 4. Export Packing List Excel Button
+                    OutlinedButton.icon(
+                      onPressed: () => _downloadTrackPackingListFile(track),
+                      icon: const Icon(Icons.inventory_2_outlined, size: 16),
+                      label: const Text('إكسل قائمة التعبئة (.xlsx)'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF3498DB),
+                        side: const BorderSide(color: Color(0xFF3498DB)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+
+                    // 5. Edit Track Button
+                    OutlinedButton.icon(
+                      onPressed: () => _showTrackEditDialog(track),
+                      icon: const Icon(Icons.edit_outlined, size: 16),
+                      label: const Text('تعديل'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFE67E22),
+                        side: const BorderSide(color: Color(0xFFE67E22)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+
+                    // 6. Delete Track Button
+                    IconButton(
+                      onPressed: () => _showTrackDeleteConfirmDialog(track),
+                      icon: const Icon(Icons.delete_outline, color: Color(0xFFC0392B), size: 20),
+                      tooltip: 'حذف المسار الجمركي',
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFFC0392B).withOpacity(0.08),
+                        padding: const EdgeInsets.all(8),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -1311,6 +1397,438 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       ],
     );
   }
+
+  Future<void> _downloadTrackExcelFile(CustomsInvoiceTrackModel track) async {
+    try {
+      final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
+      final bytes = await notifier.downloadTrackExcel(track.trackId);
+      if (!mounted) return;
+      await FileSaveHelper.saveBytes(
+        context: context,
+        bytes: bytes,
+        defaultFileName: 'Customs_Invoice_${track.trackCode}.xlsx',
+        dialogTitle: 'حفظ ملف الفاتورة الجمركية Excel',
+        allowedExtensions: ['xlsx', 'xls'],
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('خطأ أثناء تحميل إكسل الفاتورة: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _downloadTrackPackingListFile(CustomsInvoiceTrackModel track) async {
+    try {
+      final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
+      final bytes = await notifier.downloadTrackPackingListExcel(track.trackId);
+      if (!mounted) return;
+      await FileSaveHelper.saveBytes(
+        context: context,
+        bytes: bytes,
+        defaultFileName: 'Customs_Packing_List_${track.trackCode}.xlsx',
+        dialogTitle: 'حفظ ملف قائمة التعبئة الجمركية Excel',
+        allowedExtensions: ['xlsx', 'xls'],
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('خطأ أثناء تحميل إكسل قائمة التعبئة: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _showTrackDetailsDialog(CustomsInvoiceTrackModel track) {
+    Map<String, dynamic> invData = {};
+    if (track.customsInvoiceData is Map) {
+      invData = Map<String, dynamic>.from(track.customsInvoiceData as Map);
+    } else if (track.customsInvoiceData is List && (track.customsInvoiceData as List).isNotEmpty) {
+      invData = Map<String, dynamic>.from((track.customsInvoiceData as List).first as Map);
+    }
+
+    final payload = invData.isNotEmpty ? StandardInvoicePayloadModel.fromJson(invData) : null;
+    final packData = (track.customsPackingListData is Map) ? Map<String, dynamic>.from(track.customsPackingListData as Map) : <String, dynamic>{};
+    final packItems = (packData['items'] as List<dynamic>?) ?? [];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => DefaultTabController(
+        length: 2,
+        child: Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: 1000,
+            constraints: const BoxConstraints(maxHeight: 750),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF27AE60).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.receipt_long, color: Color(0xFF27AE60), size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'تفاصيل المسار الجمركي: ${track.trackCode}',
+                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
+                            ),
+                            Text(
+                              'الحالة: ${track.status} | النمط: ${track.extractionMode} | إجمالي القيمة: ${track.customsTotalAmount.toStringAsFixed(2)} USD',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    IconButton(onPressed: () => Navigator.of(ctx).pop(), icon: const Icon(Icons.close)),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  decoration: BoxDecoration(color: const Color(0xFFF4F6F7), borderRadius: BorderRadius.circular(8)),
+                  child: const TabBar(
+                    labelColor: Color(0xFF2C3E50),
+                    indicatorColor: Color(0xFF27AE60),
+                    indicatorWeight: 3,
+                    tabs: [
+                      Tab(icon: Icon(Icons.receipt), text: 'الفاتورة التجارية الجمركية (Commercial Invoice)'),
+                      Tab(icon: Icon(Icons.inventory_2), text: 'قائمة التعبئة الجمركية (Customs Packing List)'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      // Tab 1: Invoice Table
+                      payload != null && payload.items.isNotEmpty
+                          ? SingleChildScrollView(
+                              child: DataTable(
+                                headingRowHeight: 34,
+                                dataRowMinHeight: 32,
+                                dataRowMaxHeight: 40,
+                                columnSpacing: 14,
+                                headingRowColor: WidgetStateProperty.all(const Color(0xFFF8F9F9)),
+                                columns: const [
+                                  DataColumn(label: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('HS Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('المصنع', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('الوصف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('الكمية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('السعر المرجح', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('الإجمالي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('القائم (كجم)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('الصافي (كجم)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                ],
+                                rows: payload.items.map((i) {
+                                  return DataRow(
+                                    cells: [
+                                      DataCell(Text('${i.index}', style: const TextStyle(fontSize: 11))),
+                                      DataCell(Text(i.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      DataCell(Text(i.manufacturer ?? '', style: const TextStyle(fontSize: 11))),
+                                      DataCell(Text(i.description, style: const TextStyle(fontSize: 11))),
+                                      DataCell(Text('${i.quantity} ${i.qtyUnit}', style: const TextStyle(fontSize: 11))),
+                                      DataCell(Text(i.unitPrice.toStringAsFixed(4), style: const TextStyle(fontSize: 11))),
+                                      DataCell(Text(i.totalAmount.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF27AE60)))),
+                                      DataCell(Text(i.grossWeightKg.toStringAsFixed(1), style: const TextStyle(fontSize: 11))),
+                                      DataCell(Text(i.netWeightKg.toStringAsFixed(1), style: const TextStyle(fontSize: 11))),
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
+                            )
+                          : const Center(child: Text('لا توجد بنود مفصلة بالفاتورة')),
+
+                      // Tab 2: Packing List Table
+                      packItems.isNotEmpty
+                          ? SingleChildScrollView(
+                              child: DataTable(
+                                headingRowHeight: 34,
+                                dataRowMinHeight: 32,
+                                dataRowMaxHeight: 40,
+                                columnSpacing: 14,
+                                headingRowColor: WidgetStateProperty.all(const Color(0xFFF8F9F9)),
+                                columns: const [
+                                  DataColumn(label: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('رقم الطرد / البالتة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('HS Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('المصنع', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('بيان الصنف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('الكمية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('الوزن الصافي (كجم)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  DataColumn(label: Text('الوزن القائم (كجم)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                ],
+                                rows: packItems.map((i) {
+                                  final idx = packItems.indexOf(i) + 1;
+                                  return DataRow(
+                                    cells: [
+                                      DataCell(Text('$idx', style: const TextStyle(fontSize: 11))),
+                                      DataCell(Text(i['package_no']?.toString() ?? 'PKG $idx', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      DataCell(Text(i['hs_code']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      DataCell(Text(i['manufacturer']?.toString() ?? '', style: const TextStyle(fontSize: 11))),
+                                      DataCell(Text(i['description']?.toString() ?? '', style: const TextStyle(fontSize: 11))),
+                                      DataCell(Text('${i["quantity"] ?? 0} ${i["qty_unit"] ?? "PCS"}', style: const TextStyle(fontSize: 11))),
+                                      DataCell(Text((i['net_weight_kg'] as num?)?.toDouble().toStringAsFixed(1) ?? '0.0', style: const TextStyle(fontSize: 11))),
+                                      DataCell(Text((i['gross_weight_kg'] as num?)?.toDouble().toStringAsFixed(1) ?? '0.0', style: const TextStyle(fontSize: 11))),
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
+                            )
+                          : const Center(child: Text('لا توجد بيانات لقائمة التعبئة')),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إغلاق')),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showTrackPdfPreviewDialog(CustomsInvoiceTrackModel track) {
+    Map<String, dynamic> invData = {};
+    if (track.customsInvoiceData is Map) {
+      invData = Map<String, dynamic>.from(track.customsInvoiceData as Map);
+    } else if (track.customsInvoiceData is List && (track.customsInvoiceData as List).isNotEmpty) {
+      invData = Map<String, dynamic>.from((track.customsInvoiceData as List).first as Map);
+    }
+
+    final payload = invData.isNotEmpty ? StandardInvoicePayloadModel.fromJson(invData) : StandardInvoicePayloadModel();
+    final packData = (track.customsPackingListData is Map) ? Map<String, dynamic>.from(track.customsPackingListData as Map) : <String, dynamic>{};
+
+    bool isInvoiceMode = true;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Container(
+              width: 900,
+              height: 750,
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.picture_as_pdf, color: Color(0xFF27AE60), size: 24),
+                          const SizedBox(width: 8),
+                          Text(
+                            'معاينة وطباعة مستندات المسار الجمركي: ${track.trackCode}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
+                          ),
+                        ],
+                      ),
+                      IconButton(onPressed: () => Navigator.of(ctx).pop(), icon: const Icon(Icons.close)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      ChoiceChip(
+                        label: const Text('الفاتورة التجارية (Commercial Invoice)'),
+                        selected: isInvoiceMode,
+                        selectedColor: const Color(0xFF27AE60).withOpacity(0.2),
+                        onSelected: (val) => setModalState(() => isInvoiceMode = true),
+                      ),
+                      const SizedBox(width: 10),
+                      ChoiceChip(
+                        label: const Text('قائمة التعبئة (Customs Packing List)'),
+                        selected: !isInvoiceMode,
+                        selectedColor: const Color(0xFF3498DB).withOpacity(0.2),
+                        onSelected: (val) => setModalState(() => isInvoiceMode = false),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: PdfPreview(
+                      build: (format) => isInvoiceMode
+                          ? CargoXPdfService.generateCustomsInvoicePdf(track: track, payload: payload)
+                          : CargoXPdfService.generateCustomsPackingListPdf(track: track, packingListData: packData),
+                      allowPrinting: true,
+                      allowSharing: true,
+                      canChangeOrientation: false,
+                      canChangePageFormat: false,
+                      pdfFileName: isInvoiceMode
+                          ? 'Customs_Invoice_${track.trackCode}.pdf'
+                          : 'Customs_Packing_List_${track.trackCode}.pdf',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showTrackEditDialog(CustomsInvoiceTrackModel track) {
+    String selectedStatus = track.status;
+    final notesCtrl = TextEditingController(text: track.notes ?? '');
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.edit, color: Color(0xFFE67E22)),
+                const SizedBox(width: 8),
+                Text('تعديل المسار الجمركي (${track.trackCode})', style: const TextStyle(fontSize: 16)),
+              ],
+            ),
+            content: SizedBox(
+              width: 500,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('الحالة الجمركية:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: selectedStatus,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'DRAFT', child: Text('مسودة (DRAFT)')),
+                      DropdownMenuItem(value: 'APPROVED', child: Text('معتمد جمركياً (APPROVED)')),
+                      DropdownMenuItem(value: 'SEALED', child: Text('مغلق وموثق (SEALED)')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setModalState(() => selectedStatus = val);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('الملاحظات والبيان الجمركي:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: notesCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      hintText: 'اكتب أي ملاحظات خاصة بالمسار الجمركي...',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        setModalState(() => isSaving = true);
+                        try {
+                          final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
+                          await notifier.updateCustomsTrack(track.trackId, {
+                            'status': selectedStatus,
+                            'notes': notesCtrl.text.trim(),
+                          });
+                          if (_selectedImportFile != null) {
+                            final updated = await notifier.fetchCustomsTracks(_selectedImportFile!.importFileId);
+                            if (mounted) setState(() => _customsTracks = updated);
+                          }
+                          if (!context.mounted) return;
+                          Navigator.of(ctx).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('تم تحديث المسار الجمركي بنجاح'), backgroundColor: Color(0xFF27AE60)),
+                          );
+                        } catch (e) {
+                          setModalState(() => isSaving = false);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('خطأ أثناء التعديل: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      },
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF27AE60), foregroundColor: Colors.white),
+                child: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('حفظ التعديلات'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showTrackDeleteConfirmDialog(CustomsInvoiceTrackModel track) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFC0392B), size: 28),
+            SizedBox(width: 8),
+            Text('تأكيد حذف المسار الجمركي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Text('هل أنت متأكد من رغبتك في حذف المسار الجمركي "${track.trackCode}"؟ لن يتم حذفه نهائياً بل نقله إلى الأرشيف المحذوف.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
+                await notifier.deleteCustomsTrack(track.trackId);
+                if (_selectedImportFile != null) {
+                  final updated = await notifier.fetchCustomsTracks(_selectedImportFile!.importFileId);
+                  if (mounted) setState(() => _customsTracks = updated);
+                }
+                if (!context.mounted) return;
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('تم حذف المسار الجمركي ${track.trackCode} بنجاح'), backgroundColor: const Color(0xFF27AE60)),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('خطأ أثناء الحذف: $e'), backgroundColor: Colors.red),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC0392B), foregroundColor: Colors.white),
+            child: const Text('تأكيد الحذف'),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildTrackStatCard(String label, String value, IconData icon, Color color) {
     return Container(

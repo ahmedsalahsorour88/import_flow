@@ -1315,3 +1315,187 @@ def compare_standard_invoice_data(
         rectification_notice_en=notice_en,
         rectification_notice_ar=notice_ar,
     )
+
+
+def generate_customs_packing_list_excel_bytes(
+    payload: StandardInvoicePayload,
+    track_code: str = "",
+) -> bytes:
+    """
+    توليد ملف إكسل رسمي لقائمة التعبئة الجمركية (Customs Packing List Excel).
+    متوافق مع معايير الجمارك المصرية، منظومة نافذة، و CargoX.
+    """
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Packing List"
+    ws.views.sheetView[0].showGridLines = True
+
+    # 1. Header Styles
+    header_fill = PatternFill(start_color="27AE60", end_color="27AE60", fill_type="solid")
+    header_font = Font(name="Calibri", size=16, bold=True, color="FFFFFF")
+    section_fill = PatternFill(start_color="2C3E50", end_color="2C3E50", fill_type="solid")
+    section_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    tbl_hdr_fill = PatternFill(start_color="ECF0F1", end_color="ECF0F1", fill_type="solid")
+    tbl_hdr_font = Font(name="Calibri", size=10, bold=True, color="2C3E50")
+    bold_font = Font(name="Calibri", size=10, bold=True)
+    regular_font = Font(name="Calibri", size=10)
+    zebra_fill = PatternFill(start_color="F8F9F9", end_color="F8F9F9", fill_type="solid")
+    white_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+
+    thin_border = Border(
+        left=Side(style="thin", color="BDC3C7"),
+        right=Side(style="thin", color="BDC3C7"),
+        top=Side(style="thin", color="BDC3C7"),
+        bottom=Side(style="thin", color="BDC3C7"),
+    )
+    total_border = Border(
+        top=Side(style="thin", color="2C3E50"),
+        bottom=Side(style="double", color="2C3E50"),
+    )
+
+    # 2. Main Title Banner
+    ws.merge_cells("A1:J2")
+    title_cell = ws["A1"]
+    title_cell.value = "CUSTOMS PACKING LIST / قائمة التعبئة الجمركية"
+    title_cell.font = header_font
+    title_cell.fill = header_fill
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # 3. Metadata Header Section
+    ws["A4"] = "Shipper / Exporter (المصدر):"
+    ws["B4"] = payload.seller_name or "N/A"
+    ws["F4"] = "Invoice Ref (رقم الفاتورة):"
+    ws["G4"] = payload.invoice_number or "N/A"
+
+    ws["A5"] = "Importer / Buyer (المستورد):"
+    ws["B5"] = payload.buyer_name or "N/A"
+    ws["F5"] = "Customs Track (المسار الجمركي):"
+    ws["G5"] = track_code or f"CUST-TRK-{payload.acid_number or '001'}"
+
+    ws["A6"] = "ACID Number (رقم القيد الجمركي):"
+    ws["B6"] = payload.acid_number or "N/A"
+    ws["F6"] = "Date (تاريخ الإقرار):"
+    ws["G6"] = payload.invoice_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    ws["A7"] = "Port of Loading (ميناء الشحن):"
+    ws["B7"] = payload.origin_port or "Origin Port"
+    ws["F7"] = "Port of Discharge (ميناء الوصول):"
+    ws["G7"] = payload.destination_port or "EGALY"
+
+    for r in range(4, 8):
+        ws[f"A{r}"].font = bold_font
+        ws[f"B{r}"].font = regular_font
+        ws[f"F{r}"].font = bold_font
+        ws[f"G{r}"].font = bold_font
+        ws[f"G{r}"].alignment = Alignment(horizontal="left")
+
+    # 4. Table Columns Header
+    headers = [
+        ("#", "A9"),
+        ("Package / CTN #", "B9"),
+        ("Product Code", "C9"),
+        ("HS Tariff Code", "D9"),
+        ("Manufacturer", "E9"),
+        ("Description of Goods", "F9"),
+        ("Quantity", "G9"),
+        ("Unit", "H9"),
+        ("Net Weight (KG)", "I9"),
+        ("Gross Weight (KG)", "J9"),
+    ]
+
+    for title, cell_ref in headers:
+        cell = ws[cell_ref]
+        cell.value = title
+        cell.font = tbl_hdr_font
+        cell.fill = tbl_hdr_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = thin_border
+
+    ws.row_dimensions[9].height = 25.0
+
+    # 5. Populate Data Rows
+    current_row = 10
+    items = payload.items or []
+    for idx, item in enumerate(items, start=1):
+        r = current_row
+        ws.row_dimensions[r].height = 22.0
+        fill = zebra_fill if idx % 2 == 0 else white_fill
+
+        ws[f"A{r}"] = item.index
+        ws[f"B{r}"] = f"PKG {idx:02d}"
+        ws[f"C{r}"] = item.product_code or ""
+        ws[f"D{r}"] = item.hs_code
+        ws[f"E{r}"] = item.manufacturer or payload.seller_name or ""
+        ws[f"F{r}"] = item.description
+        ws[f"G{r}"] = item.quantity
+        ws[f"H{r}"] = item.qty_unit
+        ws[f"I{r}"] = item.net_weight_kg
+        ws[f"J{r}"] = item.gross_weight_kg
+
+        alignments = {
+            "A": Alignment(horizontal="center", vertical="center"),
+            "B": Alignment(horizontal="center", vertical="center"),
+            "C": Alignment(horizontal="left", vertical="center"),
+            "D": Alignment(horizontal="center", vertical="center"),
+            "E": Alignment(horizontal="left", vertical="center"),
+            "F": Alignment(horizontal="left", vertical="center"),
+            "G": Alignment(horizontal="right", vertical="center"),
+            "H": Alignment(horizontal="center", vertical="center"),
+            "I": Alignment(horizontal="right", vertical="center"),
+            "J": Alignment(horizontal="right", vertical="center"),
+        }
+
+        for col_idx in range(1, 11):
+            cl = openpyxl.utils.get_column_letter(col_idx)
+            cell = ws[f"{cl}{r}"]
+            cell.font = regular_font
+            cell.alignment = alignments.get(cl, Alignment(horizontal="center", vertical="center"))
+            cell.border = thin_border
+            cell.fill = fill
+            if cl in ["G", "I", "J"]:
+                cell.number_format = "#,##0.00"
+
+        current_row += 1
+
+    # 6. Totals Row
+    tot_row = current_row
+    ws[f"A{tot_row}"] = "TOTAL / الإجمالي"
+    ws.merge_cells(f"A{tot_row}:F{tot_row}")
+    ws[f"A{tot_row}"].font = Font(name="Calibri", size=11, bold=True, color="2C3E50")
+    ws[f"A{tot_row}"].alignment = Alignment(horizontal="right", vertical="center")
+
+    last_data_row = tot_row - 1
+    ws[f"G{tot_row}"] = f"=SUM(G10:G{last_data_row})"
+    ws[f"H{tot_row}"] = "PCS"
+    ws[f"I{tot_row}"] = f"=SUM(I10:I{last_data_row})"
+    ws[f"J{tot_row}"] = f"=SUM(J10:J{last_data_row})"
+
+    for col_idx in range(1, 11):
+        cl = openpyxl.utils.get_column_letter(col_idx)
+        cell = ws[f"{cl}{tot_row}"]
+        cell.font = Font(name="Calibri", size=11, bold=True, color="27AE60")
+        cell.border = total_border
+        if cl in ["G", "I", "J"]:
+            cell.number_format = "#,##0.00"
+            cell.alignment = Alignment(horizontal="right", vertical="center")
+        elif cl == "H":
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # 7. Signatures / Nafeza Compliance Footer
+    sig_row = tot_row + 3
+    ws[f"A{sig_row}"] = "Authorized Signatory / المفوض بالتوقيع"
+    ws[f"A{sig_row}"].font = bold_font
+    ws[f"G{sig_row}"] = "Customs Stamp / خاتم التخليص الجمركي"
+    ws[f"G{sig_row}"].font = bold_font
+
+    # Set Column Widths
+    col_widths = {
+        "A": 6, "B": 14, "C": 16, "D": 16, "E": 26, "F": 34, "G": 14, "H": 10, "I": 16, "J": 16
+    }
+    for col_letter, width in col_widths.items():
+        ws.column_dimensions[col_letter].width = width
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read()

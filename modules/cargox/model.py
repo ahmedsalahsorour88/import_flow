@@ -208,3 +208,72 @@ class CargoXStandardInvoiceReviewSession(Base):
     )
     updated_by: Mapped[str] = mapped_column(String(100), default="SYSTEM", nullable=False)
 
+
+class CargoXCustomsInvoiceTrack(Base):
+    """
+    CGX-003: مسار الفاتورة الجمركية المستقل.
+    نسخة معدّلة للجمرك مشتقة من فواتير المورد الأصلية.
+    الفرق عن فاتورة المورد:
+    - تجميع البنود بـ HS Code (سطر واحد لكل HS Code)
+    - متوسط سعر موزون: weighted_avg_price = Σ(qty_i × price_i) / Σ(qty_i)
+    - مرونة في اختيار mode الاستخراج (مجمع / مفصل / لكل فاتورة)
+    """
+
+    __tablename__ = "cargox_customs_invoice_tracks"
+
+    track_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, autoincrement=True
+    )
+    track_code: Mapped[str] = mapped_column(
+        String(80), unique=True, index=True, nullable=False
+    )  # e.g. CX-CUST-IMP-2026-0004-001
+
+    import_file_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("import_files.import_file_id"), nullable=False, index=True
+    )
+    import_file_code: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    # الفواتير المصدر التي بُنيت منها هذه النسخة الجمركية
+    source_invoice_numbers: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # e.g. ["YH20260730-6", "YH20260730-7"]
+
+    # Extraction & Grouping Mode
+    extraction_mode: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="all_consolidated"
+    )
+    # "all_consolidated" | "all_detailed" | "per_invoice_consolidated" | "per_invoice_detailed"
+
+    grouping_mode: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="by_hs_code"
+    )
+    # "by_hs_code" | "by_price_group" | "flat"
+
+    # Totals الجمركية
+    customs_total_amount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    customs_gross_weight: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    customs_net_weight: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    customs_packages_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    line_items_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # Snapshots مُسلسَلة (StandardInvoicePayload كـ JSON)
+    # لو extraction_mode = "per_invoice_*" يحتوي على قائمة payloads
+    customs_invoice_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    customs_packing_list_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    # Status: "DRAFT" | "APPROVED" | "SUBMITTED_TO_CUSTOMS"
+    status: Mapped[str] = mapped_column(
+        String(50), default="DRAFT", nullable=False, index=True
+    )
+
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    created_by: Mapped[str] = mapped_column(String(100), default="SYSTEM", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_by: Mapped[str] = mapped_column(String(100), default="SYSTEM", nullable=False)

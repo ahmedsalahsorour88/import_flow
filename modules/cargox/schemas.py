@@ -3,7 +3,7 @@ Pydantic Schemas for CargoX & ACI Dispatch Hub (CGX-001)
 """
 
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -368,3 +368,88 @@ class StandardInvoiceSessionResponse(BaseModel):
     updated_at: datetime
     updated_by: str
 
+
+# ============================================================================
+# CGX-003: Multi-Path Extraction Engine Schemas
+# ============================================================================
+
+# Extraction Mode Type
+ExtractionMode = Literal[
+    "all_consolidated",          # ملف Excel واحد — بنود مجمعة بـ HS Code (weighted average price)
+    "all_detailed",              # ملف Excel واحد — بنود مفصلة (مع تكرار HS Code لو في أكثر من سعر)
+    "per_invoice_consolidated",  # ZIP بعدد الفواتير — كل ملف مجمع بـ HS Code
+    "per_invoice_detailed",      # ZIP بعدد الفواتير — كل ملف مفصل
+]
+
+# Grouping Mode Type
+GroupingMode = Literal[
+    "by_hs_code",     # تجميع وحساب متوسط سعر موزون لكل HS Code (الافتراضي للجمرك)
+    "by_price_group", # تجميع لكل HS Code + سعر (لو أسعار مختلفة = سطور مختلفة)
+    "flat",           # بدون تجميع — كل سطر منفصل كما هو
+]
+
+
+class ExtractionRequest(BaseModel):
+    """
+    طلب استخراج فاتورة CargoX متعدد المسارات (CGX-003).
+    يحدد mode الاستخراج ومنطق تجميع البنود.
+    """
+    mode: ExtractionMode = "all_consolidated"
+    grouping_mode: GroupingMode = "by_hs_code"
+    invoice_filter: Optional[str] = None  # رقم فاتورة محدد لو عايز تستخرج فاتورة واحدة بعينها
+    notes: Optional[str] = None
+
+
+class ExtractionResultItem(BaseModel):
+    """نتيجة استخراج فاتورة واحدة ضمن نتائج multi-extract."""
+    invoice_number: Optional[str] = None
+    payload: StandardInvoicePayload
+
+
+class ExtractionResponse(BaseModel):
+    """استجابة محرك الاستخراج متعدد المسارات."""
+    import_file_id: int
+    import_file_code: Optional[str] = None
+    mode: str
+    grouping_mode: str
+    invoices_count: int
+    total_line_items: int
+    results: List[ExtractionResultItem]  # دايماً قايمة — حتى لو عنصر واحد (all_* modes)
+
+
+class CustomsInvoiceTrackCreate(BaseModel):
+    """
+    إنشاء نسخة جمركية (Customs Invoice Track).
+    """
+    import_file_id: int
+    extraction_mode: ExtractionMode = "all_consolidated"
+    grouping_mode: GroupingMode = "by_hs_code"
+    invoice_filter: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class CustomsInvoiceTrackResponse(BaseModel):
+    """استجابة نسخة الفاتورة الجمركية المحفوظة."""
+    model_config = ConfigDict(from_attributes=True)
+
+    track_id: int
+    track_code: str
+    import_file_id: int
+    import_file_code: Optional[str] = None
+    source_invoice_numbers: Optional[Any] = None
+    extraction_mode: str
+    grouping_mode: str
+    customs_total_amount: float
+    customs_gross_weight: float
+    customs_net_weight: float
+    customs_packages_count: int
+    line_items_count: int
+    customs_invoice_data: Optional[Any] = None
+    customs_packing_list_data: Optional[Any] = None
+    status: str
+    notes: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    created_by: str
+    updated_at: datetime
+    updated_by: str

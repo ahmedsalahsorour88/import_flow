@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from database.database import Base
@@ -111,6 +111,11 @@ class POLineItem(Base):
     gross_weight_kg = Column(Numeric(12, 2), default=0.0, nullable=False)
     net_weight_kg = Column(Numeric(12, 2), default=0.0, nullable=False)
 
+    # CGX-003: Multi-Invoice Extraction Fields
+    invoice_number = Column(String(100), nullable=True, index=True)     # رقم الفاتورة التي ينتمي إليها هذا البند
+    invoice_line_number = Column(Integer, nullable=True)                 # ترتيب البند داخل الفاتورة
+    customs_unit_price = Column(Numeric(14, 4), nullable=True)          # سعر الجمرك لو مختلف عن سعر المورد
+
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     purchase_order = relationship("PurchaseOrder", back_populates="line_items")
@@ -147,6 +152,11 @@ class PackingListItem(Base):
     total_cbm = Column(Numeric(10, 4), nullable=False, default=0.0)
     chargeable_weight_kg = Column(Numeric(12, 2), nullable=False, default=0.0)
     is_stackable = Column(Boolean, nullable=False, default=True)
+
+    # CGX-003: Multi-Invoice & Pallet Grouping Fields
+    invoice_number = Column(String(100), nullable=True, index=True)     # رقم الفاتورة المرتبطة بهذا البند
+    pallet_number = Column(Integer, nullable=True)                       # رقم البالت (للتجميع الجمركي على بالتات)
+    carton_numbers = Column(JSON, nullable=True)                         # قائمة أرقام الكراتين: [1, 2, ..., 20]
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 

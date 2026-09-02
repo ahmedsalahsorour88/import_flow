@@ -246,3 +246,95 @@ def update_standard_invoice_session_status(
     """
     return CargoXStandardInvoiceService.update_session_status(db, session_id, payload, updated_by="ADMIN")
 
+
+# ============================================================================
+# CGX-003: Multi-Path Extraction Engine Endpoints
+# ============================================================================
+
+import io
+import zipfile
+from .schemas import ExtractionRequest, ExtractionResponse, CustomsInvoiceTrackCreate, CustomsInvoiceTrackResponse
+from .service import CargoXExtractionEngine
+from .excel_invoice_service import generate_standard_invoice_excel_bytes
+
+
+@router.post("/standard-invoice/extract/{import_file_id}", response_model=ExtractionResponse)
+def extract_invoice_multi_mode(
+    import_file_id: int,
+    request: ExtractionRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    CGX-003: محرك الاستخراج متعدد المسارات.
+
+    يدعم 4 modes للاستخراج:
+    - all_consolidated: ملف واحد — بنود مجمعة بـ HS Code (weighted average price)
+    - all_detailed: ملف واحد — بنود مفصلة
+    - per_invoice_consolidated: ملف منفصل لكل فاتورة — مجمع
+    - per_invoice_detailed: ملف منفصل لكل فاتورة — مفصل
+    """
+    return CargoXExtractionEngine.extract(db, import_file_id, request)
+
+
+@router.post("/standard-invoice/generate-zip/{import_file_id}")
+def generate_invoice_zip(
+    import_file_id: int,
+    request: ExtractionRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    CGX-003: تحميل ملفات Excel كـ ZIP.
+    - لو mode = all_* → ZIP يحتوي على ملف Excel واحد
+    - لو mode = per_invoice_* → ZIP يحتوي على ملف لكل فاتورة
+    """
+    extraction = CargoXExtractionEngine.extract(db, import_file_id, request)
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for result in extraction.results:
+            excel_bytes = generate_standard_invoice_excel_bytes(result.payload)
+            safe_inv = (result.invoice_number or f"Invoice_{result.payload.invoice_number or import_file_id}").replace("/", "-").replace("\\", "-")
+            filename = f"Commercial_Invoice_{safe_inv}.xlsx"
+            zf.writestr(filename, excel_bytes)
+
+    zip_buffer.seek(0)
+    return Response(
+        content=zip_buffer.read(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f"attachment; filename=CargoX_Invoices_IMP{import_file_id}_{request.mode}.zip"
+        },
+    )
+
+
+@router.post("/customs-track/create", response_model=CustomsInvoiceTrackResponse)
+def create_customs_invoice_track(
+    payload: CustomsInvoiceTrackCreate,
+    db: Session = Depends(get_db),
+):
+    """
+    CGX-003: إنشاء وحفظ نسخة جمركية (Customs Invoice Track) مستقلة.
+    يتم تطبيق weighted average price لكل HS Code وحفظ الـ snapshot في DB.
+    """
+    return CargoXExtractionEngine.create_customs_track(db, payload, created_by="ADMIN")
+
+
+@router.get("/customs-track/by-file/{import_file_id}", response_model=List[CustomsInvoiceTrackResponse])
+def list_customs_tracks_by_file(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    CGX-003: قايمة كافة النسخ الجمركية المحفوظة لملف استيراد معين.
+    """
+    from .model import CargoXCustomsInvoiceTrack
+    tracks = (
+        db.query(CargoXCustomsInvoiceTrack)
+        .filter(
+            CargoXCustomsInvoiceTrack.import_file_id == import_file_id,
+            CargoXCustomsInvoiceTrack.is_active.is_(True),
+        )
+        .order_by(CargoXCustomsInvoiceTrack.track_id.desc())
+        .all()
+    )
+    return tracks

@@ -49,6 +49,10 @@ class ImportFile(Base):
     pi_number = Column(String(100), nullable=True) # Main PI number e.g. PI-889
     invoices_data = Column(JSON, nullable=True) # List of Proforma/Commercial Invoices: [{"invoice_no": "PI-889", "date": "2026-08-01", "amount": 24500.0, "currency": "USD"}]
     packing_lists_data = Column(JSON, nullable=True) # List of Packing Lists: [{"pl_no": "PL-889", "date": "2026-08-01", "total_packages": 50, "gross_weight_kg": 12000.0, "cbm": 35.5}]
+    invoices_count = Column(Integer, nullable=True, default=0)  # CGX-003: عدد الفواتير الفعلي للشحنة
+    # CGX-003: آخر mode استُخدم في الاستخراج
+    # values: "all_consolidated", "all_detailed", "per_invoice_consolidated", "per_invoice_detailed"
+    extraction_preference = Column(String(50), nullable=True, default="all_consolidated")
 
     project_ids = Column(JSON, nullable=True) # List of linked Project IDs: [1, 2] (Must belong to company_id)
     project_names = Column(String(500), nullable=True)

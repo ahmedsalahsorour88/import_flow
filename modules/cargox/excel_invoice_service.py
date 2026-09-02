@@ -297,17 +297,13 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
             if mr in [str(x) for x in ws.merged_cells.ranges]:
                 ws.unmerge_cells(mr)
 
-        # 2. Delete old Table definition to cleanly re-create it with exact size & autoFilter
-        if "InvoiceItems" in ws.tables:
-            del ws.tables["InvoiceItems"]
-
         num_items = len(items)
         if num_items > 3:
             ws.insert_rows(16, amount=num_items - 3)
         elif num_items < 3:
             ws.delete_rows(13 + num_items, amount=3 - num_items)
 
-        # 3. Clear item rows
+        # 2. Clear item rows
         for r in range(13, 13 + num_items):
             for c in range(1, 17):
                 ws.cell(row=r, column=c).value = None
@@ -391,11 +387,12 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
             current_row += 1
 
         end_row = 12 + num_items
-        # 4. Create fresh, 100% valid OpenXML Table with matching autoFilter
-        tab = Table(displayName="InvoiceItems", ref=f"A12:P{end_row}")
-        style = TableStyleInfo(name="TableStyleLight1", showFirstColumn=False, showLastColumn=False, showRowStripes=True, showColumnStripes=False)
-        tab.tableStyleInfo = style
-        ws.add_table(tab)
+        # 3. Update the existing authentic Table ref & autoFilter without corrupting XML
+        if "InvoiceItems" in ws.tables:
+            ws.tables["InvoiceItems"].ref = f"A12:P{end_row}"
+            if ws.tables["InvoiceItems"].autoFilter:
+                ws.tables["InvoiceItems"].autoFilter.ref = f"A12:P{end_row}"
+
 
         totals_start_row = 13 + num_items
         # 5. Re-merge new totals rows

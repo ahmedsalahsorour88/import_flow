@@ -36,6 +36,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   StandardInvoiceSessionModel? _existingSession;
   StandardInvoicePayloadModel? _supplierData;
   StandardInvoiceComparisonResponseModel? _comparisonResult;
+  List<CustomsInvoiceTrackModel> _customsTracks = [];
 
   bool _isLoading = false;
   bool _isDownloading = false;
@@ -51,7 +52,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   @override
   void initState() {
     super.initState();
-    _subTabController = TabController(length: 4, vsync: this);
+    _subTabController = TabController(length: 5, vsync: this);
     Future.microtask(() {
       ref.read(importFilesProvider.notifier).fetchImportFiles();
       ref.read(standardInvoiceSessionsProvider.notifier).fetchSessions();
@@ -86,6 +87,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       _existingSession = null;
       _supplierData = null;
       _comparisonResult = null;
+      _customsTracks = [];
       _overrideReasonController.clear();
       _notesController.clear();
       _isLoading = true;
@@ -94,9 +96,11 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
     try {
       final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
       final session = await notifier.fetchSessionByFile(file.importFileId);
+      final tracks = await notifier.fetchCustomsTracks(file.importFileId);
       if (mounted) {
         setState(() {
           _existingSession = session;
+          _customsTracks = tracks;
           if (session != null) {
             _selectedStatus = session.status;
             _overrideReasonController.text = session.discrepancyOverrideReason ?? '';
@@ -358,11 +362,17 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                                     'grouping_mode': selectedGrouping,
                                     'notes': 'مسار جمركي تم اعتماده من واجهة الاستخلاص',
                                   });
+                                  final tracks = await notifier.fetchCustomsTracks(file.importFileId);
                                   setDialogState(() => isSavingCustomsTrack = false);
-                                  if (!context.mounted) return;
+                                  if (!mounted) return;
+                                  setState(() {
+                                    _customsTracks = tracks;
+                                  });
+                                  Navigator.of(ctx).pop();
+                                  _subTabController.animateTo(4);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('تم اعتماد وحفظ المسار الجمركي: ${track.trackCode}'),
+                                      content: Text('تم اعتماد وحفظ المسار الجمركي: ${track.trackCode} وتحديث تبويب المسارات الجمركية'),
                                       backgroundColor: const Color(0xFF27AE60),
                                     ),
                                   );
@@ -1074,6 +1084,15 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
           Tab(icon: const Icon(Icons.compare_arrows), text: context.l10n.standardInvoiceTabComparison),
           Tab(icon: const Icon(Icons.gavel), text: context.l10n.standardInvoiceTabGovernance),
           Tab(icon: const Icon(Icons.history), text: context.l10n.standardInvoiceTabRegistry),
+          Tab(
+            icon: Badge(
+              isLabelVisible: _customsTracks.isNotEmpty,
+              label: Text('${_customsTracks.length}'),
+              backgroundColor: const Color(0xFF27AE60),
+              child: const Icon(Icons.account_balance),
+            ),
+            text: 'المسارات الجمركية (Tracks)',
+          ),
         ],
       ),
     );
@@ -1092,12 +1111,234 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
             return _buildApprovalAndGovernanceTab();
           case 3:
             return _buildSessionsRegistryTab(sessionsAsync);
+          case 4:
+            return _buildCustomsTracksTab();
           default:
             return const SizedBox();
         }
       },
     );
   }
+
+  Widget _buildCustomsTracksTab() {
+    if (_selectedImportFile == null) {
+      return Container(
+        padding: const EdgeInsets.all(40),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        child: Column(
+          children: [
+            Icon(Icons.account_balance_outlined, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            const Text('يرجى اختيار ملف استيراد لعرض مساراته الجمركية', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
+    }
+
+    if (_customsTracks.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(40),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        child: Column(
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            const Text('لا توجد مسارات جمركية معتمدة حتى الآن لهذا الملف', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text(
+              'يمكنك اعتماد فاتورة جمركية مستقلة عبر محرك استخلاص CargoX بالضغط على "تحميل النموذج القياسي Excel" ثم اختيار "اعتماد كمسار جمركي مستقل".',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _showExtractionOptionsDialog,
+              icon: const Icon(Icons.hub_outlined, size: 18),
+              label: const Text('فتح محرك الاستخلاص والاعتماد'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF27AE60),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'المسارات الجمركية المعتمدة للشحنة (${_customsTracks.length}):',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
+            ),
+            ElevatedButton.icon(
+              onPressed: _showExtractionOptionsDialog,
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('استخلاص مسار جديد'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF27AE60),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        for (final track in _customsTracks) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF27AE60).withOpacity(0.3)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF27AE60).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.gavel, color: Color(0xFF27AE60), size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              track.trackCode,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF2C3E50)),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'تاريخ الاعتماد: ${_formatDateTime(track.createdAt)} | النمط: ${track.extractionMode}',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF27AE60).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        track.status,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF27AE60)),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTrackStatCard(
+                        'إجمالي القيمة الجمركية',
+                        '${track.customsTotalAmount.toStringAsFixed(2)} USD',
+                        Icons.attach_money,
+                        const Color(0xFF27AE60),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildTrackStatCard(
+                        'إجمالي الوزن القائم',
+                        '${track.customsGrossWeight.toStringAsFixed(1)} كجم',
+                        Icons.scale,
+                        const Color(0xFF3498DB),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildTrackStatCard(
+                        'إجمالي الوزن الصافي',
+                        '${track.customsNetWeight.toStringAsFixed(1)} كجم',
+                        Icons.monitor_weight_outlined,
+                        const Color(0xFFE67E22),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildTrackStatCard(
+                        'عدد بنود التعريفة',
+                        '${track.lineItemsCount} بند',
+                        Icons.format_list_numbered,
+                        const Color(0xFF9B59B6),
+                      ),
+                    ),
+                  ],
+                ),
+                if (track.notes != null && track.notes!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F9F9),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Text(
+                      'ملاحظات: ${track.notes}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTrackStatCard(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                const SizedBox(height: 2),
+                Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildExtractedDataTab() {
     if (_supplierData == null) {

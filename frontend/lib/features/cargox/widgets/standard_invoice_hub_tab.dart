@@ -119,29 +119,499 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       );
       return;
     }
+    await _showExtractionOptionsDialog();
+  }
 
-    setState(() => _isDownloading = true);
-    try {
-      final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
-      final bytes = await notifier.downloadExcelTemplate(_selectedImportFile!.importFileId);
+  Future<void> _showExtractionOptionsDialog() async {
+    final file = _selectedImportFile!;
+    String selectedMode = 'all_consolidated';
+    String selectedGrouping = 'by_hs_code';
+    bool isExtracting = false;
+    bool isDownloading = false;
+    bool isSavingCustomsTrack = false;
+    ExtractionResponseModel? previewResponse;
 
-      if (!mounted) return;
-      final defaultName = 'Phase4_CargoX_Standard_Invoice_${_selectedImportFile!.importFileCode}.xlsx';
-      await FileSaveHelper.saveBytes(
-        context: context,
-        bytes: bytes,
-        defaultFileName: defaultName,
-        dialogTitle: 'حفظ نموذج الفاتورة التجارية القياسية Excel',
-        allowedExtensions: ['xlsx', 'xls'],
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${context.l10n.errorPrefix}: $e'), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) setState(() => _isDownloading = false);
-    }
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Container(
+              width: 950,
+              constraints: const BoxConstraints(maxHeight: 780),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Title & Header
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF27AE60).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.hub_outlined, color: Color(0xFF27AE60), size: 28),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'محرك استخلاص CargoX متعدد المسارات (CGX-003)',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'الملف: ${file.importFileCode} — ${file.supplierName} (ACID: ${file.acidNumber ?? "N/A"})',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+
+                  // Content Scrollable
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'اختر مسار الاستخلاص المطلوب لملف الإكسل:',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF2C3E50)),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // 4 Options Grid/Cards
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildModeOptionCard(
+                                  title: '1. ملف واحد مجمع (Consolidated)',
+                                  subtitle: 'دمج بنود نفس الـ HS Code وسعر مرجح (معتمد للجمارك المصرية)',
+                                  icon: Icons.compress,
+                                  color: const Color(0xFF27AE60),
+                                  isSelected: selectedMode == 'all_consolidated',
+                                  onTap: () {
+                                    setDialogState(() {
+                                      selectedMode = 'all_consolidated';
+                                      selectedGrouping = 'by_hs_code';
+                                      previewResponse = null;
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildModeOptionCard(
+                                  title: '2. ملف واحد مفصل (Detailed)',
+                                  subtitle: 'استخراج كل سطر بشكل منفصل بنفس تفاصيل أمر الشراء',
+                                  icon: Icons.list_alt,
+                                  color: const Color(0xFF3498DB),
+                                  isSelected: selectedMode == 'all_detailed',
+                                  onTap: () {
+                                    setDialogState(() {
+                                      selectedMode = 'all_detailed';
+                                      selectedGrouping = 'flat';
+                                      previewResponse = null;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildModeOptionCard(
+                                  title: '3. ملف لكل فاتورة - مجمع (ZIP)',
+                                  subtitle: 'توليد ملف إكسل مجمع منفصل لكل فاتورة داخل حزمة ZIP',
+                                  icon: Icons.folder_zip_outlined,
+                                  color: const Color(0xFFE67E22),
+                                  isSelected: selectedMode == 'per_invoice_consolidated',
+                                  onTap: () {
+                                    setDialogState(() {
+                                      selectedMode = 'per_invoice_consolidated';
+                                      selectedGrouping = 'by_hs_code';
+                                      previewResponse = null;
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildModeOptionCard(
+                                  title: '4. ملف لكل فاتورة - مفصل (ZIP)',
+                                  subtitle: 'توليد ملف إكسل مفصل منفصل لكل فاتورة داخل حزمة ZIP',
+                                  icon: Icons.inventory_2_outlined,
+                                  color: const Color(0xFF9B59B6),
+                                  isSelected: selectedMode == 'per_invoice_detailed',
+                                  onTap: () {
+                                    setDialogState(() {
+                                      selectedMode = 'per_invoice_detailed';
+                                      selectedGrouping = 'flat';
+                                      previewResponse = null;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Preview Button & Header
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: isExtracting
+                                    ? null
+                                    : () async {
+                                        setDialogState(() => isExtracting = true);
+                                        try {
+                                          final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
+                                          final res = await notifier.extractMultiMode(
+                                            file.importFileId,
+                                            mode: selectedMode,
+                                            groupingMode: selectedGrouping,
+                                          );
+                                          setDialogState(() {
+                                            previewResponse = res;
+                                            isExtracting = false;
+                                          });
+                                        } catch (e) {
+                                          setDialogState(() => isExtracting = false);
+                                          if (!context.mounted) return;
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('خطأ أثناء الاستخلاص: $e'), backgroundColor: Colors.red),
+                                          );
+                                        }
+                                      },
+                                icon: isExtracting
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                    : const Icon(Icons.remove_red_eye, size: 18),
+                                label: const Text('معاينة حية للبنود المستخلصة'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2C3E50),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                ),
+                              ),
+                              if (previewResponse != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF27AE60).withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    'عدد الفواتير: ${previewResponse!.invoicesCount} | عدد الأسطر: ${previewResponse!.totalLineItems}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF27AE60)),
+                                  ),
+                                ),
+                            ],
+                          ),
+
+                          if (previewResponse != null) ...[
+                            const SizedBox(height: 14),
+                            _buildPreviewResultArea(previewResponse!),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const Divider(height: 24),
+
+                  // Dialog Bottom Actions
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: Text(context.l10n.cancel),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Save as Customs Track Button
+                      OutlinedButton.icon(
+                        onPressed: isSavingCustomsTrack
+                            ? null
+                            : () async {
+                                setDialogState(() => isSavingCustomsTrack = true);
+                                try {
+                                  final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
+                                  final track = await notifier.createCustomsTrack({
+                                    'import_file_id': file.importFileId,
+                                    'extraction_mode': selectedMode,
+                                    'grouping_mode': selectedGrouping,
+                                    'notes': 'مسار جمركي تم اعتماده من واجهة الاستخلاص',
+                                  });
+                                  setDialogState(() => isSavingCustomsTrack = false);
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('تم اعتماد وحفظ المسار الجمركي: ${track.trackCode}'),
+                                      backgroundColor: const Color(0xFF27AE60),
+                                    ),
+                                  );
+                                } catch (e) {
+                                  setDialogState(() => isSavingCustomsTrack = false);
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('خطأ أثناء حفظ المسار الجمركي: $e'), backgroundColor: Colors.red),
+                                  );
+                                }
+                              },
+                        icon: isSavingCustomsTrack
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.gavel, size: 18),
+                        label: const Text('اعتماد كمسار جمركي مستقل'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFE67E22),
+                          side: const BorderSide(color: Color(0xFFE67E22)),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Download Button
+                      ElevatedButton.icon(
+                        onPressed: isDownloading
+                            ? null
+                            : () async {
+                                setDialogState(() => isDownloading = true);
+                                try {
+                                  final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
+                                  final isZip = selectedMode.startsWith('per_invoice_');
+
+                                  final bytes = await notifier.downloadMultiInvoiceZip(
+                                    file.importFileId,
+                                    mode: selectedMode,
+                                    groupingMode: selectedGrouping,
+                                  );
+                                  setDialogState(() => isDownloading = false);
+                                  if (!context.mounted) return;
+                                  Navigator.of(ctx).pop();
+
+                                  final fileName = isZip
+                                      ? 'CargoX_Invoices_${file.importFileCode}_$selectedMode.zip'
+                                      : 'Phase4_CargoX_Standard_Invoice_${file.importFileCode}.xlsx';
+
+                                  await FileSaveHelper.saveBytes(
+                                    context: context,
+                                    bytes: bytes,
+                                    defaultFileName: fileName,
+                                    dialogTitle: isZip ? 'حفظ أرشيف فواتير CargoX ZIP' : 'حفظ فاتورة CargoX القياسية Excel',
+                                    allowedExtensions: isZip ? ['zip'] : ['xlsx', 'xls'],
+                                  );
+                                } catch (e) {
+                                  setDialogState(() => isDownloading = false);
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('${context.l10n.errorPrefix}: $e'), backgroundColor: Colors.red),
+                                  );
+                                }
+                              },
+                        icon: isDownloading
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.download, size: 18),
+                        label: Text(selectedMode.startsWith('per_invoice_') ? 'تحميل حزمة ZIP' : 'تحميل ملف Excel'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF27AE60),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildModeOptionCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.08) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? color : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: isSelected ? color : Colors.grey,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(icon, size: 16, color: color),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: isSelected ? color : const Color(0xFF2C3E50),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreviewResultArea(ExtractionResponseModel response) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF4F6F7),
+              borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),
+              border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.table_chart, size: 16, color: Color(0xFF2C3E50)),
+                SizedBox(width: 8),
+                Text(
+                  'تفاصيل البنود المستخلصة والأوزان (Live Preview):',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF2C3E50)),
+                ),
+              ],
+            ),
+          ),
+          for (final result in response.results) ...[
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3498DB).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'فاتورة: ${result.invoiceNumber ?? "Default"}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF2980B9)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'إجمالي القيمة: ${result.payload.subtotal.toStringAsFixed(2)} ${result.payload.currencyCode}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF27AE60)),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'القائم: ${result.payload.grossWeight.toStringAsFixed(1)} ${result.payload.weightUnit} | الصافي: ${result.payload.netWeight.toStringAsFixed(1)} ${result.payload.weightUnit}',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      headingRowHeight: 32,
+                      dataRowMinHeight: 30,
+                      dataRowMaxHeight: 36,
+                      columnSpacing: 16,
+                      headingRowColor: WidgetStateProperty.all(const Color(0xFFF8F9F9)),
+                      columns: const [
+                        DataColumn(label: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text('بند التعريفة (HS Code)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text('المصنع (Manufacturer)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text('الوصف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text('الكمية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text('السعر المرجح', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text('الإجمالي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text('الوزن القائم', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text('الوزن الصافي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      ],
+                      rows: result.payload.items.map((item) {
+                        return DataRow(
+                          cells: [
+                            DataCell(Text('${item.index}', style: const TextStyle(fontSize: 11))),
+                            DataCell(Text(item.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            DataCell(Text(item.manufacturer ?? '', style: const TextStyle(fontSize: 11))),
+                            DataCell(Text(item.description, style: const TextStyle(fontSize: 11))),
+                            DataCell(Text('${item.quantity} ${item.qtyUnit}', style: const TextStyle(fontSize: 11))),
+                            DataCell(Text('${item.unitPrice.toStringAsFixed(4)}', style: const TextStyle(fontSize: 11))),
+                            DataCell(Text('${item.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF27AE60)))),
+                            DataCell(Text('${item.grossWeightKg} ${result.payload.weightUnit}', style: const TextStyle(fontSize: 11))),
+                            DataCell(Text('${item.netWeightKg} ${result.payload.weightUnit}', style: const TextStyle(fontSize: 11))),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Future<void> _handlePickAndParseExcel() async {

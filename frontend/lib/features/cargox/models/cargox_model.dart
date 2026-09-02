@@ -842,3 +842,128 @@ class StandardInvoiceSessionModel {
   }
 }
 
+// ============================================================================
+// CGX-003: MULTI-PATH EXTRACTION & CUSTOMS TRACK MODELS
+// ============================================================================
+
+class ExtractionResultItemModel {
+  final String? invoiceNumber;
+  final StandardInvoicePayloadModel payload;
+
+  const ExtractionResultItemModel({
+    this.invoiceNumber,
+    required this.payload,
+  });
+
+  factory ExtractionResultItemModel.fromJson(Map<String, dynamic> json) {
+    return ExtractionResultItemModel(
+      invoiceNumber: json['invoice_number'] as String?,
+      payload: StandardInvoicePayloadModel.fromJson(json['payload'] as Map<String, dynamic>),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'invoice_number': invoiceNumber,
+      'payload': payload.toJson(),
+    };
+  }
+}
+
+class ExtractionResponseModel {
+  final int importFileId;
+  final String importFileCode;
+  final String mode;
+  final String groupingMode;
+  final int invoicesCount;
+  final int totalLineItems;
+  final List<ExtractionResultItemModel> results;
+
+  const ExtractionResponseModel({
+    required this.importFileId,
+    required this.importFileCode,
+    required this.mode,
+    required this.groupingMode,
+    required this.invoicesCount,
+    required this.totalLineItems,
+    required this.results,
+  });
+
+  factory ExtractionResponseModel.fromJson(Map<String, dynamic> json) {
+    return ExtractionResponseModel(
+      importFileId: json['import_file_id'] as int? ?? 0,
+      importFileCode: json['import_file_code'] as String? ?? '',
+      mode: json['mode'] as String? ?? 'all_consolidated',
+      groupingMode: json['grouping_mode'] as String? ?? 'by_hs_code',
+      invoicesCount: json['invoices_count'] as int? ?? 1,
+      totalLineItems: json['total_line_items'] as int? ?? 0,
+      results: (json['results'] as List<dynamic>?)
+              ?.map((e) => ExtractionResultItemModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+class CustomsInvoiceTrackModel {
+  final int trackId;
+  final String trackCode;
+  final int importFileId;
+  final String? importFileCode;
+  final List<String> sourceInvoiceNumbers;
+  final String extractionMode;
+  final String groupingMode;
+  final double customsTotalAmount;
+  final double customsGrossWeight;
+  final double customsNetWeight;
+  final int customsPackagesCount;
+  final int lineItemsCount;
+  final String status;
+  final String? notes;
+  final bool isActive;
+  final DateTime createdAt;
+  final String createdBy;
+
+  const CustomsInvoiceTrackModel({
+    required this.trackId,
+    required this.trackCode,
+    required this.importFileId,
+    this.importFileCode,
+    this.sourceInvoiceNumbers = const [],
+    required this.extractionMode,
+    required this.groupingMode,
+    this.customsTotalAmount = 0.0,
+    this.customsGrossWeight = 0.0,
+    this.customsNetWeight = 0.0,
+    this.customsPackagesCount = 0,
+    this.lineItemsCount = 0,
+    this.status = 'DRAFT',
+    this.notes,
+    this.isActive = true,
+    required this.createdAt,
+    this.createdBy = 'SYSTEM',
+  });
+
+  factory CustomsInvoiceTrackModel.fromJson(Map<String, dynamic> json) {
+    return CustomsInvoiceTrackModel(
+      trackId: json['track_id'] as int? ?? 0,
+      trackCode: json['track_code'] as String? ?? '',
+      importFileId: json['import_file_id'] as int? ?? 0,
+      importFileCode: json['import_file_code'] as String?,
+      sourceInvoiceNumbers: (json['source_invoice_numbers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      extractionMode: json['extraction_mode'] as String? ?? 'all_consolidated',
+      groupingMode: json['grouping_mode'] as String? ?? 'by_hs_code',
+      customsTotalAmount: (json['customs_total_amount'] as num?)?.toDouble() ?? 0.0,
+      customsGrossWeight: (json['customs_gross_weight'] as num?)?.toDouble() ?? 0.0,
+      customsNetWeight: (json['customs_net_weight'] as num?)?.toDouble() ?? 0.0,
+      customsPackagesCount: json['customs_packages_count'] as int? ?? 0,
+      lineItemsCount: json['line_items_count'] as int? ?? 0,
+      status: json['status'] as String? ?? 'DRAFT',
+      notes: json['notes'] as String?,
+      isActive: json['is_active'] as bool? ?? true,
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
+      createdBy: json['created_by'] as String? ?? 'SYSTEM',
+    );
+  }
+}
+

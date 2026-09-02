@@ -269,5 +269,76 @@ class StandardInvoiceNotifier extends StateNotifier<AsyncValue<List<StandardInvo
       rethrow;
     }
   }
+
+  // ==========================================================================
+  // CGX-003: MULTI-PATH EXTRACTION & CUSTOMS TRACK API CALLS
+  // ==========================================================================
+
+  Future<ExtractionResponseModel> extractMultiMode(
+    int importFileId, {
+    String mode = 'all_consolidated',
+    String groupingMode = 'by_hs_code',
+    String? invoiceFilter,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/cargox/standard-invoice/extract/$importFileId',
+        data: {
+          'mode': mode,
+          'grouping_mode': groupingMode,
+          if (invoiceFilter != null && invoiceFilter.isNotEmpty) 'invoice_filter': invoiceFilter,
+        },
+      );
+      return ExtractionResponseModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<List<int>> downloadMultiInvoiceZip(
+    int importFileId, {
+    String mode = 'all_consolidated',
+    String groupingMode = 'by_hs_code',
+    String? invoiceFilter,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/cargox/standard-invoice/generate-zip/$importFileId',
+        data: {
+          'mode': mode,
+          'grouping_mode': groupingMode,
+          if (invoiceFilter != null && invoiceFilter.isNotEmpty) 'invoice_filter': invoiceFilter,
+        },
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data as List<int>;
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<CustomsInvoiceTrackModel> createCustomsTrack(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/cargox/customs-track/create',
+        data: payload,
+      );
+      return CustomsInvoiceTrackModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<List<CustomsInvoiceTrackModel>> fetchCustomsTracks(int importFileId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/cargox/customs-track/by-file/$importFileId',
+      );
+      final List data = response.data as List;
+      return data.map((json) => CustomsInvoiceTrackModel.fromJson(json as Map<String, dynamic>)).toList();
+    } catch (err) {
+      return [];
+    }
+  }
 }
 

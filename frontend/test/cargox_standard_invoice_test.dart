@@ -145,6 +145,124 @@ void main() {
       expect(session.status, 'APPROVED');
       expect(session.totalAmount, 5350.0);
     });
+
+    test('CGX-004: DualExtractionResponseModel, PackingList and Pallet models parsing', () {
+      final palletJson = {
+        'pallet_number': 'PLT-001',
+        'pallet_type': 'EURO',
+        'dimensions_cm': '120x80x150',
+        'gross_weight_kg': 600.0,
+        'net_weight_kg': 520.0,
+        'items': [
+          {
+            'hs_code': '6303.92.9000',
+            'description': 'Curtains',
+            'quantity': 500.0,
+            'qty_unit': 'PCS',
+            'net_weight_kg': 350.0,
+            'gross_weight_kg': 400.0,
+            'carton_numbers': '1-20',
+          }
+        ],
+      };
+
+      final palletModel = PalletInputModel(
+        palletNumber: palletJson['pallet_number'] as String,
+        palletType: palletJson['pallet_type'] as String,
+        dimensionsCm: palletJson['dimensions_cm'] as String,
+        grossWeightKg: (palletJson['gross_weight_kg'] as num).toDouble(),
+        netWeightKg: (palletJson['net_weight_kg'] as num).toDouble(),
+        items: [
+          const PalletItemInputModel(
+            hsCode: '6303.92.9000',
+            description: 'Curtains',
+            quantity: 500.0,
+            netWeightKg: 350.0,
+            grossWeightKg: 400.0,
+            cartonNumbers: '1-20',
+          ),
+        ],
+      );
+
+      expect(palletModel.palletNumber, 'PLT-001');
+      final encodedPallet = palletModel.toJson();
+      expect(encodedPallet['pallet_number'], 'PLT-001');
+      expect((encodedPallet['items'] as List).length, 1);
+
+      // Test DualExtractionResponseModel
+      final dualJson = {
+        'import_file_id': 1,
+        'import_file_code': 'IMP-2026-0004',
+        'invoice_mode': 'all_consolidated',
+        'invoice_grouping': 'by_hs_code',
+        'invoice_invoices_count': 1,
+        'invoice_total_line_items': 2,
+        'packing_list_mode': 'all_consolidated',
+        'packing_list_structure': 'by_pallet',
+        'packing_list_count': 1,
+        'packing_list_total_items': 2,
+        'packing_list_results': [
+          {
+            'packing_list_ref': 'PL-001',
+            'invoice_number': 'INV-001',
+            'payload': {
+              'acid_number': '5281520261220000000',
+              'seller_name': 'Suzhou Yuheng',
+              'buyer_name': 'Al-Nour Import',
+              'total_packages': 2,
+              'total_gross_weight_kg': 600.0,
+              'total_net_weight_kg': 520.0,
+              'structure': 'by_pallet',
+              'items': [
+                {
+                  'line_number': 1,
+                  'package_ref': 'PLT-001',
+                  'hs_code': '6303.92.9000',
+                  'description': 'Curtains',
+                  'quantity': 500.0,
+                  'qty_unit': 'PCS',
+                  'net_weight_kg': 350.0,
+                  'gross_weight_kg': 400.0,
+                  'pallet_number': 'PLT-001',
+                }
+              ]
+            }
+          }
+        ]
+      };
+
+      final dualResponse = DualExtractionResponseModel.fromJson(dualJson);
+      expect(dualResponse.importFileId, 1);
+      expect(dualResponse.packingListStructure, 'by_pallet');
+      expect(dualResponse.packingListResults.length, 1);
+      expect(dualResponse.packingListResults[0].payload.items[0].palletNumber, 'PLT-001');
+
+      // Test CustomsInvoiceTrackModel with CGX-004 fields
+      final trackJson = {
+        'track_id': 10,
+        'track_code': 'CX-CUST-IMP-2026-0004-001',
+        'import_file_id': 1,
+        'extraction_mode': 'all_consolidated',
+        'grouping_mode': 'by_hs_code',
+        'packing_list_mode': 'all_consolidated',
+        'packing_list_structure': 'by_pallet',
+        'packing_list_count': 1,
+        'include_pallets': true,
+        'customs_total_amount': 25000.0,
+        'customs_gross_weight': 1200.0,
+        'customs_net_weight': 1050.0,
+        'customs_packages_count': 2,
+        'line_items_count': 2,
+        'status': 'DRAFT',
+        'is_active': true,
+      };
+
+      final track = CustomsInvoiceTrackModel.fromJson(trackJson);
+      expect(track.trackId, 10);
+      expect(track.packingListMode, 'all_consolidated');
+      expect(track.packingListStructure, 'by_pallet');
+      expect(track.includePallets, true);
+    });
   });
 
   group('StandardInvoiceHubTab Widget Tests', () {

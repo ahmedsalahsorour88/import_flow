@@ -384,5 +384,60 @@ class StandardInvoiceNotifier extends StateNotifier<AsyncValue<List<StandardInvo
       rethrow;
     }
   }
-}
 
+  // ── CGX-004: Dual Extraction Engine ─────────────────────────────────────────
+
+  Future<DualExtractionResponseModel> extractDualMode(
+      int importFileId, Map<String, dynamic> request) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/cargox/standard-invoice/extract-dual/$importFileId',
+        data: request,
+      );
+      return DualExtractionResponseModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<List<int>> generateDualZip(
+      int importFileId, Map<String, dynamic> request) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/cargox/standard-invoice/generate-dual-zip/$importFileId',
+        data: request,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data as List<int>;
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<CustomsInvoiceTrackModel> createDualCustomsTrack(
+      Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/cargox/customs-track/create-dual',
+        data: payload,
+      );
+      return CustomsInvoiceTrackModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<List<int>> downloadTrackPackingListExcelWithStructure(
+      int trackId, String structure) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/cargox/customs-track/$trackId/export-packing-list-excel',
+        queryParameters: {'structure': structure},
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data as List<int>;
+    } catch (err) {
+      rethrow;
+    }
+  }
+}

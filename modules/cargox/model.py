@@ -248,6 +248,26 @@ class CargoXCustomsInvoiceTrack(Base):
     )
     # "by_hs_code" | "by_price_group" | "flat"
 
+    # CGX-004: Packing List Independent Mode & Structure
+    packing_list_mode: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True, default="all_consolidated"
+    )
+    # "all_consolidated" | "all_detailed" | "per_invoice_consolidated" | "per_invoice_detailed"
+
+    packing_list_structure: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True, default="by_hs_code"
+    )
+    # "by_hs_code" | "flat" | "by_pallet" | "by_carton"
+
+    packing_list_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=1)
+    # عدد ملفات الباكينج ليست المُولّدة
+
+    include_pallets: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # هل تُدرج بيانات البالتات في قائمة التعبئة؟
+
+    pallets_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # لقطة بيانات البالتات المُدخلة من المستخدم (PalletInput list serialized)
+
     # Totals الجمركية
     customs_total_amount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     customs_gross_weight: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
@@ -277,3 +297,4 @@ class CargoXCustomsInvoiceTrack(Base):
         onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
     updated_by: Mapped[str] = mapped_column(String(100), default="SYSTEM", nullable=False)
+

@@ -442,6 +442,158 @@ class CustomsInvoiceTrackUpdate(BaseModel):
     customs_packing_list_data: Optional[Any] = None
 
 
+# ============================================================================
+# CGX-004: Dual Extraction Engine Schemas — Packing List Independent Engine
+# ============================================================================
+
+# Packing List Extraction Mode (مرايا ExtractionMode بالضبط)
+PackingListMode = Literal[
+    "all_consolidated",          # بيان واحد مجمع بـ HS Code (أوزان مجمعة، weighted avg)
+    "all_detailed",              # بيان واحد مفصل — كل بند (po line item) في سطر
+    "per_invoice_consolidated",  # ZIP بعدد الفواتير — كل ملف مجمع بـ HS Code
+    "per_invoice_detailed",      # ZIP بعدد الفواتير — كل ملف مفصل
+]
+
+# Packing List Physical Structure (هيكل الطرود الفيزيائي)
+PackingListStructure = Literal[
+    "by_hs_code",  # سطر لكل HS Code (مجمع — الأكثر شيوعاً جمركياً)
+    "flat",        # كل بند استيراد في سطر مستقل بكامل بياناته
+    "by_pallet",   # كل بالتة = مجموعة سطور + تفصيل محتوياتها (يتطلب pallet_details)
+    "by_carton",   # كل كرتونة/طرد = سطر (رقم الطرد + HS Code + الكمية + الأوزان)
+]
+
+
+class PalletItemInput(BaseModel):
+    """بند واحد داخل البالتة — يُدخله المستخدم يدوياً."""
+    hs_code: str
+    description: str
+    quantity: float
+    qty_unit: str = "PCS"
+    net_weight_kg: float
+    gross_weight_kg: float
+    carton_numbers: Optional[str] = None   # e.g. "1-50" أو "51-100"
+
+
+class PalletInput(BaseModel):
+    """بيانات بالتة واحدة — يُدخلها المستخدم في الواجهة."""
+    pallet_number: str                     # e.g. "PLT-001"
+    pallet_type: str = "EURO"              # EURO / CHEP / CUSTOM / WOODEN
+    dimensions_cm: Optional[str] = None   # e.g. "120x80x150"
+    gross_weight_kg: float
+    net_weight_kg: float
+    items: List[PalletItemInput]
+
+
+class PackingListLineItem(BaseModel):
+    """سطر واحد في قائمة التعبئة الجمركية."""
+    line_number: int
+    package_ref: str              # PLT-001 / CTN-001 / PKG-001 حسب البنية
+    hs_code: str
+    description: str
+    manufacturer: Optional[str] = None
+    quantity: float
+    qty_unit: str
+    net_weight_kg: float
+    gross_weight_kg: float
+    # حقول إضافية للـ detailed / by_pallet
+    invoice_number: Optional[str] = None
+    pallet_number: Optional[str] = None
+    carton_numbers: Optional[str] = None
+    dimensions_cm: Optional[str] = None
+
+
+class PackingListPayload(BaseModel):
+    """حمولة قائمة التعبئة الجمركية الكاملة لفاتورة أو مجموع الشحنة."""
+    acid_number: Optional[str] = None
+    seller_name: Optional[str] = None
+    seller_address: Optional[str] = None
+    seller_country_code: Optional[str] = None
+    buyer_name: Optional[str] = None
+    buyer_address: Optional[str] = None
+    buyer_tax_id: Optional[str] = None
+    invoice_number: Optional[str] = None
+    invoice_date: Optional[str] = None
+    packing_list_ref: Optional[str] = None  # PL-001, PL-002 …
+    origin_port: Optional[str] = None
+    destination_port: Optional[str] = None
+    incoterm: Optional[str] = None
+    currency_code: Optional[str] = None
+    total_packages: int = 0
+    total_gross_weight_kg: float = 0.0
+    total_net_weight_kg: float = 0.0
+    structure: str = "by_hs_code"          # البنية المستخدمة في الإنشاء
+    items: List[PackingListLineItem] = []
+    pallets: Optional[List[Dict[str, Any]]] = None   # ملخص البالتات إن وُجدت
+
+
+class PackingListResultItem(BaseModel):
+    """نتيجة استخراج باكينج ليست واحدة ضمن نتائج multi-extract."""
+    packing_list_ref: Optional[str] = None   # PL-001 …
+    invoice_number: Optional[str] = None     # الفاتورة المرتبطة بهذا الباكينج ليست
+    payload: PackingListPayload
+
+
+class DualExtractionRequest(BaseModel):
+    """
+    طلب الاستخراج المزدوج (CGX-004).
+    يُحدد mode + structure لكل من الفاتورة والباكينج ليست باستقلالية كاملة.
+    """
+    # ---- الفاتورة التجارية الجمركية ----
+    invoice_mode: ExtractionMode = "all_consolidated"
+    invoice_grouping: GroupingMode = "by_hs_code"
+    invoice_filter: Optional[str] = None
+
+    # ---- قائمة التعبئة الجمركية ----
+    packing_list_mode: PackingListMode = "all_consolidated"
+    packing_list_structure: PackingListStructure = "by_hs_code"
+    packing_filter: Optional[str] = None
+
+    # ---- بيانات البالتات (اختياري) ----
+    include_pallets: bool = False
+    pallet_details: Optional[List[PalletInput]] = None
+
+    notes: Optional[str] = None
+
+
+class DualExtractionResponse(BaseModel):
+    """استجابة محرك الاستخراج المزدوج."""
+    import_file_id: int
+    import_file_code: Optional[str] = None
+
+    # --- نتائج الفاتورة ---
+    invoice_mode: str
+    invoice_grouping: str
+    invoice_invoices_count: int
+    invoice_total_line_items: int
+    invoice_results: List[ExtractionResultItem]
+
+    # --- نتائج الباكينج ليست ---
+    packing_list_mode: str
+    packing_list_structure: str
+    packing_list_count: int
+    packing_list_total_items: int
+    packing_list_results: List[PackingListResultItem]
+
+
+class DualCustomsTrackCreate(BaseModel):
+    """
+    إنشاء مسار جمركي مزدوج — يحفظ فاتورة جمركية + قائمة تعبئة جمركية مستقلتين.
+    """
+    import_file_id: int
+    # فاتورة
+    invoice_mode: ExtractionMode = "all_consolidated"
+    invoice_grouping: GroupingMode = "by_hs_code"
+    invoice_filter: Optional[str] = None
+    # باكينج ليست
+    packing_list_mode: PackingListMode = "all_consolidated"
+    packing_list_structure: PackingListStructure = "by_hs_code"
+    packing_filter: Optional[str] = None
+    # بالتات
+    include_pallets: bool = False
+    pallet_details: Optional[List[PalletInput]] = None
+    notes: Optional[str] = None
+
+
 class CustomsInvoiceTrackResponse(BaseModel):
     """استجابة نسخة الفاتورة الجمركية المحفوظة."""
     model_config = ConfigDict(from_attributes=True)
@@ -451,8 +603,15 @@ class CustomsInvoiceTrackResponse(BaseModel):
     import_file_id: int
     import_file_code: Optional[str] = None
     source_invoice_numbers: Optional[Any] = None
+    # --- حقول الفاتورة ---
     extraction_mode: str
     grouping_mode: str
+    # --- حقول الباكينج ليست (CGX-004) ---
+    packing_list_mode: Optional[str] = None
+    packing_list_structure: Optional[str] = None
+    packing_list_count: Optional[int] = None
+    include_pallets: Optional[bool] = None
+    # --- مجاميع ---
     customs_total_amount: float
     customs_gross_weight: float
     customs_net_weight: float
@@ -467,3 +626,4 @@ class CustomsInvoiceTrackResponse(BaseModel):
     created_by: str
     updated_at: datetime
     updated_by: str
+

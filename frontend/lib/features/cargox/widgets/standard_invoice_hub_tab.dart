@@ -11,6 +11,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../models/cargox_model.dart';
 import '../providers/cargox_provider.dart';
 import '../services/cargox_pdf_service.dart';
+import 'dual_extraction_modal.dart';
 import 'package:printing/printing.dart';
 
 String _formatDateTime(DateTime dt) {
@@ -1185,6 +1186,32 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
               label: const Text('استخلاص مسار جديد'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF27AE60),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: () {
+                if (_selectedImportFile == null) return;
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (ctx) => DualExtractionModal(
+                    importFileId: _selectedImportFile!.importFileId,
+                    importFileCode: _selectedImportFile!.importFileCode ?? '',
+                    onTrackCreated: () async {
+                      final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
+                      final tracks = await notifier.fetchCustomsTracks(_selectedImportFile!.importFileId);
+                      if (mounted) setState(() => _customsTracks = tracks);
+                    },
+                  ),
+                );
+              },
+              icon: const Icon(Icons.file_copy_outlined, size: 16),
+              label: const Text('استخلاص مزدوج ✨'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2C3E50),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               ),

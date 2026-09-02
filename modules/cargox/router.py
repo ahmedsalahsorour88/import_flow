@@ -253,6 +253,7 @@ def update_standard_invoice_session_status(
 
 import io
 import zipfile
+from fastapi.responses import Response
 from .schemas import (
     ExtractionRequest,
     ExtractionResponse,
@@ -260,12 +261,19 @@ from .schemas import (
     CustomsInvoiceTrackUpdate,
     CustomsInvoiceTrackResponse,
     StandardInvoicePayload,
+    # CGX-004
+    DualExtractionRequest,
+    DualExtractionResponse,
+    DualCustomsTrackCreate,
+    PackingListPayload,
 )
 from .service import CargoXExtractionEngine
+from .dual_extraction_service import CargoXDualExtractionEngine
 from .excel_invoice_service import (
     generate_standard_invoice_excel_bytes,
     generate_customs_packing_list_excel_bytes,
 )
+from .excel_packing_list_service import generate_packing_list_excel_bytes
 
 
 @router.post("/standard-invoice/extract/{import_file_id}", response_model=ExtractionResponse)
@@ -440,10 +448,12 @@ def export_customs_track_excel(
 @router.get("/customs-track/{track_id}/export-packing-list-excel")
 def export_customs_track_packing_list_excel(
     track_id: int,
+    structure: str = Query("by_hs_code", description="هيكل الطرود: by_hs_code | flat | by_pallet | by_carton"),
     db: Session = Depends(get_db),
 ):
     """
-    تحميل ملف Excel لقائمة التعبئة الجمركية (Customs Packing List) المعتمدة للمسار الجمركي.
+    CGX-003/CGX-004: تحميل Excel قائمة التعبئة الجمركية.
+    يدعم تحديد هيكل الطرود: by_hs_code | flat | by_pallet | by_carton.
     """
     from .model import CargoXCustomsInvoiceTrack
     track = (
@@ -458,18 +468,168 @@ def export_customs_track_packing_list_excel(
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail=f"المسار الجمركي {track_id} غير موجود.")
 
-    data = track.customs_invoice_data
-    if isinstance(data, list) and len(data) > 0:
-        data = data[0]
-    elif not isinstance(data, dict):
-        data = {}
+    # استخدام customs_packing_list_data إن وجد، وإلا بناء من الفاتورة
+    pl_data = track.customs_packing_list_data
+    if pl_data and isinstance(pl_data, dict) and "items" in pl_data:
+        # بيانات من CGX-003 / CGX-004 (PackingListPayload-like)
+        from .schemas import PackingListLineItem
+        raw_items = pl_data.get("items") or []
+        items = []
+        for idx, itm in enumerate(raw_items, start=1):
+            if isinstance(itm, dict):
+                items.append(
+                    PackingListLineItem(
+                        line_number=int(itm.get("line_number") or idx),
+                        package_ref=str(itm.get("package_ref") or itm.get("package_no") or f"PKG-{idx:02d}"),
+                        hs_code=str(itm.get("hs_code") or ""),
+                        description=str(itm.get("description") or ""),
+                        manufacturer=itm.get("manufacturer"),
+                        quantity=float(itm.get("quantity") or 0.0),
+                        qty_unit=str(itm.get("qty_unit") or "PCS"),
+                        net_weight_kg=float(itm.get("net_weight_kg") or 0.0),
+                        gross_weight_kg=float(itm.get("gross_weight_kg") or 0.0),
+                        invoice_number=itm.get("invoice_number"),
+                        pallet_number=itm.get("pallet_number"),
+                        carton_numbers=itm.get("carton_numbers"),
+                        dimensions_cm=itm.get("dimensions_cm"),
+                    )
+                )
+        pl_payload = PackingListPayload(
+            acid_number=pl_data.get("acid_number"),
+            seller_name=pl_data.get("seller_name"),
+            buyer_name=pl_data.get("buyer_name"),
+            packing_list_ref=pl_data.get("packing_list_ref") or pl_data.get("track_code"),
+            total_packages=pl_data.get("total_packages") or len(items),
+            total_gross_weight_kg=pl_data.get("total_gross_weight") or pl_data.get("total_gross_weight_kg") or 0.0,
+            total_net_weight_kg=pl_data.get("total_net_weight") or pl_data.get("total_net_weight_kg") or 0.0,
+            structure=structure,
+            items=items,
+        )
+    else:
+        # fallback: بناء من بيانات الفاتورة
+        inv_data = track.customs_invoice_data
+        if isinstance(inv_data, list) and len(inv_data) > 0:
+            inv_data = inv_data[0]
+        elif not isinstance(inv_data, dict):
+            inv_data = {}
+        inv_payload = StandardInvoicePayload(**inv_data) if inv_data else StandardInvoicePayload()
+        from .schemas import PackingListLineItem
+        items = [
+            PackingListLineItem(
+                line_number=i + 1,
+                package_ref=f"PKG-{i+1:02d}",
+                hs_code=itm.hs_code or "",
+                description=itm.description or "",
+                manufacturer=itm.manufacturer,
+                quantity=itm.quantity,
+                qty_unit=itm.qty_unit,
+                net_weight_kg=itm.net_weight_kg,
+                gross_weight_kg=itm.gross_weight_kg,
+            )
+            for i, itm in enumerate(inv_payload.items)
+        ]
+        pl_payload = PackingListPayload(
+            acid_number=inv_payload.acid_number,
+            seller_name=inv_payload.seller_name,
+            buyer_name=inv_payload.buyer_name,
+            total_packages=len(items),
+            total_gross_weight_kg=inv_payload.gross_weight,
+            total_net_weight_kg=inv_payload.net_weight,
+            structure=structure,
+            items=items,
+        )
 
-    payload = StandardInvoicePayload(**data) if data else StandardInvoicePayload()
-    excel_bytes = generate_customs_packing_list_excel_bytes(payload, track_code=track.track_code)
+    excel_bytes = generate_packing_list_excel_bytes(
+        payload=pl_payload,
+        structure=structure,
+        track_code=track.track_code,
+        mode_label=f"{track.packing_list_mode or 'legacy'} / {structure}",
+    )
     return Response(
         content=excel_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": f"attachment; filename=Customs_Packing_List_{track.track_code}.xlsx"
+            "Content-Disposition": f"attachment; filename=Customs_Packing_List_{track.track_code}_{structure}.xlsx"
         },
     )
+
+
+# ============================================================================
+# CGX-004: Dual Extraction Engine Endpoints
+# ============================================================================
+
+@router.post("/standard-invoice/extract-dual/{import_file_id}", response_model=DualExtractionResponse)
+def extract_dual_mode(
+    import_file_id: int,
+    request: DualExtractionRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    CGX-004: محرك الاستخراج المزدوج.
+    يستخرج الفاتورة التجارية وقائمة التعبئة الجمركية بمسارات مستقلة.
+
+    الفاتورة: 4 modes × 3 grouping = 12 تشكيلة
+    الباكينج ليست: 4 modes × 4 structures = 16 تشكيلة
+    """
+    return CargoXDualExtractionEngine.extract_dual(db, import_file_id, request)
+
+
+@router.post("/standard-invoice/generate-dual-zip/{import_file_id}")
+def generate_dual_zip(
+    import_file_id: int,
+    request: DualExtractionRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    CGX-004: تحميل ZIP يحتوي على ملفات Excel للفاتورة والباكينج ليست بشكل مستقل.
+
+    هيكل ZIP:
+    ├── Invoice/
+    │   └── Commercial_Invoice_*.xlsx
+    └── PackingList/
+        └── Customs_Packing_List_*.xlsx
+    """
+    dual_response = CargoXDualExtractionEngine.extract_dual(db, import_file_id, request)
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        # --- Invoice files ---
+        for result in dual_response.invoice_results:
+            excel_bytes = generate_standard_invoice_excel_bytes(result.payload)
+            safe_inv = (result.invoice_number or f"Invoice_{import_file_id}").replace("/", "-").replace("\\", "-")
+            zf.writestr(f"Invoice/Commercial_Invoice_{safe_inv}.xlsx", excel_bytes)
+
+        # --- Packing List files ---
+        for pl_result in dual_response.packing_list_results:
+            from .schemas import PackingListLineItem
+            pl_payload = pl_result.payload
+            pl_excel_bytes = generate_packing_list_excel_bytes(
+                payload=pl_payload,
+                structure=request.packing_list_structure,
+                track_code=pl_result.packing_list_ref or "PL",
+                mode_label=request.packing_list_mode,
+            )
+            safe_pl = (pl_result.packing_list_ref or f"PL_{import_file_id}").replace("/", "-")
+            zf.writestr(f"PackingList/Customs_Packing_List_{safe_pl}.xlsx", pl_excel_bytes)
+
+    zip_buffer.seek(0)
+    return Response(
+        content=zip_buffer.read(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f"attachment; filename=CargoX_Dual_IMP{import_file_id}_{request.invoice_mode}_{request.packing_list_mode}.zip"
+        },
+    )
+
+
+@router.post("/customs-track/create-dual", response_model=CustomsInvoiceTrackResponse)
+def create_dual_customs_track(
+    payload: DualCustomsTrackCreate,
+    db: Session = Depends(get_db),
+):
+    """
+    CGX-004: إنشاء مسار جمركي مزدوج.
+    يحفظ فاتورة جمركية + قائمة تعبئة جمركية بمسارات استخراج مستقلة في DB.
+    """
+    return CargoXDualExtractionEngine.create_dual_customs_track(db, payload, created_by="ADMIN")
+

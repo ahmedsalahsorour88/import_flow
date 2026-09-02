@@ -913,6 +913,12 @@ class CustomsInvoiceTrackModel {
   final List<String> sourceInvoiceNumbers;
   final String extractionMode;
   final String groupingMode;
+  // CGX-004: Packing List fields
+  final String? packingListMode;
+  final String? packingListStructure;
+  final int? packingListCount;
+  final bool includePallets;
+  // Totals
   final double customsTotalAmount;
   final double customsGrossWeight;
   final double customsNetWeight;
@@ -934,6 +940,10 @@ class CustomsInvoiceTrackModel {
     this.sourceInvoiceNumbers = const [],
     required this.extractionMode,
     required this.groupingMode,
+    this.packingListMode,
+    this.packingListStructure,
+    this.packingListCount,
+    this.includePallets = false,
     this.customsTotalAmount = 0.0,
     this.customsGrossWeight = 0.0,
     this.customsNetWeight = 0.0,
@@ -957,6 +967,10 @@ class CustomsInvoiceTrackModel {
       sourceInvoiceNumbers: (json['source_invoice_numbers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       extractionMode: json['extraction_mode'] as String? ?? 'all_consolidated',
       groupingMode: json['grouping_mode'] as String? ?? 'by_hs_code',
+      packingListMode: json['packing_list_mode'] as String?,
+      packingListStructure: json['packing_list_structure'] as String?,
+      packingListCount: json['packing_list_count'] as int?,
+      includePallets: json['include_pallets'] as bool? ?? false,
       customsTotalAmount: (json['customs_total_amount'] as num?)?.toDouble() ?? 0.0,
       customsGrossWeight: (json['customs_gross_weight'] as num?)?.toDouble() ?? 0.0,
       customsNetWeight: (json['customs_net_weight'] as num?)?.toDouble() ?? 0.0,
@@ -972,4 +986,234 @@ class CustomsInvoiceTrackModel {
     );
   }
 }
+
+// ============================================================================
+// CGX-004: Packing List Models
+// ============================================================================
+
+class PackingListLineItemModel {
+  final int lineNumber;
+  final String packageRef;
+  final String hsCode;
+  final String description;
+  final String? manufacturer;
+  final double quantity;
+  final String qtyUnit;
+  final double netWeightKg;
+  final double grossWeightKg;
+  final String? invoiceNumber;
+  final String? palletNumber;
+  final String? cartonNumbers;
+  final String? dimensionsCm;
+
+  const PackingListLineItemModel({
+    required this.lineNumber,
+    required this.packageRef,
+    required this.hsCode,
+    required this.description,
+    this.manufacturer,
+    required this.quantity,
+    required this.qtyUnit,
+    required this.netWeightKg,
+    required this.grossWeightKg,
+    this.invoiceNumber,
+    this.palletNumber,
+    this.cartonNumbers,
+    this.dimensionsCm,
+  });
+
+  factory PackingListLineItemModel.fromJson(Map<String, dynamic> json) {
+    return PackingListLineItemModel(
+      lineNumber: json['line_number'] as int? ?? 0,
+      packageRef: json['package_ref'] as String? ?? '',
+      hsCode: json['hs_code'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      manufacturer: json['manufacturer'] as String?,
+      quantity: (json['quantity'] as num?)?.toDouble() ?? 0.0,
+      qtyUnit: json['qty_unit'] as String? ?? 'PCS',
+      netWeightKg: (json['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      grossWeightKg: (json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      invoiceNumber: json['invoice_number'] as String?,
+      palletNumber: json['pallet_number'] as String?,
+      cartonNumbers: json['carton_numbers'] as String?,
+      dimensionsCm: json['dimensions_cm'] as String?,
+    );
+  }
+}
+
+class PackingListPayloadModel {
+  final String? acidNumber;
+  final String? sellerName;
+  final String? buyerName;
+  final String? invoiceNumber;
+  final String? packingListRef;
+  final String? originPort;
+  final String? destinationPort;
+  final int totalPackages;
+  final double totalGrossWeightKg;
+  final double totalNetWeightKg;
+  final String structure;
+  final List<PackingListLineItemModel> items;
+
+  const PackingListPayloadModel({
+    this.acidNumber,
+    this.sellerName,
+    this.buyerName,
+    this.invoiceNumber,
+    this.packingListRef,
+    this.originPort,
+    this.destinationPort,
+    this.totalPackages = 0,
+    this.totalGrossWeightKg = 0.0,
+    this.totalNetWeightKg = 0.0,
+    this.structure = 'by_hs_code',
+    this.items = const [],
+  });
+
+  factory PackingListPayloadModel.fromJson(Map<String, dynamic> json) {
+    return PackingListPayloadModel(
+      acidNumber: json['acid_number'] as String?,
+      sellerName: json['seller_name'] as String?,
+      buyerName: json['buyer_name'] as String?,
+      invoiceNumber: json['invoice_number'] as String?,
+      packingListRef: json['packing_list_ref'] as String?,
+      originPort: json['origin_port'] as String?,
+      destinationPort: json['destination_port'] as String?,
+      totalPackages: json['total_packages'] as int? ?? 0,
+      totalGrossWeightKg: (json['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      totalNetWeightKg: (json['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      structure: json['structure'] as String? ?? 'by_hs_code',
+      items: (json['items'] as List<dynamic>?)
+              ?.map((e) => PackingListLineItemModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+class PackingListResultItemModel {
+  final String? packingListRef;
+  final String? invoiceNumber;
+  final PackingListPayloadModel payload;
+
+  const PackingListResultItemModel({
+    this.packingListRef,
+    this.invoiceNumber,
+    required this.payload,
+  });
+
+  factory PackingListResultItemModel.fromJson(Map<String, dynamic> json) {
+    return PackingListResultItemModel(
+      packingListRef: json['packing_list_ref'] as String?,
+      invoiceNumber: json['invoice_number'] as String?,
+      payload: PackingListPayloadModel.fromJson(
+          json['payload'] as Map<String, dynamic>? ?? {}),
+    );
+  }
+}
+
+class DualExtractionResponseModel {
+  final int importFileId;
+  final String? importFileCode;
+  final String invoiceMode;
+  final String invoiceGrouping;
+  final int invoiceInvoicesCount;
+  final int invoiceTotalLineItems;
+  final String packingListMode;
+  final String packingListStructure;
+  final int packingListCount;
+  final int packingListTotalItems;
+  final List<PackingListResultItemModel> packingListResults;
+
+  const DualExtractionResponseModel({
+    required this.importFileId,
+    this.importFileCode,
+    required this.invoiceMode,
+    required this.invoiceGrouping,
+    required this.invoiceInvoicesCount,
+    required this.invoiceTotalLineItems,
+    required this.packingListMode,
+    required this.packingListStructure,
+    required this.packingListCount,
+    required this.packingListTotalItems,
+    this.packingListResults = const [],
+  });
+
+  factory DualExtractionResponseModel.fromJson(Map<String, dynamic> json) {
+    return DualExtractionResponseModel(
+      importFileId: json['import_file_id'] as int? ?? 0,
+      importFileCode: json['import_file_code'] as String?,
+      invoiceMode: json['invoice_mode'] as String? ?? 'all_consolidated',
+      invoiceGrouping: json['invoice_grouping'] as String? ?? 'by_hs_code',
+      invoiceInvoicesCount: json['invoice_invoices_count'] as int? ?? 0,
+      invoiceTotalLineItems: json['invoice_total_line_items'] as int? ?? 0,
+      packingListMode: json['packing_list_mode'] as String? ?? 'all_consolidated',
+      packingListStructure: json['packing_list_structure'] as String? ?? 'by_hs_code',
+      packingListCount: json['packing_list_count'] as int? ?? 0,
+      packingListTotalItems: json['packing_list_total_items'] as int? ?? 0,
+      packingListResults: (json['packing_list_results'] as List<dynamic>?)
+              ?.map((e) => PackingListResultItemModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+class PalletItemInputModel {
+  final String hsCode;
+  final String description;
+  final double quantity;
+  final String qtyUnit;
+  final double netWeightKg;
+  final double grossWeightKg;
+  final String? cartonNumbers;
+
+  const PalletItemInputModel({
+    required this.hsCode,
+    required this.description,
+    required this.quantity,
+    this.qtyUnit = 'PCS',
+    required this.netWeightKg,
+    required this.grossWeightKg,
+    this.cartonNumbers,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'hs_code': hsCode,
+        'description': description,
+        'quantity': quantity,
+        'qty_unit': qtyUnit,
+        'net_weight_kg': netWeightKg,
+        'gross_weight_kg': grossWeightKg,
+        if (cartonNumbers != null) 'carton_numbers': cartonNumbers,
+      };
+}
+
+class PalletInputModel {
+  final String palletNumber;
+  final String palletType;
+  final String? dimensionsCm;
+  final double grossWeightKg;
+  final double netWeightKg;
+  final List<PalletItemInputModel> items;
+
+  const PalletInputModel({
+    required this.palletNumber,
+    this.palletType = 'EURO',
+    this.dimensionsCm,
+    required this.grossWeightKg,
+    required this.netWeightKg,
+    this.items = const [],
+  });
+
+  Map<String, dynamic> toJson() => {
+        'pallet_number': palletNumber,
+        'pallet_type': palletType,
+        if (dimensionsCm != null) 'dimensions_cm': dimensionsCm,
+        'gross_weight_kg': grossWeightKg,
+        'net_weight_kg': netWeightKg,
+        'items': items.map((e) => e.toJson()).toList(),
+      };
+}
+
 

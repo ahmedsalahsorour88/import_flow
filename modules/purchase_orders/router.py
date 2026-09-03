@@ -4,13 +4,22 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from database.database import get_db
-from modules.purchase_orders.schemas import PackingListValidationReport, PurchaseOrderCreate, PurchaseOrderResponse, PurchaseOrderUpdate
+from modules.purchase_orders.schemas import (
+    PackingListValidationReport,
+    PurchaseOrderCreate,
+    PurchaseOrderResponse,
+    PurchaseOrderUpdate,
+    POShipmentAllocationCreate,
+    POShipmentAllocationResponse,
+    POBalanceSummaryResponse,
+)
 from modules.purchase_orders.service import PurchaseOrderService
 
 router = APIRouter(
     prefix="/api/v1/purchase-orders",
     tags=["Purchase Orders"],
 )
+
 
 
 @router.get("", response_model=List[PurchaseOrderResponse])
@@ -68,4 +77,17 @@ def delete_purchase_order(po_id: int, db: Session = Depends(get_db)):
 def restore_purchase_order(po_id: int, db: Session = Depends(get_db)):
     service = PurchaseOrderService(db)
     return service.restore(po_id)
+
+
+@router.post("/{po_id}/allocations", response_model=POShipmentAllocationResponse, status_code=status.HTTP_201_CREATED, summary="تسجيل شحن جزئي وتخصيص كمية لأمر الشراء")
+def allocate_po_shipment(po_id: int, data: POShipmentAllocationCreate, db: Session = Depends(get_db)):
+    service = PurchaseOrderService(db)
+    return service.allocate_shipment(po_id, data)
+
+
+@router.get("/{po_id}/balance", response_model=POBalanceSummaryResponse, summary="استخراج ميزان أمر الشراء ونسبة الإنجاز والرصيد المتبقي")
+def get_po_balance(po_id: int, db: Session = Depends(get_db)):
+    service = PurchaseOrderService(db)
+    return service.compute_po_balance(po_id)
+
 

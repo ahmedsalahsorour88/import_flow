@@ -205,3 +205,36 @@ class UnitOfMeasure(Base):
     )
 
 
+# ==================================================
+# LOG-PART-004: Partial Shipments & PO Allocations
+# ==================================================
+
+class POShipmentAllocation(Base):
+    __tablename__ = "po_shipment_allocations"
+
+    allocation_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    po_id = Column(Integer, ForeignKey("purchase_orders.po_id"), nullable=False, index=True)
+    po_item_id = Column(Integer, ForeignKey("po_line_items.item_id"), nullable=True, index=True)
+    import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True)
+
+    shipment_ref = Column(String(100), nullable=False)  # رقم البوليصة أو كود الشحنة (e.g. B/L # MEDU123456)
+    shipped_quantity = Column(Numeric(12, 2), nullable=False, default=0.0)
+    shipped_amount_fob = Column(Numeric(14, 2), nullable=False, default=0.0)
+    shipping_date = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    status = Column(String(50), default="In Transit", nullable=False)  # In Transit, Arrived, Customs Cleared, Received at Warehouse
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    purchase_order = relationship("PurchaseOrder", backref="shipment_allocations")
+    po_item = relationship("POLineItem", backref="shipment_allocations")
+    import_file = relationship("ImportFile", backref="po_allocations")
+
+
+

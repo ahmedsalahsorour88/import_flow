@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
+from fastapi import HTTPException, status
+
 
 from .model import CustomsClearanceRecord
 from .schemas import (
@@ -9,7 +10,10 @@ from .schemas import (
     CustomsClearanceUpdate,
     DutyPaymentSubmit,
     CompleteReleaseSubmit,
+    UnderBondReleaseSubmit,
+    LabTestResultSubmit,
 )
+
 from .repository import (
     generate_customs_clearance_code,
     get_customs_clearance_by_id,
@@ -137,6 +141,90 @@ def delete_customs_clearance_service(db: Session, record_id: int) -> bool:
     return soft_delete_customs_clearance(db, record_id)
 
 soft_delete_customs_clearance_service = delete_customs_clearance_service
+
+
+# =========================================================================
+# LOG-BOND-003: Under-Bond Clearance & Laboratory Quarantine Services
+# =========================================================================
+
+def issue_under_bond_release_service(db: Session, record_id: int, payload: UnderBondReleaseSubmit) -> CustomsClearanceRecord:
+    """
+    LOG-BOND-003: Conditional Under-Bond Release (السحب على عهدة تحت التحفظ الجمركي).
+    Allows moving cargo to factory warehouse to avoid high port demurrage/storage while lab testing is underway.
+    Strictly locks goods from being consumed, manufactured, or dispatched.
+    """
+    record = get_customs_clearance_service(db, record_id)
+    if not payload.bond_guarantee_ref or len(payload.bond_guarantee_ref.strip()) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="لا يمكن السحب على عهدة بدون إرفاق رقم التعهد أو خطاب الضمان البنكي/الجمركي المعتمد.",
+        )
+
+    record.is_under_bond_release = True
+    record.bond_guarantee_ref = payload.bond_guarantee_ref.strip()
+    record.quarantine_lock = True
+    record.dispatch_authorized = False
+    record.lab_test_result = "Pending"
+    record.status = "Under Bond Released"
+    record.release_date = payload.temporary_release_date
+    record.port_gate_out_date = payload.temporary_release_date
+    record.notes = (record.notes or "") + f" | تم السحب على عهدة بموجب تعهد #{record.bond_guarantee_ref} لمقر: {payload.customs_warehouse_location}"
+    record.updated_at = datetime.now(timezone.utc)
+
+    # Sync to ImportFile
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first()
+    if imp_file:
+        imp_file.current_module = "Phase 7 - Customs Clearance & Inspection"
+        imp_file.current_stage = "Under-Bond Quarantine (سحب على عهدة)"
+        imp_file.next_action = "Awaiting Laboratory Test Results (بانتظار نتيجة المعامل)"
+
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def record_lab_result_and_lift_quarantine_service(db: Session, record_id: int, payload: LabTestResultSubmit) -> CustomsClearanceRecord:
+    """
+    LOG-BOND-003: Record final laboratory test certificate and lift quarantine lock if conforming.
+    """
+    record = get_customs_clearance_service(db, record_id)
+    if not record.is_under_bond_release:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="هذه الشحنة ليست مقيدة في مسار السحب على عهدة أو التحفظ الجمركي.",
+        )
+
+    record.lab_test_result = payload.lab_test_result
+    record.lab_certificate_number = payload.lab_certificate_number
+
+    if payload.lab_test_result.lower() in ["conforming", "مطابق", "approved", "مقبول"]:
+        if payload.lift_quarantine_lock:
+            record.quarantine_lock = False
+            record.dispatch_authorized = True
+            record.quarantine_lifted_date = payload.test_completion_date or datetime.now(timezone.utc)
+            record.quarantine_lifted_by = "Customs Laboratory Authority"
+            record.status = "Final Release Granted"
+
+            imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first()
+            if imp_file:
+                imp_file.current_stage = "Lab Approved & Final Released"
+                imp_file.is_customs_released = True
+                imp_file.next_action = "Warehouse Inventory Ready for Dispatch"
+    else:
+        # Non-conforming
+        record.quarantine_lock = True
+        record.dispatch_authorized = False
+        record.status = "Lab Non-Conforming - Rejected"
+        imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first()
+        if imp_file:
+            imp_file.current_stage = "Lab Rejected (مرفوض معملياً)"
+            imp_file.next_action = "Re-export or Disposal (إعادة تصدير أو إعدام)"
+
+    record.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(record)
+    return record
+
 
 def restore_customs_clearance_service(db: Session, record_id: int) -> CustomsClearanceRecord:
     restored = restore_customs_clearance(db, record_id)

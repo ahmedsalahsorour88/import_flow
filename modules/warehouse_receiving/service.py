@@ -32,14 +32,33 @@ def create_warehouse_receiving_service(db: Session, schema: WarehouseReceivingCr
     code = generate_grn_code(db)
     record = create_warehouse_receiving(db, schema, code)
 
+    # LOG-BOND-003: Check if shipment is Under-Bond Released (Quarantine Lock Active)
+    from modules.customs_clearance.model import CustomsClearanceRecord
+    clearance = db.query(CustomsClearanceRecord).filter(
+        CustomsClearanceRecord.import_file_id == schema.import_file_id,
+        CustomsClearanceRecord.is_active == True,
+    ).order_by(CustomsClearanceRecord.customs_clearance_id.desc()).first()
+
+    if clearance and clearance.is_under_bond_release and clearance.quarantine_lock:
+        record.is_under_bond_quarantine = True
+        record.quarantine_lock_active = True
+        record.dispatch_blocked = True
+        record.status = "Under Bond Quarantine"
+        record.notes = (record.notes or "") + f" | بضاعة تحت التحفظ الجمركي (سحب على عهدة - تعهد #{clearance.bond_guarantee_ref}) - يحظر الصرف والتشغيل."
+
     # Auto update import file stage
     imp_file.current_module = "Phase 8 - Warehouse Receiving & Quality Control"
-    imp_file.current_stage = f"Goods Received at {schema.warehouse_name} (GRN: {code})"
+    if record.quarantine_lock_active:
+        imp_file.current_stage = f"Under-Bond Quarantine at {schema.warehouse_name} (GRN: {code})"
+        imp_file.next_action = "Awaiting Laboratory Test Approval before Production"
+    else:
+        imp_file.current_stage = f"Goods Received at {schema.warehouse_name} (GRN: {code})"
+        imp_file.next_action = "Landed Cost Settlement & Invoice Clearance"
     imp_file.progress_percent = 85.0
-    imp_file.next_action = "Landed Cost Settlement & Invoice Clearance"
     db.commit()
 
     return record
+
 
 def get_warehouse_receiving_service(db: Session, record_id: int) -> WarehouseReceivingRecord:
     record = get_warehouse_receiving_by_id(db, record_id)
@@ -86,3 +105,18 @@ def restore_warehouse_receiving_service(db: Session, record_id: int) -> Warehous
     if not record:
         raise HTTPException(status_code=404, detail=f"سجل استلام المخزن رقم {record_id} غير موجود.")
     return record
+
+
+def validate_warehouse_dispatch_authorization(db: Session, record_id: int) -> bool:
+    """
+    LOG-BOND-003: Strict Quarantine Dispatch Lock Validator.
+    Raises HTTP 400 if cargo is under laboratory quarantine lock.
+    """
+    record = get_warehouse_receiving_service(db, record_id)
+    if record.quarantine_lock_active or record.dispatch_blocked:
+        raise HTTPException(
+            status_code=400,
+            detail="ممنوع الصرف أو التداول أو التشغيل: هذه الرسالة محتجزة تحت التحفظ الجمركي المؤقت (سحب على عهدة) لحين ورود شهادة المطابقة المعملية وفك الحظر رسمياً.",
+        )
+    return True
+

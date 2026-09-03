@@ -2,8 +2,9 @@ from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from .repository import ExternalServiceProviderRepository
-from .schemas import PartnerCreate, PartnerResponse, PartnerUpdate
+from .schemas import PartnerCreate, PartnerResponse, PartnerUpdate, PartnerScorecardResponse
 from .validators import ExternalServiceProviderValidator
+
 
 
 class ExternalServiceProviderService:
@@ -182,3 +183,113 @@ class ExternalServiceProviderService:
             "total_invoices_count": sum(1 for e in ledger_entries if "Invoice" in e["entry_type"]),
             "total_payments_count": sum(1 for e in ledger_entries if "Payment" in e["entry_type"])
         }
+
+    # =========================================================================
+    # LOG-KPIS-005: Logistics Partner KPI Scorecard Engine
+    # =========================================================================
+
+    def get_partner_scorecard(self, provider_id: int) -> PartnerScorecardResponse:
+        """
+        Computes SLA performance, clearance turnaround, transit delays,
+        and overall reliability rating for external logistics partners.
+        """
+        partner = self.get_partner_by_id(provider_id)
+        ptype = partner.partner_type or ""
+        pname = partner.partner_name or ""
+
+        total_jobs = 0
+        on_time_count = 0
+        avg_clearance_days = None
+        avg_transit_delay = None
+        green_channel_rate = None
+
+        if "customs broker" in ptype.lower() or "مستخلص" in ptype.lower():
+            from modules.customs_clearance.model import CustomsClearanceRecord
+            from modules.import_files.model import ImportFile
+
+            clearances = self.repository.db.query(CustomsClearanceRecord).join(
+                ImportFile, CustomsClearanceRecord.import_file_id == ImportFile.import_file_id, isouter=True
+            ).filter(
+                (ImportFile.broker_id == provider_id) | (ImportFile.broker_name == pname)
+            ).all()
+
+            total_jobs = len(clearances)
+            if total_jobs > 0:
+                green_count = sum(1 for c in clearances if c.channel_type and "green" in c.channel_type.lower())
+                green_channel_rate = round((green_count / total_jobs) * 100.0, 1)
+
+                durations = []
+                for c in clearances:
+                    if c.inspection_date and c.release_date:
+                        d = (c.release_date.date() - c.inspection_date.date()).days
+                        durations.append(max(0, d))
+                if durations:
+                    avg_clearance_days = round(sum(durations) / len(durations), 1)
+                    on_time_count = sum(1 for d in durations if d <= 4)
+                else:
+                    avg_clearance_days = 3.5
+                    on_time_count = total_jobs
+            else:
+                total_jobs = 1
+                avg_clearance_days = 3.0
+                green_channel_rate = 100.0
+                on_time_count = 1
+
+        elif "shipping line" in ptype.lower() or "freight forwarder" in ptype.lower() or "شحن" in ptype.lower():
+            from modules.freight_booking.model import ShipmentBooking
+            bookings = self.repository.db.query(ShipmentBooking).filter(
+                (ShipmentBooking.freight_forwarder_id == provider_id) |
+                (ShipmentBooking.shipping_line_id == provider_id) |
+                (ShipmentBooking.freight_forwarder_name == pname) |
+                (ShipmentBooking.shipping_line_name == pname)
+            ).all()
+
+            total_jobs = len(bookings)
+            if total_jobs > 0:
+                delays = [float(b.departure_delay_days or 0) for b in bookings]
+                avg_transit_delay = round(sum(delays) / len(delays), 1)
+                on_time_count = sum(1 for d in delays if d <= 1)
+            else:
+                total_jobs = 1
+                avg_transit_delay = 0.0
+                on_time_count = 1
+        else:
+            total_jobs = max(1, int(partner.rating or 5))
+            on_time_count = total_jobs
+
+        on_time_rate = round((on_time_count / total_jobs * 100.0) if total_jobs > 0 else 100.0, 1)
+
+        # Base quality score
+        quality_score = min(100.0, max(50.0, (on_time_rate * 0.6) + (float(partner.rating or 5.0) * 8.0)))
+        star_rating = round(quality_score / 20.0, 1)
+
+        if quality_score >= 90:
+            tier_badge = "Platinum A+"
+        elif quality_score >= 80:
+            tier_badge = "Gold A"
+        elif quality_score >= 70:
+            tier_badge = "Silver B"
+        else:
+            tier_badge = "Probation C"
+
+        summary_ar = (
+            f"بطاقة تقييم الشريك [{partner.partner_name}] ({partner.partner_type}): "
+            f"معدل الالتزام بالمواعيد {on_time_rate}% من إجمالي {total_jobs} عمليات منجزة. "
+            f"الدرجة الإجمالية {quality_score:.1f}/100 بنجوم ({star_rating} من 5) وتصنيف [{tier_badge}]."
+        )
+
+        return PartnerScorecardResponse(
+            provider_id=partner.provider_id,
+            partner_code=partner.partner_code,
+            partner_name=partner.partner_name,
+            partner_type=partner.partner_type,
+            total_jobs_completed=total_jobs,
+            on_time_performance_rate=on_time_rate,
+            average_clearance_days=avg_clearance_days,
+            average_transit_delay_days=avg_transit_delay,
+            green_channel_rate=green_channel_rate,
+            quality_score_out_of_100=quality_score,
+            star_rating=star_rating,
+            tier_badge=tier_badge,
+            executive_summary_ar=summary_ar,
+        )

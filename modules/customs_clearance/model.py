@@ -75,8 +75,18 @@ class CustomsClearanceRecord(Base):
     dispatch_authorized = Column(Boolean, default=False)
     dispatch_date = Column(DateTime, nullable=True)
 
+    # LOG-BOND-003: Under-Bond Clearance & Laboratory Quarantine Lock
+    is_under_bond_release = Column(Boolean, default=False, nullable=False)
+    bond_guarantee_ref = Column(String(100), nullable=True)  # رقم التعهد / الضمان البنكي أو الجمركي
+    quarantine_lock = Column(Boolean, default=False, nullable=False)  # حظر الصرف والتشغيل بالمخزن
+    lab_test_result = Column(String(50), default="None", nullable=False)  # None, Pending, Conforming, Non-Conforming
+    lab_certificate_number = Column(String(100), nullable=True)
+    quarantine_lifted_date = Column(DateTime, nullable=True)
+    quarantine_lifted_by = Column(String(100), nullable=True)
+
     # Status & Audit
-    status = Column(String(50), default="Inspection In Progress", index=True) # Inspection In Progress, Duty Requested, Duty Paid, Final Release Granted
+    status = Column(String(50), default="Inspection In Progress", index=True) # Inspection In Progress, Duty Requested, Duty Paid, Final Release Granted, Under Bond Released
+
     owner = Column(String(100), default="Kamal", nullable=False)
     notes = Column(Text, nullable=True)
 

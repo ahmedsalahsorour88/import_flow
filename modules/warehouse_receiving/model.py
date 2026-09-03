@@ -53,7 +53,13 @@ class WarehouseReceivingRecord(Base):
     insurance_claim_filed = Column(Boolean, default=False)
     insurance_claim_ref = Column(String(100), nullable=True)
 
+    # LOG-BOND-003: Under-Bond Factory Storage & Dispatch Lock
+    is_under_bond_quarantine = Column(Boolean, default=False, nullable=False)
+    quarantine_lock_active = Column(Boolean, default=False, nullable=False)
+    dispatch_blocked = Column(Boolean, default=False, nullable=False)
+
     # Status & Audit
+
     status = Column(String(50), default="Goods Received", index=True) # Goods Received, GRN Audited, Discrepancy Reported, Closed
     inspector_name = Column(String(100), default="Kamal", nullable=False)
     notes = Column(Text, nullable=True)

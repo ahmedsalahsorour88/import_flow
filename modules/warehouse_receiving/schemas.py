@@ -65,6 +65,9 @@ class WarehouseReceivingResponse(BaseModel):
     quarantine_zone_assigned: bool
     insurance_claim_filed: bool
     insurance_claim_ref: Optional[str] = None
+    is_under_bond_quarantine: bool = False
+    quarantine_lock_active: bool = False
+    dispatch_blocked: bool = False
     status: str
     inspector_name: str
     notes: Optional[str] = None
@@ -75,3 +78,12 @@ class WarehouseReceivingResponse(BaseModel):
     updated_by: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class WarehouseDispatchValidationResponse(BaseModel):
+    receiving_id: int
+    grn_code: str
+    is_dispatch_allowed: bool
+    status: str
+    message: str
+

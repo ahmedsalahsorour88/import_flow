@@ -4,8 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/providers/navigation_provider.dart';
+import '../../core/providers/workspace_tabs_provider.dart';
 import '../../core/theme/app_theme.dart';
+import 'widgets/multi_tab_workspace_bar.dart';
 import '../audit_logs/screens/audit_logs_screen.dart';
+
 import '../auth/providers/auth_provider.dart';
 import '../cargo_shipping/screens/cargo_shipping_screen.dart';
 import '../cbm_calculator/screens/cbm_calculator_screen.dart';
@@ -196,6 +199,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final selectedIndex = ref.watch(navigationIndexProvider);
+    final tabsState = ref.watch(workspaceTabsProvider);
+    final activeTab = tabsState.activeTab;
+    final currentRouteIndex = activeTab?.routeIndex ?? (selectedIndex < _screens.length ? selectedIndex : 0);
     final authState = ref.watch(authProvider);
     final user = authState.user;
 
@@ -209,18 +215,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             width: _isSidebarCollapsed ? 52 : 235,
             color: AppTheme.charcoal,
             child: _isSidebarCollapsed
-                ? _buildCollapsedRail(selectedIndex, user)
-                : _buildFullSidebar(selectedIndex, user),
+                ? _buildCollapsedRail(currentRouteIndex, user)
+                : _buildFullSidebar(currentRouteIndex, user),
           ),
 
-          // Main Content View
+          // Main Content View with Multi-Tab Workspace Bar
           Expanded(
-            child: _screens[selectedIndex < _screens.length ? selectedIndex : 0],
+            child: Column(
+              children: [
+                const MultiTabWorkspaceBar(),
+                Expanded(
+                  child: _screens[currentRouteIndex < _screens.length ? currentRouteIndex : 0],
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
+
 
   // ─── Mini Icon Rail (52px width) ───────────────────────────────────────────
 

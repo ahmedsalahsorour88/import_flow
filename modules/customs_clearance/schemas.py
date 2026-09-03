@@ -47,6 +47,23 @@ class CompleteReleaseSubmit(BaseModel):
     dispatch_authorized: bool = True
     notes: Optional[str] = None
 
+# LOG-BOND-003: Under-Bond & Lab Quarantine Schemas
+class UnderBondReleaseSubmit(BaseModel):
+    bond_guarantee_ref: str = Field(..., min_length=3, description="رقم التعهد أو خطاب الضمان الجمركي")
+    temporary_release_date: datetime
+    customs_warehouse_location: str = "مستودع المصنع تحت التحفظ الجمركي"
+    inspection_notes: Optional[str] = None
+    regulatory_authority: str = "هيئة الرقابة على الصادرات والواردات (GOEIC)"
+
+class LabTestResultSubmit(BaseModel):
+    lab_test_result: str = Field(..., description="Conforming / Non-Conforming")
+    lab_certificate_number: str = Field(..., min_length=2, description="رقم شهادة المطابقة المعملية")
+    test_completion_date: datetime
+    lift_quarantine_lock: bool = True
+    laboratory_name: Optional[str] = "مصلحة الكيمياء / معامل هيئة الرقابة"
+    remarks: Optional[str] = None
+
+
 class CustomsClearanceUpdate(BaseModel):
     declaration_46_no: Optional[str] = None
     customs_office_name: Optional[str] = None
@@ -113,8 +130,16 @@ class CustomsClearanceResponse(BaseModel):
     demurrage_storage_fees: float
     dispatch_authorized: bool
     dispatch_date: Optional[datetime] = None
+    is_under_bond_release: bool = False
+    bond_guarantee_ref: Optional[str] = None
+    quarantine_lock: bool = False
+    lab_test_result: str = "None"
+    lab_certificate_number: Optional[str] = None
+    quarantine_lifted_date: Optional[datetime] = None
+    quarantine_lifted_by: Optional[str] = None
     status: str
     owner: str
+
     notes: Optional[str] = None
     is_active: bool
     created_at: datetime

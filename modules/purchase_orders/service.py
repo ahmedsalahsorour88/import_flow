@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from modules.purchase_orders.model import PurchaseOrder
+from modules.purchase_orders.model import PurchaseOrder, POShipmentAllocation, POLineItem
 from modules.purchase_orders.repository import PurchaseOrderRepository
 from modules.purchase_orders.schemas import (
     POLineItemResponse,
@@ -15,8 +15,13 @@ from modules.purchase_orders.schemas import (
     PurchaseOrderCreate,
     PurchaseOrderResponse,
     PurchaseOrderUpdate,
+    POShipmentAllocationCreate,
+    POShipmentAllocationResponse,
+    POLineItemBalanceItem,
+    POBalanceSummaryResponse,
 )
 from modules.purchase_orders.validators import PurchaseOrderValidator
+
 
 
 class PurchaseOrderService:
@@ -388,3 +393,179 @@ class PurchaseOrderService:
             )
         restored_po = self.repo.restore(po)
         return self._to_response(restored_po)
+
+    # =========================================================================
+    # LOG-PART-004: Partial Shipments & PO Balance Ledger Engine
+    # =========================================================================
+
+    def allocate_shipment(self, po_id: int, data: POShipmentAllocationCreate) -> POShipmentAllocationResponse:
+        """
+        Allocates a partial shipment quantity to an active Purchase Order.
+        Updates PO fulfillment status accordingly.
+        """
+        po = self.repo.get_by_id(po_id)
+        if not po:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Purchase Order with ID {po_id} not found.",
+            )
+
+        if data.po_item_id:
+            item = self.db.query(POLineItem).filter(
+                POLineItem.item_id == data.po_item_id,
+                POLineItem.po_id == po_id,
+            ).first()
+            if not item:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"البند رقم #{data.po_item_id} غير مرتبط بأمر الشراء #{po.po_number}.",
+                )
+
+        from datetime import datetime, timezone
+        allocation = POShipmentAllocation(
+            po_id=po_id,
+            po_item_id=data.po_item_id,
+            import_file_id=data.import_file_id,
+            shipment_ref=data.shipment_ref.strip(),
+            shipped_quantity=data.shipped_quantity,
+            shipped_amount_fob=data.shipped_amount_fob,
+            shipping_date=data.shipping_date or datetime.now(timezone.utc),
+            status=data.status,
+            notes=data.notes,
+        )
+        self.db.add(allocation)
+        self.db.commit()
+        self.db.refresh(allocation)
+
+        # Trigger auto status update
+        self._sync_po_fulfillment_status(po)
+
+        return POShipmentAllocationResponse.model_validate(allocation)
+
+    def _sync_po_fulfillment_status(self, po: PurchaseOrder):
+        """Updates PO status based on total shipped vs ordered quantities."""
+        total_ordered = sum(float(it.quantity or 0.0) for it in (po.line_items or []))
+        allocations = self.db.query(POShipmentAllocation).filter(
+            POShipmentAllocation.po_id == po.po_id
+        ).all()
+        total_shipped = sum(float(a.shipped_quantity or 0.0) for a in allocations)
+
+        if total_ordered > 0:
+            if total_shipped >= total_ordered:
+                po.status = "Fully Shipped"
+            elif total_shipped > 0:
+                po.status = "Partially Shipped"
+            self.db.commit()
+
+    def compute_po_balance(self, po_id: int) -> POBalanceSummaryResponse:
+        """
+        LOG-PART-004: Computes the comprehensive remaining balance of a PO
+        including ordered, shipped, and remaining quantities and amounts.
+        """
+        po = self.repo.get_by_id(po_id)
+        if not po:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Purchase Order with ID {po_id} not found.",
+            )
+
+        allocations = self.db.query(POShipmentAllocation).filter(
+            POShipmentAllocation.po_id == po_id
+        ).order_by(POShipmentAllocation.shipping_date.desc()).all()
+
+        line_items = po.line_items or []
+        items_balance: List[POLineItemBalanceItem] = []
+
+        total_ordered_qty = 0.0
+        total_shipped_qty = 0.0
+        total_ordered_fob = 0.0
+        total_shipped_fob = 0.0
+
+        for it in line_items:
+            ord_q = float(it.quantity or 0.0)
+            u_price = float(it.unit_price or 0.0)
+            ord_fob = float(it.total_price or (ord_q * u_price))
+
+            # Shipped qty for this item
+            item_allocs = [a for a in allocations if a.po_item_id == it.item_id]
+            shipped_q = sum(float(a.shipped_quantity or 0.0) for a in item_allocs)
+            shipped_fob = sum(float(a.shipped_amount_fob or 0.0) for a in item_allocs)
+
+            # If no item-level allocations, check if order has general allocations
+            if not item_allocs and allocations and len(line_items) == 1:
+                shipped_q = sum(float(a.shipped_quantity or 0.0) for a in allocations)
+                shipped_fob = sum(float(a.shipped_amount_fob or 0.0) for a in allocations)
+
+            rem_q = max(0.0, ord_q - shipped_q)
+            rem_fob = max(0.0, ord_fob - shipped_fob)
+            fulfillment = round((shipped_q / ord_q * 100.0) if ord_q > 0 else 0.0, 1)
+
+            items_balance.append(
+                POLineItemBalanceItem(
+                    item_id=it.item_id,
+                    item_code=it.item_code,
+                    description_ar=it.description_ar,
+                    ordered_qty=ord_q,
+                    shipped_qty=shipped_q,
+                    remaining_qty=rem_q,
+                    unit_price=u_price,
+                    ordered_amount_fob=ord_fob,
+                    shipped_amount_fob=shipped_fob,
+                    remaining_amount_fob=rem_fob,
+                    fulfillment_percent=fulfillment,
+                )
+            )
+
+            total_ordered_qty += ord_q
+            total_shipped_qty += shipped_q
+            total_ordered_fob += ord_fob
+            total_shipped_fob += shipped_fob
+
+        # If general allocations without items
+        if not line_items and allocations:
+            total_shipped_qty = sum(float(a.shipped_quantity or 0.0) for a in allocations)
+            total_shipped_fob = sum(float(a.shipped_amount_fob or 0.0) for a in allocations)
+
+        total_rem_qty = max(0.0, total_ordered_qty - total_shipped_qty)
+        total_rem_fob = max(0.0, total_ordered_fob - total_shipped_fob)
+
+        overall_percent = round(
+            (total_shipped_qty / total_ordered_qty * 100.0) if total_ordered_qty > 0 else 0.0, 1
+        )
+
+        if overall_percent == 0:
+            fulfillment_status = "Pending"
+        elif overall_percent < 100:
+            fulfillment_status = "Partially Shipped"
+        elif overall_percent == 100:
+            fulfillment_status = "Fully Shipped"
+        else:
+            fulfillment_status = "Over-Shipped"
+
+        curr_code = "USD"
+        if hasattr(po, "currency") and po.currency:
+            curr_code = getattr(po.currency, "currency_code", "USD")
+
+        summary_ar = (
+            f"ميزان أمر الشراء #{po.po_number}: تم شحن {total_shipped_qty:,.0f} من إجمالي {total_ordered_qty:,.0f} وحدة "
+            f"({overall_percent}% إنجاز توريد)، والمتبقي للتوريد {total_rem_qty:,.0f} وحدة "
+            f"بقيمة تعاقدية متبقية {total_rem_fob:,.2f} {curr_code} عبر {len(allocations)} شحنات مجزأة."
+        )
+
+        return POBalanceSummaryResponse(
+            po_id=po.po_id,
+            po_number=po.po_number,
+            total_ordered_qty=round(total_ordered_qty, 2),
+            total_shipped_qty=round(total_shipped_qty, 2),
+            total_remaining_qty=round(total_rem_qty, 2),
+            total_ordered_amount_fob=round(total_ordered_fob, 2),
+            total_shipped_amount_fob=round(total_shipped_fob, 2),
+            total_remaining_amount_fob=round(total_rem_fob, 2),
+            currency_code=curr_code,
+            overall_fulfillment_percent=overall_percent,
+            fulfillment_status=fulfillment_status,
+            line_items_balance=items_balance,
+            allocations=[POShipmentAllocationResponse.model_validate(a) for a in allocations],
+            executive_summary_ar=summary_ar,
+        )
+

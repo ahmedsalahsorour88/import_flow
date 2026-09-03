@@ -9,6 +9,8 @@ from .schemas import (
     CustomsClearanceResponse,
     DutyPaymentSubmit,
     CompleteReleaseSubmit,
+    UnderBondReleaseSubmit,
+    LabTestResultSubmit,
 )
 from .service import (
     create_customs_clearance_service,
@@ -16,6 +18,8 @@ from .service import (
     list_customs_clearances_service,
     submit_duty_payment_service,
     complete_customs_release_service,
+    issue_under_bond_release_service,
+    record_lab_result_and_lift_quarantine_service,
     update_customs_clearance_service,
     soft_delete_customs_clearance_service,
     restore_customs_clearance_service,
@@ -70,6 +74,23 @@ def complete_customs_release(
     db: Session = Depends(get_db),
 ):
     return complete_customs_release_service(db, record_id, payload)
+
+@router.post("/{record_id}/under-bond-release", response_model=CustomsClearanceResponse, summary="إصدار إفراج مشروط تحت التحفظ الجمركي والسحب على عهدة")
+def issue_under_bond_release(
+    record_id: int,
+    payload: UnderBondReleaseSubmit,
+    db: Session = Depends(get_db),
+):
+    return issue_under_bond_release_service(db, record_id, payload)
+
+@router.post("/{record_id}/lab-test-result", response_model=CustomsClearanceResponse, summary="تسجيل نتيجة الفحص المعملي وفك التحفظ الجمركي")
+def record_lab_test_result(
+    record_id: int,
+    payload: LabTestResultSubmit,
+    db: Session = Depends(get_db),
+):
+    return record_lab_result_and_lift_quarantine_service(db, record_id, payload)
+
 
 @router.delete("/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
 def soft_delete_customs_clearance(

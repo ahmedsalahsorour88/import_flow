@@ -1,6 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'workspace_tabs_provider.dart';
 import '../../features/audit_logs/providers/audit_logs_provider.dart';
+
 import '../../features/cargo_insurance/providers/cargo_insurance_provider.dart';
 import '../../features/cargo_shipping/providers/cargo_shipping_provider.dart';
 import '../../features/cbm_calculator/providers/cbm_calculator_provider.dart';
@@ -97,15 +100,77 @@ const int _totalScreens = 70; // matches home_screen._screens list (indices 0–
 
 final navigationIndexProvider = StateProvider<int>((ref) => 0);
 
-void selectNavigationIndex(WidgetRef ref, int index) {
+class _ScreenTabInfo {
+  final String title;
+  final IconData icon;
+  const _ScreenTabInfo(this.title, this.icon);
+}
+
+_ScreenTabInfo _getScreenTabInfo(int index) {
+  switch (index) {
+    case 0: return const _ScreenTabInfo('لوحة التحكم', Icons.dashboard_customize_outlined);
+    case 1: return const _ScreenTabInfo('ملفات الشحنات', Icons.folder_special_outlined);
+    case 2: return const _ScreenTabInfo('أوامر الشراء', Icons.shopping_cart_outlined);
+    case 3: return const _ScreenTabInfo('حاسبة الحجم CBM', Icons.calculate_outlined);
+    case 4:
+    case 5: return const _ScreenTabInfo('دراسات الشحن', Icons.compare_arrows_outlined);
+    case 6:
+    case 7: return const _ScreenTabInfo('استشارات التعريفة', Icons.gavel_outlined);
+    case 8:
+    case 9:
+    case 10: return const _ScreenTabInfo('الموافقات المالية', Icons.monetization_on_outlined);
+    case 11:
+    case 12:
+    case 13:
+    case 14:
+    case 15: return const _ScreenTabInfo('منظومة نافذة ACID', Icons.cloud_done_outlined);
+    case 16:
+    case 17: return const _ScreenTabInfo('نموذج 4 البنكي', Icons.account_balance_outlined);
+    case 18:
+    case 19:
+    case 20:
+    case 21:
+    case 22: return const _ScreenTabInfo('مسودات المستندات', Icons.description_outlined);
+    case 23:
+    case 24: return const _ScreenTabInfo('شهادة الإجراء 46', Icons.verified_outlined);
+    case 25: return const _ScreenTabInfo('حجز الشحن الملاحي', Icons.directions_boat_outlined);
+    case 26: return const _ScreenTabInfo('تخصيص الشحن', Icons.local_shipping_outlined);
+    case 27: return const _ScreenTabInfo('التخليص الجمركي', Icons.security_outlined);
+    case 28: return const _ScreenTabInfo('استلام المخازن', Icons.warehouse_outlined);
+    case 29: return const _ScreenTabInfo('التسوية المالية', Icons.receipt_long_outlined);
+    case 30: return const _ScreenTabInfo('إغلاق الملف الاستيرادي', Icons.task_alt_outlined);
+    case 31: return const _ScreenTabInfo('المشاريع', Icons.business_outlined);
+    case 32: return const _ScreenTabInfo('الشركات المستوردة', Icons.domain_outlined);
+    case 33: return const _ScreenTabInfo('الموردون الأجانب', Icons.apartment_outlined);
+    case 34: return const _ScreenTabInfo('الشركاء والبنوك', Icons.handshake_outlined);
+    case 40: return const _ScreenTabInfo('المهام الذكية', Icons.checklist_outlined);
+    case 41: return const _ScreenTabInfo('منشئ التقارير', Icons.bar_chart_outlined);
+    case 44: return const _ScreenTabInfo('رادار الغرامات والأرضيات', Icons.timer_outlined);
+    case 48: return const _ScreenTabInfo('مخطط دورة الحياة', Icons.view_kanban_outlined);
+    case 49: return const _ScreenTabInfo('مقارنة عروض النولون', Icons.request_quote_outlined);
+    default: return _ScreenTabInfo('شاشة $index', Icons.tab_outlined);
+  }
+}
+
+void selectNavigationIndex(WidgetRef ref, int index, {String? tabTitle, IconData? tabIcon}) {
   if (index < 0 || index >= _totalScreens) return;
 
   // 1. Update navigation state
   ref.read(navigationIndexProvider.notifier).state = index;
 
-  // 2. Live-refresh the target screen's data from the server
+  // 2. Open / switch workspace tab
+  final tabInfo = _getScreenTabInfo(index);
+  ref.read(workspaceTabsProvider.notifier).openTab(
+    id: 'tab_$index',
+    title: tabTitle ?? tabInfo.title,
+    icon: tabIcon ?? tabInfo.icon,
+    routeIndex: index,
+  );
+
+  // 3. Live-refresh the target screen's data from the server
   _liveRefreshScreenData(ref, index);
 }
+
 
 void _liveRefreshScreenData(WidgetRef ref, int index) {
   switch (index) {

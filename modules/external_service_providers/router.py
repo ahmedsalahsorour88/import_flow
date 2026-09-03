@@ -2,8 +2,11 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from database.database import get_db
-from .schemas import PartnerCreate, PartnerResponse, PartnerUpdate, PartnerStatementOfAccountResponse
+from .schemas import PartnerCreate, PartnerResponse, PartnerUpdate, PartnerStatementOfAccountResponse, PartnerScorecardResponse
 from .service import ExternalServiceProviderService
+
+
+
 
 router = APIRouter(
     prefix="/api/v1/external-service-providers",
@@ -188,6 +191,16 @@ def get_partner_statement_of_account(
 ):
     service = ExternalServiceProviderService(db)
     return service.get_partner_statement_of_account(provider_id)
+
+
+@router.get("/{provider_id}/scorecard", response_model=PartnerScorecardResponse, summary="استخراج بطاقة أداء وتقييم الشريك اللوجستي ومعدل الالتزام")
+def get_partner_scorecard(
+    provider_id: int,
+    db: Session = Depends(get_db)
+):
+    service = ExternalServiceProviderService(db)
+    return service.get_partner_scorecard(provider_id)
+
 
 
 @router.put("/{provider_id}", response_model=PartnerResponse)

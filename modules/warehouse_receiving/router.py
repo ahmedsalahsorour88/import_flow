@@ -8,6 +8,7 @@ from .schemas import (
     WarehouseReceivingUpdate,
     WarehouseReceivingResponse,
     DiscrepancyReportSubmit,
+    WarehouseDispatchValidationResponse,
 )
 from .service import (
     create_warehouse_receiving_service,
@@ -17,7 +18,9 @@ from .service import (
     update_warehouse_receiving_service,
     soft_delete_warehouse_receiving_service,
     restore_warehouse_receiving_service,
+    validate_warehouse_dispatch_authorization,
 )
+
 
 router = APIRouter(prefix="/api/v1/warehouse-receiving", tags=["Phase 8 - Warehouse Receiving"])
 
@@ -60,6 +63,22 @@ def report_receiving_discrepancy(
     db: Session = Depends(get_db),
 ):
     return report_receiving_discrepancy_service(db, record_id, payload)
+
+@router.post("/{record_id}/validate-dispatch", response_model=WarehouseDispatchValidationResponse, summary="التحقق من تصريح صرف البضاعة من المخزن وخلوها من قفل التحفظ الجمركي")
+def validate_dispatch(
+    record_id: int,
+    db: Session = Depends(get_db),
+):
+    validate_warehouse_dispatch_authorization(db, record_id)
+    record = get_warehouse_receiving_service(db, record_id)
+    return WarehouseDispatchValidationResponse(
+        receiving_id=record.receiving_id,
+        grn_code=record.grn_code,
+        is_dispatch_allowed=True,
+        status=record.status,
+        message="البضاعة مطابقة ومصرح بصرفها وتداولها واستخدامها في خطوط الإنتاج.",
+    )
+
 
 @router.delete("/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
 def soft_delete_warehouse_receiving(

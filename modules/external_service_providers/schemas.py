@@ -109,3 +109,25 @@ class PartnerStatementOfAccountResponse(BaseModel):
     ledger_entries: list[PartnerLedgerEntry] = []
     total_invoices_count: int = 0
     total_payments_count: int = 0
+
+
+# ==================================================
+# LOG-KPIS-005: Partner KPI Scorecard Response
+# ==================================================
+
+class PartnerScorecardResponse(BaseModel):
+    provider_id: int
+    partner_code: str
+    partner_name: str
+    partner_type: str
+    total_jobs_completed: int
+    on_time_performance_rate: float  # نسبة الالتزام بالمواعيد %
+    average_clearance_days: Optional[float] = None
+    average_transit_delay_days: Optional[float] = None
+    green_channel_rate: Optional[float] = None
+    quality_score_out_of_100: float
+    star_rating: float  # 1.0 to 5.0
+    tier_badge: str  # "Platinum A+", "Gold A", "Silver B", "Probation C"
+    executive_summary_ar: str
+
+    model_config = ConfigDict(from_attributes=True)

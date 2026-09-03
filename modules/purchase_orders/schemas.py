@@ -206,3 +206,67 @@ class PurchaseOrderResponse(PurchaseOrderBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+# =========================================================================
+# LOG-PART-004: PO Balance & Partial Shipment Schemas
+# =========================================================================
+
+class POShipmentAllocationCreate(BaseModel):
+    po_item_id: Optional[int] = None
+    import_file_id: Optional[int] = None
+    shipment_ref: str = Field(..., min_length=2, description="رقم البوليصة أو كود الشحنة")
+    shipped_quantity: float = Field(..., gt=0)
+    shipped_amount_fob: float = Field(..., ge=0)
+    shipping_date: Optional[datetime] = None
+    status: str = "In Transit"
+    notes: Optional[str] = None
+
+
+class POShipmentAllocationResponse(BaseModel):
+    allocation_id: int
+    po_id: int
+    po_item_id: Optional[int] = None
+    import_file_id: Optional[int] = None
+    shipment_ref: str
+    shipped_quantity: float
+    shipped_amount_fob: float
+    shipping_date: datetime
+    status: str
+    notes: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class POLineItemBalanceItem(BaseModel):
+    item_id: int
+    item_code: Optional[str] = None
+    description_ar: str
+    ordered_qty: float
+    shipped_qty: float
+    remaining_qty: float
+    unit_price: float
+    ordered_amount_fob: float
+    shipped_amount_fob: float
+    remaining_amount_fob: float
+    fulfillment_percent: float
+
+
+class POBalanceSummaryResponse(BaseModel):
+    po_id: int
+    po_number: str
+    total_ordered_qty: float
+    total_shipped_qty: float
+    total_remaining_qty: float
+    total_ordered_amount_fob: float
+    total_shipped_amount_fob: float
+    total_remaining_amount_fob: float
+    currency_code: str
+    overall_fulfillment_percent: float
+    fulfillment_status: str  # Pending, Partially Shipped, Fully Shipped, Over-Shipped
+    line_items_balance: List[POLineItemBalanceItem]
+    allocations: List[POShipmentAllocationResponse]
+    executive_summary_ar: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+

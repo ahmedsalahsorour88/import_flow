@@ -84,22 +84,45 @@ class SupplierDetailsDialog extends StatelessWidget {
                                 color: Colors.white24,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text(
+                              child: SelectableText(
                                 supplier.supplierCode,
                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                               ),
                             ),
                             const SizedBox(width: 8),
                             Flexible(
-                              child: Text(
+                              child: SelectableText(
                                 supplier.companyName,
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Tooltip(
+                              message: 'نسخ اسم المورد',
+                              child: InkWell(
+                                onTap: () {
+                                  Clipboard.setData(ClipboardData(text: supplier.companyName));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(l10n.copiedToClipboard(supplier.companyName)),
+                                      duration: const Duration(seconds: 1),
+                                      backgroundColor: AppTheme.emerald,
+                                    ),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(4),
+                                child: Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(Icons.copy_rounded, size: 15, color: Colors.white),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -125,7 +148,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text(
+                        SelectableText(
                           l10n.supplierProfileSubtitle,
                           style: TextStyle(color: Colors.grey.shade300, fontSize: 12),
                         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
@@ -290,13 +291,36 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          company.importerName,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
-                            decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                        Flexible(
+                          child: SelectableText(
+                            company.importerName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
+                              decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Tooltip(
+                          message: 'نسخ اسم الشركة',
+                          child: InkWell(
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: company.importerName));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(l10n.copiedToClipboard(company.importerName)),
+                                  duration: const Duration(seconds: 1),
+                                  backgroundColor: AppTheme.emerald,
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(4),
+                            child: const Padding(
+                              padding: EdgeInsets.all(2.0),
+                              child: Icon(Icons.copy_rounded, size: 14, color: Colors.grey),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -319,7 +343,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    SelectableText(
                       l10n.importerRowMeta(company.importerId, company.vatId, company.registrationNumber),
                       style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),

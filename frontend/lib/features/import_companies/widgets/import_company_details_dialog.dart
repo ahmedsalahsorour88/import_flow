@@ -79,15 +79,38 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                         Row(
                           children: [
                             Flexible(
-                              child: Text(
+                              child: SelectableText(
                                 company.importerName,
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Tooltip(
+                              message: 'نسخ اسم الشركة',
+                              child: InkWell(
+                                onTap: () {
+                                  Clipboard.setData(ClipboardData(text: company.importerName));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(l10n.copiedToClipboard(company.importerName)),
+                                      duration: const Duration(seconds: 1),
+                                      backgroundColor: AppTheme.emerald,
+                                    ),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(4),
+                                child: Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(Icons.copy_rounded, size: 15, color: Colors.white),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -113,7 +136,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text(
+                        SelectableText(
                           l10n.importerProfileSubtitle,
                           style: TextStyle(color: Colors.grey.shade300, fontSize: 12),
                         ),
@@ -222,9 +245,29 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: const Color(0xFFFDE68A)),
                         ),
-                        child: Text(
-                          company.notes!,
-                          style: const TextStyle(fontSize: 13, color: Color(0xFF92400E)),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: SelectableText(
+                                company.notes!,
+                                style: const TextStyle(fontSize: 13, color: Color(0xFF92400E)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Tooltip(
+                              message: 'نسخ الملاحظات',
+                              child: InkWell(
+                                onTap: () {
+                                  Clipboard.setData(ClipboardData(text: company.notes!));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(l10n.copiedToClipboard(company.notes!)), duration: const Duration(seconds: 1)),
+                                  );
+                                },
+                                child: const Icon(Icons.copy_rounded, size: 14, color: Color(0xFF92400E)),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -233,7 +276,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
               ),
             ),
 
-            // ── Action Toolbar (طباعة - حفظ PDF - تنزيل إكسل - واتس - إيميل) ────
+            // ── Action Toolbar (طباعة - حفظ PDF - تنزيل إكسل - واتس - إيميل - نسخ كامل) ────
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: BoxDecoration(
@@ -247,12 +290,34 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  // Left Buttons: Print, PDF, Excel
+                  // Left Buttons: Print, PDF, Excel, Copy All, WhatsApp
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      // 1. Print / Save PDF
+                      // 1. Copy All Info
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueGrey.shade800,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.copy_all_rounded, size: 16),
+                        label: const Text('نسخ البيانات كاملة', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          final fullText = MasterDataExportService.generateImporterWhatsAppText(company);
+                          Clipboard.setData(ClipboardData(text: fullText));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('تم نسخ بيانات الشركة المستوردة كاملة إلى الحافظة بنجاح'),
+                              backgroundColor: AppTheme.emerald,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+
+                      // 2. Print / Save PDF
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.charcoal,
@@ -266,7 +331,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                         },
                       ),
 
-                      // 2. Export Excel
+                      // 3. Export Excel
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1E7E34),
@@ -288,7 +353,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                         },
                       ),
 
-                      // 3. WhatsApp Share
+                      // 4. WhatsApp Share
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF25D366),
@@ -300,7 +365,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                         onPressed: () => _showWhatsAppPreviewModal(context),
                       ),
 
-                      // 4. Email Share
+                      // 5. Email Share
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.cobalt,
@@ -353,7 +418,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: AppTheme.cobalt),
         const SizedBox(width: 8),
-        Text(
+        SelectableText(
           title,
           style: const TextStyle(
             fontSize: 14,
@@ -401,7 +466,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              SelectableText(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
               const SizedBox(height: 2),
               Row(
                 children: [
@@ -410,14 +475,17 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                   ),
                   const SizedBox(width: 6),
-                  InkWell(
-                    onTap: () {
-                      Clipboard.setData(ClipboardData(text: value));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(l10n.copiedToClipboard(value)), duration: const Duration(seconds: 1)),
-                      );
-                    },
-                    child: const Icon(Icons.copy, size: 14, color: Colors.grey),
+                  Tooltip(
+                    message: 'نسخ $label',
+                    child: InkWell(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: value));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(l10n.copiedToClipboard(value)), duration: const Duration(seconds: 1)),
+                        );
+                      },
+                      child: const Icon(Icons.copy, size: 14, color: Colors.grey),
+                    ),
                   ),
                 ],
               ),
@@ -427,7 +495,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(l10n.expiryDateLabel(expiryDate.toIso8601String().split('T')[0]), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            SelectableText(l10n.expiryDateLabel(expiryDate.toIso8601String().split('T')[0]), style: const TextStyle(fontSize: 11, color: Colors.grey)),
             const SizedBox(height: 2),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -435,7 +503,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                 color: badgeBg,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(
+              child: SelectableText(
                 statusText,
                 style: TextStyle(color: badgeColor, fontSize: 11, fontWeight: FontWeight.bold),
               ),
@@ -456,7 +524,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              SelectableText(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
               const SizedBox(height: 1),
               Row(
                 children: [
@@ -467,14 +535,17 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                     ),
                   ),
                   if (value != '-')
-                    InkWell(
-                      onTap: () {
-                        Clipboard.setData(ClipboardData(text: value));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(l10n.copiedToClipboard(value)), duration: const Duration(seconds: 1)),
-                        );
-                      },
-                      child: const Icon(Icons.copy, size: 13, color: Colors.grey),
+                    Tooltip(
+                      message: 'نسخ $label',
+                      child: InkWell(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: value));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(l10n.copiedToClipboard(value)), duration: const Duration(seconds: 1)),
+                          );
+                        },
+                        child: const Icon(Icons.copy, size: 13, color: Colors.grey),
+                      ),
                     ),
                 ],
               ),

@@ -28,3 +28,82 @@ class CargoXTransferLiveRequest(BaseModel):
 class PKISignPayloadRequest(BaseModel):
     payload_data: dict
     mode: Optional[str] = Field("MOCK")
+
+
+# =========================================================================
+# INT-NAFEZA-008: Nafeza Tariff & Customs Exchange Rate Schemas
+# =========================================================================
+
+class NafezaTariffParseRequest(BaseModel):
+    raw_text: str = Field(..., min_length=10, description="نص البند المنسوخ من موقع نافذة")
+    mode: Optional[str] = Field("MOCK", description="MOCK, STAGING, or PRODUCTION")
+
+
+class NafezaTariffSyncResponse(BaseModel):
+    hs_code: str
+    hs_description: str
+    customs_duty_rate: float
+    vat_rate: float
+    schedule_tax_rate: float
+    development_fee_rate: float
+    import_fee_rate: float
+    requires_inspection: bool
+    regulatory_authority: Optional[str] = None
+    agreements_count: int
+    agreements_summary: List[dict] = []
+    message: str
+
+
+class CustomsExchangeRateItem(BaseModel):
+    currency_code: str
+    currency_name: str
+    exchange_rate: float
+    previous_rate: Optional[float] = None
+    effective_date: str
+    source: str = "Egyptian Customs Authority (مصلحة الجمارك المصرية)"
+
+
+class CustomsExchangeRateSyncResponse(BaseModel):
+    status: str
+    synced_count: int
+    rates: List[CustomsExchangeRateItem]
+    announcement_date: str
+    message: str
+
+
+# =========================================================================
+# INT-GOEIC-009: GOEIC Quality Inspection & Decree 43 Schemas
+# =========================================================================
+
+class GOEICComplianceCheckRequest(BaseModel):
+    supplier_id: int
+    hs_code: str
+    country_of_origin: Optional[str] = None
+    has_coi_certificate: bool = False
+    coi_agency: Optional[str] = None
+    coi_number: Optional[str] = None
+
+
+class GOEICComplianceCheckResponse(BaseModel):
+    supplier_id: int
+    supplier_name: str
+    hs_code: str
+    is_decree_43_mandated: bool
+    is_factory_registered: bool
+    factory_registration_number: Optional[str] = None
+    decree_43_status: str  # Registered, Not Registered, Pending Verification
+    requires_preshipment_inspection: bool
+    coi_valid: bool
+    overall_compliance_verdict: str  # CLEARED_FOR_IMPORT, BLOCKED_DECREE_43_VIOLATION, PENDING_COI_CERTIFICATE
+    warning_message_ar: Optional[str] = None
+    recommended_action_ar: str
+
+
+class AccreditedInspectionBody(BaseModel):
+    body_id: str
+    name_en: str
+    name_ar: str
+    country_headquarters: str
+    accreditation_scope: str
+    is_active: bool = True
+

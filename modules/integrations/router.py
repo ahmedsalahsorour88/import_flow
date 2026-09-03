@@ -1,10 +1,27 @@
+from typing import List, Optional
 from fastapi import APIRouter, Depends, status
-from .schemas import ACIDLiveRequest, CargoXEnvelopeLiveRequest, CargoXTransferLiveRequest, PKISignPayloadRequest
+from sqlalchemy.orm import Session
+
+from database.database import get_db
+from .schemas import (
+    ACIDLiveRequest,
+    CargoXEnvelopeLiveRequest,
+    CargoXTransferLiveRequest,
+    PKISignPayloadRequest,
+    NafezaTariffParseRequest,
+    NafezaTariffSyncResponse,
+    CustomsExchangeRateItem,
+    CustomsExchangeRateSyncResponse,
+    GOEICComplianceCheckRequest,
+    GOEICComplianceCheckResponse,
+    AccreditedInspectionBody,
+)
 from .nafeza_client import NafezaIntegrationClient
 from .cargox_client import CargoXIntegrationClient
 from .pki_signer import PKISignerService
+from .goeic_client import GOEICIntegrationClient
 
-router = APIRouter(prefix="/api/v1/integrations", tags=["Nafeza & CargoX Integration & PKI E-Signature Engine"])
+router = APIRouter(prefix="/api/v1/integrations", tags=["Nafeza, CargoX, GOEIC & Customs Integrations"])
 
 
 @router.post("/nafeza/request-acid")
@@ -43,3 +60,86 @@ def transfer_cargox_envelope(request: CargoXTransferLiveRequest):
 def sign_payload_with_pki(request: PKISignPayloadRequest):
     signer = PKISignerService(mode=request.mode)
     return signer.sign_payload(request.payload_data)
+
+
+# =========================================================================
+# INT-NAFEZA-008: Nafeza Tariff & Exchange Rate Endpoints
+# =========================================================================
+
+@router.post("/nafeza/tariffs/parse-and-sync", response_model=NafezaTariffSyncResponse)
+def parse_and_sync_nafeza_tariff(
+    request: NafezaTariffParseRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    محلل ومزامن بنود التعريفة الجمركية من موقع نافذة (Smart Nafeza Tariff Sync).
+    يستقبل النص المنسوخ من موقع نافذة ويستخرج البند، الوصف، الضرائب والرسوم،
+    والاتفاقيات التفضيلية والتخفيضات ويقوم بحفظها وتحديثها في قاعدة البيانات.
+    """
+    client = NafezaIntegrationClient(mode=request.mode)
+    return client.parse_and_sync_tariff(db, request.raw_text)
+
+
+@router.get("/nafeza/tariffs/{hs_code}", response_model=NafezaTariffSyncResponse)
+def get_nafeza_tariff_details(
+    hs_code: str,
+    db: Session = Depends(get_db),
+):
+    """
+    استرجاع بيانات بند التعريفة الجمركية والاتفاقيات التفضيلية من منظومة نافذة/النظام.
+    """
+    client = NafezaIntegrationClient()
+    return client.lookup_tariff_by_hs_code(db, hs_code)
+
+
+@router.post("/nafeza/exchange-rates/sync", response_model=CustomsExchangeRateSyncResponse)
+def sync_customs_exchange_rates(
+    rates_override: Optional[dict] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    مزامنة أسعار الصرف الجمركية الرسمية (سعر الصرف الجمركي) الصادرة عن مصلحة الجمارك المصرية.
+    تحديث جدول العملات وأسعار الصرف الفعّالة للنظام.
+    """
+    client = NafezaIntegrationClient()
+    return client.sync_official_customs_exchange_rates(db, rates_override=rates_override)
+
+
+@router.get("/nafeza/exchange-rates/latest", response_model=List[CustomsExchangeRateItem])
+def get_latest_customs_exchange_rates(
+    db: Session = Depends(get_db),
+):
+    """
+    استعراض أحدث أسعار صرف العملات الجمركية الرسمية المعتمدة في النظام.
+    """
+    client = NafezaIntegrationClient()
+    return client.get_latest_customs_exchange_rates(db)
+
+
+# =========================================================================
+# INT-GOEIC-009: GOEIC Quality Inspection & Factory Registration Endpoints
+# =========================================================================
+
+@router.post("/goeic/verify-compliance", response_model=GOEICComplianceCheckResponse)
+def verify_goeic_compliance(
+    request: GOEICComplianceCheckRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    بوابة التحقق الاستباقي لهيئة الرقابة على الصادرات والواردات (GOEIC Compliance Hub).
+    يتحقق من:
+    1. خضوع الصنف للقرار 43 لسنة 2016 وتسجيل المصنع في القائمة البيضاء.
+    2. اشتراطات الفحص المسبق قبل الشحن واعتماد شهادة المطابقة (COI).
+    """
+    client = GOEICIntegrationClient()
+    return client.check_compliance(db, request)
+
+
+@router.get("/goeic/accredited-inspection-bodies", response_model=List[AccreditedInspectionBody])
+def get_goeic_accredited_inspection_bodies():
+    """
+    قائمة شركات التفتيش والفحص الدولية المعتمدة رسمياً لدى الهيئة العامة للرقابة على الصادرات والواردات.
+    """
+    client = GOEICIntegrationClient()
+    return client.get_accredited_inspection_bodies()
+

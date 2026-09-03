@@ -13,6 +13,10 @@ from .schemas import (
     DemurrageSimulationResponse,
     PushToSettlementRequest,
     TierRateItem,
+    CarrierDemurrageClock,
+    PortStorageClock,
+    DualClockResponse,
+    ContainerIndividualUpdate,
 )
 from .validators import validate_tier_rates, validate_demurrage_dates, validate_positive_amount
 from . import repository
@@ -524,3 +528,229 @@ def push_demurrage_to_financial_settlement_service(
         "settlement_code": settlement.settlement_code,
         "invoice_entry": invoice_entry,
     }
+
+
+# =========================================================================
+# LOG-DUAL-001: Dual Clock Radar Service
+# =========================================================================
+
+def get_dual_clock_status_service(db: Session, tracking_id: int) -> DualClockResponse:
+    tracking = get_demurrage_tracking_by_id_service(db, tracking_id)
+    policy = tracking.policy
+    
+    # 1. Carrier Demurrage Clock (USD)
+    carrier_free = policy.demurrage_free_days if policy else 14
+    demurrage_expiry = tracking.discharge_date + timedelta(days=carrier_free)
+    
+    today = date.today()
+    ref_date = tracking.gate_out_date or today
+    carrier_days_consumed = max(0, (ref_date - tracking.discharge_date).days)
+    carrier_days_remaining = max(0, carrier_free - carrier_days_consumed)
+    
+    if tracking.gate_out_date:
+        carrier_status = "GATED_OUT_SAFE" if carrier_days_consumed <= carrier_free else "OVERDUE_DEMURRAGE"
+    elif carrier_days_remaining == 0:
+        carrier_status = "OVERDUE_DEMURRAGE"
+    elif carrier_days_remaining <= 3:
+        carrier_status = "WARNING_LAST_3_DAYS"
+    else:
+        carrier_status = "SAFE"
+
+    carrier_clock = CarrierDemurrageClock(
+        carrier_name=tracking.carrier_name,
+        free_days_allowed=carrier_free,
+        days_consumed=carrier_days_consumed,
+        days_remaining=carrier_days_remaining,
+        expiry_date=demurrage_expiry,
+        accrued_demurrage_fx=tracking.total_demurrage_fx,
+        currency=tracking.currency or "USD",
+        status=carrier_status,
+    )
+
+    # 2. Port Storage Clock (EGP)
+    storage_free = policy.port_storage_free_days if policy else 5
+    storage_rate = policy.port_storage_daily_rate_egp if policy else 250.0
+    storage_days_consumed = max(0, (ref_date - tracking.discharge_date).days)
+    storage_days_remaining = max(0, storage_free - storage_days_consumed)
+    hours_until_penalties = max(0, storage_days_remaining * 24)
+    
+    # Critical 72h alert if consumed >= 3 days or remaining <= 2 days while container still in port
+    is_critical_72h = (not tracking.gate_out_date) and (storage_days_consumed >= 3 or storage_days_remaining <= 2)
+
+    if tracking.gate_out_date:
+        storage_status = "CLEARED_SAFE" if storage_days_consumed <= storage_free else "OVERDUE_STORAGE"
+    elif storage_days_remaining == 0:
+        storage_status = "OVERDUE_STORAGE"
+    elif is_critical_72h:
+        storage_status = "CRITICAL_72H_ALERT"
+    else:
+        storage_status = "SAFE"
+
+    port_clock = PortStorageClock(
+        port_name=tracking.port_name or "Egyptian Port",
+        storage_free_days=storage_free,
+        days_consumed=storage_days_consumed,
+        days_remaining=storage_days_remaining,
+        hours_until_penalties=hours_until_penalties,
+        daily_rate_egp=storage_rate,
+        accrued_storage_egp=tracking.total_storage_egp,
+        is_critical_72h_warning=is_critical_72h,
+        status=storage_status,
+    )
+
+    # Overall Alert
+    if storage_status == "OVERDUE_STORAGE" or carrier_status == "OVERDUE_DEMURRAGE":
+        overall_alert = "ACTION_REQUIRED"
+        summary_ar = f"تنبيه: تراكم غرامات تأخير بقيمة {tracking.total_cost_egp:,.2f} جنيه على البوليصة {tracking.bill_of_lading_no}."
+    elif is_critical_72h:
+        overall_alert = "URGENT_STORAGE_72H"
+        summary_ar = f"تحذير عاجل (72 ساعة): متبقي {storage_days_remaining} أيام فقط قبل سريان غرامات أرضيات الميناء بالجنيه المصري."
+    else:
+        overall_alert = "NORMAL"
+        summary_ar = f"فترات السماح سارية: متبقي {carrier_days_remaining} يوماً للخط الملاحي و {storage_days_remaining} أيام لأرضيات الميناء."
+
+    return DualClockResponse(
+        tracking_id=tracking.tracking_id,
+        tracking_code=tracking.tracking_code,
+        bill_of_lading_no=tracking.bill_of_lading_no,
+        discharge_date=tracking.discharge_date,
+        carrier_clock=carrier_clock,
+        port_storage_clock=port_clock,
+        overall_alert_level=overall_alert,
+        summary_ar=summary_ar,
+    )
+
+
+# =========================================================================
+# LOG-CONT-002: Container-Level Individual Update Service
+# =========================================================================
+
+def update_single_container_service(
+    db: Session,
+    tracking_id: int,
+    container_no: str,
+    req: ContainerIndividualUpdate,
+    user: str = "System",
+) -> DemurrageTracking:
+    tracking = get_demurrage_tracking_by_id_service(db, tracking_id)
+    policy = tracking.policy
+
+    dem_free = policy.demurrage_free_days if policy else 14
+    det_free = policy.detention_free_days if policy else 7
+    storage_free = policy.port_storage_free_days if policy else 5
+    storage_rate = policy.port_storage_daily_rate_egp if policy else 250.0
+    dem_tiers = policy.demurrage_tiers if policy else DEFAULT_DEMURRAGE_TIERS
+    det_tiers = policy.detention_tiers if policy else DEFAULT_DETENTION_TIERS
+    rate = tracking.exchange_rate or 50.0
+
+    containers = list(tracking.containers or [])
+    found = False
+    recalculated_containers = []
+    total_dem_fx = 0.0
+    total_det_fx = 0.0
+    total_stor_egp = 0.0
+
+    for c in containers:
+        c_no = c.get("container_no", "")
+        if c_no.strip().upper() == container_no.strip().upper():
+            found = True
+            # Update container-specific fields
+            if req.gate_out_date is not None:
+                c["gate_out_date"] = req.gate_out_date.isoformat()
+            if req.empty_return_date is not None:
+                c["empty_return_date"] = req.empty_return_date.isoformat()
+            if req.eir_number is not None:
+                c["eir_number"] = req.eir_number
+            if req.seal_no is not None:
+                c["seal_no"] = req.seal_no
+            if req.notes is not None:
+                c["notes"] = req.notes
+
+        # Resolve container dates
+        c_gate_out = date.fromisoformat(c["gate_out_date"]) if c.get("gate_out_date") else tracking.gate_out_date
+        c_empty_return = date.fromisoformat(c["empty_return_date"]) if c.get("empty_return_date") else tracking.empty_return_date
+        c_type = c.get("container_type", "40ft High Cube")
+
+        # Simulate for this specific container
+        sim = simulate_demurrage_and_detention(DemurrageSimulationRequest(
+            carrier_name=tracking.carrier_name,
+            container_type=c_type,
+            containers_count=1,
+            demurrage_free_days=dem_free,
+            detention_free_days=det_free,
+            port_storage_free_days=storage_free,
+            port_storage_daily_rate_egp=storage_rate,
+            demurrage_tiers=dem_tiers,
+            detention_tiers=det_tiers,
+            discharge_date=tracking.discharge_date,
+            gate_out_date=c_gate_out,
+            empty_return_date=c_empty_return,
+            currency=tracking.currency,
+            exchange_rate=rate,
+        ))
+
+        status_label = req.status if (c_no.strip().upper() == container_no.strip().upper() and req.status) else sim.status_badge
+        if c_empty_return:
+            status_label = "Empty-Returned"
+        elif c_gate_out:
+            status_label = "Gated-Out"
+        elif sim.demurrage_days_overdue > 0:
+            status_label = "Demurrage Incurred"
+        else:
+            status_label = "On-Port"
+
+        c_data = {
+            "container_no": c_no,
+            "container_type": c_type,
+            "seal_no": c.get("seal_no"),
+            "gate_out_date": c.get("gate_out_date"),
+            "empty_return_date": c.get("empty_return_date"),
+            "eir_number": c.get("eir_number"),
+            "demurrage_days": sim.demurrage_days_overdue,
+            "detention_days": sim.detention_days_overdue,
+            "storage_days": sim.storage_days_overdue,
+            "demurrage_fx": sim.demurrage_fee_fx,
+            "detention_fx": sim.detention_fee_fx,
+            "storage_egp": sim.storage_fee_egp,
+            "total_egp": sim.total_cost_egp,
+            "status": status_label,
+            "notes": c.get("notes"),
+        }
+        recalculated_containers.append(c_data)
+        total_dem_fx += sim.demurrage_fee_fx
+        total_det_fx += sim.detention_fee_fx
+        total_stor_egp += sim.storage_fee_egp
+
+    if not found:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"الحاوية رقم {container_no} غير موجودة في تتبع البوليصة #{tracking.tracking_code}.",
+        )
+
+    total_cost_egp = round(((total_dem_fx + total_det_fx) * rate) + total_stor_egp, 2)
+    
+    # Check overall tracking status
+    all_returned = all(c.get("empty_return_date") for c in recalculated_containers)
+    all_gated_out = all(c.get("gate_out_date") for c in recalculated_containers)
+    
+    if all_returned:
+        overall_status = "All Containers Returned"
+    elif all_gated_out:
+        overall_status = "All Containers Gated Out"
+    elif total_dem_fx > 0 or total_det_fx > 0 or total_stor_egp > 0:
+        overall_status = "Demurrage & Storage Incurred"
+    else:
+        overall_status = "Free Time Active"
+
+    tracking.containers = recalculated_containers
+    tracking.total_demurrage_fx = round(total_dem_fx, 2)
+    tracking.total_detention_fx = round(total_det_fx, 2)
+    tracking.total_storage_egp = round(total_stor_egp, 2)
+    tracking.total_cost_egp = total_cost_egp
+    tracking.status = overall_status
+    tracking.updated_by = user
+
+    db.commit()
+    db.refresh(tracking)
+    return tracking
+

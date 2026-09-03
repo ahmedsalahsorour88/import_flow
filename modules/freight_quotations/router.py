@@ -10,8 +10,10 @@ from modules.freight_quotations.schemas import (
     FreightRFQRequestCreate,
     FreightRFQRequestUpdate,
     FreightRFQRequestResponse,
+    RFQBenchmarkResponse,
 )
 from modules.freight_quotations.service import FreightQuotationService
+
 
 router = APIRouter(
     prefix="/api/v1/freight-quotations",
@@ -119,3 +121,16 @@ def restore_rfq(
     db: Session = Depends(get_db),
 ):
     return FreightQuotationService.restore_rfq(db, rfq_id)
+
+
+@router.get(
+    "/{rfq_id}/benchmark",
+    response_model=RFQBenchmarkResponse,
+    summary="مقارنة ومفاضلة وترتيب أفضل 3 عروض شحن للمسار (Trade-Lane Forwarder Benchmarking)",
+)
+def benchmark_rfq_quotes(
+    rfq_id: int,
+    db: Session = Depends(get_db),
+):
+    return FreightQuotationService.evaluate_and_rank_rfq_quotes(db, rfq_id)
+

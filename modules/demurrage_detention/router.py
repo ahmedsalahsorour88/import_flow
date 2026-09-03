@@ -13,6 +13,8 @@ from .schemas import (
     DemurrageSimulationRequest,
     DemurrageSimulationResponse,
     PushToSettlementRequest,
+    DualClockResponse,
+    ContainerIndividualUpdate,
 )
 from .service import (
     simulate_demurrage_and_detention,
@@ -26,6 +28,8 @@ from .service import (
     get_demurrage_tracking_by_id_service,
     recalculate_and_update_tracking_service,
     push_demurrage_to_financial_settlement_service,
+    get_dual_clock_status_service,
+    update_single_container_service,
 )
 
 router = APIRouter(prefix="/api/v1/demurrage-detention", tags=["Demurrage & Detention Engine"])
@@ -105,3 +109,27 @@ def update_tracking_endpoint(tracking_id: int, req: DemurrageTrackingUpdate, db:
 @router.post("/trackings/push-to-settlement", summary="ترحيل الغرامات تلقائياً إلى فواتير التسوية المالية Landed Cost")
 def push_to_settlement_endpoint(req: PushToSettlementRequest, db: Session = Depends(get_db)):
     return push_demurrage_to_financial_settlement_service(db, req)
+
+
+@router.get(
+    "/trackings/{tracking_id}/dual-clock",
+    response_model=DualClockResponse,
+    summary="جلب رادار العداد المزدوج المتزامن (غرامات الخط الملاحي USD مقابل أرضيات ساحة الميناء EGP)",
+)
+def get_dual_clock_endpoint(tracking_id: int, db: Session = Depends(get_db)):
+    return get_dual_clock_status_service(db, tracking_id)
+
+
+@router.patch(
+    "/trackings/{tracking_id}/containers/{container_no}",
+    response_model=DemurrageTrackingResponse,
+    summary="تحديث حاوية مفردة داخل الشحنة (خروج بوابة / إرجاع فارغ EIR / سيل ملاحي)",
+)
+def update_single_container_endpoint(
+    tracking_id: int,
+    container_no: str,
+    req: ContainerIndividualUpdate,
+    db: Session = Depends(get_db),
+):
+    return update_single_container_service(db, tracking_id, container_no, req)
+

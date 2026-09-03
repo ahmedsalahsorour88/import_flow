@@ -163,3 +163,56 @@ class PushToSettlementRequest(BaseModel):
     tracking_id: int
     import_file_id: Optional[int] = None
     accountant_name: Optional[str] = "ImportFlow Accountant"
+
+
+# =========================================================================
+# LOG-DUAL-001: Dual Clock Radar Schemas (Carrier USD vs Port Storage EGP)
+# =========================================================================
+
+class CarrierDemurrageClock(BaseModel):
+    carrier_name: str
+    free_days_allowed: int
+    days_consumed: int
+    days_remaining: int
+    expiry_date: Optional[date] = None
+    accrued_demurrage_fx: float
+    currency: str = "USD"
+    status: str  # "SAFE", "WARNING_LAST_3_DAYS", "OVERDUE_DEMURRAGE"
+
+
+class PortStorageClock(BaseModel):
+    port_name: str
+    storage_free_days: int
+    days_consumed: int
+    days_remaining: int
+    hours_until_penalties: int
+    daily_rate_egp: float
+    accrued_storage_egp: float
+    is_critical_72h_warning: bool
+    status: str  # "SAFE", "CRITICAL_72H_ALERT", "OVERDUE_STORAGE"
+
+
+class DualClockResponse(BaseModel):
+    tracking_id: int
+    tracking_code: str
+    bill_of_lading_no: str
+    discharge_date: date
+    carrier_clock: CarrierDemurrageClock
+    port_storage_clock: PortStorageClock
+    overall_alert_level: str  # "NORMAL", "URGENT_STORAGE_72H", "ACTION_REQUIRED"
+    summary_ar: str
+
+
+# =========================================================================
+# LOG-CONT-002: Container-Level Lifecycle & Partial Gate-Out Schemas
+# =========================================================================
+
+class ContainerIndividualUpdate(BaseModel):
+    container_no: Optional[str] = None
+    seal_no: Optional[str] = None
+    gate_out_date: Optional[date] = None
+    empty_return_date: Optional[date] = None
+    eir_number: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+

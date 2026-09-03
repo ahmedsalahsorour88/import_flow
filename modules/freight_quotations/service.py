@@ -10,9 +10,12 @@ from modules.freight_quotations.schemas import (
     FreightRFQRequestCreate,
     FreightRFQRequestUpdate,
     FreightRFQRequestResponse,
+    RankedForwarderQuote,
+    RFQBenchmarkResponse,
 )
 from modules.freight_quotations.repository import FreightQuotationRepository
 from modules.freight_quotations.validators import validate_carrier_exists, validate_quotation_dates
+
 
 
 class FreightQuotationService:
@@ -182,3 +185,126 @@ class FreightQuotationService:
             )
         restored_rfq = FreightQuotationRepository.restore(db, db_rfq)
         return FreightQuotationService._compute_rfq_metrics(db, restored_rfq)
+
+    @staticmethod
+    def evaluate_and_rank_rfq_quotes(db: Session, rfq_id: int) -> RFQBenchmarkResponse:
+        """
+        AI-BENCH-007: Multi-Factor Weighted Scoring & Ranking Engine for Competing Freight Quotes.
+        Weights: Cost (50%), Free Days (25%), Transit Time (15%), Partner Reliability (10%).
+        """
+        db_rfq = FreightQuotationRepository.get_by_id(db, rfq_id)
+        if not db_rfq:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Freight RFQ with ID '{rfq_id}' not found.",
+            )
+
+        quotes = db_rfq.quotations or []
+        if not quotes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="لا توجد عروض أسعار مسجلة في هذا الطلب لإجراء المقارنة والمفاضلة.",
+            )
+
+        costs = [q.total_cost for q in quotes]
+        transits = [q.transit_days for q in quotes]
+        free_days_list = [q.free_days_at_pod for q in quotes]
+
+        min_cost = min(costs)
+        max_cost = max(costs)
+        avg_cost = sum(costs) / len(costs)
+
+        min_transit = min(transits)
+        max_transit = max(transits)
+
+        scored_quotes = []
+
+        for q in quotes:
+            # 1. Cost Score (50 points max)
+            if max_cost == min_cost:
+                cost_score = 50.0
+            else:
+                cost_score = 50.0 * (1.0 - (q.total_cost - min_cost) / (max_cost - min_cost))
+
+            # 2. Free Days Score (25 points max, baseline 14 days, max 28 days)
+            free_days_score = 25.0 * (min(28, max(0, q.free_days_at_pod)) / 28.0)
+
+            # 3. Transit Score (15 points max)
+            if max_transit == min_transit:
+                transit_score = 15.0
+            else:
+                transit_score = 15.0 * (1.0 - (q.transit_days - min_transit) / (max_transit - min_transit))
+
+            # 4. Partner Reliability (10 points)
+            partner_score = 10.0 if q.is_awarded else 8.5
+
+            composite_score = round(cost_score + free_days_score + transit_score + partner_score, 1)
+            cost_saving = round(avg_cost - q.total_cost, 2)
+
+            # Key Advantages
+            advantages = []
+            if q.total_cost == min_cost:
+                advantages.append("أقل سعر إجمالي شامل")
+            if q.free_days_at_pod >= 21:
+                advantages.append(f"فترة سماح ممتازة بالميناء ({q.free_days_at_pod} يوماً)")
+            elif q.free_days_at_pod >= 14:
+                advantages.append("فترة سماح قياسية (14 يوماً)")
+            if q.transit_days == min_transit:
+                advantages.append(f"أسرع زمن ترانزيت ({q.transit_days} يوماً)")
+            if cost_saving > 0:
+                advantages.append(f"وفر مالي بقيمة ${cost_saving:,.2f} مقارنة بالمتوسط")
+
+            scored_quotes.append({
+                "quote": q,
+                "composite_score": composite_score,
+                "cost_saving": cost_saving,
+                "advantages": advantages,
+            })
+
+        # Rank descending by composite score, then by total cost ascending
+        scored_quotes.sort(key=lambda x: (-x["composite_score"], x["quote"].total_cost))
+
+        ranked_list: List[RankedForwarderQuote] = []
+        for idx, item in enumerate(scored_quotes, start=1):
+            q_entity = item["quote"]
+            ranked_list.append(
+                RankedForwarderQuote(
+                    rank=idx,
+                    quotation_id=q_entity.quotation_id,
+                    provider_id=q_entity.provider_id,
+                    provider_name=q_entity.provider_name,
+                    vessel_name=q_entity.vessel_name,
+                    total_cost=q_entity.total_cost,
+                    currency_code=q_entity.currency_code,
+                    transit_days=q_entity.transit_days,
+                    free_days_at_pod=q_entity.free_days_at_pod,
+                    composite_score=item["composite_score"],
+                    cost_saving_vs_average=item["cost_saving"],
+                    key_advantages=item["advantages"],
+                )
+            )
+
+        top_three = ranked_list[:3]
+
+        # Executive Recommendation
+        winner = top_three[0]
+        route_str = f"{db_rfq.pol_name} ──> {db_rfq.pod_name}"
+        adv_text = "، ".join(winner.key_advantages) if winner.key_advantages else "توازن ممتاز بين السعر والشروط"
+        recommendation = (
+            f"التوصية التنفيذية للاعتماد: يوصى بحجز الشحنة على العرض التنافسي الأول [{winner.provider_name}] "
+            f"بإجمالي تكلفة ${winner.total_cost:,.2f} {winner.currency_code}، وبزمن ترانزيت {winner.transit_days} يوماً وسماح {winner.free_days_at_pod} يوماً. "
+            f"حقق العرض أعلى درجة تقييم موزونة ({winner.composite_score:.1f}/100) ويوفر ${winner.cost_saving_vs_average:,.2f} مقارنة بمتوسط عروض المسار ({adv_text})."
+        )
+
+        return RFQBenchmarkResponse(
+            rfq_id=db_rfq.rfq_id,
+            rfq_code=db_rfq.rfq_code,
+            title=db_rfq.title,
+            route=route_str,
+            total_quotes_analyzed=len(quotes),
+            average_cost_usd=round(avg_cost, 2),
+            top_three_quotes=top_three,
+            all_ranked_quotes=ranked_list,
+            executive_recommendation_ar=recommendation,
+        )
+

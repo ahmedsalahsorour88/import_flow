@@ -99,3 +99,38 @@ class FreightRFQRequestResponse(FreightRFQRequestBase):
     awarded_provider_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+
+# =========================================================================
+# AI-BENCH-007: Trade-Lane Forwarder Benchmarking & Ranking Schemas
+# =========================================================================
+
+class RankedForwarderQuote(BaseModel):
+    rank: int
+    quotation_id: int
+    provider_id: int
+    provider_name: str
+    vessel_name: Optional[str] = None
+    total_cost: float
+    currency_code: str = "USD"
+    transit_days: int
+    free_days_at_pod: int
+    composite_score: float
+    cost_saving_vs_average: float
+    key_advantages: List[str]
+
+
+class RFQBenchmarkResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    rfq_id: int
+    rfq_code: str
+    title: str
+    route: str
+    total_quotes_analyzed: int
+    average_cost_usd: float
+    top_three_quotes: List[RankedForwarderQuote]
+    all_ranked_quotes: List[RankedForwarderQuote]
+    executive_recommendation_ar: str
+

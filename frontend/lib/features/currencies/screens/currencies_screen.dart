@@ -6,8 +6,11 @@ import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/network/api_client.dart';
 import '../models/currency_model.dart';
+
 import '../providers/currencies_provider.dart';
+
 
 class CurrenciesScreen extends ConsumerStatefulWidget {
   const CurrenciesScreen({super.key});
@@ -30,8 +33,34 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
     });
   }
 
+  Future<void> _syncOfficialCustomsExchangeRates(BuildContext context) async {
+    try {
+      final dio = ref.read(dioProvider);
+      final res = await dio.post('/integrations/nafeza/exchange-rates/sync');
+      ref.read(currenciesProvider.notifier).fetchCurrencies();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppTheme.emerald,
+            content: Text(res.data['message_ar'] ?? 'تم تحديث أسعار الصرف الجمركية الرسمية بنجاح ✅'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppTheme.crimson,
+            content: Text('فشل مزامنة أسعار الصرف الجمركية: $e'),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+
     final l10n = context.l10n;
     final currenciesAsync = ref.watch(currenciesProvider);
 
@@ -92,6 +121,17 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                       ),
                     ),
                     ElevatedButton.icon(
+                      onPressed: () => _syncOfficialCustomsExchangeRates(context),
+                      icon: const Icon(Icons.sync, size: 18),
+                      label: const Text('مزامنة أسعار الصرف الجمركية'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.charcoal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    ElevatedButton.icon(
                       onPressed: () => _showAddRateDialog(context),
                       icon: const Icon(Icons.rate_review, size: 18),
                       label: Text(l10n.updateExchangeRatesBtn),
@@ -102,6 +142,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
+
                     ElevatedButton.icon(
                       onPressed: () => _showCurrencyDialog(context),
                       icon: const Icon(Icons.add, size: 18),

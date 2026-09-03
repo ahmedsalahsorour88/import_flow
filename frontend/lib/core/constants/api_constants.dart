@@ -53,15 +53,18 @@ class ApiConstants {
   static String get warehouseReceiving => '$baseUrl/warehouse-receiving';
   static String get fileClosure => '$baseUrl/file-closure';
 
-  // ── System ────────────────────────────────────────────────
+  // ── System & Integrations ─────────────────────────────────
   static String get auditLogs => '$baseUrl/audit-logs';
   static String get notifications => '$baseUrl/notifications';
   static String get smartTasks => '$baseUrl/smart-tasks';
   static String get shipmentUpdates => '$baseUrl/shipment-updates';
+  static String get routeIntelligence => '$baseUrl/route-intelligence';
+  static String get integrations => '$baseUrl/integrations';
+
   static String get lifecycleBoard => '$baseUrl/lifecycle-board';
   static String get smartDocumentUpload => '$baseUrl/smart-upload';
-  static String get integrations => '$baseUrl/integrations';
   static String get productionSync => '$baseUrl/production-sync';
+
 
   // ── Auth ──────────────────────────────────────────────────
   static String get auth => '$baseUrl/auth';

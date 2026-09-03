@@ -13,6 +13,7 @@ import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
 import '../widgets/partner_details_dialog.dart';
 import '../widgets/partner_statement_of_account_dialog.dart';
+import '../widgets/partner_scorecard_dialog.dart';
 import '../../../core/services/master_data_export_service.dart';
 
 class PartnersScreen extends ConsumerStatefulWidget {
@@ -693,6 +694,42 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                     ),
                                                   ),
                                                 ),
+                                                if (partner.providerId != null) ...[
+                                                  const SizedBox(width: 6),
+                                                  Tooltip(
+                                                    message: 'بطاقة تقييم الأداء والـ SLA (Partner Scorecard)',
+                                                    child: InkWell(
+                                                      onTap: () => showPartnerScorecardDialog(
+                                                        context,
+                                                        ref,
+                                                        providerId: partner.providerId!,
+                                                        providerName: partner.partnerName,
+                                                        providerType: partner.partnerCategory,
+                                                      ),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.amber.shade50,
+                                                          borderRadius: BorderRadius.circular(6),
+                                                          border: Border.all(color: Colors.amber.shade600),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Icon(Icons.workspace_premium_outlined, size: 14, color: Colors.amber.shade800),
+                                                            const SizedBox(width: 4),
+                                                            Text(
+                                                              'تقييم الأداء',
+                                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                ],
                                                 RowActionsPill(
                                                   onView: () => PartnerDetailsDialog.show(
                                                     context,

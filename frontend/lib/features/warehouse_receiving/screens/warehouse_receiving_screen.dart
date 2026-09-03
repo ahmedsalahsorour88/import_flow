@@ -258,6 +258,26 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                   Text(r.warehouseName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                   _buildSealBadge(r.sealIntact, r.sealNumber),
                                   _buildStatusBadge(r.status),
+                                  if (r.quarantineZoneAssigned)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.crimson.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: AppTheme.crimson),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.lock, size: 13, color: AppTheme.crimson),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'محظور الصرف: تحت التحفظ الجمركي (Quarantine Lock)',
+                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                 ],
                               ),
                               const Divider(height: 20),
@@ -329,6 +349,34 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                         onPressed: () => _showDiscrepancyDialog(r),
                                       ),
                                     ],
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: r.quarantineZoneAssigned ? AppTheme.crimson : AppTheme.cobalt,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      icon: Icon(r.quarantineZoneAssigned ? Icons.lock : Icons.verified_user_outlined, size: 15),
+                                      label: Text(
+                                        r.quarantineZoneAssigned ? 'محظور الصرف (تحت التحفظ)' : 'فحص صلاحية الصرف',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                      ),
+                                      onPressed: () {
+                                        if (r.quarantineZoneAssigned) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              backgroundColor: AppTheme.crimson,
+                                              content: Text('⛔ محظور الصرف: البضاعة تحت التحفظ الجمركي المعملي لحين صدور نتيجة الفحص الإيجابية.'),
+                                            ),
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              backgroundColor: AppTheme.emerald,
+                                              content: Text('✅ البضاعة مفرج عنها نهائياً ومصرح بصرفها وتشغيلها بالمصنع.'),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
                                     RowActionsPill(
                                       onView: () => _showAddEditDialog(r),
                                       onEdit: () => _showAddEditDialog(r),

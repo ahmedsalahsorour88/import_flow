@@ -10,6 +10,7 @@ import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
 import '../widgets/duty_calculator_dialog.dart';
 import '../widgets/nafeza_details_dialog.dart';
+import '../widgets/nafeza_tariff_sync_dialog.dart';
 import '../widgets/tariff_form_dialog.dart';
 import 'hs_code_search_screen.dart';
 
@@ -114,6 +115,16 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                     ),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.cobalt,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                      ),
+                      icon: const Icon(Icons.sync_alt, size: 18),
+                      label: const Text('محلل ومزامن نصوص نافذة الذكي', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: () => showNafezaTariffSyncDialog(context, ref),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.orange,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 12),
@@ -122,6 +133,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                       label: Text(l10n.smartNafezaDiffEngineBtn),
                       onPressed: () => showTariffDialog(context, ref, initialModeIndex: 0),
                     ),
+
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.emerald,

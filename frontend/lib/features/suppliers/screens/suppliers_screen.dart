@@ -14,6 +14,8 @@ import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../models/supplier_model.dart';
 import '../providers/suppliers_provider.dart';
 import '../widgets/supplier_details_dialog.dart';
+import '../widgets/route_intelligence_dialog.dart';
+import '../widgets/goeic_verification_dialog.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 
@@ -441,8 +443,34 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                 ),
               ),
 
+              // AI Route Intelligence & GOEIC Compliance Buttons
+              if (supplier.supplierId != null) ...[
+                IconButton(
+                  icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 20),
+                  tooltip: 'بطاقة ذكاء المسار والمورد والتاريخ التفاوضي',
+                  onPressed: () => showRouteIntelligenceDialog(
+                    context,
+                    ref,
+                    supplierId: supplier.supplierId!,
+                    supplierName: supplier.companyName,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.verified_user_outlined, color: AppTheme.emerald, size: 20),
+                  tooltip: 'فحص الرقابة على الصادرات والواردات (القرار 43 وشهادة COI)',
+                  onPressed: () => showGOEICVerificationDialog(
+                    context,
+                    ref,
+                    supplierId: supplier.supplierId!,
+                    supplierName: supplier.companyName,
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+
               // Standard 4-Action Row Pill: View, Edit, Print, Delete
               RowActionsPill(
+
                 onView: () => SupplierDetailsDialog.show(
                   context,
                   supplier,

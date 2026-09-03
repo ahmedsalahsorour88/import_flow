@@ -6,6 +6,7 @@ import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/demurrage_model.dart';
 import '../providers/demurrage_provider.dart';
+import '../widgets/dual_clock_radar_dialog.dart';
 
 class DemurrageDetentionScreen extends ConsumerStatefulWidget {
   const DemurrageDetentionScreen({super.key});
@@ -420,10 +421,24 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 OutlinedButton.icon(
+                  onPressed: () => showDualClockRadarDialog(
+                    context,
+                    ref,
+                    trackingId: item.trackingId,
+                    billOfLadingNo: item.billOfLadingNo,
+                    carrierName: item.carrierName,
+                  ),
+                  icon: const Icon(Icons.speed_rounded, color: AppTheme.cobalt, size: 16),
+                  label: const Text('رادار الأرضيات والغرامات (Dual Clock)', style: TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(side: const BorderSide(color: AppTheme.cobalt)),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
                   onPressed: () => _showUpdateDatesDialog(context, item),
                   icon: const Icon(Icons.edit_calendar_outlined, size: 16),
                   label: Text(l10n.updateGateOutAndReturnDatesBtn),
                 ),
+
                 const SizedBox(width: 8),
                 if (!item.isPushedToSettlement)
                   ElevatedButton.icon(

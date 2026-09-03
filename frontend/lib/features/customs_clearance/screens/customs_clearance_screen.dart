@@ -11,6 +11,8 @@ import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
+import '../widgets/under_bond_release_dialog.dart';
+
 
 class CustomsClearanceScreen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -999,10 +1001,23 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                       onPressed: () => _showAddEditDialog(record),
                     ),
                     IconButton(
+                      icon: const Icon(Icons.lock_clock_outlined, color: AppTheme.orange, size: 20),
+                      tooltip: 'مسار السحب على عهدة وفك التحفظ المعملي (Under-Bond Release)',
+                      onPressed: () => showUnderBondReleaseDialog(
+                        context,
+                        ref,
+                        clearanceId: record.clearanceId,
+                        declarationNo: record.declaration46No ?? record.clearanceCode,
+                        isAlreadyUnderBond: record.status.contains('Bond') || record.status.contains('Quarantine'),
+                        onDone: _refreshData,
+                      ),
+                    ),
+                    IconButton(
                       icon: const Icon(Icons.payments_outlined, color: AppTheme.emerald, size: 20),
                       tooltip: l.customsClearancePayTooltip,
                       onPressed: () => _showDutyPaymentDialog(record),
                     ),
+
                     IconButton(
                       icon: const Icon(Icons.assignment_turned_in_outlined, color: Colors.indigo, size: 20),
                       tooltip: l.customsClearanceReleaseTooltip,

@@ -20,6 +20,7 @@ import '../models/freight_quotation_model.dart';
 import '../providers/freight_quotations_provider.dart';
 import '../widgets/freight_quotations_extractor_dialog.dart';
 
+import '../widgets/rfq_benchmark_dialog.dart';
 class FreightQuotationsScreen extends ConsumerStatefulWidget {
   final int? initialImportFileId;
   const FreightQuotationsScreen({super.key, this.initialImportFileId});
@@ -1916,6 +1917,19 @@ Best regards,
                                       DataCell(Text(rfq.awardedProviderName ?? 'لم يعتمد')),
                                       DataCell(_buildStatusBadge(rfq.status)),
                                       DataCell(
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: Icon(Icons.military_tech_outlined, color: Colors.amber.shade800, size: 20),
+                                              tooltip: "المفاضلة التنافسية وترتيب أفضل 3 عروض (Benchmarking)",
+                                              onPressed: () => showRFQBenchmarkDialog(
+                                                context,
+                                                ref,
+                                                rfqId: rfq.rfqId,
+                                                rfqCode: rfq.rfqCode,
+                                              ),
+                                            ),
                                         RowActionsPill(
                                           onView: () => _showRFQDetailsDialog(rfq),
                                           onEdit: () => _showRFQDetailsDialog(rfq),
@@ -1951,6 +1965,8 @@ Best regards,
                                             }
                                           },
                                           deleteTooltip: 'حذف طلب عرض السعر',
+                                        ),
+                                          ],
                                         ),
                                       ),
                                     ],

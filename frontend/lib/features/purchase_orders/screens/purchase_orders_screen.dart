@@ -1,5 +1,7 @@
 import '../widgets/po_form_dialog.dart';
 import '../widgets/po_reconciliation_warning_dialog.dart';
+import '../widgets/po_balance_ledger_dialog.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -458,7 +460,22 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                       ),
                     ),
                     DataCell(
-                      RowActionsPill(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (po.poId != null)
+                            IconButton(
+                              icon: const Icon(Icons.account_balance_wallet_outlined, color: AppTheme.cobalt, size: 20),
+                              tooltip: 'ميزان أمر الشراء والشحنات الجزئية (PO Balance Ledger)',
+                              onPressed: () => showPOBalanceLedgerDialog(
+                                context,
+                                ref,
+                                poId: po.poId!,
+                                poCode: po.poNumber,
+                              ),
+                            ),
+                          RowActionsPill(
+
                         onView: () => _showPODetailsDialog(context, po),
                         onEdit: () => _showPODialog(context, po),
                         onPrint: () {
@@ -499,7 +516,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                         },
                         deleteTooltip: po.isActive ? 'إيقاف تفعيل أمر الشراء (Deactivate)' : 'استعادة أمر الشراء (Restore)',
                       ),
+                        ],
+                      ),
                     ),
+
                   ],
                 );
               }).toList(),

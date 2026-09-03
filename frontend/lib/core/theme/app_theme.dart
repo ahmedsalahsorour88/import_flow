@@ -9,6 +9,14 @@ class AppTheme {
   static const Color crimson = Color(0xFFC0392B);
   static const Color cloudWhite = Color(0xFFECF0F1);
 
+  // Flat Palette Aliases
+  static const Color flatCharcoal = charcoal;
+  static const Color flatCobalt = cobalt;
+  static const Color flatEmerald = emerald;
+  static const Color flatOrange = orange;
+  static const Color flatCrimson = crimson;
+  static const Color flatCloudWhite = cloudWhite;
+
   // ── Opacity Color Constants ───────────────────────────────────────────────
   // Pre-computed to avoid withOpacity() allocations on every build.
   static const Color cobaltLight = Color(0x143498DB);   // cobalt ~8%

@@ -10,6 +10,7 @@ import '../../../core/network/api_client.dart';
 import '../models/currency_model.dart';
 
 import '../providers/currencies_provider.dart';
+import '../../simulation/widgets/what_if_simulator_dialog.dart';
 
 
 class CurrenciesScreen extends ConsumerStatefulWidget {
@@ -126,6 +127,22 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                       label: const Text('مزامنة أسعار الصرف الجمركية'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.charcoal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => const WhatIfSimulatorDialog(),
+                        );
+                      },
+                      icon: const Icon(Icons.analytics_outlined, size: 18),
+                      label: const Text('محاكي صدمات الصرف والأزمات (What-If)'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.crimson,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

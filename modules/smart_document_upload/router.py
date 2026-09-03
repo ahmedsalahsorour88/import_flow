@@ -425,3 +425,117 @@ def delete_upload_session(session_id: int, db: Session = Depends(get_db)):
 def list_supported_modules():
     """Returns list of all supported modules for smart document upload."""
     return {"supported_modules": sorted(SUPPORTED_MODULES)}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AI Commercial Invoice & Bill of Lading Specialized Endpoints (AI-INV-010)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post(
+    "/extract/commercial-invoice",
+    status_code=status.HTTP_200_OK,
+    summary="Extract Commercial Invoice header, totals, and line items",
+)
+async def extract_commercial_invoice_endpoint(
+    file: Optional[UploadFile] = File(None, description="Invoice file (PDF, Excel, Word)"),
+    raw_text: Optional[str] = Form(None, description="Pasted invoice text"),
+    db: Session = Depends(get_db),
+):
+    """Extracts structured commercial invoice data with line items from file or text."""
+    filename = "invoice.txt"
+    content_bytes = None
+    if file:
+        filename = file.filename or "invoice.pdf"
+        content_bytes = await file.read()
+
+    return service.extract_commercial_invoice_service(
+        filename=filename,
+        content_bytes=content_bytes,
+        raw_text=raw_text,
+        db=db,
+    )
+
+
+@router.post(
+    "/extract/bill-of-lading",
+    status_code=status.HTTP_200_OK,
+    summary="Extract Bill of Lading (Ocean / Air) and containers list",
+)
+async def extract_bill_of_lading_endpoint(
+    file: Optional[UploadFile] = File(None, description="Bill of Lading or AWB file"),
+    raw_text: Optional[str] = Form(None, description="Pasted B/L text"),
+    db: Session = Depends(get_db),
+):
+    """Extracts structured Bill of Lading / Air Waybill data with container details."""
+    filename = "bill_of_lading.txt"
+    content_bytes = None
+    if file:
+        filename = file.filename or "bill_of_lading.pdf"
+        content_bytes = await file.read()
+
+    return service.extract_bill_of_lading_service(
+        filename=filename,
+        content_bytes=content_bytes,
+        raw_text=raw_text,
+        db=db,
+    )
+
+
+@router.post(
+    "/cross-check/invoice-vs-bl",
+    status_code=status.HTTP_200_OK,
+    summary="Run 10-point cross-comparison audit between Invoice and B/L",
+)
+def cross_check_invoice_vs_bl_endpoint(
+    payload: dict,
+):
+    """
+    Compares commercial invoice data against B/L data.
+    Validates ACID, Importer Tax ID, weight variance, Incoterms, and ports.
+    """
+    invoice_data = payload.get("invoice_data") or {}
+    bl_data = payload.get("bl_data") or {}
+    tolerance = float(payload.get("weight_tolerance_pct", 3.0))
+
+    return service.cross_check_invoice_and_bl_service(
+        invoice_data=invoice_data,
+        bl_data=bl_data,
+        weight_tolerance_pct=tolerance,
+    )
+
+
+@router.post(
+    "/apply/commercial-invoice",
+    status_code=status.HTTP_200_OK,
+    summary="Apply extracted invoice data to an ImportFile",
+)
+def apply_extracted_invoice_endpoint(
+    payload: dict,
+    db: Session = Depends(get_db),
+):
+    import_file_id = payload.get("import_file_id")
+    invoice_data = payload.get("invoice_data") or {}
+    return service.apply_extracted_invoice_service(
+        db=db,
+        import_file_id=import_file_id,
+        invoice_data=invoice_data,
+    )
+
+
+@router.post(
+    "/apply/bill-of-lading",
+    status_code=status.HTTP_200_OK,
+    summary="Apply extracted B/L data and containers to CargoShipping",
+)
+def apply_extracted_bl_endpoint(
+    payload: dict,
+    db: Session = Depends(get_db),
+):
+    import_file_id = payload.get("import_file_id")
+    bl_data = payload.get("bl_data") or {}
+    return service.apply_extracted_bl_service(
+        db=db,
+        import_file_id=import_file_id,
+        bl_data=bl_data,
+    )
+

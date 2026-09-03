@@ -3,6 +3,7 @@ class PartnerModel {
   final String partnerCode;
   final String partnerName;
   final String partnerType; // Bank, Shipping Line, Customs Broker, Freight Forwarder, Inland Transport, Inspection Agency
+  String get partnerCategory => partnerType;
   final String? taxId;
   final String? commercialRegister;
   final String? clearanceLicenseNumber;

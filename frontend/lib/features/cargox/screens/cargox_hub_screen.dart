@@ -17,6 +17,8 @@ import '../../freight_booking/providers/freight_booking_provider.dart';
 import '../models/cargox_model.dart';
 import '../providers/cargox_provider.dart';
 import '../widgets/standard_invoice_hub_tab.dart';
+import '../../import_documentation/widgets/smart_invoice_bl_extractor_dialog.dart';
+
 
 class CargoXHubScreen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -366,12 +368,32 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
       selectedIndex: _selectedSubTab,
       onTabSelected: (idx) => setState(() => _selectedSubTab = idx),
       headerActions: [
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.flatEmerald,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          ),
+          icon: const Icon(Icons.auto_awesome, size: 16),
+          label: const Text('استخلاص وتدقيق المستندات (AI)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (context) => SmartInvoiceBLExtractorDialog(
+                initialImportFileId: _selectedImportFileId,
+                initialTabIndex: 0,
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
           tooltip: context.l10n.cargoxLiveRefreshTooltip,
           onPressed: _refreshData,
         ),
       ],
+
       body: bodyContent,
     );
   }

@@ -15,7 +15,10 @@ from sqlalchemy.orm import Session
 from modules.smart_document_upload.extractors.purchase_order import PurchaseOrderExtractor
 from modules.smart_document_upload.extractors.import_file import ImportFileExtractor
 from modules.smart_document_upload.extractors.cargo_shipping import CargoShippingExtractor
+from modules.smart_document_upload.extractors.commercial_invoice import CommercialInvoiceExtractor
 from modules.smart_document_upload.extractors.customs_clearance import CustomsClearanceExtractor
+from modules.smart_document_upload.cross_checker import cross_check_invoice_vs_bl
+
 from modules.smart_document_upload.extractors.customs_broker_quotation import CustomsBrokerQuotationExtractor
 from modules.smart_document_upload.extractors.freight_quotation import FreightQuotationExtractor
 from modules.smart_document_upload.extractors.freight_booking import FreightBookingExtractor
@@ -49,7 +52,15 @@ _EXTRACTOR_MAP: Dict[str, BaseExtractor] = {
     "coo-certificate": COOCertificateExtractor(),
     "inspection-certificate": InspectionCertificateExtractor(),
     "financial-document": FinancialDocumentExtractor(),
+    "commercial-invoice": CommercialInvoiceExtractor(),
+    "commercial_invoice": CommercialInvoiceExtractor(),
+    "invoice": CommercialInvoiceExtractor(),
+    "bill-of-lading": CargoShippingExtractor(),
+    "bill_of_lading": CargoShippingExtractor(),
+    "bl": CargoShippingExtractor(),
+    "awb": CargoShippingExtractor(),
     "master-data-entity": MasterDataEntityExtractor(),
+
     "supplier-entity": MasterDataEntityExtractor(),
     "importer-entity": MasterDataEntityExtractor(),
     "partner-entity": MasterDataEntityExtractor(),
@@ -486,6 +497,162 @@ def get_upload_sessions_service(db: Session, module_name: str = None, skip: int 
 
 def get_upload_session_by_id_service(db: Session, session_id: int):
     return repo.get_upload_session_by_id(db, session_id)
+
+
+# ─── AI Commercial Invoice & Bill of Lading Specialized Services ─────────────
+
+def extract_commercial_invoice_service(
+    filename: str = "invoice.pdf",
+    content_bytes: Optional[bytes] = None,
+    raw_text: Optional[str] = None,
+    db: Optional[Session] = None,
+    created_by: Optional[str] = "Admin",
+) -> Dict[str, Any]:
+    """Extracts commercial invoice data and itemized line items."""
+    if not raw_text and content_bytes:
+        raw_text, spatial_boxes = extract_raw_text_and_boxes(filename, content_bytes)
+    else:
+        spatial_boxes = {}
+    extractor = CommercialInvoiceExtractor()
+    extracted = extractor.extract(raw_text or "", spatial_boxes)
+    return {
+        "document_type": "Commercial Invoice",
+        "filename": filename,
+        "extracted_fields": extracted,
+        "items": extracted.get("items", []),
+        "items_count": len(extracted.get("items", [])),
+    }
+
+
+def extract_bill_of_lading_service(
+    filename: str = "bill_of_lading.pdf",
+    content_bytes: Optional[bytes] = None,
+    raw_text: Optional[str] = None,
+    db: Optional[Session] = None,
+    created_by: Optional[str] = "Admin",
+) -> Dict[str, Any]:
+    """Extracts bill of lading / AWB data and container list."""
+    if not raw_text and content_bytes:
+        raw_text, spatial_boxes = extract_raw_text_and_boxes(filename, content_bytes)
+    else:
+        spatial_boxes = {}
+    extractor = CargoShippingExtractor()
+    extracted = extractor.extract(raw_text or "", spatial_boxes)
+    return {
+        "document_type": extracted.get("bl_type", "OCEAN_BL"),
+        "filename": filename,
+        "extracted_fields": extracted,
+        "containers": extracted.get("containers", []),
+        "containers_count": len(extracted.get("containers", [])),
+    }
+
+
+def cross_check_invoice_and_bl_service(
+    invoice_data: Dict[str, Any],
+    bl_data: Dict[str, Any],
+    weight_tolerance_pct: float = 3.0,
+) -> Dict[str, Any]:
+    """10-point cross-comparison between Commercial Invoice and B/L."""
+    return cross_check_invoice_vs_bl(
+        invoice_data=invoice_data,
+        bl_data=bl_data,
+        weight_tolerance_pct=weight_tolerance_pct,
+    )
+
+
+def apply_extracted_invoice_service(
+    db: Session,
+    import_file_id: Optional[int],
+    invoice_data: Dict[str, Any],
+    user: str = "Admin",
+) -> Dict[str, Any]:
+    """Updates an existing ImportFile or pre-fills invoice info."""
+    from modules.import_files.model import ImportFile
+    file_record = None
+    if import_file_id:
+        file_record = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+
+    if file_record:
+        if invoice_data.get("acid_number"):
+            file_record.acid_number = invoice_data["acid_number"]
+        if invoice_data.get("incoterms"):
+            file_record.incoterm_code = invoice_data["incoterms"]
+        if invoice_data.get("loading_port"):
+            file_record.port_of_loading = invoice_data["loading_port"]
+        if invoice_data.get("discharge_port"):
+            file_record.port_of_discharge = invoice_data["discharge_port"]
+        if invoice_data.get("invoice_value"):
+            file_record.estimated_cost = invoice_data["invoice_value"]
+        if invoice_data.get("currency"):
+            file_record.estimated_cost_currency = invoice_data["currency"]
+
+        existing_invoices = list(file_record.invoices_data or [])
+        inv_no = invoice_data.get("invoice_number") or f"INV-{len(existing_invoices)+1}"
+        existing_invoices.append({
+            "invoice_no": inv_no,
+            "date": invoice_data.get("invoice_date"),
+            "amount": invoice_data.get("invoice_value", 0.0),
+            "currency": invoice_data.get("currency", "USD"),
+            "items_count": len(invoice_data.get("items", [])),
+        })
+        file_record.invoices_data = existing_invoices
+        file_record.invoices_count = len(existing_invoices)
+        db.commit()
+        db.refresh(file_record)
+        return {
+            "applied": True,
+            "import_file_id": file_record.import_file_id,
+            "import_file_code": file_record.import_file_code,
+            "message_ar": f"تم ربط بيانات الفاتورة بنجاح مع الملف {file_record.import_file_code}",
+        }
+    return {
+        "applied": False,
+        "import_file_id": None,
+        "message_ar": "تم استخراج البيانات وجاهزة للاستخدام بملف جديد",
+    }
+
+
+def apply_extracted_bl_service(
+    db: Session,
+    import_file_id: Optional[int],
+    bl_data: Dict[str, Any],
+    user: str = "Admin",
+) -> Dict[str, Any]:
+    """Updates cargo shipping record and container tracking with extracted B/L data."""
+    from modules.cargo_shipping.model import CargoShippingRecord
+    shipping_record = None
+    if import_file_id:
+        shipping_record = db.query(CargoShippingRecord).filter(CargoShippingRecord.import_file_id == import_file_id).first()
+
+
+    if shipping_record:
+        containers_to_apply = []
+        for c in bl_data.get("containers", []):
+            containers_to_apply.append({
+                "container_no": c.get("container_no"),
+                "seal_no": c.get("seal_no"),
+                "container_type": c.get("container_type", "40HC"),
+                "gross_weight_kg": c.get("gross_weight_kg"),
+                "cbm": c.get("cbm"),
+                "vgm_status": "Verified",
+                "tracking_status": "Gate-In",
+            })
+        if containers_to_apply:
+            shipping_record.containers_loading_data = containers_to_apply
+        db.commit()
+        db.refresh(shipping_record)
+        return {
+            "applied": True,
+            "cargo_shipping_id": shipping_record.cargo_shipping_id,
+            "cargo_shipping_code": shipping_record.cargo_shipping_code,
+            "containers_applied": len(containers_to_apply),
+            "message_ar": f"تم تطبيق بيانات البوليصة والحاويات على الشحنة {shipping_record.cargo_shipping_code}",
+        }
+    return {
+        "applied": False,
+        "message_ar": "تم استخراج بيانات البوليصة بنجاح",
+    }
+
 
 def soft_delete_upload_session_service(db: Session, session_id: int):
     return repo.soft_delete_upload_session(db, session_id)

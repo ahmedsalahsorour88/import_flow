@@ -1,7 +1,10 @@
 import '../widgets/import_file_details_dialog.dart';
 import '../widgets/import_file_form_dialog.dart';
 import '../widgets/freight_rfq_dialog.dart';
+import '../../import_documentation/widgets/smart_invoice_bl_extractor_dialog.dart';
+import '../../simulation/widgets/what_if_simulator_dialog.dart';
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -1215,8 +1218,45 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                           icon: const Icon(Icons.summarize, color: AppTheme.cobalt),
                           label: Text(l.generateComprehensiveReport, style: const TextStyle(fontWeight: FontWeight.bold)),
                         ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.flatEmerald,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => const SmartInvoiceBLExtractorDialog(),
+                            );
+                          },
+                          icon: const Icon(Icons.auto_awesome),
+                          label: const Text(
+                            'استخلاص الفواتير والبوالص (AI)',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.flatCharcoal,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => const WhatIfSimulatorDialog(),
+                            );
+                          },
+                          icon: const Icon(Icons.analytics_outlined),
+                          label: const Text(
+                            'محاكي الأزمات وتحوط الصرف (What-If)',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
                       ],
                     ),
+
                     Wrap(
                       spacing: 12,
                       runSpacing: 8,

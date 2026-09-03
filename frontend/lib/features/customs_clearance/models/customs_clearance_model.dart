@@ -1,5 +1,6 @@
 class CustomsClearanceModel {
   final int customsClearanceId;
+  int get clearanceId => customsClearanceId;
   final String clearanceCode;
   final int importFileId;
   final String? declaration46No;

@@ -1,17 +1,17 @@
 {
   "major": 1,
   "minor": 0,
-  "patch": 128,
-  "version": "1.0.128",
-  "build_number": 129,
-  "updated_at": "2026-09-03 11:23:56",
+  "patch": 132,
+  "version": "1.0.132",
+  "build_number": 133,
+  "updated_at": "2026-09-03 16:29:51",
   "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.116/Sorour_Logistics_Setup_v1.0.116.exe",
   "installer_filename": "Sorour_Logistics_Setup_v1.0.116.exe",
   "installer_size_mb": 197.76,
   "release_notes": [
-    "frontend/lib/features/import_documentation/widgets/visual_draft_coo_sheet.dart — Modified (تفريغ البند 11 و 12، وإضافة البانر التنبيهي الجمركي ثنائي اللغة)",
-    "frontend/lib/features/import_documentation/services/coo_export_service.dart — Modified (تفريغ البند 11 و 12 في الـ PDF وإضافة الملاحظة الجمركية)",
-    "modules/import_documentation/service.py — Modified (تفريغ القيم الافتراضية لـ box_11_declaration_by_exporter و box_12_certification)",
-    "history/2026-08-31.md — Modified (توثيق المهمة)"
+    "frontend/lib/core/constants/api_constants.dart — Modified: إضافة مسارات API المركزية لذكاء الموردين routeIntelligence وبوابات التكاملات integrations.",
+    "frontend/lib/features/demurrage_detention/widgets/dual_clock_radar_dialog.dart — Created: نافذة رادار العدادين المنفصلين لغرامات التوكيل الملاحي (USD) وأرضيات ساحات الموانئ (EGP) مع شريط تحذير 72 ساعة وتتبع خروج الحاويات الفردية (EIR Gate-Out).",
+    "frontend/lib/features/demurrage_detention/screens/demurrage_detention_screen.dart — Modified: ربط زر رادار العدادين في كروت بوالص الشحن.",
+    "frontend/lib/features/suppliers/widgets/route_intelligence_dialog.dart — Created: نافذة بطاقة ذكاء المسار ومفاوضات المورد وتاريخ الأسعار والنولون وفترات السماح وتوصية الذكاء الاصطناعي التنفيذية."
   ]
 }

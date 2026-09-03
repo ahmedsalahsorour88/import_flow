@@ -18,6 +18,7 @@ import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
 import '../services/financial_export_service.dart';
 import '../widgets/saved_budgets_registry_tab.dart';
+import '../../simulation/widgets/what_if_simulator_dialog.dart';
 import 'swift_reconciliation_screen.dart';
 
 class FinancialApprovalScreen extends ConsumerStatefulWidget {
@@ -1724,6 +1725,24 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       selectedIndex: _tabController.index,
       onTabSelected: (index) => setState(() => _tabController.index = index),
       headerActions: [
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.crimson,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (context) => const WhatIfSimulatorDialog(),
+            );
+          },
+          icon: const Icon(Icons.analytics_outlined, size: 16),
+          label: const Text(
+            'محاكي الأزمات وتحوط الصرف (What-If)',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+        ),
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
           tooltip: isArabic ? 'تحديث حي' : 'Live Refresh',

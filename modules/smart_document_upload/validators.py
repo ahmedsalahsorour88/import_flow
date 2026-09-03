@@ -42,7 +42,16 @@ SUPPORTED_MODULES = {
     "warehouse-receiving",
     "demurrage",
     "financial-document",
+    "commercial-invoice",
+    "commercial_invoice",
+    "invoice",
+    "bill-of-lading",
+    "bill_of_lading",
+    "bl",
+    "awb",
     "coo-certificate",
+
+
     "inspection-certificate",
     "master-data-entity",
     "supplier-entity",

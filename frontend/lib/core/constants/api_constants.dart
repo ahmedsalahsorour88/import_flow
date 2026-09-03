@@ -64,6 +64,7 @@ class ApiConstants {
   static String get lifecycleBoard => '$baseUrl/lifecycle-board';
   static String get smartDocumentUpload => '$baseUrl/smart-upload';
   static String get productionSync => '$baseUrl/production-sync';
+  static String get simulation => '$baseUrl/simulation';
 
 
   // ── Auth ──────────────────────────────────────────────────

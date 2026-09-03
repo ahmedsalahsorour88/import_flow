@@ -13,8 +13,10 @@ import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../freight_booking/providers/freight_booking_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
+import '../../import_documentation/widgets/smart_invoice_bl_extractor_dialog.dart';
 import '../models/cargo_shipping_model.dart';
 import '../providers/cargo_shipping_provider.dart';
+
 
 class CargoShippingScreen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -648,9 +650,29 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         ref.read(importFilesProvider.notifier).fetchImportFiles();
       },
       headerActions: [
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.flatCobalt,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          ),
+          icon: const Icon(Icons.auto_awesome, size: 16),
+          label: const Text('محلل البوالص والفواتير (AI)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (context) => SmartInvoiceBLExtractorDialog(
+                initialImportFileId: _selectedImportFileId,
+                initialTabIndex: 1,
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 8),
         SmartUploadButton(
           module: SmartUploadModule.cargoShipping,
           label: context.l10n.cargoShippingUploadBlLabel,
+
           onDataExtracted: (result) {
             final fields = result.extractedFields;
             ScaffoldMessenger.of(context).showSnackBar(

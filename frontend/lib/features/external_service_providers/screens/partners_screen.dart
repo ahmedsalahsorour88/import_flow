@@ -704,7 +704,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                         ref,
                                                         providerId: partner.providerId!,
                                                         providerName: partner.partnerName,
-                                                        providerType: partner.partnerCategory,
+                                                        providerType: partner.partnerType,
                                                       ),
                                                       borderRadius: BorderRadius.circular(6),
                                                       child: Container(

@@ -62,6 +62,7 @@ from modules.cargox.model import CargoXEnvelope, CargoXEnvelopeDocument, CargoXS
 from modules.original_documents_collection.model import OriginalDocumentsCollectionSession
 from modules.cargo_insurance.model import CargoInsuranceCertificate
 from modules.route_intelligence.model import RouteOperationalNote
+from modules.simulation.model import SavedSimulationScenario
 
 
 
@@ -109,6 +110,7 @@ from modules.cargox.router import router as cargox_router
 from modules.original_documents_collection.router import router as original_documents_collection_router
 from modules.production_sync.router import router as production_sync_router
 from modules.route_intelligence.router import router as route_intelligence_router
+from modules.simulation.router import router as simulation_router
 
 
 
@@ -120,7 +122,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="ImportFlow ERP API",
-    version="1.0.128",
+    version="1.0.132",
 )
 
 # ==================================================
@@ -220,6 +222,7 @@ app.include_router(cargox_router)
 app.include_router(original_documents_collection_router)
 app.include_router(production_sync_router)
 app.include_router(route_intelligence_router)
+app.include_router(simulation_router)
 
 
 
@@ -246,7 +249,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "ImportFlow ERP",
-        "version": "1.0.128",
+        "version": "1.0.132",
         "status": "running",
     }
 
@@ -277,7 +280,7 @@ def health_check():
     return {
         "status": "OK",
         "system": "ImportFlow ERP",
-        "version": "1.0.128",
+        "version": "1.0.132",
         "database": {
             "connected": db_exists,
             "path": db_path,

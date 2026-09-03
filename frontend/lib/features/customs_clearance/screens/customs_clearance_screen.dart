@@ -1006,7 +1006,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                       onPressed: () => showUnderBondReleaseDialog(
                         context,
                         ref,
-                        clearanceId: record.clearanceId,
+                        clearanceId: record.customsClearanceId,
                         declarationNo: record.declaration46No ?? record.clearanceCode,
                         isAlreadyUnderBond: record.status.contains('Bond') || record.status.contains('Quarantine'),
                         onDone: _refreshData,

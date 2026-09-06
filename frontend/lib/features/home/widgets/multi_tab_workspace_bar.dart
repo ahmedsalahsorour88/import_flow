@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/ai_assistant_provider.dart';
+import '../../../core/providers/navigation_provider.dart';
 import '../../../core/providers/workspace_tabs_provider.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -34,7 +36,11 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                 final isActive = tab.id == tabsState.activeTabId;
 
                 return GestureDetector(
-                  onTap: () => tabsNotifier.selectTab(tab.id),
+                  onTap: () {
+                    tabsNotifier.selectTab(tab.id);
+                    ref.read(navigationIndexProvider.notifier).state = tab.routeIndex;
+                    ref.read(aiAssistantProvider.notifier).updateScreenContext(tab.title);
+                  },
                   child: Container(
                     margin: const EdgeInsets.only(top: 4, right: 4, left: 2),
                     padding: const EdgeInsets.symmetric(horizontal: 12),

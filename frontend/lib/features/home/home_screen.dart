@@ -55,6 +55,8 @@ import '../warehouse_receiving/screens/warehouse_received_report_screen.dart';
 import '../production_sync/screens/production_sync_screen.dart';
 import '../production_sync/widgets/production_sync_hub_dialog.dart';
 import '../production_sync/providers/production_sync_provider.dart';
+import '../auth/screens/users_management_screen.dart';
+import '../../core/widgets/ai_assistant_panel.dart';
 
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -191,6 +193,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 65: Cargo & Marine Insurance Certificate Module
         CargoInsuranceScreen(),
+
+        // 66: Users Management & RBAC (ADMIN only)
+        UsersManagementScreen(),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -202,38 +207,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final tabsState = ref.watch(workspaceTabsProvider);
     final activeTab = tabsState.activeTab;
     final currentRouteIndex = activeTab?.routeIndex ?? (selectedIndex < _screens.length ? selectedIndex : 0);
+    final activeTabIndex = tabsState.tabs.indexWhere((t) => t.id == tabsState.activeTabId);
+    final safeActiveTabIndex = (activeTabIndex != -1) ? activeTabIndex : 0;
     final authState = ref.watch(authProvider);
     final user = authState.user;
 
     return Scaffold(
-      body: Row(
+      body: Stack(
         children: [
-          // Animated Collapsible Professional Sidebar (52px <-> 235px)
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-            width: _isSidebarCollapsed ? 52 : 235,
-            color: AppTheme.charcoal,
-            child: _isSidebarCollapsed
-                ? _buildCollapsedRail(currentRouteIndex, user)
-                : _buildFullSidebar(currentRouteIndex, user),
+          Row(
+            children: [
+              // Animated Collapsible Professional Sidebar (52px <-> 235px)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                width: _isSidebarCollapsed ? 52 : 235,
+                color: AppTheme.charcoal,
+                child: _isSidebarCollapsed
+                    ? _buildCollapsedRail(currentRouteIndex, user)
+                    : _buildFullSidebar(currentRouteIndex, user),
+              ),
+
+              // Main Content View with Multi-Tab Workspace Bar
+              Expanded(
+                child: Column(
+                  children: [
+                    const MultiTabWorkspaceBar(),
+                    Expanded(
+                      child: tabsState.tabs.isEmpty
+                          ? _screens[0]
+                          : IndexedStack(
+                              index: safeActiveTabIndex < tabsState.tabs.length
+                                  ? safeActiveTabIndex
+                                  : 0,
+                              children: [
+                                for (final tab in tabsState.tabs)
+                                  KeyedSubtree(
+                                    key: ValueKey(tab.id),
+                                    child: _screens[tab.routeIndex < _screens.length
+                                        ? tab.routeIndex
+                                        : 0],
+                                  ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
 
-          // Main Content View with Multi-Tab Workspace Bar
-          Expanded(
-            child: Column(
-              children: [
-                const MultiTabWorkspaceBar(),
-                Expanded(
-                  child: _screens[currentRouteIndex < _screens.length ? currentRouteIndex : 0],
-                ),
-              ],
-            ),
-          ),
+          // Floating Persistent AI Assistant Overlay (Always on top across all screens)
+          const AiAssistantOverlay(),
         ],
       ),
     );
   }
+
 
 
   // ─── Mini Icon Rail (52px width) ───────────────────────────────────────────
@@ -593,6 +623,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildMenuItem(Icons.task_alt_outlined, 'Smart Tasks & Alerts', 'المهام والتنبيهات الذكية', 40, selectedIndex),
                   _buildMenuItem(Icons.history_edu_outlined, 'System Audit Logs', 'سجل التدقيق والرقابة', 39, selectedIndex),
                   _buildMenuItem(Icons.sync_alt_rounded, 'Production Sync Hub', 'مركز مزامنة وتحديث الإنتاج', 59, selectedIndex),
+                  // Users Management — ADMIN only
+                  if (user != null && user.role.toUpperCase() == 'ADMIN')
+                    _buildMenuItem(Icons.manage_accounts_rounded, 'Users & Permissions', 'إدارة المستخدمين والصلاحيات', 66, selectedIndex),
                 ],
               ),
             ],
@@ -675,7 +708,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final versionText = versionAsync.when(
                   data: (info) => 'v${info.version} (Build ${info.buildNumber})',
                   loading: () => 'v... (Loading)',
-                  error: (_, __) => 'v1.0.134 (Build 135)',
+                  error: (_, __) => 'v1.0.136 (Build 137)',
                 );
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

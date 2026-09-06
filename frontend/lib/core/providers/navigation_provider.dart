@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'ai_assistant_provider.dart';
 import 'workspace_tabs_provider.dart';
 import '../../features/audit_logs/providers/audit_logs_provider.dart';
 
@@ -94,8 +95,7 @@ import '../../features/warehouse_receiving/providers/warehouse_receiving_provide
 //  65 = CargoInsuranceScreen
 // ============================================================
 
-
-const int _totalScreens = 70; // matches home_screen._screens list (indices 0–65)
+const int _totalScreens = 67; // indices 0–66
 
 
 final navigationIndexProvider = StateProvider<int>((ref) => 0);
@@ -148,6 +148,9 @@ _ScreenTabInfo _getScreenTabInfo(int index) {
     case 44: return const _ScreenTabInfo('رادار الغرامات والأرضيات', Icons.timer_outlined);
     case 48: return const _ScreenTabInfo('مخطط دورة الحياة', Icons.view_kanban_outlined);
     case 49: return const _ScreenTabInfo('مقارنة عروض النولون', Icons.request_quote_outlined);
+    case 59: return const _ScreenTabInfo('Production Sync', Icons.sync_alt_rounded);
+    case 65: return const _ScreenTabInfo('تأمين الشحن البحري', Icons.shield_outlined);
+    case 66: return const _ScreenTabInfo('إدارة المستخدمين', Icons.manage_accounts_rounded);
     default: return _ScreenTabInfo('شاشة $index', Icons.tab_outlined);
   }
 }
@@ -169,6 +172,9 @@ void selectNavigationIndex(WidgetRef ref, int index, {String? tabTitle, IconData
 
   // 3. Live-refresh the target screen's data from the server
   _liveRefreshScreenData(ref, index);
+
+  // 4. Update AI assistant screen context
+  ref.read(aiAssistantProvider.notifier).updateScreenContext(tabTitle ?? tabInfo.title);
 }
 
 

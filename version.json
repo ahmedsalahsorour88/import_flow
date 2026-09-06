@@ -1,17 +1,17 @@
 {
   "major": 1,
   "minor": 0,
-  "patch": 134,
-  "version": "1.0.134",
-  "build_number": 135,
-  "updated_at": "2026-09-06 11:23:46",
+  "patch": 136,
+  "version": "1.0.136",
+  "build_number": 137,
+  "updated_at": "2026-09-06 12:23:05",
   "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.116/Sorour_Logistics_Setup_v1.0.116.exe",
   "installer_filename": "Sorour_Logistics_Setup_v1.0.116.exe",
   "installer_size_mb": 197.76,
   "release_notes": [
-    "frontend/lib/main.dart — Modified: تصحيح الـ builder في MaterialApp وتغليف SelectionArea داخل Overlay لمنع خطأ No Overlay widget found وتمكين التحديد والقوائم المنبثقة للنسخ عبر كامل شاشات ونوافذ النظام.",
-    "frontend/lib/features/purchase_orders/screens/purchase_orders_screen.dart — Modified: تغليف نافذة تفاصيل أمر الشراء _showPODetailsDialog بـ SelectionArea مباشر، وإضافة زر إجرائي \"نسخ كافة البيانات\" (Copy All Data) يقوم بنسخ كافة بيانات الترويسة وبنود الفاتورة وجدول بيان التعبئة مهيأة للصق المباشر في Excel و Word.",
-    "frontend/lib/features/purchase_orders/widgets/po_balance_ledger_dialog.dart — Modified: تغليف نافذة دفتر أرصدة أمر الشراء والشحنات الجزئية بـ SelectionArea.",
-    "frontend/lib/features/purchase_orders/widgets/po_reconciliation_warning_dialog.dart — Modified: تغليف نافذة تحذيرات مطابقة الفاتورة وبيان التعبئة بـ SelectionArea."
+    "frontend/lib/core/providers/ai_assistant_provider.dart — Created: إدارة حالة الشات والمساعد الذكي، تكامل Google Gemini 1.5 Flash، وحفظ الـ API Key عبر SharedPreferences، ومصفوفة الاقتراحات السريعة، وتحديث سياق الشاشة.",
+    "frontend/lib/core/widgets/ai_assistant_panel.dart — Created: Widget الـ Overlay العائم مع بطاقة \"Hello\" المطابقة للصورة وزر المحادثة الدائري البرتقالي ولوحة الشات التفاعلية المنبثقة.",
+    "frontend/lib/core/providers/workspace_tabs_provider.dart — Modified: فرض حد أقصى للتبويبات (Max 10 Tabs) مع الحفاظ على تبويب لوحة التحكم، وإغلاق أقدم تبويب تلقائياً عند تجاوز الحد.",
+    "frontend/lib/core/providers/navigation_provider.dart — Modified: تحديث إجمالي الشاشات، وإضافة سياق الشاشة النشطة للمساعد الذكي عند أي تنقل."
   ]
 }

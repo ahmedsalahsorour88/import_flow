@@ -67,6 +67,8 @@ class WorkspaceTabsState {
 }
 
 class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
+  static const int maxTabs = 10;
+
   WorkspaceTabsNotifier()
       : super(
           const WorkspaceTabsState(
@@ -95,20 +97,31 @@ class WorkspaceTabsNotifier extends StateNotifier<WorkspaceTabsState> {
     );
 
     if (existingIndex != -1) {
+      // Tab already open — just switch to it
       state = state.copyWith(activeTabId: state.tabs[existingIndex].id);
-    } else {
-      final newTab = WorkspaceTab(
-        id: id,
-        title: title,
-        icon: icon,
-        routeIndex: routeIndex,
-        isClosable: isClosable,
-      );
-      state = state.copyWith(
-        tabs: [...state.tabs, newTab],
-        activeTabId: id,
-      );
+      return;
     }
+
+    // Enforce max tabs: close the oldest closable tab if at limit
+    List<WorkspaceTab> tabs = [...state.tabs];
+    if (tabs.length >= maxTabs) {
+      final oldestClosable = tabs.indexWhere((t) => t.isClosable);
+      if (oldestClosable != -1) {
+        tabs.removeAt(oldestClosable);
+      }
+    }
+
+    final newTab = WorkspaceTab(
+      id: id,
+      title: title,
+      icon: icon,
+      routeIndex: routeIndex,
+      isClosable: isClosable,
+    );
+    state = state.copyWith(
+      tabs: [...tabs, newTab],
+      activeTabId: id,
+    );
   }
 
   void selectTab(String tabId) {

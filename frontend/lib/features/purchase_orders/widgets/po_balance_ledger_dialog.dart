@@ -57,9 +57,10 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
+    return SelectionArea(
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
         width: 860,
         padding: const EdgeInsets.all(24),
         child: _isLoading
@@ -81,6 +82,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                     ),
                   )
                 : _buildContent(),
+        ),
       ),
     );
   }

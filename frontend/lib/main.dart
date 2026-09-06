@@ -248,13 +248,19 @@ class _ImportFlowAppState extends ConsumerState<ImportFlowApp>
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'ImportFlow ERP - Sorour Logistics (v1.0.132)',
+            title: 'ImportFlow ERP - Sorour Logistics (v1.0.134)',
             theme: AppTheme.lightTheme,
             scrollBehavior: AppCustomScrollBehavior(),
             locale: locale,
             builder: (context, child) {
-              return SelectionArea(
-                child: child ?? const SizedBox.shrink(),
+              return Overlay(
+                initialEntries: [
+                  OverlayEntry(
+                    builder: (context) => SelectionArea(
+                      child: child ?? const SizedBox.shrink(),
+                    ),
+                  ),
+                ],
               );
             },
             home:

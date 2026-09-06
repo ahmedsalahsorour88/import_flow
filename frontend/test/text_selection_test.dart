@@ -1,4 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/import_documentation/services/coo_export_service.dart';
 import 'package:frontend/features/import_documentation/services/draft_bl_export_service.dart';
@@ -34,6 +37,156 @@ void main() {
       // Verify Selectable text elements are inside SelectionArea
       final selectionArea = tester.widget<SelectionArea>(find.byType(SelectionArea));
       expect(selectionArea.child, isNotNull);
+    });
+
+    testWidgets('Dialog text selection test with Overlay', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => Overlay(
+            initialEntries: [
+              OverlayEntry(
+                builder: (context) => SelectionArea(
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              ),
+            ],
+          ),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => const AlertDialog(
+                      title: Text('Dialog Title Text'),
+                      content: Text('Dialog Content Text To Copy'),
+                    ),
+                  );
+                },
+                child: const Text('Open Dialog'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Dialog Content Text To Copy'), findsOneWidget);
+      final renderParagraph = tester.renderObject<RenderParagraph>(
+        find.descendant(
+          of: find.text('Dialog Content Text To Copy'),
+          matching: find.byType(RichText),
+        ),
+      );
+      expect(renderParagraph.registrar, isNotNull);
+
+      // Perform selection gesture
+      final textFinder = find.text('Dialog Content Text To Copy');
+      final gesture = await tester.startGesture(tester.getTopLeft(textFinder), kind: PointerDeviceKind.mouse);
+      await gesture.moveBy(const Offset(100, 0));
+      await gesture.up();
+      await tester.pump();
+    });
+
+    testWidgets('Scaffold and Dialog with SelectionArea inside Dialog', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => const AlertDialog(
+                      title: Text('Dialog Title Text'),
+                      content: SelectionArea(
+                        child: Text('Explicit Selectable Dialog Content'),
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Open Dialog'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Explicit Selectable Dialog Content'), findsOneWidget);
+      final renderParagraph = tester.renderObject<RenderParagraph>(
+        find.descendant(
+          of: find.text('Explicit Selectable Dialog Content'),
+          matching: find.byType(RichText),
+        ),
+      );
+      expect(renderParagraph.registrar, isNotNull);
+    });
+
+    testWidgets('PO Details dialog wraps SelectionArea and provides copy button', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => SelectionArea(
+                      child: AlertDialog(
+                        title: const Text('Purchase Orders & Proforma Invoices: PO-2026-001'),
+                        content: const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('HSR High Speed Rail (Package)-Orascom-Rowad'),
+                            Text('CYK4R6018210001'),
+                            Text('EUR 37204.75'),
+                          ],
+                        ),
+                        actions: [
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.copy_all),
+                            label: const Text('نسخ كافة البيانات'),
+                            onPressed: () {},
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Close'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('View PO Details'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('View PO Details'));
+      await tester.pumpAndSettle();
+
+      // Verify SelectionArea wraps dialog
+      expect(find.byType(SelectionArea), findsOneWidget);
+      expect(find.text('CYK4R6018210001'), findsOneWidget);
+      expect(find.text('نسخ كافة البيانات'), findsOneWidget);
+
+      final itemCodeParagraph = tester.renderObject<RenderParagraph>(
+        find.descendant(
+          of: find.text('CYK4R6018210001'),
+          matching: find.byType(RichText),
+        ),
+      );
+      expect(itemCodeParagraph.registrar, isNotNull);
     });
   });
 

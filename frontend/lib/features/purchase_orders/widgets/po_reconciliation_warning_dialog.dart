@@ -173,8 +173,9 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
     final l = context.l10n;
     final report = widget.report;
 
-    return AlertDialog(
-      titlePadding: EdgeInsets.zero,
+    return SelectionArea(
+      child: AlertDialog(
+        titlePadding: EdgeInsets.zero,
       title: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
@@ -424,7 +425,8 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
           },
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 }
 

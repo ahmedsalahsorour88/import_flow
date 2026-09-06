@@ -3,6 +3,7 @@ import '../widgets/po_reconciliation_warning_dialog.dart';
 import '../widgets/po_balance_ledger_dialog.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
@@ -584,9 +585,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       builder: (dialogCtx) {
         final l = dialogCtx.l10n;
         final isArabic = Localizations.localeOf(dialogCtx).languageCode == 'ar';
-        return DefaultTabController(
-          length: 2,
-          child: AlertDialog(
+        return SelectionArea(
+          child: DefaultTabController(
+            length: 2,
+            child: AlertDialog(
             title: Row(
               children: [
                 const Icon(Icons.inventory_2, color: AppTheme.cobalt),
@@ -1191,6 +1193,20 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
             ),
           ),
           actions: [
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.cobalt,
+                side: const BorderSide(color: AppTheme.cobalt),
+              ),
+              icon: const Icon(Icons.copy_all, size: 16),
+              label: Text(
+                isArabic ? 'نسخ كافة البيانات' : 'Copy All Data',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                _copyPoDetailsToClipboard(dialogCtx, po, isArabic);
+              },
+            ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.cobalt,
@@ -1209,10 +1225,86 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
             ),
           ],
         ),
-      );
-    },
-  );
+      ),
+    );
+  },
+);
 }
+
+  void _copyPoDetailsToClipboard(BuildContext context, PurchaseOrderModel po, bool isArabic) {
+    final buffer = StringBuffer();
+    buffer.writeln(isArabic ? '=== بيانات أمر الشراء / الفاتورة المبدئية ===' : '=== Purchase Order / Proforma Invoice Details ===');
+    buffer.writeln('${isArabic ? "رقم أمر الشراء" : "PO Number"}: ${po.poNumber}');
+    if (po.proformaInvoiceNumber != null && po.proformaInvoiceNumber!.isNotEmpty) {
+      buffer.writeln('${isArabic ? "رقم الفاتورة المبدئية" : "Proforma Invoice"}: ${po.proformaInvoiceNumber}');
+    }
+    if (po.projectName != null && po.projectName!.isNotEmpty) {
+      buffer.writeln('${isArabic ? "المشروع ومركز التكلفة" : "Project & Cost Center"}: ${po.projectName}');
+    }
+    if (po.companyName != null && po.companyName!.isNotEmpty) {
+      buffer.writeln('${isArabic ? "الشركة المستوردة" : "Importing Company"}: ${po.companyName}');
+    }
+    if (po.supplierName != null && po.supplierName!.isNotEmpty) {
+      buffer.writeln('${isArabic ? "المورد الأجنبي" : "Foreign Supplier"}: ${po.supplierName}');
+    }
+    if (po.countryOfOrigin != null && po.countryOfOrigin!.isNotEmpty) {
+      buffer.writeln('${isArabic ? "بلد المنشأ" : "Country of Origin"}: ${po.countryOfOrigin}');
+    }
+    if (po.incotermCode != null && po.incotermCode!.isNotEmpty) {
+      buffer.writeln('${isArabic ? "الشرط التجاري" : "Incoterms"}: ${po.incotermCode}');
+    }
+    buffer.writeln('${isArabic ? "العملة" : "Currency"}: ${po.currencyCode ?? "USD"} (${isArabic ? "سعر الصرف" : "FX Rate"}: ${po.exchangeRate})');
+    if (po.paymentTerms != null && po.paymentTerms!.isNotEmpty) {
+      buffer.writeln('${isArabic ? "شروط الدفع" : "Payment Terms"}: ${po.paymentTerms}');
+    }
+    buffer.writeln('${isArabic ? "إجمالي القيمة" : "Total Amount"}: ${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}');
+    buffer.writeln('${isArabic ? "إجمالي الحجم CBM" : "Total CBM"}: ${po.totalCbm.toStringAsFixed(3)} m³');
+    buffer.writeln('${isArabic ? "الوزن القائم / الصافي" : "Gross / Net Weight"}: ${po.totalGrossWeightKg.toStringAsFixed(1)} kg / ${po.totalNetWeightKg.toStringAsFixed(1)} kg');
+    buffer.writeln();
+
+    buffer.writeln(isArabic ? '--- بنود أمر الشراء والأكواد الجمركية ---' : '--- PO Line Items & HS Codes ---');
+    buffer.writeln('Item Code\tMain Description\tDescription & HS Code\tQty / UOM\tUnit Price\tLine Total\tVolume CBM');
+    for (final item in po.items) {
+      buffer.writeln(
+        '${item.itemCode ?? "-"}\t${item.mainDescription ?? "-"}\t${item.descriptionAr} (HS: ${item.hsCode ?? "-"})\t${item.quantity} ${item.unitOfMeasure}\t${po.currencyCode ?? "USD"} ${item.unitPrice.toStringAsFixed(2)}\t${po.currencyCode ?? "USD"} ${item.totalPrice.toStringAsFixed(2)}\t${item.totalCbm.toStringAsFixed(3)}',
+      );
+    }
+
+    if (po.packingListItems.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln(isArabic ? '--- بيان التعبئة (Packing List) ---' : '--- Packing List Items ---');
+      buffer.writeln('HS Code\tItem Code\tDescription\tPackages\tPackage Type\tDimensions (cm)\tNet Weight (kg)\tGross Weight (kg)\tCBM');
+      for (final pl in po.packingListItems) {
+        final dims = pl.lengthCm > 0 ? '${pl.lengthCm}x${pl.widthCm}x${pl.heightCm}' : '-';
+        final netWt = ((pl.netWeightUnitKg > 0 && pl.qtyPkg > 0) ? (pl.qtyPkg * pl.netWeightUnitKg) : pl.totalNetWeightKg).toStringAsFixed(1);
+        final grossWt = ((pl.grossWeightUnitKg > 0 && pl.qtyPkg > 0) ? (pl.qtyPkg * pl.grossWeightUnitKg) : pl.totalGrossWeightKg).toStringAsFixed(1);
+        final cbm = (pl.calculatedCbm > 0 ? pl.calculatedCbm : pl.totalCbm).toStringAsFixed(3);
+        buffer.writeln(
+          '${pl.hsCode}\t${pl.itemCode}\t${pl.description ?? pl.mainDescription ?? "-"}\t${pl.qtyPkg}\t${pl.packageType}\t$dims\t$netWt\t$grossWt\t$cbm',
+        );
+      }
+    }
+
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              isArabic
+                  ? 'تم نسخ كافة بيانات وبنود أمر الشراء بنجاح (جاهزة للصق في Excel أو Word)'
+                  : 'All PO details and line items copied to clipboard successfully (ready to paste in Excel/Word)',
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green.shade700,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
 
 
   Widget _buildDetailItem(String label, String value) {

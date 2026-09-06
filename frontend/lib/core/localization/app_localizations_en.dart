@@ -5950,6 +5950,150 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dynColOwner => 'Owner / Assignee';
   @override
   String get dynColStatus => 'File Status';
+  @override
+  String get dynTemplatePresetLabel => 'Report Template';
+  @override
+  String get dynTemplateCustom => 'Custom Dynamic Builder';
+  @override
+  String get dynTemplateEco => 'ECO Associates Template (Radar)';
+  @override
+  String get dynTemplateScas => 'SCAS Construction Template (Tracker)';
+  @override
+  String dynLastUpdatedLabel(String timestamp) => 'Last Updated: $timestamp';
+  @override
+  String get dynSearchColumnsPlaceholder => 'Search columns...';
+  @override
+  String get dynSelectAll => 'Select All';
+  @override
+  String get dynDeselectAll => 'Deselect All';
+  @override
+  String get dynCatFileAndProject => 'File, Company & Project Data';
+  @override
+  String get dynCatCommercialAndPo => 'PO & Commercial Invoices';
+  @override
+  String get dynCatShippingAndLogistics => 'Shipping, Logistics & Ports';
+  @override
+  String get dynCatPackagesAndCbm => 'Packages, Weights & CBM';
+  @override
+  String get dynCatCustomsAndNafeza => 'Customs, Nafeza & CargoX';
+  @override
+  String get dynCatBankingAndSwift => 'Banking, Form 4 & Swift';
+  @override
+  String get dynCatScasTracking => 'Original Docs & SCAS Tracker';
+  @override
+  String get dynCatEcoTracking => 'ECO Tracking & Coordinators';
+  @override
+  String get dynColCustomFileNumber => 'Customer File No';
+  @override
+  String get dynColProjectNames => 'Project Name';
+  @override
+  String get dynColNextAction => 'Next Action';
+  @override
+  String get dynColNotes => 'Operational Notes';
+  @override
+  String get dynColFileOpeningDate => 'File Opening Date / ETD';
+  @override
+  String get dynColPoNumber => 'Purchase Order (PO)';
+  @override
+  String get dynColPiNumber => 'Proforma Invoice (PI)';
+  @override
+  String get dynColPiValue => 'PI Value';
+  @override
+  String get dynColShippingLine => 'Shipping Line / Forwarder';
+  @override
+  String get dynColPortOfLoading => 'Port of Loading (POL)';
+  @override
+  String get dynColPortOfDischarge => 'Port of Discharge (POD)';
+  @override
+  String get dynColCargoReadyDate => 'Cargo Ready Date (Pick Up)';
+  @override
+  String get dynColTargetFreeDays => 'Free Days';
+  @override
+  String get dynColTotalPackages => 'Total Packages';
+  @override
+  String get dynColGrossWeightKg => 'Gross Weight (kg)';
+  @override
+  String get dynColTotalCbm => 'Total CBM';
+  @override
+  String get dynColAcidIssueDate => 'ACID Issue Date';
+  @override
+  String get dynColAcidExpiryDate => 'ACID Expiry Date';
+  @override
+  String get dynColCustomsReleaseStatus => 'Customs Release Status';
+  @override
+  String get dynColCustomsReleasedAt => 'Customs Release Date';
+  @override
+  String get dynColForm4ReceivedDate => 'Form 4 Received Date';
+  @override
+  String get dynColSwiftNo => 'Swift Number';
+  @override
+  String get dynColSwiftDate => 'Swift Date';
+  @override
+  String get dynColSwiftAmount => 'Swift Amount';
+  @override
+  String get dynColUpdatedAt => 'Last Updated Date';
+  @override
+  String get dynColEcoBroker => 'Custom Broker Name';
+  @override
+  String get dynColEcoShipmentNo => 'Shipment No';
+  @override
+  String get dynColEcoSupplier => 'Supp. Name';
+  @override
+  String get dynColEcoProject => 'Project Name';
+  @override
+  String get dynColEcoPiValue => 'PI Value';
+  @override
+  String get dynColEcoShippingDate => 'Shipping Date / POL';
+  @override
+  String get dynColEcoArrivalPort => 'Arrival Port / POD';
+  @override
+  String get dynColEcoArrivalWarehouse => 'Arrival Warehouse';
+  @override
+  String get dynColEcoSara => 'SARA';
+  @override
+  String get dynColEcoMaro => 'MARO';
+  @override
+  String get dynColEcoReadyToPickUp => 'Ready to Pick Up Date';
+  @override
+  String get dynColEcoLatestUpdate => 'Latest Update for Pending Shipment';
+  @override
+  String get dynColEcoSwiftDate => 'Swift Date';
+  @override
+  String get dynColEcoSwiftAmount => 'Swift Amount';
+  @override
+  String get dynColEcoShippingCompany => 'Shipping Company';
+  @override
+  String get dynColEcoAcid => 'ACID';
+  @override
+  String get dynColScasProjectFileAcid => 'Project / File / ACID';
+  @override
+  String get dynColScasExFactory => 'EX Factory';
+  @override
+  String get dynColScasOrderToOrigin => 'Order to Origin for Pick Up';
+  @override
+  String get dynColScasPickUpDate => 'Pick Up Date from Origin';
+  @override
+  String get dynColScasDeparturePort => 'Departure Date from Port (ETD)';
+  @override
+  String get dynColScasArrivalAlexPort => 'Arrival Date to Alex Port (ETA)';
+  @override
+  String get dynColScasOrigInvoice => 'Original Commercial Invoice';
+  @override
+  String get dynColScasOrigPackingList => 'Original Packing List';
+  @override
+  String get dynColScasOrigCoo => 'Original Certificate of Origin';
+  @override
+  String get dynColScasOrigBl => 'Original Bill of Lading';
+  @override
+  String get dynColScasOrigInsurance => 'Original Insurance Certificate';
+  @override
+  String get dynColScasInsertNafeza => 'Insert on Nafeza';
+  @override
+  String get dynColScasBankForm4 => 'Bank Name (Form 4)';
+  @override
+  String get dynColScasDeclare3A => 'Declare to 3A';
+  @override
+  String get dynColScasMaterialReceived => 'Material Received / Clearance';
 
   // ── Screen 68: Comprehensive Import File Report ───────────────────────────
   @override

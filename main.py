@@ -122,7 +122,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="ImportFlow ERP API",
-    version="1.0.136",
+    version="1.0.137",
 )
 
 # ==================================================
@@ -249,7 +249,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "ImportFlow ERP",
-        "version": "1.0.136",
+        "version": "1.0.137",
         "status": "running",
     }
 
@@ -280,7 +280,7 @@ def health_check():
     return {
         "status": "OK",
         "system": "ImportFlow ERP",
-        "version": "1.0.136",
+        "version": "1.0.137",
         "database": {
             "connected": db_exists,
             "path": db_path,

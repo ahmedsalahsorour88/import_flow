@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -6,8 +6,8 @@ void main() {
 
   group('FileSaveHelper Universal File Saving Tests', () {
     test('saveText prepends UTF-8 BOM when requested for Excel compatibility', () {
-      final sampleCsv = 'Column1,Column2\nValue1,Value2';
-      final withBom = '\uFEFF$sampleCsv';
+      const sampleCsv = 'Column1,Column2\nValue1,Value2';
+      const withBom = '\uFEFF$sampleCsv';
       final bytes = utf8.encode(withBom);
 
       expect(bytes[0], equals(0xEF));

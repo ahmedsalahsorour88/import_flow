@@ -27,19 +27,28 @@ import '../providers/shipping_scenarios_provider.dart';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/performance/dispose_tracker.dart';
 
 
 class ShippingScenariosScreen extends ConsumerStatefulWidget {
-
   final int initialIndex;
-  const ShippingScenariosScreen({super.key, this.initialIndex = 0});
+  final int? initialImportFileId;
+  final bool isEmbedded;
+
+  const ShippingScenariosScreen({
+    super.key,
+    this.initialIndex = 0,
+    this.initialImportFileId,
+    this.isEmbedded = false,
+  });
 
   @override
   ConsumerState<ShippingScenariosScreen> createState() => _ShippingScenariosScreenState();
 }
 
 class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, DisposeTrackerMixin<ShippingScenariosScreen> {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -65,7 +74,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
   // ── Smart AI Extractor State (Text & OCR) ──────────────────────────────
   bool _isFreightExtractorExpanded = true;
-  bool _isFreightExtracting = false;
+  final bool _isFreightExtracting = false;
   final TextEditingController _rawFreightQuoteController = TextEditingController();
   List<ExtractedQuotationOption> _extractedOptions = [];
   Map<String, dynamic>? _extractedFreightMetadata;
@@ -74,9 +83,12 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
   // Track expanded quotes in UI
   final Map<int, bool> _expandedQuotes = {};
+  bool _hasVisitedTab0 = false;
+  bool _hasVisitedTab1 = false;
 
   void _loadSessionForEditing(ShippingEvaluationModel sess) {
     setState(() {
+      _hasVisitedTab0 = true;
       _editFormVersion++;
       _editingSessionId = sess.sessionId;
       _editingSessionCode = sess.sessionCode;
@@ -98,7 +110,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     _tabController.animateTo(0);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('📂 تم استدعاء وتحميل كافة بيانات الجلسة (${sess.sessionCode}) للتعديل وإعادة التفعيل!'),
+        content: Text(context.l10n.sessionLoadedMsg(sess.sessionCode)),
         backgroundColor: AppTheme.cobalt,
       ),
     );
@@ -106,6 +118,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
   void _resetFormForNewStudy() {
     setState(() {
+      _hasVisitedTab0 = true;
       _editFormVersion++;
       _editingSessionId = null;
       _editingSessionCode = null;
@@ -125,7 +138,19 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   @override
   void initState() {
     super.initState();
+    _hasVisitedTab0 = widget.initialIndex == 0;
+    _hasVisitedTab1 = widget.initialIndex == 1;
     _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialIndex);
+    _tabController.addListener(() {
+      if (_tabController.index == 0 && !_hasVisitedTab0) {
+        setState(() => _hasVisitedTab0 = true);
+      } else if (_tabController.index == 1 && !_hasVisitedTab1) {
+        setState(() => _hasVisitedTab1 = true);
+      }
+    });
+    if (widget.initialImportFileId != null) {
+      _selectedImportFileId = widget.initialImportFileId;
+    }
     _initDefaultItems();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshData(force: false);
@@ -137,18 +162,41 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialIndex != widget.initialIndex) {
       _tabController.animateTo(widget.initialIndex);
+      if (widget.initialIndex == 0) _hasVisitedTab0 = true;
+      if (widget.initialIndex == 1) _hasVisitedTab1 = true;
+    }
+    if (widget.initialImportFileId != null && widget.initialImportFileId != _selectedImportFileId) {
+      setState(() {
+        _selectedImportFileId = widget.initialImportFileId;
+      });
     }
   }
 
   void _refreshData({bool force = false}) {
-    ref.read(shippingScenariosProvider.notifier).fetchSessions();
-    ref.read(allPartnersProvider.notifier).fetchPartners();
-    ref.read(partnersProvider.notifier).fetchPartners();
-    ref.read(projectsProvider.notifier).fetchProjects();
-    ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
-    ref.read(transportLocationsProvider.notifier).fetchLocations();
-    ref.read(importFilesProvider.notifier).fetchImportFiles();
-    ref.read(currenciesProvider.notifier).fetchCurrencies();
+    if (!ref.read(shippingScenariosProvider).isLoading) {
+      ref.read(shippingScenariosProvider.notifier).fetchSessions();
+    }
+    if (!ref.read(allPartnersProvider).isLoading) {
+      ref.read(allPartnersProvider.notifier).fetchPartners();
+    }
+    if (!ref.read(partnersProvider).isLoading) {
+      ref.read(partnersProvider.notifier).fetchPartners();
+    }
+    if (!ref.read(projectsProvider).isLoading) {
+      ref.read(projectsProvider.notifier).fetchProjects();
+    }
+    if (!ref.read(purchaseOrdersProvider).isLoading) {
+      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+    }
+    if (!ref.read(transportLocationsProvider).isLoading) {
+      ref.read(transportLocationsProvider.notifier).fetchLocations();
+    }
+    if (!ref.read(importFilesProvider).isLoading) {
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    }
+    if (!ref.read(currenciesProvider).isLoading) {
+      ref.read(currenciesProvider.notifier).fetchCurrencies();
+    }
   }
 
   void _initDefaultItems() {
@@ -331,8 +379,8 @@ Best regards,
       context,
       onAddQuotations: (selectedOptions) {
         final crd = _cargoReadyDate;
-        final partners = ref.read(allPartnersProvider).value ?? ref.read(partnersProvider).value ?? [];
-        final portsList = ref.read(transportLocationsProvider).value ?? [];
+        final partners = ref.read(allPartnersProvider).valueOrNull ?? ref.read(partnersProvider).valueOrNull ?? [];
+        final portsList = ref.read(transportLocationsProvider).valueOrNull ?? [];
 
         setState(() {
           for (int i = 0; i < selectedOptions.length; i++) {
@@ -350,7 +398,7 @@ Best regards,
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✨ تمت إضافة ${selectedOptions.length} عرض/عروض أسعار بنجاح لدراسة ومقارنة الشحن!'),
+            content: Text(context.l10n.freightQuotesAddedMsg(selectedOptions.length)),
             backgroundColor: AppTheme.emerald,
           ),
         );
@@ -366,43 +414,6 @@ Best regards,
     _openFreightSmartExtractorDialog();
   }
 
-  void _processExtractedFreightData(dynamic data) {
-    if (data == null) return;
-    final extracted = (data['extracted_fields'] as Map<String, dynamic>?) ?? {};
-    final rawRateOptions = (extracted['rate_options'] as List<dynamic>?) ?? [];
-
-    final List<ExtractedQuotationOption> parsedList = [];
-
-    if (rawRateOptions.isNotEmpty) {
-      for (int i = 0; i < rawRateOptions.length; i++) {
-        final optMap = rawRateOptions[i] as Map<String, dynamic>;
-        parsedList.add(ExtractedQuotationOption.fromMap(optMap, i + 1));
-      }
-    } else if (extracted['freight_rate'] != null || extracted['ocean_freight'] != null) {
-      parsedList.add(ExtractedQuotationOption.fromMap(extracted, 1));
-    }
-
-    if (data['raw_text'] != null && (data['raw_text'] as String).isNotEmpty) {
-      _rawFreightQuoteController.text = data['raw_text'] as String;
-    }
-
-    setState(() {
-      _extractedFreightMetadata = extracted;
-      _extractedOptions = parsedList;
-      if (parsedList.isEmpty) {
-        _extractorError = 'لم يتم العثور على أية عروض أسعار صالحة في النص/المستند المدخل.';
-      }
-    });
-
-    if (parsedList.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✨ تم بنجاح استخراج ${parsedList.length} عرض/عروض أسعار! يمكنك مراجعتها وإضافتها فوراً للدراسة.'),
-          backgroundColor: AppTheme.emerald,
-        ),
-      );
-    }
-  }
 
   dynamic _matchPortSmart(String rawPortText, List portsList) {
     if (rawPortText.trim().isEmpty) return null;
@@ -578,8 +589,8 @@ Best regards,
   void _addAllExtractedQuotationsToScenarios() {
     if (_extractedOptions.isEmpty) return;
     final crd = _cargoReadyDate;
-    final partners = ref.read(allPartnersProvider).value ?? ref.read(partnersProvider).value ?? [];
-    final portsList = ref.read(transportLocationsProvider).value ?? [];
+    final partners = ref.read(allPartnersProvider).valueOrNull ?? ref.read(partnersProvider).valueOrNull ?? [];
+    final portsList = ref.read(transportLocationsProvider).valueOrNull ?? [];
     final List<ShippingScenarioItemModel> newItems = [];
 
     for (int i = 0; i < _extractedOptions.length; i++) {
@@ -604,7 +615,7 @@ Best regards,
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('🚀 تم نقل وإدراج ${newItems.length} عروض أسعار بنجاح إلى دراسة ومفاضلة النولون!'),
+        content: Text(context.l10n.extractedAndAddedMsg(newItems.length)),
         backgroundColor: AppTheme.emerald,
       ),
     );
@@ -612,8 +623,8 @@ Best regards,
 
   void _addSingleExtractedQuotationToScenarios(ExtractedQuotationOption opt) {
     final crd = _cargoReadyDate;
-    final partners = ref.read(allPartnersProvider).value ?? ref.read(partnersProvider).value ?? [];
-    final portsList = ref.read(transportLocationsProvider).value ?? [];
+    final partners = ref.read(allPartnersProvider).valueOrNull ?? ref.read(partnersProvider).valueOrNull ?? [];
+    final portsList = ref.read(transportLocationsProvider).valueOrNull ?? [];
 
     final newItem = _mapExtractedOptionToScenarioItem(
       opt: opt,
@@ -632,7 +643,7 @@ Best regards,
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('✅ تمت إضافة عرض [${opt.carrierName} - ${opt.containerType}] إلى دراسة المفاضلة!'),
+        content: Text(context.l10n.freightQuotesAddedMsg(1)),
         backgroundColor: AppTheme.emerald,
       ),
     );
@@ -640,6 +651,7 @@ Best regards,
 
   /// ─── Smart Inline Freight Quotation Extractor Card (SWIFT MT103 Style) ────
   Widget _buildInlineFreightQuotationsExtractorWidget() {
+    final l = context.l10n;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -671,15 +683,15 @@ Best regards,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
-                    SizedBox(width: 6),
-                    Icon(Icons.bolt, color: Colors.white, size: 18),
-                    SizedBox(width: 8),
+                    const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.bolt, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
                     Text(
-                      '(Freight Quotation AI) استخراج وقراءة عروض أسعار الشحن والنولون ⚡ ✨',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      l.freightExtractorTitle,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ],
                 ),
@@ -687,7 +699,7 @@ Best regards,
                   icon: Icon(_isFreightExtractorExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.white),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  tooltip: _isFreightExtractorExpanded ? 'طي الأداة' : 'توسيع الأداة',
+                  tooltip: _isFreightExtractorExpanded ? l.collapseExtractor : l.expandExtractor,
                   onPressed: () => setState(() => _isFreightExtractorExpanded = !_isFreightExtractorExpanded),
                 ),
               ],
@@ -739,12 +751,12 @@ Best regards,
                                       color: Colors.grey.shade200,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.paste, size: 12, color: Colors.black87),
-                                        SizedBox(width: 4),
-                                        Text('لصق نص العرض', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                        const Icon(Icons.paste, size: 12, color: Colors.black87),
+                                        const SizedBox(width: 4),
+                                        Text(l.pasteQuoteText, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                                       ],
                                     ),
                                   ),
@@ -765,12 +777,12 @@ Best regards,
                                       color: Colors.grey.shade100,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.clear, size: 12, color: Colors.black54),
-                                        SizedBox(width: 4),
-                                        Text('تفريغ', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                                        const Icon(Icons.clear, size: 12, color: Colors.black54),
+                                        const SizedBox(width: 4),
+                                        Text(l.clearField, style: const TextStyle(fontSize: 11, color: Colors.black54)),
                                       ],
                                     ),
                                   ),
@@ -785,12 +797,12 @@ Best regards,
                                       border: Border.all(color: Colors.amber.shade300),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.lightbulb_outline, size: 12, color: Colors.amber),
-                                        SizedBox(width: 4),
-                                        Text('نموذج تجريبي', style: TextStyle(fontSize: 11, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                        const Icon(Icons.lightbulb_outline, size: 12, color: Colors.amber),
+                                        const SizedBox(width: 4),
+                                        Text(l.sampleQuoteBtn, style: const TextStyle(fontSize: 11, color: Colors.brown, fontWeight: FontWeight.bold)),
                                       ],
                                     ),
                                   ),
@@ -813,7 +825,7 @@ Best regards,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             icon: const Icon(Icons.upload_file, size: 16, color: Colors.white),
-                            label: const Text('رفع مستند عرض السعر 📄', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text(l.uploadQuoteDocument, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             onPressed: _isFreightExtracting ? null : _extractFreightFromFile,
                           ),
                           const SizedBox(height: 8),
@@ -827,7 +839,7 @@ Best regards,
                             icon: _isFreightExtracting
                                 ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                 : const Icon(Icons.bolt, size: 16, color: Colors.amber),
-                            label: const Text('استخراج وتحليل عروض السعر ⚡', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text(l.extractQuotesBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             onPressed: _isFreightExtracting ? null : _extractFreightFromText,
                           ),
                         ],
@@ -894,7 +906,7 @@ Best regards,
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'تم استخراج ${_extractedOptions.length} عرض/عروض أسعار بنجاح! راجع العروض أدناه ثم أضفها لدراسة المفاضلة:',
+                                  l.extractedQuotesBanner(_extractedOptions.length),
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                                 ),
                               ),
@@ -906,7 +918,7 @@ Best regards,
                                 ),
                                 icon: const Icon(Icons.add_task, size: 14, color: Colors.white),
                                 label: Text(
-                                  '🚀 إضافة كافة العروض (${_extractedOptions.length})',
+                                  l.addAllQuotes(_extractedOptions.length),
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                                 ),
                                 onPressed: _addAllExtractedQuotationsToScenarios,
@@ -922,28 +934,28 @@ Best regards,
                                 if (_pickedFreightFile != null)
                                   Chip(
                                     avatar: const Icon(Icons.attach_file, size: 14, color: AppTheme.cobalt),
-                                    label: Text('الملف: ${_pickedFreightFile!.name}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                                    label: Text('${l.attachedFileChip}: ${_pickedFreightFile!.name}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                                     backgroundColor: Colors.white,
                                     padding: EdgeInsets.zero,
                                   ),
                                 if (_extractedFreightMetadata?['origin_port'] != null)
                                   Chip(
                                     avatar: const Icon(Icons.flight_takeoff, size: 14, color: Colors.blue),
-                                    label: Text('ميناء الشحن: ${_extractedFreightMetadata!['origin_port']}', style: const TextStyle(fontSize: 10.5)),
+                                    label: Text('${l.originPortChip}: ${_extractedFreightMetadata!['origin_port']}', style: const TextStyle(fontSize: 10.5)),
                                     backgroundColor: Colors.white,
                                     padding: EdgeInsets.zero,
                                   ),
                                 if (_extractedFreightMetadata?['destination_port'] != null)
                                   Chip(
                                     avatar: const Icon(Icons.flight_land, size: 14, color: Colors.green),
-                                    label: Text('ميناء الوصول: ${_extractedFreightMetadata!['destination_port']}', style: const TextStyle(fontSize: 10.5)),
+                                    label: Text('${l.destinationPortChip}: ${_extractedFreightMetadata!['destination_port']}', style: const TextStyle(fontSize: 10.5)),
                                     backgroundColor: Colors.white,
                                     padding: EdgeInsets.zero,
                                   ),
                                 if (_extractedFreightMetadata?['local_charges'] != null)
                                   Chip(
                                     avatar: const Icon(Icons.monetization_on, size: 14, color: Colors.orange),
-                                    label: Text('المصاريف المحلية: \$${_extractedFreightMetadata!['local_charges']}', style: const TextStyle(fontSize: 10.5)),
+                                    label: Text('${l.localExpensesChip}: \$${_extractedFreightMetadata!['local_charges']}', style: const TextStyle(fontSize: 10.5)),
                                     backgroundColor: Colors.white,
                                     padding: EdgeInsets.zero,
                                   ),
@@ -987,7 +999,7 @@ Best regards,
                                             border: Border.all(color: opt.isDirect ? Colors.green.shade200 : Colors.orange.shade200),
                                           ),
                                           child: Text(
-                                            opt.isDirect ? 'مباشر (Direct)' : 'ترانزيت (Transit)',
+                                            opt.isDirect ? l.directRoute : l.transitRoute,
                                             style: TextStyle(fontSize: 10, color: opt.isDirect ? Colors.green.shade800 : Colors.orange.shade800, fontWeight: FontWeight.bold),
                                           ),
                                         ),
@@ -997,18 +1009,18 @@ Best regards,
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text('نولون: \$${opt.oceanFreight.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                        Text('${l.oceanFreightLabel}: \$${opt.oceanFreight.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                                         if (opt.localCharges != null && opt.localCharges! > 0)
-                                          Text('محلي: \$${opt.localCharges!.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, color: Colors.black54)),
-                                        Text('الإجمالي: \$${opt.totalEstimatedCost.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
+                                          Text('${l.localChargesLabel}: \$${opt.localCharges!.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                                        Text('${l.totalLabel}: \$${opt.totalEstimatedCost.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
                                       ],
                                     ),
                                     const SizedBox(height: 4),
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text('⏱️ ترانزيت: ${opt.transitDays ?? "-"} يوم', style: const TextStyle(fontSize: 10.5, color: Colors.black87)),
-                                        Text('⏳ سماح: ${opt.freeTimeDays ?? 14} يوم FT', style: const TextStyle(fontSize: 10.5, color: Colors.black87)),
+                                        Text('⏱️ ${l.transitDaysLabel}: ${opt.transitDays ?? "-"}', style: const TextStyle(fontSize: 10.5, color: Colors.black87)),
+                                        Text('⏳ ${l.freeTimeDaysLabel}: ${opt.freeTimeDays ?? 14}', style: const TextStyle(fontSize: 10.5, color: Colors.black87)),
                                       ],
                                     ),
                                     const SizedBox(height: 8),
@@ -1021,7 +1033,7 @@ Best regards,
                                           padding: const EdgeInsets.symmetric(vertical: 6),
                                         ),
                                         icon: const Icon(Icons.add, size: 14),
-                                        label: const Text('+ إضافة هذا العرض للسيناريو', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        label: Text(l.addThisQuoteBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                         onPressed: () => _addSingleExtractedQuotationToScenarios(opt),
                                       ),
                                     ),
@@ -1049,8 +1061,8 @@ Best regards,
         : [fields];
 
     final List<ShippingScenarioItemModel> newItems = [];
-    final partners = ref.read(allPartnersProvider).value ?? ref.read(partnersProvider).value ?? [];
-    final portsList = ref.read(transportLocationsProvider).value ?? [];
+    final partners = ref.read(allPartnersProvider).valueOrNull ?? ref.read(partnersProvider).valueOrNull ?? [];
+    final portsList = ref.read(transportLocationsProvider).valueOrNull ?? [];
 
     for (int i = 0; i < options.length; i++) {
       final optMap = Map<String, dynamic>.from(options[i] as Map);
@@ -1076,7 +1088,7 @@ Best regards,
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('🚀 تم استخراج وإضافة ${newItems.length} عروض أسعار للمفاضلة في السيناريو بنجاح!'),
+        content: Text(context.l10n.extractedAndAddedMsg(newItems.length)),
         backgroundColor: AppTheme.emerald,
         duration: const Duration(seconds: 4),
       ),
@@ -1094,9 +1106,9 @@ Best regards,
     final currenciesAsync = ref.watch(currenciesProvider);
 
     final poList = poState.purchaseOrders;
-    final projectsList = projectsState.value ?? [];
-    final List<PartnerModel> partnersList = partnersState.value ?? [];
-    final List<CurrencyModel> currenciesList = currenciesAsync.value ?? [];
+    final projectsList = projectsState.valueOrNull ?? [];
+    final List<PartnerModel> partnersList = partnersState.valueOrNull ?? [];
+    final List<CurrencyModel> currenciesList = currenciesAsync.valueOrNull ?? [];
 
     final List<PartnerModel> freightForwarders = partnersList.where((p) {
       final t = p.partnerType.toLowerCase();
@@ -1117,7 +1129,11 @@ Best regards,
       final t = p.partnerType.toLowerCase();
       return t.contains('customs broker') || t.contains('broker') || t.contains('تخليص') || t.contains('مخلص');
     }).toList();
-    final portsList = portsState.value ?? [];
+    final portsList = portsState.valueOrNull ?? [];
+
+    if (widget.isEmbedded) {
+      return _buildEvaluatorTab(state, poList, projectsList, freightForwarders, shippingLines, customsBrokers, portsList, currenciesList);
+    }
 
     final tabs = [
       const VerticalNavTabItem(
@@ -1154,7 +1170,11 @@ Best regards,
       headerColor: AppTheme.cobalt,
       tabs: tabs,
       selectedIndex: _tabController.index,
-      onTabSelected: (index) => setState(() => _tabController.index = index),
+      onTabSelected: (index) => setState(() {
+        _tabController.index = index;
+        if (index == 0) _hasVisitedTab0 = true;
+        if (index == 1) _hasVisitedTab1 = true;
+      }),
       headerActions: [
         SmartUploadButton(
           module: SmartUploadModule.freightQuotation,
@@ -1173,8 +1193,12 @@ Best regards,
       body: IndexedStack(
         index: _tabController.index,
         children: [
-          _buildEvaluatorTab(state, poList, projectsList, freightForwarders, shippingLines, customsBrokers, portsList, currenciesList),
-          _buildHistoryRegistryTab(state, poList, projectsList),
+          _hasVisitedTab0
+              ? _buildEvaluatorTab(state, poList, projectsList, freightForwarders, shippingLines, customsBrokers, portsList, currenciesList)
+              : const SizedBox.shrink(),
+          _hasVisitedTab1
+              ? _buildHistoryRegistryTab(state, poList, projectsList)
+              : const SizedBox.shrink(),
         ],
       ),
     );
@@ -1193,7 +1217,6 @@ Best regards,
   ) {
     final crd = _cargoReadyDate;
     final l = context.l10n;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     // Calculate Scenario lead times
 
@@ -1247,7 +1270,7 @@ Best regards,
 
     List<PurchaseOrderModel> filteredPOs = [];
     if (_selectedImportFileId != null) {
-      final importFiles = ref.watch(importFilesProvider).value ?? [];
+      final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
       final selectedFile = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
       if (selectedFile != null) {
         final filePoIds = selectedFile.poIds ?? [];
@@ -1320,8 +1343,8 @@ Best regards,
                             onPressed: () {
                               _resetFormForNewStudy();
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('🔄 تم إلغاء وضع التعديل وتصفير الحقول لبدء دراسة جديدة.'),
+                                SnackBar(
+                                  content: Text(l.cancelEditModeMsg),
                                   backgroundColor: AppTheme.charcoal,
                                 ),
                               );
@@ -1341,7 +1364,7 @@ Best regards,
                           avgArrivalDate,
                           Icons.date_range,
                           AppTheme.emerald,
-                          subtitle: isArabic ? 'خلال $avgTotalDays يوم من الجاهزية' : 'Within $avgTotalDays days of readiness',
+                          subtitle: l.avgDaysFromReadiness(avgTotalDays),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1407,7 +1430,7 @@ Best regards,
                                 child: TextFormField(
                                   key: ValueKey('title_${_editingSessionId ?? "new"}_$_editFormVersion'),
                                   initialValue: _title,
-                                  decoration: InputDecoration(labelText: '${l.studyTitleLabel} *', hintText: 'مثال: دراسة شحن خطوط الشرق الأقصى', isDense: true),
+                                  decoration: InputDecoration(labelText: '${l.studyTitleLabel} *', hintText: l.studyTitleLabel, isDense: true),
                                   validator: (v) => v == null || v.trim().isEmpty ? l.requiredField : null,
                                   onChanged: (v) => _title = v.trim(),
                                 ),
@@ -1441,19 +1464,19 @@ Best regards,
                                   labelText: l.linkImportFile,
                                   items: [
                                     SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
+                                    ...(ref.watch(importFilesProvider).valueOrNull ?? []).map((f) => SearchableDropdownItem<int?>(
                                           value: f.importFileId,
-                                          label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                                          label: '${f.primaryNameWithCode} - ${f.companyName}',
                                         )),
                                   ],
                                   onChanged: (v) {
                                     setState(() {
                                       _selectedImportFileId = v;
                                       if (v != null) {
-                                        final importFiles = ref.read(importFilesProvider).value ?? [];
+                                        final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
                                         final f = importFiles.where((file) => file.importFileId == v).firstOrNull;
                                         if (f != null) {
-                                          final fCode = f.customFileNumber ?? f.importFileCode;
+                                          final fCode = f.displayName;
                                           _title = '[$fCode] ${f.companyName}';
                                         }
                                       }
@@ -1490,7 +1513,7 @@ Best regards,
                                     SearchableDropdownItem<int?>(value: null, label: l.unassigned),
                                     ...poList.map((po) => SearchableDropdownItem<int?>(
                                           value: po.poId,
-                                          label: '${po.poNumber}${po.poReference != null && po.poReference!.isNotEmpty ? " - ${po.poReference}" : ""} (${po.supplierName ?? "Supplier"})',
+                                          label: '${po.displayName} (${po.poNumber}) (${po.supplierName ?? "Supplier"})',
                                         )),
                                   ],
                                   onChanged: (v) => setState(() => _selectedPoId = v),
@@ -1738,7 +1761,7 @@ Best regards,
                                   child: SearchableDropdownField<int?>(
                                     value: item.providerId,
                                     labelText: l.freightForwarderCol,
-                                    searchHintText: 'ابحث عن شركة / وكيل الشحن...',
+                                    searchHintText: l.forwarderSearchHint,
                                     items: [
                                       SearchableDropdownItem<int?>(value: null, label: l.unassigned),
                                       ...freightForwarders.map((p) => SearchableDropdownItem<int?>(
@@ -1764,13 +1787,13 @@ Best regards,
                                         ? item.providerName
                                         : (item.providerName.isNotEmpty ? item.providerName : ''),
                                     labelText: '${l.shippingLineCol} *',
-                                    searchHintText: 'ابحث عن الخط الملاحي أو كود SCAC (مثل: LCL, COSCO, MSC, ONE)...',
+                                    searchHintText: l.shippingLineSearchHint,
                                     items: [
                                       SearchableDropdownItem<String>(value: '', label: l.unassigned),
                                       if (item.providerName.isNotEmpty && !shippingLines.any((p) => p.partnerName == item.providerName))
                                         SearchableDropdownItem<String>(
                                           value: item.providerName,
-                                          label: '★ ${item.providerName} (مقترح)',
+                                          label: '★ ${item.providerName} (${l.suggestedSuffix})',
                                           searchValue: item.providerName,
                                         ),
                                       ...shippingLines.map((p) => SearchableDropdownItem<String>(
@@ -1790,7 +1813,7 @@ Best regards,
                                 const SizedBox(width: 4),
                                 IconButton(
                                   icon: const Icon(Icons.add_business_outlined, color: AppTheme.emerald, size: 20),
-                                  tooltip: 'تكويد خط ملاحي جديد بالذكاء الاصطناعي',
+                                  tooltip: l.addNewLineTooltip,
                                   onPressed: () => UniversalEntityExtractorDialog.showShippingLineExtractor(
                                     context,
                                     onSaved: () => _refreshData(force: true),
@@ -1990,7 +2013,7 @@ Best regards,
                                 ),
                                 const SizedBox(width: 10),
                                 FilterChip(
-                                  label: Text(item.isExcludedFromAverage ? 'Excluded 🚫' : 'Included ✅', style: TextStyle(fontSize: 11, color: item.isExcludedFromAverage ? Colors.red.shade800 : AppTheme.cobalt)),
+                                  label: Text(item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, style: TextStyle(fontSize: 11, color: item.isExcludedFromAverage ? Colors.red.shade800 : AppTheme.cobalt)),
                                   selected: item.isExcludedFromAverage,
                                   onSelected: (val) {
                                     _updateItem(idx, item.copyWith(isExcludedFromAverage: val), currenciesList);
@@ -2006,30 +2029,34 @@ Best regards,
                                 width: double.infinity,
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6)),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      '📍 POL: ${item.polName ?? "-"} ➔ POD: ${item.podName ?? "-"} | Lead Time: ${calc["vesselLeadTime"]}d | WH Days: ${calc["totalDays"]}d',
-                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                                    ),
-                                    Row(
-                                      children: [
-                                        TextButton.icon(
-                                          onPressed: () => setState(() => _expandedQuotes[idx] = !isExpanded),
-                                          icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more, size: 16, color: AppTheme.cobalt),
-                                          label: Text(
-                                            isExpanded 
-                                                ? l.hideQuote 
-                                                : '${l.quoteDetails} [${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}]',
-                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        l.polToPodLeadTimeStrip(item.polName ?? '-', item.podName ?? '-', calc["vesselLeadTime"] as int, calc["totalDays"] as int),
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Row(
+                                        children: [
+                                          TextButton.icon(
+                                            onPressed: () => setState(() => _expandedQuotes[idx] = !isExpanded),
+                                            icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more, size: 16, color: AppTheme.cobalt),
+                                            label: Text(
+                                              isExpanded 
+                                                  ? l.hideQuote 
+                                                  : '${l.quoteDetails} [${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}]',
+                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Text('${l.avgWarehouseArrivalMetric}: ${calc["expectedWhDate"]}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
-                                      ],
-                                    ),
-                                  ],
+                                          const SizedBox(width: 10),
+                                          Text('${l.avgWarehouseArrivalMetric}: ${calc["expectedWhDate"]}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
@@ -2142,7 +2169,7 @@ Best regards,
                                     Padding(
                                       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                                       child: Text(
-                                        'إجمالي عدد الحاويات المطبقة = $currentContainersCount (40ft: ${item.container40ftApplicable ? item.container40ftQty : 0} | 20ft: ${item.container20ftApplicable ? item.container20ftQty : 0})',
+                                        l.totalContainersCount(currentContainersCount, item.container40ftApplicable ? item.container40ftQty : 0, item.container20ftApplicable ? item.container20ftQty : 0),
                                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple.shade900),
                                       ),
                                     ),
@@ -2308,8 +2335,8 @@ Best regards,
                                        currenciesList: currenciesList,
                                      ),
                                      _buildCostRow(
-                                       rowKey: 'clearanceFee_\$idx',
-                                       title: '18. أتعاب التخليص الجمركي (Customs Broker Fee)',
+                                       rowKey: 'clearanceFee_$idx',
+                                       title: '18. ${l.clearanceBrokerFeeItem}',
                                        applicable: item.clearanceFeeApplicable,
                                        price: item.clearanceFeePrice,
                                        currency: item.clearanceFeeCurrency,
@@ -2319,8 +2346,8 @@ Best regards,
                                        currenciesList: currenciesList,
                                      ),
                                      _buildCostRow(
-                                       rowKey: 'inspectionFee_\$idx',
-                                       title: '19. مصاريف الفحص والعرض الجمركي (Inspection & Approvals)',
+                                       rowKey: 'inspectionFee_$idx',
+                                       title: '19. ${l.inspectionFeeItem}',
                                        applicable: item.inspectionFeeApplicable,
                                        price: item.inspectionFeePrice,
                                        currency: item.inspectionFeeCurrency,
@@ -2330,8 +2357,8 @@ Best regards,
                                        currenciesList: currenciesList,
                                      ),
                                      _buildCostRow(
-                                       rowKey: 'inlandTransport_\$idx',
-                                       title: '20. النقل والتعتيق الداخلي للمصنع (Inland Transport)',
+                                       rowKey: 'inlandTransport_$idx',
+                                       title: '20. ${l.inlandTransportFeeItem}',
                                        applicable: item.inlandTransportFeeApplicable,
                                        price: item.inlandTransportFeePrice,
                                        currency: item.inlandTransportFeeCurrency,
@@ -2341,8 +2368,8 @@ Best regards,
                                        currenciesList: currenciesList,
                                      ),
                                      _buildCostRow(
-                                       rowKey: 'portExpenses_\$idx',
-                                       title: '21. مصاريف الموانئ والأرضيات والتخليص (Port & Clearance Expenses)',
+                                       rowKey: 'portExpenses_$idx',
+                                       title: '21. ${l.portClearanceExpensesItem}',
                                        applicable: item.portExpensesApplicable,
                                        price: item.portExpensesPrice,
                                        currency: item.portExpensesCurrency,
@@ -2412,7 +2439,7 @@ Best regards,
                                 DataColumn(label: Text(l.vesselNameCol)),
                                 DataColumn(label: Text(l.sailingDateCol)),
                                 DataColumn(label: Text(l.estimatedArrivalDateCol)),
-                                const DataColumn(label: Text('Lead Time')),
+                                DataColumn(label: Text(l.avgTransitMetric)),
                                 DataColumn(label: Text(l.freeTimeDaysCol)),
                                 DataColumn(label: Text(l.expectedDelayCol)),
                                 DataColumn(label: Text(l.riskLevelCol)),
@@ -2421,34 +2448,41 @@ Best regards,
                               rows: calculatedScenarios.map((c) {
                                 final idx = c['index'] as int;
                                 final item = c['item'] as ShippingScenarioItemModel;
+                                final rowSummary = '${item.providerName} | ${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency} | WH: ${c["expectedWhDate"]} (${c["totalDays"]}d) | ${item.polName ?? "-"} ➔ ${item.podName ?? "-"} | ${item.vesselName}';
                                 return DataRow(
                                   cells: [
-                                    DataCell(Text('${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                    DataCell(Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                    DataCell(Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red))),
-                                    DataCell(Text('${c["expectedWhDate"]}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
-                                    DataCell(Text('${c["totalDays"]} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
-                                    DataCell(Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(item.customsBrokerName ?? '-', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                        if (item.clearanceFeePrice > 0 || item.inlandTransportFeePrice > 0)
-                                          Text(
-                                            'تخليص: ' + ((item.clearanceFeeApplicable ? item.clearanceFeePrice : 0) + (item.inspectionFeeApplicable ? item.inspectionFeePrice : 0) + (item.inlandTransportFeeApplicable ? item.inlandTransportFeePrice : 0) + (item.portExpensesApplicable ? item.portExpensesPrice : 0)).toStringAsFixed(0) + ' ' + item.clearanceFeeCurrency,
-                                            style: TextStyle(fontSize: 10, color: Colors.green.shade800, fontWeight: FontWeight.bold),
-                                          ),
-                                      ],
+                                    DataCell(CopyableTableCell(value: '${idx + 1}', rowSummary: rowSummary, child: Text('${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold)))),
+                                    DataCell(CopyableTableCell(value: item.providerName, rowSummary: rowSummary, child: Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
+                                    DataCell(CopyableTableCell(value: '${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', rowSummary: rowSummary, child: Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)))),
+                                    DataCell(CopyableTableCell(value: '${c["expectedWhDate"]}', rowSummary: rowSummary, child: Text('${c["expectedWhDate"]}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)))),
+                                    DataCell(CopyableTableCell(value: '${c["totalDays"]} d', rowSummary: rowSummary, child: Text('${c["totalDays"]} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)))),
+                                    DataCell(CopyableTableCell(
+                                      value: '${item.customsBrokerName ?? "-"} (${item.clearanceFeeCurrency})',
+                                      rowSummary: rowSummary,
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(item.customsBrokerName ?? '-', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                          if (item.clearanceFeePrice > 0 || item.inlandTransportFeePrice > 0)
+                                            Text(
+                                              l.clearanceCostSummary(((item.clearanceFeeApplicable ? item.clearanceFeePrice : 0) + (item.inspectionFeeApplicable ? item.inspectionFeePrice : 0) + (item.inlandTransportFeeApplicable ? item.inlandTransportFeePrice : 0) + (item.portExpensesApplicable ? item.portExpensesPrice : 0)).toStringAsFixed(0), item.clearanceFeeCurrency),
+                                              style: TextStyle(fontSize: 10, color: Colors.green.shade800, fontWeight: FontWeight.bold),
+                                            ),
+                                        ],
+                                      ),
                                     )),
-                                    DataCell(Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11))),
-                                    DataCell(Text('${item.vesselName} (${item.voyageNumber ?? "-"})')),
-                                    DataCell(Text(item.sailingDate)),
-                                    DataCell(Text(item.estimatedArrivalDate)),
-                                    DataCell(Text('${c["vesselLeadTime"]} d')),
-                                    DataCell(Text('${item.freeTimeDays} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
-                                    DataCell(Text('${item.expectedLineDelayDays} d')),
-                                    DataCell(
-                                      Container(
+                                    DataCell(CopyableTableCell(value: '${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', rowSummary: rowSummary, child: Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11)))),
+                                    DataCell(CopyableTableCell(value: '${item.vesselName} (${item.voyageNumber ?? "-"})', rowSummary: rowSummary, child: Text('${item.vesselName} (${item.voyageNumber ?? "-"})'))),
+                                    DataCell(CopyableTableCell(value: item.sailingDate, rowSummary: rowSummary, child: Text(item.sailingDate))),
+                                    DataCell(CopyableTableCell(value: item.estimatedArrivalDate, rowSummary: rowSummary, child: Text(item.estimatedArrivalDate))),
+                                    DataCell(CopyableTableCell(value: '${c["vesselLeadTime"]} d', rowSummary: rowSummary, child: Text('${c["vesselLeadTime"]} d'))),
+                                    DataCell(CopyableTableCell(value: '${item.freeTimeDays} d', rowSummary: rowSummary, child: Text('${item.freeTimeDays} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)))),
+                                    DataCell(CopyableTableCell(value: '${item.expectedLineDelayDays} d', rowSummary: rowSummary, child: Text('${item.expectedLineDelayDays} d'))),
+                                    DataCell(CopyableTableCell(
+                                      value: item.riskLevel,
+                                      rowSummary: rowSummary,
+                                      child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(
                                           color: item.riskLevel == 'High' ? Colors.red.shade100 : item.riskLevel == 'Medium' ? Colors.orange.shade100 : Colors.green.shade100,
@@ -2456,8 +2490,8 @@ Best regards,
                                         ),
                                         child: Text(item.riskLevel, style: TextStyle(color: item.riskLevel == 'High' ? Colors.red.shade900 : item.riskLevel == 'Medium' ? Colors.orange.shade900 : Colors.green.shade900, fontWeight: FontWeight.bold, fontSize: 11)),
                                       ),
-                                    ),
-                                    DataCell(Text(item.isExcludedFromAverage ? 'Excluded 🚫' : 'Included ✅', style: TextStyle(color: item.isExcludedFromAverage ? Colors.red : AppTheme.cobalt, fontSize: 11))),
+                                    )),
+                                    DataCell(CopyableTableCell(value: item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, rowSummary: rowSummary, child: Text(item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, style: TextStyle(color: item.isExcludedFromAverage ? Colors.red : AppTheme.cobalt, fontSize: 11)))),
                                   ],
                                 );
                               }).toList(),
@@ -2484,67 +2518,83 @@ Best regards,
                 color: Colors.white,
                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))],
               ),
-              child: Row(
-                children: [
-                  // 1. Live Refresh Button
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.charcoal,
-                      side: BorderSide(color: Colors.grey.shade400),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                    icon: const Icon(Icons.refresh, size: 18, color: AppTheme.cobalt),
-                    label: Text('${l.liveRefresh} 🔄', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    onPressed: () => _refreshData(force: true),
-                  ),
-                  const SizedBox(width: 8),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // 1. Live Refresh Button
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.charcoal,
+                                  side: BorderSide(color: Colors.grey.shade400),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                ),
+                                icon: const Icon(Icons.refresh, size: 18, color: AppTheme.cobalt),
+                                label: Text('${l.liveRefresh} 🔄', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                onPressed: () => _refreshData(force: true),
+                              ),
+                              const SizedBox(width: 8),
 
-                  // 2. Clear Form & Start New
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey.shade800,
-                      side: BorderSide(color: Colors.grey.shade400),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
-                    icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: Colors.blueGrey),
-                    label: Text('${l.clearAndStartNew} 🔄', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    onPressed: _resetFormForNewStudy,
-                  ),
-                  const SizedBox(width: 8),
+                              // 2. Clear Form & Start New
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.grey.shade800,
+                                  side: BorderSide(color: Colors.grey.shade400),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                ),
+                                icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: Colors.blueGrey),
+                                label: Text('${l.clearAndStartNew} 🔄', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                onPressed: _resetFormForNewStudy,
+                              ),
+                              const SizedBox(width: 8),
 
-                  // 3. Save Draft & Continue Later
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEFF6FF),
-                      foregroundColor: AppTheme.cobalt,
-                      elevation: 0,
-                      side: const BorderSide(color: AppTheme.cobalt),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    icon: const Icon(Icons.save_outlined, size: 18, color: AppTheme.cobalt),
-                    label: Text('${l.saveDraftContinueLater} 💾', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    onPressed: _isSaving ? null : () => _saveEvaluationSession(context, currenciesList),
-                  ),
-                  const Spacer(),
+                              // 3. Save Draft & Continue Later
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFEFF6FF),
+                                  foregroundColor: AppTheme.cobalt,
+                                  elevation: 0,
+                                  side: const BorderSide(color: AppTheme.cobalt),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                ),
+                                icon: const Icon(Icons.save_outlined, size: 18, color: AppTheme.cobalt),
+                                label: Text('${l.saveDraftContinueLater} 💾', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                onPressed: _isSaving ? null : () => _saveEvaluationSession(context, currenciesList),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 16),
 
-                  // 4. Final Submit / Save Study
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.emerald,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
-                      elevation: 2,
+                          // 4. Final Submit / Save Study
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.emerald,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+                              elevation: 2,
+                            ),
+                            icon: _isSaving
+                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Icon(Icons.check_circle_outline, size: 20),
+                            label: Text(
+                              _editingSessionId != null ? '${l.saveChanges} 💾' : '${l.saveAndSubmitStudy} ✅',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            onPressed: _isSaving ? null : () => _saveEvaluationSession(context, currenciesList),
+                          ),
+                        ],
+                      ),
                     ),
-                    icon: _isSaving
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.check_circle_outline, size: 20),
-                    label: Text(
-                      _editingSessionId != null ? '${l.saveChanges} 💾' : '${l.saveAndSubmitStudy} ✅',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    onPressed: _isSaving ? null : () => _saveEvaluationSession(context, currenciesList),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
           ),
@@ -2707,10 +2757,10 @@ Best regards,
             ],
           ),
           const SizedBox(height: 6),
-          Text(val, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis),
+          CopyableText(val, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
-            Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.black87, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+            CopyableText(subtitle, style: const TextStyle(fontSize: 10, color: Colors.black87, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
           ],
         ],
       ),
@@ -2720,10 +2770,10 @@ Best regards,
   Future<void> _saveEvaluationSession(BuildContext context, List<CurrencyModel> currenciesList) async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⚠️ يرجى التأكد من استكمال كافة البيانات الإلزامية مثل عنوان الدراسة!'),
+        SnackBar(
+          content: Text(context.l10n.completeRequiredDataMsg),
           backgroundColor: AppTheme.crimson,
-          duration: Duration(seconds: 3),
+          duration: const Duration(seconds: 3),
         ),
       );
       return;
@@ -2736,7 +2786,7 @@ Best regards,
       if (item.providerName.isEmpty || item.providerName == 'Select Line') {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('⚠️ خيار الشحن #${i + 1}: يرجى اختيار الخط الملاحي (Shipping Line)!'),
+            content: Text(context.l10n.shippingLineRequiredMsg(i + 1)),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -2749,7 +2799,7 @@ Best regards,
       if (sDate == null || etaDate == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('⚠️ خيار الشحن #${i + 1} (${item.providerName}): يرجى تحديد التواريخ بشكل صحيح!'),
+            content: Text(context.l10n.datesRequiredMsg(i + 1, item.providerName)),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -2762,7 +2812,7 @@ Best regards,
       if (sailingDateOnly.isBefore(crdDateOnly)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('⚠️ خيار الشحن #${i + 1} (${item.providerName}): تاريخ الإبحار (${item.sailingDate}) لا يمكن أن يكون قبل تاريخ جاهزية البضاعة (CRD: ${crdDateOnly.toString().substring(0, 10)})!'),
+            content: Text(context.l10n.sailingBeforeCrdError(i + 1, item.providerName, item.sailingDate, crdDateOnly.toString().substring(0, 10))),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -2773,7 +2823,7 @@ Best regards,
       if (!etaDate.isAfter(sDate)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('⚠️ خيار الشحن #${i + 1} (${item.providerName}): تاريخ الوصول (ETA: ${item.estimatedArrivalDate}) يجب أن يكون بعد تاريخ الإبحار (${item.sailingDate})!'),
+            content: Text(context.l10n.etaAfterSailingError(i + 1, item.providerName, item.estimatedArrivalDate, item.sailingDate)),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -2783,7 +2833,7 @@ Best regards,
       if (item.expectedLineDelayDays < 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('⚠️ خيار الشحن #${i + 1} (${item.providerName}): أيام التأخير المتوقعة لا يمكن أن تكون سالبة!'),
+            content: Text(context.l10n.negativeDaysError(i + 1, item.providerName)),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -2795,7 +2845,7 @@ Best regards,
       if (seen.contains(key)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('⚠️ خيار الشحن #${i + 1} (${item.providerName}): مكرر! يوجد خيار آخر بنفس شركة وكيل الشحن والخط الملاحي والرحلة وتاريخ الإبحار.'),
+            content: Text(context.l10n.duplicateQuoteError(i + 1, item.providerName)),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -2808,17 +2858,17 @@ Best regards,
 
     String titleToSave = _title.trim();
     if (_selectedImportFileId != null) {
-      final importFiles = ref.read(importFilesProvider).value ?? [];
+      final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
       final f = importFiles.where((file) => file.importFileId == _selectedImportFileId).firstOrNull;
       if (f != null) {
-        final fCode = f.customFileNumber ?? f.importFileCode;
+        final fCode = f.displayName;
         if (!titleToSave.startsWith('[$fCode]')) {
           titleToSave = '[$fCode] ${f.companyName}';
         }
       }
     }
     if (titleToSave.isEmpty) {
-      titleToSave = 'دراسة تقييم خيارات الشحن (${DateTime.now().toString().substring(0, 10)})';
+      titleToSave = context.l10n.defaultStudyTitle(DateTime.now().toString().substring(0, 10));
     }
 
     setState(() => _isSaving = true);
@@ -3035,10 +3085,10 @@ Best regards,
       // Instantly pop up the detailed Arabic/English results summary dialog per user instructions
       _showSaveSuccessReportDialog(context, savedSess);
     } else if (!ok && context.mounted) {
-      final err = ref.read(shippingScenariosProvider).errorMessage ?? 'فشلت عملية حفظ الدراسة والنتائج';
+      final err = ref.read(shippingScenariosProvider).errorMessage ?? context.l10n.saveFailed;
       await showErrorDetailsDialog(
         context,
-        title: '❌ تعذر حفظ دراسة وتقييم خيارات الشحن',
+        title: context.l10n.saveFailedTitle,
         error: err,
         onRetry: () async {
           await _saveEvaluationSession(context, currenciesList);
@@ -3051,125 +3101,130 @@ Best regards,
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle, color: AppTheme.emerald, size: 28),
-            SizedBox(width: 10),
-            Text('🏆 تقرير نتائج دراسة الشحن والعروض المحفوظة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ],
-        ),
-        content: SizedBox(
-          width: 850,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('رمز دراسة الشحن: ${sess.sessionCode}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13)),
-                      const SizedBox(height: 4),
-                      Text('عنوان الدراسة: ${sess.title ?? "N/A"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      const SizedBox(height: 4),
-                      Text('تاريخ الجاهزية (CRD): ${sess.cargoReadyDate} | مكان الاستلام: ${sess.pickUpAddress ?? "غير محدد"}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text('📊 التقرير المقارن للخطوط والرحلات المقيمة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
-                const SizedBox(height: 8),
-                Table(
-                  border: TableBorder.all(color: Colors.grey.shade300),
-                  columnWidths: const {
-                    0: FlexColumnWidth(1.5),
-                    1: FlexColumnWidth(1.1),
-                    2: FlexColumnWidth(1.1),
-                    3: FlexColumnWidth(1.1),
-                    4: FlexColumnWidth(1.2),
-                    5: FlexColumnWidth(1.5),
-                    6: FlexColumnWidth(1.0),
-                  },
-                  children: [
-                    TableRow(
-                      decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                      children: const [
-                        Padding(padding: EdgeInsets.all(8), child: Text('الناقل / الخط الملاحي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(8), child: Text('تاريخ الإبحار', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(8), child: Text('الوصول للميناء', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(8), child: Text('إجمالي الأيام', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(8), child: Text('موعد المخزن المتوقع', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(8), child: Text('إجمالي قيمة العرض', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(8), child: Text('الترشيح', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+      builder: (dialogCtx) {
+        final l = dialogCtx.l10n;
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.check_circle, color: AppTheme.emerald, size: 28),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(l.saveSuccessReportTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 850,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CopyableText('${l.studyCodeLabel} ${sess.sessionCode}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13)),
+                        const SizedBox(height: 4),
+                        CopyableText('${l.studyTitleDetailLabel} ${sess.title ?? "N/A"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        const SizedBox(height: 4),
+                        CopyableText('${l.crdLabel}: ${sess.cargoReadyDate} | ${l.pickupAddressLabel}: ${sess.pickUpAddress ?? l.unassigned}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
                       ],
                     ),
-                    ...sess.items.map((item) {
-                      return TableRow(
-                        decoration: BoxDecoration(color: item.isRecommended ? Colors.green.shade50.withOpacity(0.5) : null),
-                        children: [
-                          Padding(padding: const EdgeInsets.all(8), child: Text(item.providerName, style: TextStyle(fontWeight: item.isRecommended ? FontWeight.bold : FontWeight.normal, fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(8), child: Text(item.sailingDate, style: const TextStyle(fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(8), child: Text(item.estimatedArrivalDate, style: const TextStyle(fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(8), child: Text('${item.expectedTotalDaysToWarehouse} يوم', style: const TextStyle(fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(8), child: Text(item.expectedWarehouseArrivalDate, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                          Padding(padding: const EdgeInsets.all(8), child: Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red))),
-                          Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: Text(
-                              item.isRecommended ? '🟢 موصى به' : (item.isExcludedFromAverage ? '🚫 مستبعد' : 'عادي'),
-                              style: TextStyle(fontWeight: FontWeight.bold, color: item.isRecommended ? AppTheme.emerald : Colors.grey, fontSize: 10),
-                            ),
-                          ),
-                        ],
-                      );
-                    }),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6)),
-                  child: Row(
+                  ),
+                  const SizedBox(height: 16),
+                  Text(l.comparativeReportLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                  const SizedBox(height: 8),
+                  Table(
+                    border: TableBorder.all(color: Colors.grey.shade300),
+                    columnWidths: const {
+                      0: FlexColumnWidth(1.5),
+                      1: FlexColumnWidth(1.1),
+                      2: FlexColumnWidth(1.1),
+                      3: FlexColumnWidth(1.1),
+                      4: FlexColumnWidth(1.2),
+                      5: FlexColumnWidth(1.5),
+                      6: FlexColumnWidth(1.0),
+                    },
                     children: [
-                      const Icon(Icons.stars, color: Colors.blue),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'الخط الملاحي الموصى به رسميًا للربط والتعاقد: ${sess.recommendedScenarioProvider ?? "لم يحدد بعد"}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
-                        ),
+                      TableRow(
+                        decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                        children: [
+                          Padding(padding: const EdgeInsets.all(8), child: Text(l.carrierLineCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text(l.sailingDateCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text(l.portArrivalCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text(l.totalDaysCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text(l.whDateCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text(l.totalQuoteCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text(l.recommendationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        ],
                       ),
+                      ...sess.items.map((item) {
+                        return TableRow(
+                          decoration: BoxDecoration(color: item.isRecommended ? Colors.green.shade50.withOpacity(0.5) : null),
+                          children: [
+                            Padding(padding: const EdgeInsets.all(8), child: CopyableText(item.providerName, style: TextStyle(fontWeight: item.isRecommended ? FontWeight.bold : FontWeight.normal, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(8), child: CopyableText(item.sailingDate, style: const TextStyle(fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(8), child: CopyableText(item.estimatedArrivalDate, style: const TextStyle(fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(8), child: CopyableText(l.avgTransitDays(item.expectedTotalDaysToWarehouse.toString()), style: const TextStyle(fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(8), child: CopyableText(item.expectedWarehouseArrivalDate, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                            Padding(padding: const EdgeInsets.all(8), child: CopyableText('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red))),
+                            Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: CopyableText(
+                                item.isRecommended ? l.recommendedBadge(item.providerName) : (item.isExcludedFromAverage ? l.excludedBadge : l.normalBadge),
+                                style: TextStyle(fontWeight: FontWeight.bold, color: item.isRecommended ? AppTheme.emerald : Colors.grey, fontSize: 10),
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.stars, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: CopyableText(
+                            '${l.recommendedLineContractLabel} ${sess.recommendedScenarioProvider ?? l.unassigned}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: 'دراسة الشحن والأسعار ${sess.sessionCode}: ${sess.title}\nالخط الموصى به: ${sess.recommendedScenarioProvider}\nتاريخ وصول المخزن: ${sess.avgExpectedWarehouseArrivalDate}'));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('📋 تم نسخ ملخص النتائج للحافظة!'), backgroundColor: AppTheme.cobalt),
-              );
-            },
-            child: const Text('نسخ ملخص النتائج'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('موافق (تم الحفظ)'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                CopyHelper.copy(
+                  dialogCtx,
+                  '${l.freightStudiesTitle} ${sess.sessionCode}: ${sess.title}\n${l.recommendedLineMetric}: ${sess.recommendedScenarioProvider}\n${l.avgWarehouseArrivalMetric}: ${sess.avgExpectedWarehouseArrivalDate}',
+                );
+              },
+              child: Text(l.copySummaryBtn),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text(l.saveDoneBtn),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -3182,57 +3237,63 @@ Best regards,
   ) {
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('🚚 مقارنة حالة الرص القابل وغير القابل للرص (Dual Container Matrix)'),
-        content: SizedBox(
-          width: 650,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('إجمالي CBM الشحنة: ${cbm.toStringAsFixed(3)} m³ | إجمالي الوزن: ${weightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              const SizedBox(height: 12),
-              Table(
-                border: TableBorder.all(color: Colors.grey.shade300),
-                children: [
-                  TableRow(
-                    decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                    children: const [
-                      Padding(padding: EdgeInsets.all(8), child: Text('الخاصية / Scenario', style: TextStyle(fontWeight: FontWeight.bold))),
-                      Padding(padding: EdgeInsets.all(8), child: Text('📦 قابل للرص (Stackable)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
-                      Padding(padding: EdgeInsets.all(8), child: Text('🚫 غير قابل للرص (Non-Stackable)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange))),
-                    ],
-                  ),
-                  TableRow(
-                    children: [
-                      const Padding(padding: EdgeInsets.all(8), child: Text('نوع الحاوية الموصى بها')),
-                      Padding(padding: const EdgeInsets.all(8), child: Text(dualRec.stackableResult.recommendedContainerCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                      Padding(padding: const EdgeInsets.all(8), child: Text(dualRec.nonStackableResult.recommendedContainerCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                    ],
-                  ),
-                  TableRow(
-                    children: [
-                      const Padding(padding: EdgeInsets.all(8), child: Text('عدد الحاويات المطلوبة')),
-                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.stackableResult.requiredContainersCount} حاويات', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.nonStackableResult.requiredContainersCount} حاويات', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
-                    ],
-                  ),
-                  TableRow(
-                    children: [
-                      const Padding(padding: EdgeInsets.all(8), child: Text('نسبة استغلال حجم الحاوية')),
-                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.stackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%')),
-                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.nonStackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%')),
-                    ],
-                  ),
-                ],
-              ),
-            ],
+      builder: (dialogCtx) {
+        final l = dialogCtx.l10n;
+        return AlertDialog(
+          title: Text(l.containerDualMatrixTitle),
+          content: SizedBox(
+            width: 650,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CopyableText(
+                  l.totalCbmAndWeight(cbm.toStringAsFixed(3), weightKg.toStringAsFixed(0)),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                Table(
+                  border: TableBorder.all(color: Colors.grey.shade300),
+                  children: [
+                    TableRow(
+                      decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                      children: [
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.statusCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text('📦 ${l.stackableOption}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text('🚫 ${l.nonStackableOption}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange))),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.containerTypeCol)),
+                        Padding(padding: const EdgeInsets.all(8), child: CopyableText(dualRec.stackableResult.recommendedContainerCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        Padding(padding: const EdgeInsets.all(8), child: CopyableText(dualRec.nonStackableResult.recommendedContainerCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.containersRequiredCol)),
+                        Padding(padding: const EdgeInsets.all(8), child: CopyableText('${dualRec.stackableResult.requiredContainersCount}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                        Padding(padding: const EdgeInsets.all(8), child: CopyableText('${dualRec.nonStackableResult.requiredContainersCount}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.spaceUtilizationLabel)),
+                        Padding(padding: const EdgeInsets.all(8), child: CopyableText('${dualRec.stackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%')),
+                        Padding(padding: const EdgeInsets.all(8), child: CopyableText('${dualRec.nonStackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%')),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('إغلاق')),
-        ],
-      ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
+          ],
+        );
+      },
     );
   }
 
@@ -3381,6 +3442,7 @@ Best regards,
 
             final totalPlanWeight = plan.fold(0.0, (s, p) => s + p.totalWeight);
             final totalPlanVolume = plan.fold(0.0, (s, p) => s + p.totalVolume);
+            final l = dialogCtx.l10n;
 
             // Determine container fleet text (e.g. 2 x 40HC or 2 x 40HC + 1 x 20GP)
             final Map<String, int> containerCounts = {};
@@ -3396,10 +3458,10 @@ Best regards,
                 children: [
                   const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'مخطط ومحاكاة رص الحاويات (Visual 2.5D/3D Container Load Planner)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                      l.visualLoadPlanTitle,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                     ),
                   ),
                   Container(
@@ -3410,7 +3472,7 @@ Best regards,
                       border: Border.all(color: AppTheme.cobalt),
                     ),
                     child: Text(
-                      'الأسطول المطلوب: $fleetSummaryText (${plan.length} حاوية)',
+                      l.requiredFleetLabel(fleetSummaryText, plan.length),
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                     ),
                   ),
@@ -3432,14 +3494,14 @@ Best regards,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            '🔄 اختر سيناريو الرص للمعاينة:',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                          Text(
+                            l.selectStackingScenarioLabel,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                           ),
                           Row(
                             children: [
                               ChoiceChip(
-                                label: const Text('📦 1. بضائع تقبل الرص (All Stackable)'),
+                                label: Text(l.allStackableOption),
                                 selected: activeStackingMode == true,
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
@@ -3453,7 +3515,7 @@ Best regards,
                               ),
                               const SizedBox(width: 8),
                               ChoiceChip(
-                                label: const Text('🚫 2. بضائع لا تقبل الرص (All Non-Stackable)'),
+                                label: Text(l.allNonStackableOption),
                                 selected: activeStackingMode == false,
                                 selectedColor: Colors.orange.shade800,
                                 labelStyle: TextStyle(
@@ -3467,7 +3529,7 @@ Best regards,
                               ),
                               const SizedBox(width: 8),
                               ChoiceChip(
-                                label: const Text('🔀 3. مزيج يقبل ولا يقبل الرص (Mixed Stacking)'),
+                                label: Text(l.mixedStackingOption),
                                 selected: activeStackingMode == null,
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
@@ -3499,18 +3561,18 @@ Best regards,
                         children: [
                           Row(
                             children: [
-                              _buildLoadMetricPill('📦 إجمالي الطرود', '$totalPkgs طرد', AppTheme.cobalt),
+                              _buildLoadMetricPill(l.totalPackagesMetricLabel, '$totalPkgs', AppTheme.cobalt),
                               const SizedBox(width: 8),
-                              _buildLoadMetricPill('⚖️ إجمالي الوزن', '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
+                              _buildLoadMetricPill(l.totalWeightMetricLabel, '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
                               const SizedBox(width: 8),
-                              _buildLoadMetricPill('📐 إجمالي الحجم', '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
+                              _buildLoadMetricPill(l.totalVolumeMetricLabel, '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
                             ],
                           ),
                           Row(
                             children: [
-                              _buildLoadMetricPill('✅ يقبل الرص', '$stackableInActive طرد', Colors.green.shade800),
+                              _buildLoadMetricPill(l.stackableMetricLabel, '$stackableInActive', Colors.green.shade800),
                               const SizedBox(width: 8),
-                              _buildLoadMetricPill('🚫 لا يقبل الرص', '$nonStackableInActive طرد', Colors.red.shade800),
+                              _buildLoadMetricPill(l.nonStackableMetricLabel, '$nonStackableInActive', Colors.red.shade800),
                             ],
                           ),
                         ],
@@ -3531,12 +3593,12 @@ Best regards,
                       children: [
                         TableRow(
                           decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                          children: const [
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('الأصناف والطرود', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('الوزن المحمّل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('استغلال المساحة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('توزيع الرص والسلامة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          children: [
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.itemsAndPackagesCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.loadedWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.spaceUtilizationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.safetyDistributionCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                           ],
                         ),
                         ...plan.asMap().entries.map((entry) {
@@ -3546,13 +3608,13 @@ Best regards,
 
                           String statusText = '';
                           if (res.containerCode == 'FAILED') {
-                            statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
+                            statusText = l.loadingFailedStatus(res.unplacedItems.map((u) => u.itemId).join(', '));
                           } else {
                             final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
                             if (nonStackInThis > 0) {
-                              statusText = 'تحتوي على $nonStackInThis طرد غير قابل للرص مثبت على الأرضية';
+                              statusText = l.nonStackableFloorCount(nonStackInThis);
                             } else {
-                              statusText = 'رص متعدد الطبقات متوافق (${(res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1)}%)';
+                              statusText = l.multiLayerCompliant((res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1));
                             }
                           }
 
@@ -3562,33 +3624,33 @@ Best regards,
                             children: [
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text(
-                                  res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
+                                child: CopyableText(
+                                  res.containerCode == 'FAILED' ? l.failedStackLabel : '$idx: ${res.spec.code}',
                                   style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11),
                                 ),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text(placedIds.isEmpty ? '-' : placedIds, style: const TextStyle(fontSize: 11)),
+                                child: CopyableText(placedIds.isEmpty ? '-' : placedIds, style: const TextStyle(fontSize: 11)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11)),
+                                child: CopyableText(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange)),
+                                child: CopyableText('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text(
+                                child: CopyableText(
                                   statusText,
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
-                                    color: statusText.contains('فشل')
+                                    color: res.containerCode == 'FAILED'
                                         ? Colors.red.shade800
-                                        : (statusText.contains('غير قابل') ? Colors.brown.shade800 : Colors.green.shade800),
+                                        : (res.placedItems.any((p) => !p.item.isStackable) ? Colors.brown.shade800 : Colors.green.shade800),
                                   ),
                                 ),
                               ),
@@ -3610,8 +3672,8 @@ Best regards,
                               padding: const EdgeInsets.all(16),
                               margin: const EdgeInsets.all(12),
                               decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade300)),
-                              child: Text(
-                                'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
+                              child: CopyableText(
+                                l.itemsExceedCapacity(res.unplacedItems.map((u) => u.itemId).join(', ')),
                                 style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                               ),
                             );
@@ -3628,18 +3690,21 @@ Best regards,
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
+                                      CopyableText(
+                                        l.containerLayoutTitle(pIdx + 1, res.spec.name, res.spec.code),
                                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                       ),
                                       Row(
                                         children: [
-                                          const Text('🪵 طبالي خشبية أرضية', style: TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                          Text(l.woodenFloorPalletsLabel, style: const TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 10),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
-                                            child: Text('الأبعاد الداخلية: ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 10, color: AppTheme.cobalt)),
+                                            child: CopyableText(
+                                              l.internalDimsLabel(res.spec.internalLength.toStringAsFixed(0), res.spec.internalWidth.toStringAsFixed(0), res.spec.internalHeight.toStringAsFixed(0)),
+                                              style: const TextStyle(fontSize: 10, color: AppTheme.cobalt),
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -3690,7 +3755,7 @@ Best regards,
                 TextButton.icon(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
-                  label: const Text('إغلاق المخطط'),
+                  label: Text(l.closePlanBtn),
                 ),
               ],
             );

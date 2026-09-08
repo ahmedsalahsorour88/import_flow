@@ -478,6 +478,10 @@ class PurchaseOrderModel {
   final List<PackingListItemModel> packingListItems;
   final List<PalletPlanItemModel> palletPlanItems;
 
+  String get displayName => (poReference != null && poReference!.trim().isNotEmpty)
+      ? poReference!.trim()
+      : poNumber;
+
   PurchaseOrderModel({
     this.poId,
     required this.poNumber,

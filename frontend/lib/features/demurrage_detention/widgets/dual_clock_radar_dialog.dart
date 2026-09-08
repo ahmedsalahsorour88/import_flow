@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 void showDualClockRadarDialog(BuildContext context, WidgetRef ref, {
   required int trackingId,
@@ -132,41 +133,91 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 820,
-        padding: const EdgeInsets.all(24),
-        child: _isLoading
-            ? const SizedBox(
-                height: 300,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            : _error != null
-                ? SizedBox(
-                    height: 250,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.error_outline, color: AppTheme.crimson, size: 48),
-                          const SizedBox(height: 12),
-                          Text(_error!, style: const TextStyle(color: AppTheme.crimson)),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: _fetchDualClockData,
-                            child: const Text('إعادة المحاولة'),
-                          )
-                        ],
+      child: SelectionArea(
+        child: Container(
+          width: 820,
+          padding: const EdgeInsets.all(24),
+          child: _isLoading
+              ? const SizedBox(
+                  height: 300,
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              : _error != null
+                  ? SizedBox(
+                      height: 250,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline, color: AppTheme.crimson, size: 48),
+                            const SizedBox(height: 12),
+                            Text(_error!, style: const TextStyle(color: AppTheme.crimson)),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: _fetchDualClockData,
+                              child: Text(isArabic ? 'إعادة المحاولة' : 'Retry'),
+                            )
+                          ],
+                        ),
                       ),
-                    ),
-                  )
-                : _buildContent(),
+                    )
+                  : _buildContent(isArabic),
+        ),
       ),
     );
   }
 
-  Widget _buildContent() {
+  void _copyRadarMetrics(BuildContext context, bool isArabic) {
+    final carrierClock = _data?['carrier_clock'] as Map<String, dynamic>? ?? {};
+    final portClock = _data?['port_storage_clock'] as Map<String, dynamic>? ?? {};
+    final buffer = StringBuffer();
+    if (isArabic) {
+      buffer.writeln('بيانات رادار المتابعة المزدوج (غرامات التأخير وأرضيات الميناء)');
+      buffer.writeln('بوليصة الشحن:\t${widget.billOfLadingNo}');
+      buffer.writeln('الخط الملاحي:\t${widget.carrierName}');
+      buffer.writeln('');
+      buffer.writeln('غرامات التوكيل الملاحي:');
+      buffer.writeln('الإجمالي المستحق:\t\$${(carrierClock['total_accrued_demurrage_usd'] as num?)?.toDouble() ?? 0.0}');
+      buffer.writeln('أيام السماح:\t${carrierClock['demurrage_free_days'] ?? 0} يوم');
+      buffer.writeln('أيام التجاوز:\t${carrierClock['demurrage_overdue_days'] ?? 0} يوم');
+      buffer.writeln('المعدل اليومي:\t\$${(carrierClock['daily_rate_usd'] as num?)?.toDouble() ?? 0.0}');
+      buffer.writeln('');
+      buffer.writeln('أرضيات هيئة الميناء:');
+      buffer.writeln('الإجمالي المستحق:\t${(portClock['total_accrued_storage_egp'] as num?)?.toDouble() ?? 0.0} ج.م');
+      buffer.writeln('أيام السماح:\t${portClock['port_storage_free_days'] ?? 0} يوم');
+      buffer.writeln('أيام التجاوز:\t${portClock['storage_overdue_days'] ?? 0} يوم');
+      buffer.writeln('المعدل اليومي:\t${(portClock['current_tier_rate_egp'] as num?)?.toDouble() ?? 0.0} ج.م');
+    } else {
+      buffer.writeln('Dual-Clock Radar Metrics (Demurrage & Port Storage)');
+      buffer.writeln('Bill of Lading:\t${widget.billOfLadingNo}');
+      buffer.writeln('Carrier:\t${widget.carrierName}');
+      buffer.writeln('');
+      buffer.writeln('Carrier Demurrage:');
+      buffer.writeln('Total Accrued:\t\$${(carrierClock['total_accrued_demurrage_usd'] as num?)?.toDouble() ?? 0.0}');
+      buffer.writeln('Free Days:\t${carrierClock['demurrage_free_days'] ?? 0} days');
+      buffer.writeln('Overdue Days:\t${carrierClock['demurrage_overdue_days'] ?? 0} days');
+      buffer.writeln('Daily Rate:\t\$${(carrierClock['daily_rate_usd'] as num?)?.toDouble() ?? 0.0}');
+      buffer.writeln('');
+      buffer.writeln('Port Storage:');
+      buffer.writeln('Total Accrued:\t${(portClock['total_accrued_storage_egp'] as num?)?.toDouble() ?? 0.0} EGP');
+      buffer.writeln('Free Days:\t${portClock['port_storage_free_days'] ?? 0} days');
+      buffer.writeln('Overdue Days:\t${portClock['storage_overdue_days'] ?? 0} days');
+      buffer.writeln('Daily Rate:\t${(portClock['current_tier_rate_egp'] as num?)?.toDouble() ?? 0.0} EGP');
+    }
+
+    CopyHelper.copy(
+      context,
+      buffer.toString(),
+      customMessage: isArabic
+          ? 'تم نسخ مؤشرات رادار المتابعة بنجاح'
+          : 'Dual-clock radar metrics copied successfully',
+    );
+  }
+
+  Widget _buildContent(bool isArabic) {
     final carrierClock = _data?['carrier_clock'] as Map<String, dynamic>? ?? {};
     final portClock = _data?['port_storage_clock'] as Map<String, dynamic>? ?? {};
     final bool warning72h = portClock['warning_72h_active'] == true;
@@ -193,16 +244,25 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'رادار المتابعة المزدوج: غرامات التأخير وأرضيات الميناء (Dual-Clock Radar)',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                    Text(
+                      isArabic
+                          ? 'رادار المتابعة المزدوج: غرامات التأخير وأرضيات الميناء'
+                          : 'Dual-Clock Radar: Demurrage & Port Storage',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                     ),
                     Text(
-                      'بوليصة الشحن: ${widget.billOfLadingNo}  •  الخط الملاحي: ${widget.carrierName}',
+                      isArabic
+                          ? 'بوليصة الشحن: ${widget.billOfLadingNo}  •  الخط الملاحي: ${widget.carrierName}'
+                          : 'Bill of Lading: ${widget.billOfLadingNo}  •  Carrier: ${widget.carrierName}',
                       style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                     ),
                   ],
                 ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
+                tooltip: isArabic ? 'نسخ مؤشرات الرادار' : 'Copy Radar Metrics',
+                onPressed: () => _copyRadarMetrics(context, isArabic),
               ),
               IconButton(
                 icon: const Icon(Icons.close),
@@ -230,9 +290,11 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          '⚠️ تحذير حاسم: متبقي أقل من 72 ساعة على مضاعفة شريحة أرضيات ساحة الميناء!',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange, fontSize: 13.5),
+                        Text(
+                          isArabic
+                              ? '⚠️ تحذير حاسم: متبقي أقل من 72 ساعة على مضاعفة شريحة أرضيات ساحة الميناء!'
+                              : '⚠️ Critical Warning: Less than 72 hours remaining before port storage tier doubles!',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange, fontSize: 13.5),
                         ),
                         if (portAdvice.isNotEmpty)
                           Text(portAdvice, style: TextStyle(color: Colors.grey.shade800, fontSize: 12.5)),
@@ -250,7 +312,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
               // Clock 1: Carrier Demurrage (USD)
               Expanded(
                 child: _buildClockCard(
-                  title: 'غرامات التوكيل الملاحي (Demurrage)',
+                  title: isArabic ? 'غرامات التوكيل الملاحي' : 'Carrier Demurrage',
                   currencySymbol: '\$',
                   currencyCode: 'USD',
                   totalAmount: (carrierClock['total_accrued_demurrage_usd'] as num?)?.toDouble() ?? 0.0,
@@ -258,11 +320,16 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                   overdueDays: carrierClock['demurrage_overdue_days'] ?? 0,
                   dailyRate: (carrierClock['daily_rate_usd'] as num?)?.toDouble() ?? 0.0,
                   statusNote: carrierClock['is_demurrage_overdue'] == true
-                      ? 'تجاوزت فترة السماح (${carrierClock['demurrage_overdue_days']} يوم)'
-                      : 'في نطاق السماح (متبقي ${carrierClock['free_days_remaining']} يوم)',
+                      ? (isArabic
+                          ? 'تجاوزت فترة السماح (${carrierClock['demurrage_overdue_days']} يوم)'
+                          : 'Overdue (${carrierClock['demurrage_overdue_days']} days)')
+                      : (isArabic
+                          ? 'في نطاق السماح (متبقي ${carrierClock['free_days_remaining']} يوم)'
+                          : 'Within Free Time (${carrierClock['free_days_remaining']} days left)'),
                   isDanger: carrierClock['is_demurrage_overdue'] == true,
                   icon: Icons.directions_boat_outlined,
                   accentColor: AppTheme.cobalt,
+                  isArabic: isArabic,
                 ),
               ),
               const SizedBox(width: 16),
@@ -270,17 +337,20 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
               // Clock 2: Port Storage (EGP)
               Expanded(
                 child: _buildClockCard(
-                  title: 'أرضيات هيئة الميناء (Port Storage)',
-                  currencySymbol: 'ج.م',
+                  title: isArabic ? 'أرضيات هيئة الميناء' : 'Port Storage',
+                  currencySymbol: isArabic ? 'ج.م' : 'EGP',
                   currencyCode: 'EGP',
                   totalAmount: (portClock['total_accrued_storage_egp'] as num?)?.toDouble() ?? 0.0,
                   freeDays: portClock['port_storage_free_days'] ?? 0,
                   overdueDays: portClock['storage_overdue_days'] ?? 0,
                   dailyRate: (portClock['current_tier_rate_egp'] as num?)?.toDouble() ?? 0.0,
-                  statusNote: 'الشريحة الحالية: ${portClock['current_tier_name'] ?? 'شريحة اعتيادية'}',
+                  statusNote: isArabic
+                      ? 'الشريحة الحالية: ${portClock['current_tier_name'] ?? 'شريحة اعتيادية'}'
+                      : 'Current Tier: ${portClock['current_tier_name'] ?? 'Standard Tier'}',
                   isDanger: portClock['is_storage_overdue'] == true,
                   icon: Icons.warehouse_outlined,
                   accentColor: AppTheme.orange,
+                  isArabic: isArabic,
                 ),
               ),
             ],
@@ -302,10 +372,12 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                   children: [
                     const Icon(Icons.local_shipping_outlined, color: AppTheme.charcoal, size: 20),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'التتبع المنفصل وخروج الحاويات الجزئي (Container Gate-Out & EIR)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                        isArabic
+                            ? 'التتبع المنفصل وخروج الحاويات الجزئي'
+                            : 'Container Gate-Out & EIR Tracking',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -319,9 +391,9 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                       flex: 2,
                       child: TextFormField(
                         controller: _containerController,
-                        decoration: const InputDecoration(
-                          labelText: 'رقم الحاوية (مثلاً MSKU1234567)',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: isArabic ? 'رقم الحاوية (مثلاً MSKU1234567)' : 'Container No. (e.g. MSKU1234567)',
+                          border: const OutlineInputBorder(),
                           isDense: true,
                         ),
                       ),
@@ -331,9 +403,9 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                       flex: 2,
                       child: TextFormField(
                         controller: _eirController,
-                        decoration: const InputDecoration(
-                          labelText: 'رقم إيصال الفحص EIR',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: isArabic ? 'رقم إيصال الفحص' : 'EIR Receipt Number',
+                          border: const OutlineInputBorder(),
                           isDense: true,
                         ),
                       ),
@@ -344,7 +416,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                       icon: _isSubmittingGateOut
                           ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.check_circle_outline, size: 18),
-                      label: const Text('تثبيت الخروج'),
+                      label: Text(isArabic ? 'تثبيت الخروج' : 'Record Gate-Out'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.emerald,
                         foregroundColor: Colors.white,
@@ -373,6 +445,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
     required bool isDanger,
     required IconData icon,
     required Color accentColor,
+    required bool isArabic,
   }) {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -424,12 +497,16 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text('أيام السماح: $freeDays يوم', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                child: Text(
+                  isArabic ? 'أيام السماح: $freeDays يوم' : 'Free Days: $freeDays days',
+                  style: const TextStyle(fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'أيام التجاوز: $overdueDays يوم',
+                  isArabic ? 'أيام التجاوز: $overdueDays يوم' : 'Overdue: $overdueDays days',
                   textAlign: TextAlign.end,
                   style: TextStyle(
                     fontSize: 12,
@@ -443,7 +520,12 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
           ),
 
           const SizedBox(height: 6),
-          Text('المعدل اليومي: $currencySymbol ${dailyRate.toStringAsFixed(2)}', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+          Text(
+            isArabic
+                ? 'المعدل اليومي: $currencySymbol ${dailyRate.toStringAsFixed(2)}'
+                : 'Daily Rate: $currencySymbol ${dailyRate.toStringAsFixed(2)}',
+            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+          ),
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

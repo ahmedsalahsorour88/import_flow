@@ -10,12 +10,12 @@ import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
 import '../widgets/duty_calculator_dialog.dart';
 import '../widgets/nafeza_details_dialog.dart';
-import '../widgets/nafeza_tariff_sync_dialog.dart';
 import '../widgets/tariff_form_dialog.dart';
 import 'hs_code_search_screen.dart';
 
 class CustomsTariffScreen extends ConsumerStatefulWidget {
-  const CustomsTariffScreen({super.key});
+  final int initialTabIndex;
+  const CustomsTariffScreen({super.key, this.initialTabIndex = 0});
 
   @override
   ConsumerState<CustomsTariffScreen> createState() =>
@@ -24,13 +24,25 @@ class CustomsTariffScreen extends ConsumerStatefulWidget {
 
 class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
   final TextEditingController _searchController = TextEditingController();
+  late int _currentTab;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      ref.read(customsTariffProvider.notifier).fetchTariffs();
-    });
+    _currentTab = widget.initialTabIndex;
+    if (!ref.read(customsTariffProvider).isLoading) {
+      Future.microtask(() {
+        ref.read(customsTariffProvider.notifier).fetchTariffs();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomsTariffScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTabIndex != oldWidget.initialTabIndex) {
+      setState(() => _currentTab = widget.initialTabIndex);
+    }
   }
 
   @override
@@ -92,36 +104,36 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                       label: Text(l10n.importExcelCsvBtn),
                       onPressed: () => _handleExcelImport(context, ref),
                     ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.charcoal,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
+                    SegmentedButton<int>(
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return AppTheme.cobalt;
+                          }
+                          return Colors.white;
+                        }),
+                        foregroundColor: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return Colors.white;
+                          }
+                          return AppTheme.charcoal;
+                        }),
                       ),
-                      icon: const Icon(Icons.saved_search, size: 18, color: Colors.amber),
-                      label: Text(
-                        l10n.hsExplorerBtn,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => HsCodeSearchScreen(
-                              initialQuery: _searchController.text,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
-                      ),
-                      icon: const Icon(Icons.sync_alt, size: 18),
-                      label: const Text('محلل ومزامن نصوص نافذة الذكي', style: TextStyle(fontWeight: FontWeight.bold)),
-                      onPressed: () => showNafezaTariffSyncDialog(context, ref),
+                      segments: [
+                        ButtonSegment(
+                          value: 0,
+                          icon: const Icon(Icons.table_chart_outlined, size: 16),
+                          label: Text(l10n.customsTariffScreenTitle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                        ButtonSegment(
+                          value: 1,
+                          icon: const Icon(Icons.saved_search, size: 16),
+                          label: Text(l10n.hsExplorerBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                      selected: {_currentTab},
+                      onSelectionChanged: (set) => setState(() => _currentTab = set.first),
                     ),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
@@ -160,70 +172,86 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Data Actions Toolbar
-            MasterDataToolbarWidget(
-              moduleEndpoint: 'customs-tariff',
-              title: 'Customs_Tariffs',
-              onRefreshNeeded: () => ref.read(customsTariffProvider.notifier).fetchTariffs(),
-            ),
+            if (_currentTab == 0) ...[
+              // Data Actions Toolbar
+              MasterDataToolbarWidget(
+                moduleEndpoint: 'customs-tariff',
+                title: 'Customs_Tariffs',
+                onRefreshNeeded: () => ref.read(customsTariffProvider.notifier).fetchTariffs(),
+              ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Search & Filter Toolbar
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (val) {
-                      ref
-                          .read(customsTariffSearchQueryProvider.notifier)
-                          .state = val.trim();
-                    },
-                    decoration: InputDecoration(
-                      hintText: l10n.searchTariffsHint,
-                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.grey),
-                              onPressed: () {
-                                _searchController.clear();
-                                ref
-                                    .read(customsTariffSearchQueryProvider
-                                        .notifier)
-                                    .state = '';
-                              },
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Row(
-                  children: [
-                    Text(
-                      l10n.showInactiveTariffsLabel,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(width: 8),
-                    Switch(
-                      value: showInactive,
-                      activeColor: AppTheme.cobalt,
-                      onChanged: (val) {
-                        ref
-                            .read(showInactiveCustomsTariffsProvider.notifier)
-                            .state = val;
+              // Search & Filter Toolbar
+              Row(
+                children: [
+                  Expanded(
+                    child: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _searchController,
+                      builder: (context, val, _) {
+                        return TextField(
+                          controller: _searchController,
+                          onChanged: (val) {
+                            ref
+                                .read(customsTariffSearchQueryProvider.notifier)
+                                .state = val.trim();
+                          },
+                          decoration: InputDecoration(
+                            hintText: l10n.searchTariffsHint,
+                            prefixIcon:
+                                const Icon(Icons.search, color: Colors.grey),
+                            suffixIcon: val.text.isEmpty
+                                ? null
+                                : IconButton(
+                                    icon: const Icon(Icons.clear,
+                                        color: Colors.grey),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      ref
+                                          .read(
+                                              customsTariffSearchQueryProvider
+                                                  .notifier)
+                                          .state = '';
+                                    },
+                                  ),
+                          ),
+                        );
                       },
                     ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+                  ),
+                  const SizedBox(width: 16),
+                  Row(
+                    children: [
+                      Text(
+                        l10n.showInactiveTariffsLabel,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 8),
+                      Switch(
+                        value: showInactive,
+                        activeColor: AppTheme.cobalt,
+                        onChanged: (val) {
+                          ref
+                              .read(showInactiveCustomsTariffsProvider.notifier)
+                              .state = val;
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
 
-            // Table Area
+            // Main Content Area
             Expanded(
-              child: tariffsAsync.when(
+              child: _currentTab == 1
+                  ? HsCodeSearchScreen(
+                      key: const ValueKey('hs_explorer_tab_view'),
+                      initialQuery: _searchController.text,
+                      isEmbedded: true,
+                    )
+                  : tariffsAsync.when(
                 loading: () => const Center(
                   child: CircularProgressIndicator(color: AppTheme.cobalt),
                 ),

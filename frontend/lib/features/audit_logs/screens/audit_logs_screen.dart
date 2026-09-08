@@ -38,9 +38,11 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      ref.invalidate(systemAuditLogsProvider);
-    });
+    if (!ref.read(systemAuditLogsProvider).isLoading) {
+      Future.microtask(() {
+        ref.invalidate(systemAuditLogsProvider);
+      });
+    }
   }
 
   @override
@@ -203,24 +205,42 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                   ),
                 ],
               ),
-              child: TextField(
-                controller: _searchController,
-                style: const TextStyle(fontSize: 14),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
-                  hintText: l10n.searchAuditLogsHint,
-                  filled: false,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppTheme.cobalt, width: 2),
-                  ),
-                ),
-                onChanged: (val) {
-                  setState(() {
-                    _searchQuery = val.toLowerCase();
-                  });
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _searchController,
+                builder: (context, val, _) {
+                  return TextField(
+                    controller: _searchController,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: InputDecoration(
+                      prefixIcon:
+                          const Icon(Icons.search, color: AppTheme.charcoal),
+                      hintText: l10n.searchAuditLogsHint,
+                      suffixIcon: val.text.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear, color: Colors.grey),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                            ),
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide:
+                            const BorderSide(color: AppTheme.cobalt, width: 2),
+                      ),
+                    ),
+                    onChanged: (val) {
+                      setState(() {
+                        _searchQuery = val.toLowerCase();
+                      });
+                    },
+                  );
                 },
               ),
             ),

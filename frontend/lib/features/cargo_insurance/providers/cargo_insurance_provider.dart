@@ -11,9 +11,16 @@ final cargoInsuranceProvider =
 
 class CargoInsuranceNotifier extends StateNotifier<AsyncValue<List<CargoInsuranceModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   CargoInsuranceNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchCertificates();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('CargoInsuranceNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchCertificates({
@@ -21,6 +28,8 @@ class CargoInsuranceNotifier extends StateNotifier<AsyncValue<List<CargoInsuranc
     String? status,
     String? search,
   }) async {
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{};
@@ -31,11 +40,15 @@ class CargoInsuranceNotifier extends StateNotifier<AsyncValue<List<CargoInsuranc
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/cargo-insurance/certificates',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List items = response.data['items'] ?? [];
       final list = items.map((json) => CargoInsuranceModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
+    } on DioException catch (e, stack) {
+      if (CancelToken.isCancel(e)) return;
+      state = AsyncValue.error(e, stack);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }

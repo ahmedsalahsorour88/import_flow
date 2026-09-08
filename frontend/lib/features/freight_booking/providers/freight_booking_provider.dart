@@ -12,9 +12,16 @@ final freightBookingProvider =
 
 class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBookingModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   FreightBookingNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchBookings();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('FreightBookingNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchBookings({
@@ -23,6 +30,8 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
     String? status,
     String? search,
   }) async {
+    _cancelToken?.cancel('Cancelled by new fetchBookings request');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{'include_inactive': includeInactive};
@@ -33,12 +42,14 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/freight-booking',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List data = response.data;
       final list = data.map((json) => ShipmentBookingModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       state = AsyncValue.error(e, stack);
     }
   }

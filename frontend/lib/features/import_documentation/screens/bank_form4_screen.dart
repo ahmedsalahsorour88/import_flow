@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
@@ -71,11 +72,30 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
     });
   }
 
+  @override
+  void didUpdateWidget(BankForm4Screen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialSubTab != widget.initialSubTab) {
+      setState(() => _selectedSubTab = widget.initialSubTab);
+    }
+    if (oldWidget.initialImportFileId != widget.initialImportFileId) {
+      setState(() => _form4ImportFileId = widget.initialImportFileId);
+    }
+  }
+
   void _refreshData() {
-    ref.read(partnersProvider.notifier).fetchPartners();
-    ref.read(importFilesProvider.notifier).fetchImportFiles();
-    ref.read(bankingDocumentsProvider.notifier).fetchBankingDocuments();
-    ref.read(currenciesProvider.notifier).fetchCurrencies();
+    if (!ref.read(partnersProvider).isLoading) {
+      ref.read(partnersProvider.notifier).fetchPartners();
+    }
+    if (!ref.read(importFilesProvider).isLoading) {
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    }
+    if (!ref.read(bankingDocumentsProvider).isLoading) {
+      ref.read(bankingDocumentsProvider.notifier).fetchBankingDocuments();
+    }
+    if (!ref.read(currenciesProvider).isLoading) {
+      ref.read(currenciesProvider.notifier).fetchCurrencies();
+    }
   }
 
   @override
@@ -119,7 +139,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
 
   @override
   Widget build(BuildContext context) {
-    final bankingDocs = ref.watch(bankingDocumentsProvider).value ?? [];
+    final bankingDocs = ref.watch(bankingDocumentsProvider).valueOrNull ?? [];
 
     final tabs = [
       const VerticalNavTabItem(
@@ -178,9 +198,9 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
   // --- SUB-VIEW 0: REQUEST TAB ---
   Widget _buildForm4RequestTab() {
     final partnersState = ref.watch(partnersProvider);
-    final banksList = (partnersState.value ?? []).where((p) => p.partnerType.contains('Bank') || p.partnerType.contains('بنك')).toList();
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
-    final currencies = ref.watch(currenciesProvider).value ?? [];
+    final banksList = (partnersState.valueOrNull ?? []).where((p) => p.partnerType.contains('Bank') || p.partnerType.contains('بنك')).toList();
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final currencies = ref.watch(currenciesProvider).valueOrNull ?? [];
 
     return Form(
       key: _bankFormKey,
@@ -202,7 +222,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                   const Icon(Icons.edit_note, color: Colors.amber, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
+                    child: CopyableText(
                       context.l10n.bankForm4EditingBanner(_editingBankDocCode ?? ''),
                       style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade900),
                     ),
@@ -231,7 +251,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
               isRequired: true,
               items: importFiles.map((f) => SearchableDropdownItem<int>(
                 value: f.importFileId,
-                label: '${f.importFileCode} — ${f.supplierName} (${f.companyName})',
+                label: '${f.primaryNameWithCode} — ${f.supplierName} (${f.companyName})',
               )).toList(),
               onChanged: (val) {
                 setState(() => _form4ImportFileId = val);
@@ -435,7 +455,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
 
   // --- SUB-VIEW 1: REGISTRY TAB ---
   Widget _buildForm4HistoryRegistryTab() {
-    final bankingDocs = ref.watch(bankingDocumentsProvider).value ?? [];
+    final bankingDocs = ref.watch(bankingDocumentsProvider).valueOrNull ?? [];
     final filtered = bankingDocs.where((d) {
       final matchesSearch = _form4SearchQuery.isEmpty ||
           d.bankDocCode.toLowerCase().contains(_form4SearchQuery.toLowerCase()) ||
@@ -504,27 +524,66 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
               ],
 
             rows: filtered.map((d) {
+              final statusLabel = d.status == 'Received' ? context.l10n.endorsedStatusBadge : context.l10n.bankProcessingStatusBadge;
+              final formattedDate = d.requestDate ?? d.issueDate.substring(0, min(10, d.issueDate.length));
+              final formattedAmount = '${d.amount.toStringAsFixed(2)} ${d.currencyCode}';
+              final rowSummary = '${d.bankDocCode}\t${d.importFileCode ?? "-"}\t${d.bankName}\t$formattedAmount\t$formattedDate\t$statusLabel';
+
               return DataRow(
                 cells: [
-                  DataCell(Text(d.bankDocCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                  DataCell(Text(d.importFileCode ?? '-')),
-                  DataCell(Text(d.bankName)),
-                  DataCell(Text('${d.amount.toStringAsFixed(2)} ${d.currencyCode}')),
-                  DataCell(Text(d.requestDate ?? d.issueDate.substring(0, min(10, d.issueDate.length)))),
                   DataCell(
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: d.status == 'Received' ? Colors.green.shade50 : Colors.amber.shade50,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: d.status == 'Received' ? Colors.green.shade300 : Colors.amber.shade300),
-                      ),
-                      child: Text(
-                        d.status == 'Received' ? context.l10n.endorsedStatusBadge : context.l10n.bankProcessingStatusBadge,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: d.status == 'Received' ? Colors.green.shade800 : Colors.amber.shade900,
+                    CopyableTableCell(
+                      value: d.bankDocCode,
+                      rowSummary: rowSummary,
+                      child: Text(d.bankDocCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                    ),
+                  ),
+                  DataCell(
+                    CopyableTableCell(
+                      value: d.importFileCode ?? '-',
+                      rowSummary: rowSummary,
+                      child: Text(d.importFileCode ?? '-'),
+                    ),
+                  ),
+                  DataCell(
+                    CopyableTableCell(
+                      value: d.bankName,
+                      rowSummary: rowSummary,
+                      child: Text(d.bankName),
+                    ),
+                  ),
+                  DataCell(
+                    CopyableTableCell(
+                      value: formattedAmount,
+                      rowSummary: rowSummary,
+                      child: Text(formattedAmount),
+                    ),
+                  ),
+                  DataCell(
+                    CopyableTableCell(
+                      value: formattedDate,
+                      rowSummary: rowSummary,
+                      child: Text(formattedDate),
+                    ),
+                  ),
+                  DataCell(
+                    CopyableTableCell(
+                      value: statusLabel,
+                      rowSummary: rowSummary,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: d.status == 'Received' ? Colors.green.shade50 : Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: d.status == 'Received' ? Colors.green.shade300 : Colors.amber.shade300),
+                        ),
+                        child: Text(
+                          statusLabel,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: d.status == 'Received' ? Colors.green.shade800 : Colors.amber.shade900,
+                          ),
                         ),
                       ),
                     ),
@@ -551,7 +610,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
     if (!_bankFormKey.currentState!.validate()) return;
     if (_form4ImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.selectImportFileFirstWarning), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.selectImportFileFirst), backgroundColor: AppTheme.crimson),
       );
       return;
     }

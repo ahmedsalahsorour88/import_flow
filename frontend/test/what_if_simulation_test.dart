@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/simulation/widgets/what_if_simulator_dialog.dart';
 
 void main() {
@@ -15,8 +16,11 @@ void main() {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(
-          home: Scaffold(
-            body: WhatIfSimulatorDialog(),
+          home: AppLocalizationsProvider(
+            locale: Locale('ar'),
+            child: Scaffold(
+              body: WhatIfSimulatorDialog(),
+            ),
           ),
         ),
       ),
@@ -25,21 +29,21 @@ void main() {
     await tester.pumpAndSettle();
 
     // 1. Verify Dialog Header & Tabs
-    expect(find.text('محاكي مخاطر الشحن وتغيرات أسعار الصرف والأزمات (SIM-WHATIF-013)'), findsOneWidget);
-    expect(find.text('محاكي السيناريوهات الحية (Live What-If Simulator)'), findsOneWidget);
-    expect(find.text('رادار الانكشاف المالي بالعملات الأجنبية (FX Exposure)'), findsOneWidget);
+    expect(find.text('محاكي مخاطر الشحن وتغيرات أسعار الصرف والأزمات'), findsOneWidget);
+    expect(find.text('محاكي السيناريوهات الحية'), findsOneWidget);
+    expect(find.text('رادار الانكشاف المالي بالعملات الأجنبية'), findsOneWidget);
 
     // 2. Verify Tab 1 Controls
     expect(find.text('1. تحديد مدخلات الشحنة والعملة:'), findsOneWidget);
-    expect(find.text('2. محاكاة صدمة سعر الصرف (FX Shock):'), findsOneWidget);
-    expect(find.text('3. مسار الشحن ومخاطر البحر الأحمر:'), findsOneWidget);
+    expect(find.text('2. محاكاة صدمة سعر الصرف:'), findsOneWidget);
+    expect(find.text('3. مسار الشحن ومخاطر الملاحة:'), findsOneWidget);
     expect(find.text('تشغيل المحاكاة الآن'), findsOneWidget);
 
     // 3. Verify Placeholder Guide
     expect(find.text('جاهز لمحاكاة صدمات أسعار الصرف والأزمات اللوجستية'), findsOneWidget);
 
     // 4. Switch to Tab 2: FX Exposure Radar
-    await tester.tap(find.text('رادار الانكشاف المالي بالعملات الأجنبية (FX Exposure)'));
+    await tester.tap(find.text('رادار الانكشاف المالي بالعملات الأجنبية'));
     await tester.pumpAndSettle();
 
     // Verify Tab 2 is active

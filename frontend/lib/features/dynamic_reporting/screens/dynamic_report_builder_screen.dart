@@ -7,9 +7,12 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/import_file_po_linker.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../projects/providers/projects_provider.dart';
+import '../../purchase_orders/providers/purchase_orders_provider.dart';
 
 enum ReportTemplateMode {
   custom,
@@ -43,6 +46,24 @@ class DynamicReportBuilderScreen extends ConsumerStatefulWidget {
   const DynamicReportBuilderScreen({super.key});
 
   static const List<String> kEcoPresetColumnIds = [
+    'scasProjectFileAcid',
+    'scasExFactory',
+    'scasOrderToOrigin',
+    'scasPickUpDate',
+    'scasDeparturePort',
+    'scasArrivalAlexPort',
+    'scasOrigInvoice',
+    'scasOrigPackingList',
+    'scasOrigCoo',
+    'scasOrigBl',
+    'scasOrigInsurance',
+    'scasInsertNafeza',
+    'scasBankForm4',
+    'scasDeclare3A',
+    'scasMaterialReceived',
+  ];
+
+  static const List<String> kScasPresetColumnIds = [
     'ecoBroker',
     'ecoShipmentNo',
     'ecoSupplier',
@@ -59,24 +80,6 @@ class DynamicReportBuilderScreen extends ConsumerStatefulWidget {
     'ecoSwiftAmount',
     'ecoShippingCompany',
     'ecoAcid',
-  ];
-
-  static const List<String> kScasPresetColumnIds = [
-    'scasProjectFileAcid',
-    'scasExFactory',
-    'scasOrderToOrigin',
-    'scasPickUpDate',
-    'scasDeparturePort',
-    'scasArrivalAlexPort',
-    'scasOrigInvoice',
-    'scasOrigPackingList',
-    'scasOrigCoo',
-    'scasOrigBl',
-    'scasOrigInsurance',
-    'scasInsertNafeza',
-    'scasBankForm4',
-    'scasDeclare3A',
-    'scasMaterialReceived',
   ];
 
   @override
@@ -113,7 +116,15 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
       _lastUpdatedAt = DateTime.now();
     });
     Future.microtask(() {
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
+      if (!ref.read(importFilesProvider).isLoading) {
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
+      if (!ref.read(projectsProvider).isLoading) {
+        ref.read(projectsProvider.notifier).fetchProjects();
+      }
+      if (!ref.read(purchaseOrdersProvider).isLoading) {
+        ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      }
     });
   }
 
@@ -182,40 +193,40 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
       DynamicReportColumn(id: 'swiftDate', categoryId: 'banking_swift', isVisible: false),
       DynamicReportColumn(id: 'swiftAmount', categoryId: 'banking_swift', isVisible: false),
 
-      // SCAS Tracker
-      DynamicReportColumn(id: 'scasProjectFileAcid', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasExFactory', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasOrderToOrigin', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasPickUpDate', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasDeparturePort', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasArrivalAlexPort', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasOrigInvoice', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasOrigPackingList', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasOrigCoo', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasOrigBl', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasOrigInsurance', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasInsertNafeza', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasBankForm4', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasDeclare3A', categoryId: 'scas_tracker', isVisible: false),
-      DynamicReportColumn(id: 'scasMaterialReceived', categoryId: 'scas_tracker', isVisible: false),
+      // ECO Radar (Milestone & Document Tracking - 15 Columns)
+      DynamicReportColumn(id: 'scasProjectFileAcid', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasExFactory', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasOrderToOrigin', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasPickUpDate', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasDeparturePort', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasArrivalAlexPort', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasOrigInvoice', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasOrigPackingList', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasOrigCoo', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasOrigBl', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasOrigInsurance', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasInsertNafeza', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasBankForm4', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasDeclare3A', categoryId: 'eco_radar', isVisible: false),
+      DynamicReportColumn(id: 'scasMaterialReceived', categoryId: 'eco_radar', isVisible: false),
 
-      // ECO Radar
-      DynamicReportColumn(id: 'ecoBroker', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoShipmentNo', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoSupplier', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoProject', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoPiValue', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoShippingDate', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoArrivalPort', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoArrivalWarehouse', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoSara', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoMaro', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoReadyToPickUp', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoLatestUpdate', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoSwiftDate', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoSwiftAmount', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoShippingCompany', categoryId: 'eco_radar', isVisible: false),
-      DynamicReportColumn(id: 'ecoAcid', categoryId: 'eco_radar', isVisible: false),
+      // SCAS Tracker (Operational & Swift Tracking - 16 Columns)
+      DynamicReportColumn(id: 'ecoBroker', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoShipmentNo', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoSupplier', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoProject', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoPiValue', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoShippingDate', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoArrivalPort', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoArrivalWarehouse', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoSara', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoMaro', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoReadyToPickUp', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoLatestUpdate', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoSwiftDate', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoSwiftAmount', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoShippingCompany', categoryId: 'scas_tracker', isVisible: false),
+      DynamicReportColumn(id: 'ecoAcid', categoryId: 'scas_tracker', isVisible: false),
     ];
   }
 
@@ -339,6 +350,31 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
       if (_filterPriority != 'All' && f.priority != _filterPriority) return false;
       if (_filterStatus != 'All' && f.status != _filterStatus) return false;
 
+      // Filter by Template Mode
+      if (_templateMode == ReportTemplateMode.eco) {
+        final comp = f.companyName.toLowerCase();
+        final proj = (f.projectNames ?? '').toLowerCase();
+        final owner = f.owner.toLowerCase();
+        final notes = (f.notes ?? '').toLowerCase();
+        final isEco = comp.contains('eco') || comp.contains('إيكو') || comp.contains('ايكو') ||
+                      proj.contains('eco') || proj.contains('إيكو') || proj.contains('ايكو') ||
+                      owner.contains('eco') || owner.contains('إيكو') || owner.contains('ايكو') ||
+                      notes.contains('eco') || notes.contains('إيكو') || notes.contains('ايكو');
+        if (!isEco) return false;
+      } else if (_templateMode == ReportTemplateMode.scas) {
+        final comp = f.companyName.toLowerCase();
+        final proj = (f.projectNames ?? '').toLowerCase();
+        final owner = f.owner.toLowerCase();
+        final notes = (f.notes ?? '').toLowerCase();
+        final isScasOrArchi = comp.contains('scas') || comp.contains('سكاس') ||
+                              comp.contains('archi') || comp.contains('أركي') || comp.contains('اركي') ||
+                              proj.contains('scas') || proj.contains('سكاس') ||
+                              proj.contains('archi') || proj.contains('أركي') || proj.contains('اركي') ||
+                              owner.contains('scas') || owner.contains('archi') ||
+                              notes.contains('scas') || notes.contains('archi');
+        if (!isScasOrArchi) return false;
+      }
+
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         final matchCode = f.importFileCode.toLowerCase().contains(q) || (f.customFileNumber?.toLowerCase().contains(q) ?? false);
@@ -357,9 +393,9 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
     switch (colId) {
       // File & Project
       case 'importFileCode':
-        return file.importFileCode;
+        return file.displayName;
       case 'customFileNumber':
-        return file.customFileNumber ?? file.importFileCode;
+        return file.displayName;
       case 'companyName':
         return file.companyName;
       case 'supplierName':
@@ -389,9 +425,20 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
 
       // Commercial & PO
       case 'poNumber':
-        return file.poNumber ?? (file.poIds != null && file.poIds!.isNotEmpty ? file.poIds!.join(', ') : '-');
+        if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
+          return file.poNumber!.trim();
+        }
+        final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
+        final linkedPOs = ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs);
+        if (linkedPOs.isNotEmpty) {
+          return linkedPOs.map((p) => (p.poReference != null && p.poReference!.trim().isNotEmpty && p.poReference != file.customFileNumber && p.poReference != file.importFileCode) ? p.poReference! : p.poNumber).join(', ');
+        }
+        return (file.poIds != null && file.poIds!.isNotEmpty ? file.poIds!.join(', ') : '-');
       case 'piNumber':
-        return file.piNumber ?? (file.invoicesData.isNotEmpty ? file.invoicesData.first.invoiceNo : '-');
+        if (file.piNumber != null && file.piNumber!.trim().isNotEmpty) {
+          return file.piNumber!.trim();
+        }
+        return file.invoicesData.isNotEmpty ? file.invoicesData.first.invoiceNo : '-';
       case 'piValue':
         return file.invoicesData.isNotEmpty
             ? '${file.invoicesData.first.currency} ${file.invoicesData.first.amount.toStringAsFixed(2)}'
@@ -465,7 +512,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
       case 'ecoBroker':
         return file.brokerName ?? '-';
       case 'ecoShipmentNo':
-        return file.customFileNumber ?? file.importFileCode;
+        return file.displayName;
       case 'ecoSupplier':
         return file.supplierName;
       case 'ecoProject':
@@ -481,9 +528,27 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
       case 'ecoArrivalWarehouse':
         return file.customsReleasedAt ?? (file.updatedAt.length >= 10 ? file.updatedAt.substring(0, 10) : '-');
       case 'ecoSara':
-        return file.owner.isNotEmpty ? file.owner : 'SARA';
+        // المسئول عن المشروع (Project In-Charge from shipment file)
+        if (file.owner.isNotEmpty && file.owner != file.companyName) {
+          return file.owner;
+        }
+        if (file.projectIds.isNotEmpty) {
+          final projectsState = ref.read(projectsProvider);
+          final pList = projectsState.value ?? [];
+          for (final pid in file.projectIds) {
+            final proj = pList.where((p) => p.projectId == pid).firstOrNull;
+            if (proj != null && proj.projectOwner.isNotEmpty) {
+              return proj.projectOwner;
+            }
+          }
+        }
+        return file.owner.isNotEmpty ? file.owner : '-';
       case 'ecoMaro':
-        return file.nextAction.isNotEmpty ? file.nextAction : (file.notes ?? 'MARO');
+        // مالك المشروع (Project Owner from shipment file)
+        if (file.companyName.isNotEmpty) {
+          return file.companyName;
+        }
+        return file.projectNames ?? '-';
       case 'ecoReadyToPickUp':
         return file.cargoReadyDate ?? '-';
       case 'ecoLatestUpdate':
@@ -499,13 +564,13 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
       case 'ecoShippingCompany':
         return file.selectedScenario ?? file.shipmentMode;
       case 'ecoAcid':
-        return file.acidNumber != null ? 'ACID: ${file.acidNumber}' : '-';
+        return file.acidNumber != null ? file.acidNumber! : '-';
 
-      // SCAS Specific
+      // ECO Radar / Document & Milestone Specific
       case 'scasProjectFileAcid':
-        final proj = file.projectNames ?? 'General Project';
-        final fCode = file.customFileNumber ?? file.importFileCode;
-        final acid = file.acidNumber != null ? 'ACID: ${file.acidNumber}' : '';
+        final proj = file.projectNames != null ? 'Project: ${file.projectNames}' : (file.companyName.isNotEmpty ? 'Project: ${file.companyName}' : 'Project: General');
+        final fCode = 'File: ${file.displayName}';
+        final acid = file.acidNumber != null ? 'ACID: ${file.acidNumber}' : 'ACID: -';
         return '$proj\n$fCode\n$acid'.trim();
       case 'scasExFactory':
         final dateVal = file.cargoReadyDate ?? file.fileOpeningDate ?? '-';
@@ -731,8 +796,8 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
               'packages_cbm',
               'customs_nafeza',
               'banking_swift',
-              'scas_tracker',
               'eco_radar',
+              'scas_tracker',
             ];
 
             return Container(
@@ -919,6 +984,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
   Widget build(BuildContext context) {
     final l = context.l10n;
     final importFilesState = ref.watch(importFilesProvider);
+    ref.watch(purchaseOrdersProvider);
     final activeCols = _getActiveColumns();
     final timestampFormatted = _formatDateTime(_lastUpdatedAt);
 
@@ -1093,32 +1159,38 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                         children: [
                           // Search Input
                           Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              decoration: InputDecoration(
-                                hintText: 'ابحث بكود الملف، العميل، المورد، المشروع، رقم ACID أو المخلص...',
-                                prefixIcon: const Icon(Icons.search, size: 20),
-                                isDense: true,
-                                border: const OutlineInputBorder(),
-                                suffixIcon: _searchQuery.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear, size: 18),
-                                        onPressed: () {
-                                          _searchController.clear();
-                                          setState(() => _searchQuery = '');
-                                        },
-                                      )
-                                    : null,
-                              ),
-                              onChanged: (v) => setState(() => _searchQuery = v.trim()),
+                            child: ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _searchController,
+                              builder: (context, val, _) {
+                                return TextField(
+                                  controller: _searchController,
+                                  decoration: InputDecoration(
+                                    hintText: 'ابحث بكود الملف، العميل، المورد، المشروع، رقم ACID أو المخلص...',
+                                    prefixIcon: const Icon(Icons.search, size: 20),
+                                    isDense: true,
+                                    border: const OutlineInputBorder(),
+                                    suffixIcon: val.text.isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(Icons.clear, size: 18),
+                                            onPressed: () {
+                                              _searchController.clear();
+                                              setState(() => _searchQuery = '');
+                                            },
+                                          )
+                                        : null,
+                                  ),
+                                  onChanged: (v) => setState(() => _searchQuery = v.trim()),
+                                );
+                              },
                             ),
                           ),
                           const SizedBox(width: 12),
 
                           // Filter Mode
                           SizedBox(
-                            width: 150,
+                            width: 160,
                             child: DropdownButtonFormField<String>(
+                              isExpanded: true,
                               value: _filterMode,
                               decoration: InputDecoration(labelText: l.dynFilterModeLabel, isDense: true, border: const OutlineInputBorder()),
                               items: [
@@ -1137,8 +1209,9 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
 
                           // Filter Priority
                           SizedBox(
-                            width: 140,
+                            width: 160,
                             child: DropdownButtonFormField<String>(
+                              isExpanded: true,
                               value: _filterPriority,
                               decoration: InputDecoration(labelText: l.dynFilterPriorityLabel, isDense: true, border: const OutlineInputBorder()),
                               items: [

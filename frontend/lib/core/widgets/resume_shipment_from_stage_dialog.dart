@@ -63,7 +63,7 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '▶️ ${context.l10n.resumeShipmentBtn} (${widget.importFile.importFileCode})!',
+              '▶️ ${context.l10n.resumeShipmentBtn} (${widget.importFile.primaryNameWithCode})!',
             ),
             backgroundColor: AppTheme.emerald,
             duration: const Duration(seconds: 4),
@@ -131,7 +131,7 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
                     ),
                   ),
                   Text(
-                    '${file.importFileCode} | ${file.companyName}',
+                    '${file.primaryNameWithCode} | ${file.companyName}',
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
                   ),
                 ],

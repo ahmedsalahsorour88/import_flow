@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
-import 'package:frontend/core/widgets/searchable_dropdown_field.dart';
 import 'package:frontend/features/import_companies/models/import_company_model.dart';
 import 'package:frontend/features/import_companies/providers/import_companies_provider.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
@@ -127,7 +126,7 @@ void main() {
     updatedAt: '2026-08-22',
   );
 
-  testWidgets('ImportFileFormDialog renders owner as SearchableDropdownField from importing companies', (tester) async {
+  testWidgets('ImportFileFormDialog renders owner as editable TextFormField for project in-charge', (tester) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -158,10 +157,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify dialog title
-    expect(find.text('تعديل وتحديث بيانات ملف الاستيراد: IMP-2026-0001'), findsOneWidget);
+    expect(find.text('تعديل وتحديث بيانات ملف الاستيراد: 6701068100 (IMP-2026-0001)'), findsOneWidget);
 
-    // Verify owner dropdown exists and displays the company name
-    expect(find.byType(SearchableDropdownField<String?>), findsWidgets);
-    expect(find.text('SCAS For Construction And Finishing'), findsWidgets);
+    // Verify owner field exists for project in-charge
+    expect(find.widgetWithText(TextFormField, 'المسؤول (المسئول عن المشروع) *'), findsOneWidget);
   });
 }

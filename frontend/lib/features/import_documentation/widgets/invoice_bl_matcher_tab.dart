@@ -8,7 +8,9 @@ import 'package:file_picker/file_picker.dart';
 
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -107,8 +109,10 @@ Total Items: 31 Total: 20,030.000 kgs.
     super.initState();
     _activeFileId = widget.selectedImportFileId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await ref.read(importFilesProvider.notifier).fetchImportFiles();
-      final files = ref.read(importFilesProvider).value ?? [];
+      if (!ref.read(importFilesProvider).isLoading) {
+        await ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
+      final files = ref.read(importFilesProvider).valueOrNull ?? [];
       if (_activeFileId == null && files.isNotEmpty && mounted) {
         setState(() {
           _activeFileId = files.first.importFileId;
@@ -129,6 +133,7 @@ Total Items: 31 Total: 20,030.000 kgs.
 
   @override
   void dispose() {
+    _dio.close(force: true);
     _invoiceTextCtrl.dispose();
     _blTextCtrl.dispose();
     _packingTextCtrl.dispose();
@@ -151,10 +156,11 @@ Total Items: 31 Total: 20,030.000 kgs.
         final isTextFormat = ['txt', 'csv', 'json', 'xml', 'log'].contains(ext);
 
         if (!mounted) return;
+        final l = context.l10n;
         setState(() {
           if (docType == 'invoice') {
             _invoiceFiles = result.files;
-            _invoiceFileName = count == 1 ? file.name : '${file.name} (+$count صفحات/ملفات)';
+            _invoiceFileName = count == 1 ? file.name : '${file.name} (+$count)';
             _invoiceFileBytes = file.bytes;
             if (isTextFormat && file.bytes != null && count == 1) {
               try {
@@ -163,12 +169,12 @@ Total Items: 31 Total: 20,030.000 kgs.
                 _invoiceTextCtrl.text = '';
               }
             } else {
-              _invoiceTextCtrl.text = '[تم تحميل $count ملفات/صفحات للفاتورة: ${result.files.map((f) => f.name).join(", ")} — سيتم استخراج ومطابقة جميع الأصناف والبيانات عبر كافة الصفحات آلياً]';
+              _invoiceTextCtrl.text = l.invoiceBlMatcherInvoiceFilesLoaded(count, result.files.map((f) => f.name).join(", "));
             }
           } else if (docType == 'packing') {
             _showPackingList = true;
             _packingFiles = result.files;
-            _packingFileName = count == 1 ? file.name : '${file.name} (+$count صفحات/ملفات)';
+            _packingFileName = count == 1 ? file.name : '${file.name} (+$count)';
             _packingFileBytes = file.bytes;
             if (isTextFormat && file.bytes != null && count == 1) {
               try {
@@ -177,11 +183,11 @@ Total Items: 31 Total: 20,030.000 kgs.
                 _packingTextCtrl.text = '';
               }
             } else {
-              _packingTextCtrl.text = '[تم تحميل $count ملفات/صفحات لكشف التعبئة: ${result.files.map((f) => f.name).join(", ")} — سيتم استخراج الأوزان والأحجام والطرود آلياً عند المطابقة]';
+              _packingTextCtrl.text = l.invoiceBlMatcherPackingFilesLoaded(count, result.files.map((f) => f.name).join(", "));
             }
           } else {
             _blFiles = result.files;
-            _blFileName = count == 1 ? file.name : '${file.name} (+$count صفحات/ملفات)';
+            _blFileName = count == 1 ? file.name : '${file.name} (+$count)';
             _blFileBytes = file.bytes;
             if (isTextFormat && file.bytes != null && count == 1) {
               try {
@@ -190,7 +196,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                 _blTextCtrl.text = '';
               }
             } else {
-              _blTextCtrl.text = '[تم تحميل $count ملفات/صفحات للبوليصة: ${result.files.map((f) => f.name).join(", ")} — سيتم استخراج ومطابقة محتواها آلياً عند الضغط على زر المطابقة]';
+              _blTextCtrl.text = l.invoiceBlMatcherBlFilesLoaded(count, result.files.map((f) => f.name).join(", "));
             }
           }
         });
@@ -198,7 +204,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('تم اختيار $count ملف/صفحة بنجاح (${result.files.map((f) => f.name).join(", ")})'),
+              content: Text(l.invoiceBlMatcherFilesSelectedSuccess(count, result.files.map((f) => f.name).join(", "))),
               backgroundColor: AppTheme.emerald,
               behavior: SnackBarBehavior.floating,
             ),
@@ -209,7 +215,7 @@ Total Items: 31 Total: 20,030.000 kgs.
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('تعذر قراءة الملف: $e'),
+            content: Text(context.l10n.invoiceBlMatcherFileReadError(e)),
             backgroundColor: AppTheme.crimson,
             behavior: SnackBarBehavior.floating,
           ),
@@ -232,8 +238,8 @@ Total Items: 31 Total: 20,030.000 kgs.
     });
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم تحميل بيانات العينات الفعلية (Shaw Europe + MSC B/L)'),
+        SnackBar(
+          content: Text(context.l10n.invoiceBlMatcherSampleLoadedSuccess),
           backgroundColor: AppTheme.cobalt,
           behavior: SnackBarBehavior.floating,
         ),
@@ -249,15 +255,15 @@ Total Items: 31 Total: 20,030.000 kgs.
     final blText = _blTextCtrl.text.trim();
     final plText = _packingTextCtrl.text.trim();
 
-    final hasInvContent = hasInvoiceFile || (invText.isNotEmpty && !invText.startsWith('[تم تحميل'));
-    final hasBlContent = hasBlFile || (blText.isNotEmpty && !blText.startsWith('[تم تحميل'));
-    final hasPlContent = hasPackingFile || (plText.isNotEmpty && !plText.startsWith('[تم تحميل'));
+    final hasInvContent = hasInvoiceFile || (invText.isNotEmpty && !invText.startsWith('['));
+    final hasBlContent = hasBlFile || (blText.isNotEmpty && !blText.startsWith('['));
+    final hasPlContent = hasPackingFile || (plText.isNotEmpty && !plText.startsWith('['));
 
     if (!hasInvContent && !hasBlContent && !hasPlContent) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('يرجى إدخال أو رفع نصوص ومستندات الفاتورة أو كشف التعبئة أو بوليصة الشحن للمطابقة'),
+          SnackBar(
+            content: Text(context.l10n.invoiceBlMatcherValidationRequired),
             backgroundColor: AppTheme.orange,
             behavior: SnackBarBehavior.floating,
           ),
@@ -293,7 +299,7 @@ Total Items: 31 Total: 20,030.000 kgs.
             'invoice_file',
             MultipartFile.fromBytes(_invoiceFileBytes!, filename: _invoiceFileName ?? 'invoice.pdf'),
           ));
-        } else if (invText.isNotEmpty && !invText.startsWith('[تم تحميل')) {
+        } else if (invText.isNotEmpty && !invText.startsWith('[')) {
           formData.fields.add(MapEntry('invoice_text', invText));
         }
 
@@ -311,7 +317,7 @@ Total Items: 31 Total: 20,030.000 kgs.
             'packing_list_file',
             MultipartFile.fromBytes(_packingFileBytes!, filename: _packingFileName ?? 'packing_list.pdf'),
           ));
-        } else if (plText.isNotEmpty && !plText.startsWith('[تم تحميل')) {
+        } else if (plText.isNotEmpty && !plText.startsWith('[')) {
           formData.fields.add(MapEntry('packing_list_text', plText));
         }
 
@@ -329,7 +335,7 @@ Total Items: 31 Total: 20,030.000 kgs.
             'bl_file',
             MultipartFile.fromBytes(_blFileBytes!, filename: _blFileName ?? 'bl.pdf'),
           ));
-        } else if (blText.isNotEmpty && !blText.startsWith('[تم تحميل')) {
+        } else if (blText.isNotEmpty && !blText.startsWith('[')) {
           formData.fields.add(MapEntry('bl_text', blText));
         }
 
@@ -349,7 +355,6 @@ Total Items: 31 Total: 20,030.000 kgs.
         );
       }
 
-
       if (response.statusCode == 200) {
         final data = response.data is Map<String, dynamic>
             ? response.data as Map<String, dynamic>
@@ -361,7 +366,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('اكتملت المطابقة الذكية بنجاح! نسبة التطابق: ${data['match_score_percentage']}%'),
+              content: Text(context.l10n.invoiceBlMatcherMatchCompletedSuccess(data['match_score_percentage'])),
               backgroundColor: data['is_safe_for_certification'] == true ? AppTheme.emerald : AppTheme.orange,
               behavior: SnackBarBehavior.floating,
             ),
@@ -372,7 +377,7 @@ Total Items: 31 Total: 20,030.000 kgs.
       }
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: 'خطأ في المطابقة الذكية', error: e);
+        showErrorDetailsDialog(context, title: context.l10n.invoiceBlMatcherMatchErrorTitle, error: e);
       }
     } finally {
       if (mounted) {
@@ -387,8 +392,8 @@ Total Items: 31 Total: 20,030.000 kgs.
     if (_matchResult == null || _activeFileId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('يرجى اختيار ملف شحنة وإجراء المطابقة أولاً للمزامنة'),
+          SnackBar(
+            content: Text(context.l10n.invoiceBlMatcherSelectFileFirstWarning),
             backgroundColor: AppTheme.crimson,
             behavior: SnackBarBehavior.floating,
           ),
@@ -419,7 +424,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(res['message'] ?? 'تمت المزامنة والاعتماد بنجاح!'),
+              content: Text(res['message'] ?? context.l10n.invoiceBlMatcherSyncSuccess),
               backgroundColor: AppTheme.emerald,
               behavior: SnackBarBehavior.floating,
             ),
@@ -430,7 +435,7 @@ Total Items: 31 Total: 20,030.000 kgs.
       }
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: 'فشل مزامنة البيانات', error: e);
+        showErrorDetailsDialog(context, title: context.l10n.invoiceBlMatcherSyncFailedTitle, error: e);
       }
     } finally {
       if (mounted) {
@@ -443,62 +448,67 @@ Total Items: 31 Total: 20,030.000 kgs.
 
   @override
   Widget build(BuildContext context) {
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final l = context.l10n;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1. Header & Import File Selector Bar
-          _buildHeaderControlBar(importFiles),
-          const SizedBox(height: 16),
+    return SelectionArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. Header & Import File Selector Bar
+            _buildHeaderControlBar(importFiles),
+            const SizedBox(height: 16),
 
-          // 2. Dual Document Ingestion Section (Invoice vs B/L)
-          _buildDualIngestionSection(),
-          const SizedBox(height: 16),
+            // 2. Dual Document Ingestion Section (Invoice vs B/L)
+            _buildDualIngestionSection(),
+            const SizedBox(height: 16),
 
-          // 3. Action Buttons (Run Match, Load Samples, Reset)
-          _buildActionButtonsBar(),
-          const SizedBox(height: 20),
+            // 3. Action Buttons (Run Match, Load Samples, Reset)
+            _buildActionButtonsBar(),
+            const SizedBox(height: 20),
 
-          // 4. Comparison Results & Score Matrix
-          if (_isLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32.0),
-                child: Column(
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text(
-                      'جاري التحليل واستخراج الحقول المطابقة بالذكاء الاصطناعي...',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ],
+            // 4. Comparison Results & Score Matrix
+            if (_isLoading)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Column(
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text(
+                        l.invoiceBlMatcherAnalyzingProgress,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            )
-          else if (_matchResult != null) ...[
-            _buildMatchSummaryCard(),
-            const SizedBox(height: 16),
-            _buildComparisonMatrixTable(),
-            const SizedBox(height: 16),
-            _buildExtractedFieldsCards(),
-            if (_matchResult!['correction_letter'] != null &&
-                _matchResult!['correction_letter'].toString().isNotEmpty) ...[
+              )
+            else if (_matchResult != null) ...[
+              _buildMatchSummaryCard(),
               const SizedBox(height: 16),
-              _buildCorrectionLetterCard(),
+              _buildComparisonMatrixTable(),
+              const SizedBox(height: 16),
+              _buildExtractedFieldsCards(),
+              if (_matchResult!['correction_letter'] != null &&
+                  _matchResult!['correction_letter'].toString().isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _buildCorrectionLetterCard(),
+              ],
+              const SizedBox(height: 24),
+              _buildSyncActionFooter(),
             ],
-            const SizedBox(height: 24),
-            _buildSyncActionFooter(),
           ],
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildHeaderControlBar(List<dynamic> importFiles) {
+    final l = context.l10n;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -524,18 +534,18 @@ Total Items: 31 Total: 20,030.000 kgs.
             child: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 28),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'أداة الاستخراج الذكي والمطابقة الفورية (Commercial Invoice vs. Bill of Lading)',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                  l.invoiceBlMatcherTitle,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'استخراج الحقول المستهدفة ومطابقة الفاتورة النهائية مع البوليصة ومنع أي تعارض جمركي أو بنكي.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  l.invoiceBlMatcherSubtitle,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
             ),
@@ -544,14 +554,14 @@ Total Items: 31 Total: 20,030.000 kgs.
           SizedBox(
             width: 320,
             child: SearchableDropdownField<int>(
-              labelText: 'ربط بملف استيراد',
-              hintText: 'اختر ملف الشحنة للمزامنة...',
+              labelText: l.invoiceBlMatcherLinkImportFile,
+              hintText: l.invoiceBlMatcherSelectFileHint,
               value: _activeFileId,
               items: importFiles
                   .map(
                     (f) => SearchableDropdownItem<int>(
                       value: f.importFileId,
-                      label: '${f.importFileCode} - ${f.supplierName} (${f.status})',
+                      label: '${f.primaryNameWithCode} - ${f.supplierName} (${f.status})',
                     ),
                   )
                   .toList(),
@@ -571,6 +581,8 @@ Total Items: 31 Total: 20,030.000 kgs.
   }
 
   Widget _buildDualIngestionSection() {
+    final l = context.l10n;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -587,9 +599,9 @@ Total Items: 31 Total: 20,030.000 kgs.
                     });
                   },
                   icon: const Icon(Icons.post_add, size: 18, color: AppTheme.orange),
-                  label: const Text(
-                    '+ إضافة كشف التعبئة كملف إضافي (Packing List)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.orange),
+                  label: Text(
+                    l.invoiceBlMatcherAddPackingListButton,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.orange),
                   ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppTheme.orange),
@@ -607,25 +619,23 @@ Total Items: 31 Total: 20,030.000 kgs.
             final isWide = constraints.maxWidth > 750;
 
             final invoiceBox = _buildDocumentInputBox(
-              titleAr: '1. الفاتورة التجارية النهائية (Commercial Invoice)',
-              titleEn: 'Final Commercial Invoice',
+              title: l.invoiceBlMatcherInvoiceBoxTitle,
               icon: Icons.receipt_long,
               color: AppTheme.cobalt,
               controller: _invoiceTextCtrl,
               fileName: _invoiceFileName,
               docType: 'invoice',
-              placeholder: 'الصق نص الفاتورة هنا أو اضغط رفع PDF / ملف تجاري...',
+              placeholder: l.invoiceBlMatcherInvoicePlaceholder,
             );
 
             final packingBox = _buildDocumentInputBox(
-              titleAr: '2. كشف التعبئة النهائي (Packing List)',
-              titleEn: 'Final Packing List (Additional File)',
+              title: l.invoiceBlMatcherPackingBoxTitle,
               icon: Icons.inventory_2,
               color: AppTheme.orange,
               controller: _packingTextCtrl,
               fileName: _packingFileName,
               docType: 'packing',
-              placeholder: 'الصق نص كشف التعبئة هنا أو اضغط رفع كشف التعبئة (PDF/Excel)...',
+              placeholder: l.invoiceBlMatcherPackingPlaceholder,
               onRemove: () {
                 setState(() {
                   _showPackingList = false;
@@ -637,14 +647,13 @@ Total Items: 31 Total: 20,030.000 kgs.
             );
 
             final blBox = _buildDocumentInputBox(
-              titleAr: _showPackingList ? '3. مسودة بوليصة الشحن (Draft B/L)' : '2. مسودة بوليصة الشحن (Draft B/L)',
-              titleEn: 'Draft Bill of Lading (Carrier / Forwarder)',
+              title: l.invoiceBlMatcherBlBoxTitle,
               icon: Icons.directions_boat,
               color: AppTheme.emerald,
               controller: _blTextCtrl,
               fileName: _blFileName,
               docType: 'bl',
-              placeholder: 'الصق مسودة البوليصة هنا أو اضغط رفع PDF الخط الملاحي...',
+              placeholder: l.invoiceBlMatcherBlPlaceholder,
             );
 
             if (_showPackingList) {
@@ -709,8 +718,7 @@ Total Items: 31 Total: 20,030.000 kgs.
   }
 
   Widget _buildDocumentInputBox({
-    required String titleAr,
-    required String titleEn,
+    required String title,
     required IconData icon,
     required Color color,
     required TextEditingController controller,
@@ -719,6 +727,8 @@ Total Items: 31 Total: 20,030.000 kgs.
     required String placeholder,
     VoidCallback? onRemove,
   }) {
+    final l = context.l10n;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -741,28 +751,17 @@ Total Items: 31 Total: 20,030.000 kgs.
               Icon(icon, color: color, size: 22),
               const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      titleAr,
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      titleEn,
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                child: Text(
+                  title,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               OutlinedButton.icon(
                 onPressed: () => _pickFile(docType),
                 icon: const Icon(Icons.upload_file, size: 16),
-                label: Text(fileName != null ? 'تغيير الملف' : 'رفع ملف'),
+                label: Text(fileName != null ? l.invoiceBlMatcherChangeFile : l.invoiceBlMatcherUploadFile),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: color,
                   side: BorderSide(color: color),
@@ -773,7 +772,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                 const SizedBox(width: 6),
                 IconButton(
                   icon: const Icon(Icons.close, size: 18, color: Colors.red),
-                  tooltip: 'إلغاء وإخفاء كشف التعبئة',
+                  tooltip: l.invoiceBlMatcherRemovePackingList,
                   onPressed: onRemove,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -795,7 +794,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'الملف المرفوع: $fileName',
+                      l.invoiceBlMatcherUploadedFile(fileName),
                       style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -831,6 +830,8 @@ Total Items: 31 Total: 20,030.000 kgs.
   }
 
   Widget _buildActionButtonsBar() {
+    final l = context.l10n;
+
     return Wrap(
       spacing: 12,
       runSpacing: 10,
@@ -845,9 +846,9 @@ Total Items: 31 Total: 20,030.000 kgs.
                   child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                 )
               : const Icon(Icons.compare_arrows, size: 20),
-          label: const Text(
-            'تنفيذ الاستخراج الذكي والمطابقة الفورية',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          label: Text(
+            l.invoiceBlMatcherExecuteMatchButton,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.cobalt,
@@ -859,9 +860,9 @@ Total Items: 31 Total: 20,030.000 kgs.
         OutlinedButton.icon(
           onPressed: _loadSampleData,
           icon: const Icon(Icons.auto_stories, size: 18, color: AppTheme.charcoal),
-          label: const Text(
-            'تحميل نموذج تجريبي حقيقي (Shaw Europe + MSC)',
-            style: TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+          label: Text(
+            l.invoiceBlMatcherLoadSampleButton,
+            style: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
           ),
           style: OutlinedButton.styleFrom(
             side: const BorderSide(color: Colors.grey),
@@ -885,19 +886,19 @@ Total Items: 31 Total: 20,030.000 kgs.
             });
           },
           icon: const Icon(Icons.refresh, size: 18, color: Colors.grey),
-          label: const Text('إعادة تعيين', style: TextStyle(color: Colors.grey)),
+          label: Text(l.invoiceBlMatcherResetButton, style: const TextStyle(color: Colors.grey)),
         ),
-
       ],
     );
   }
 
   Widget _buildMatchSummaryCard() {
-    final res = _matchResult!;
+    final l = context.l10n;
+    final res = _matchResult ?? {};
     final score = res['match_score_percentage'] ?? 0.0;
     final isSafe = res['is_safe_for_certification'] == true;
-    final criticalCount = res['critical_discrepancies_count'] ?? 0;
-    final warningCount = res['warning_discrepancies_count'] ?? 0;
+    final criticalCount = (res['critical_discrepancies_count'] as num?)?.toInt() ?? 0;
+    final warningCount = (res['warning_discrepancies_count'] as num?)?.toInt() ?? 0;
 
     final color = isSafe ? (warningCount > 0 ? AppTheme.orange : AppTheme.emerald) : AppTheme.crimson;
 
@@ -930,7 +931,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                 Row(
                   children: [
                     Text(
-                      isSafe ? 'مستندات متطابقة وجاهزة للاعتماد' : 'تم اكتشاف اختلافات حرجة تمنع الاعتماد',
+                      isSafe ? l.invoiceBlMatcherStatusSafeTitle : l.invoiceBlMatcherStatusCriticalTitle,
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
                     ),
                     const SizedBox(width: 12),
@@ -941,7 +942,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        'نسبة المطابقة: $score%',
+                        l.invoiceBlMatcherMatchScore(score),
                         style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -950,8 +951,8 @@ Total Items: 31 Total: 20,030.000 kgs.
                 const SizedBox(height: 6),
                 Text(
                   isSafe
-                      ? 'كافة الحقول الجمركية والمصرفية مطابقة بنسبة آمنة. يمكنك مزامنة البيانات مباشرة مع ملف الشحنة.'
-                      : 'توجد $criticalCount فوارق حرجة تمنع الإفراج الجمركي أو مطابقة نموذج 4. يجب تعديل البوليصة أو الفاتورة قبل الاعتماد.',
+                      ? l.invoiceBlMatcherStatusSafeDesc
+                      : l.invoiceBlMatcherStatusCriticalDesc(criticalCount),
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
                 ),
               ],
@@ -960,9 +961,9 @@ Total Items: 31 Total: 20,030.000 kgs.
           const SizedBox(width: 16),
           Column(
             children: [
-              _buildBadgeCounter('فوارق حرجة', criticalCount, AppTheme.crimson),
+              _buildBadgeCounter(l.invoiceBlMatcherCriticalCount(criticalCount), criticalCount, AppTheme.crimson),
               const SizedBox(height: 6),
-              _buildBadgeCounter('تنبيهات ثانوية', warningCount, AppTheme.orange),
+              _buildBadgeCounter(l.invoiceBlMatcherWarningCount(warningCount), warningCount, AppTheme.orange),
             ],
           ),
         ],
@@ -970,7 +971,7 @@ Total Items: 31 Total: 20,030.000 kgs.
     );
   }
 
-  Widget _buildBadgeCounter(String label, int count, Color col) {
+  Widget _buildBadgeCounter(String labelText, int count, Color col) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -979,7 +980,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         border: Border.all(color: count > 0 ? col : Colors.grey.shade300),
       ),
       child: Text(
-        '$label: $count',
+        labelText,
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.bold,
@@ -990,7 +991,9 @@ Total Items: 31 Total: 20,030.000 kgs.
   }
 
   Widget _buildComparisonMatrixTable() {
-    final matrix = (_matchResult!['comparison_matrix'] as List<dynamic>?) ?? [];
+    final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final matrix = ((_matchResult?['comparison_matrix']) as List<dynamic>?) ?? [];
 
     return Container(
       decoration: BoxDecoration(
@@ -1007,13 +1010,13 @@ Total Items: 31 Total: 20,030.000 kgs.
               color: Colors.grey.shade100,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.table_chart_outlined, size: 18, color: AppTheme.charcoal),
-                SizedBox(width: 8),
+                const Icon(Icons.table_chart_outlined, size: 18, color: AppTheme.charcoal),
+                const SizedBox(width: 8),
                 Text(
-                  'مصفوفة المطابقة التفصيلية (10 بنود فحص جمركية ومصرفية)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                  l.invoiceBlMatcherMatrixTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                 ),
               ],
             ),
@@ -1024,12 +1027,12 @@ Total Items: 31 Total: 20,030.000 kgs.
               headingRowColor: WidgetStateProperty.all(Colors.grey.shade50),
               horizontalMargin: 16,
               columnSpacing: 24,
-              columns: const [
-                DataColumn(label: Text('بند الفحص والمطابقة', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('القيمة بالفاتورة النهائية', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('القيمة بمسودة البوليصة', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('حالة المطابقة', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('النتيجة والإجراء المطلوب', style: TextStyle(fontWeight: FontWeight.bold))),
+              columns: [
+                DataColumn(label: Text(l.invoiceBlMatcherColCheckItem, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(l.invoiceBlMatcherColInvoiceValue, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(l.invoiceBlMatcherColBlValue, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(l.invoiceBlMatcherColMatchStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(l.invoiceBlMatcherColActionRequired, style: const TextStyle(fontWeight: FontWeight.bold))),
               ],
               rows: matrix.map((item) {
                 final status = item['match_status'] ?? 'MATCH';
@@ -1037,50 +1040,78 @@ Total Items: 31 Total: 20,030.000 kgs.
                 final isMinor = status == 'MISMATCH_MINOR';
 
                 final statusCol = isMatch ? AppTheme.emerald : (isMinor ? AppTheme.orange : AppTheme.crimson);
-                final statusTxt = isMatch ? 'مطابق ✅' : (isMinor ? 'فارق طفيف ⚠️' : 'غير مطابق ❌');
+                final statusTxt = isMatch
+                    ? l.invoiceBlMatcherStatusMatch
+                    : (isMinor ? l.invoiceBlMatcherStatusMinor : l.invoiceBlMatcherStatusMismatch);
+
+                final checkItemName = isArabic
+                    ? (item['field_name_ar'] ?? item['field_name_en'] ?? '')
+                    : (item['field_name_en'] ?? item['field_name_ar'] ?? '');
+
+                final invoiceVal = '${item['invoice_value'] ?? '—'}';
+                final blVal = '${item['bl_value'] ?? '—'}';
+                final detailsTxt = '${item['details'] ?? ''}';
+
+                final rowSummary = '$checkItemName\t$invoiceVal\t$blVal\t$statusTxt\t$detailsTxt';
 
                 return DataRow(
                   cells: [
                     DataCell(
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(item['field_name_ar'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          Text(item['field_name_en'] ?? '', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        '${item['invoice_value'] ?? '—'}',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.cobalt),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        '${item['bl_value'] ?? '—'}',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.emerald),
-                      ),
-                    ),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: statusCol.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: statusCol),
-                        ),
+                      CopyableTableCell(
+                        value: checkItemName,
+                        rowSummary: rowSummary,
                         child: Text(
-                          statusTxt,
-                          style: TextStyle(color: statusCol, fontWeight: FontWeight.bold, fontSize: 10),
+                          checkItemName,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                         ),
                       ),
                     ),
                     DataCell(
-                      Text(
-                        item['details'] ?? '',
-                        style: TextStyle(fontSize: 11, color: isMatch ? Colors.grey.shade800 : statusCol),
+                      CopyableTableCell(
+                        value: invoiceVal,
+                        rowSummary: rowSummary,
+                        child: Text(
+                          invoiceVal,
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.cobalt),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: blVal,
+                        rowSummary: rowSummary,
+                        child: Text(
+                          blVal,
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.emerald),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: statusTxt,
+                        rowSummary: rowSummary,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: statusCol.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: statusCol),
+                          ),
+                          child: Text(
+                            statusTxt,
+                            style: TextStyle(color: statusCol, fontWeight: FontWeight.bold, fontSize: 10),
+                          ),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: detailsTxt,
+                        rowSummary: rowSummary,
+                        child: Text(
+                          detailsTxt,
+                          style: TextStyle(fontSize: 11, color: isMatch ? Colors.grey.shade800 : statusCol),
+                        ),
                       ),
                     ),
                   ],
@@ -1094,8 +1125,9 @@ Total Items: 31 Total: 20,030.000 kgs.
   }
 
   Widget _buildExtractedFieldsCards() {
-    final inv = _matchResult!['invoice_data'] ?? {};
-    final bl = _matchResult!['bl_data'] ?? {};
+    final l = context.l10n;
+    final inv = _matchResult?['invoice_data'] ?? {};
+    final bl = _matchResult?['bl_data'] ?? {};
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1103,7 +1135,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         // Extracted Invoice Data Card
         Expanded(
           child: _buildDataSummaryCard(
-            title: 'البيانات المستخرجة من الفاتورة',
+            title: l.invoiceBlMatcherExtractedInvoiceTitle,
             icon: Icons.receipt_long,
             color: AppTheme.cobalt,
             data: inv,
@@ -1113,7 +1145,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         // Extracted B/L Data Card
         Expanded(
           child: _buildDataSummaryCard(
-            title: 'البيانات المستخرجة من مسودة البوليصة',
+            title: l.invoiceBlMatcherExtractedBlTitle,
             icon: Icons.directions_boat,
             color: AppTheme.emerald,
             data: bl,
@@ -1123,12 +1155,70 @@ Total Items: 31 Total: 20,030.000 kgs.
     );
   }
 
+  String _localizeDataKey(String key, AppLocalizations l, bool isArabic) {
+    switch (key) {
+      case 'invoice_number':
+      case 'invoice_no':
+        return l.smartExtractorFieldInvoiceNo;
+      case 'invoice_date':
+        return l.smartExtractorFieldInvoiceDate;
+      case 'acid_number':
+      case 'acid':
+        return l.smartExtractorFieldAcidNo;
+      case 'importer_tax_id':
+        return l.smartExtractorFieldImporterTaxId;
+      case 'supplier_name':
+      case 'supplier':
+      case 'shipper':
+        return l.smartExtractorFieldSupplier;
+      case 'importer_name':
+      case 'importer':
+      case 'consignee':
+        return l.smartExtractorFieldImporter;
+      case 'incoterm':
+      case 'incoterms':
+        return l.smartExtractorFieldIncoterms;
+      case 'total_amount':
+      case 'total_value':
+      case 'invoice_value':
+        return l.smartExtractorFieldTotalAmount;
+      case 'currency':
+        return isArabic ? 'العملة' : 'Currency';
+      case 'gross_weight_kg':
+      case 'total_gross_weight':
+        return l.smartExtractorFieldTotalGrossWeight;
+      case 'bl_number':
+      case 'bl_no':
+        return l.smartExtractorFieldBlNo;
+      case 'carrier_name':
+      case 'carrier':
+        return l.smartExtractorFieldCarrier;
+      case 'pol':
+      case 'port_of_loading':
+        return l.smartExtractorFieldPol;
+      case 'pod':
+      case 'port_of_discharge':
+        return l.smartExtractorFieldPod;
+      case 'total_cbm':
+        return l.smartExtractorFieldTotalCbm;
+      case 'total_packages':
+      case 'packages_count':
+        return l.smartExtractorFieldPackagesCount;
+      case 'containers':
+        return isArabic ? 'الحاويات' : 'Containers';
+      default:
+        return key.replaceAll('_', ' ').split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' ');
+    }
+  }
+
   Widget _buildDataSummaryCard({
     required String title,
     required IconData icon,
     required Color color,
     required Map<String, dynamic> data,
   }) {
+    final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1151,21 +1241,23 @@ Total Items: 31 Total: 20,030.000 kgs.
             if (e.key.startsWith('_') || e.value == null || e.value.toString().isEmpty) {
               return const SizedBox.shrink();
             }
+            final displayLabel = _localizeDataKey(e.key, l, isArabic);
+            final valStr = '${e.value}';
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    width: 130,
+                    width: 140,
                     child: Text(
-                      '${e.key}:',
+                      '$displayLabel:',
                       style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600),
                     ),
                   ),
                   Expanded(
-                    child: Text(
-                      '${e.value}',
+                    child: CopyableText(
+                      valStr,
                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -1179,7 +1271,8 @@ Total Items: 31 Total: 20,030.000 kgs.
   }
 
   Widget _buildCorrectionLetterCard() {
-    final letter = _matchResult!['correction_letter'].toString();
+    final l = context.l10n;
+    final letter = (_matchResult?['correction_letter'] ?? '').toString();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1195,24 +1288,22 @@ Total Items: 31 Total: 20,030.000 kgs.
             children: [
               const Icon(Icons.mark_email_unread_outlined, color: AppTheme.orange, size: 22),
               const SizedBox(width: 8),
-              const Text(
-                'خطاب طلب التعديل التلقائي للخط الملاحي (B/L Correction Request)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+              Expanded(
+                child: Text(
+                  l.invoiceBlMatcherCorrectionLetterTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                ),
               ),
-              const Spacer(),
               ElevatedButton.icon(
                 onPressed: () {
-                  Clipboard.setData(ClipboardData(text: letter));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('تم نسخ خطاب التعديل إلى الحافظة بنجاح'),
-                      backgroundColor: AppTheme.cobalt,
-                      behavior: SnackBarBehavior.floating,
-                    ),
+                  CopyHelper.copy(
+                    context,
+                    letter,
+                    customMessage: l.invoiceBlMatcherLetterCopiedSuccess,
                   );
                 },
                 icon: const Icon(Icons.copy, size: 14),
-                label: const Text('نسخ الخطاب'),
+                label: Text(l.invoiceBlMatcherCopyLetterButton),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.orange,
                   foregroundColor: Colors.white,
@@ -1240,6 +1331,7 @@ Total Items: 31 Total: 20,030.000 kgs.
   }
 
   Widget _buildSyncActionFooter() {
+    final l = context.l10n;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1262,14 +1354,14 @@ Total Items: 31 Total: 20,030.000 kgs.
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'اعتماد النتائج ومزامنة بيانات الفاتورة والبوليصة مع ملف الاستيراد',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                Text(
+                  l.invoiceBlMatcherSyncFooterTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                 ),
                 Text(
                   _activeFileId != null
-                      ? 'سيتم تحديث رقم البوليصة، رقم الفاتورة، القيمة الإجمالية، والحاويات في ملف الشحنة المحدد.'
-                      : 'يرجى اختيار ملف شحنة من القائمة بالأعلى للمزامنة.',
+                      ? l.invoiceBlMatcherSyncFooterDesc
+                      : l.invoiceBlMatcherSyncFooterNoFile,
                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
               ],
@@ -1280,7 +1372,7 @@ Total Items: 31 Total: 20,030.000 kgs.
           OutlinedButton.icon(
             onPressed: _matchResult == null ? null : _showExportReportDialog,
             icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-            label: const Text('تصدير تقرير المطابقة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            label: Text(l.invoiceBlMatcherExportReportButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.cobalt,
               side: const BorderSide(color: AppTheme.cobalt),
@@ -1297,9 +1389,9 @@ Total Items: 31 Total: 20,030.000 kgs.
                     child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                   )
                 : const Icon(Icons.check_circle_outline, size: 18),
-            label: const Text(
-              'اعتماد ومزامنة مع ملف الشحنة',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            label: Text(
+              l.invoiceBlMatcherCertifySyncButton,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.emerald,
@@ -1314,36 +1406,42 @@ Total Items: 31 Total: 20,030.000 kgs.
 
   void _showExportReportDialog() {
     if (_matchResult == null) return;
+    final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
-    final score = _matchResult!['match_score_percentage'] ?? 0;
-    final status = _matchResult!['overall_status'] ?? 'UNKNOWN';
-    final isSafe = _matchResult!['is_safe_for_certification'] == true;
-    final criticals = _matchResult!['critical_discrepancies_count'] ?? 0;
-    final warnings = _matchResult!['warning_discrepancies_count'] ?? 0;
-    final matrix = _matchResult!['comparison_matrix'] as List<dynamic>? ?? [];
-    final correctionLetter = _matchResult!['correction_letter']?.toString() ?? '';
+    final score = _matchResult?['match_score_percentage'] ?? 0;
+    final status = _matchResult?['overall_status'] ?? 'UNKNOWN';
+    final isSafe = _matchResult?['is_safe_for_certification'] == true;
+    final criticals = (_matchResult?['critical_discrepancies_count'] as num?)?.toInt() ?? 0;
+    final warnings = (_matchResult?['warning_discrepancies_count'] as num?)?.toInt() ?? 0;
+    final matrix = _matchResult?['comparison_matrix'] as List<dynamic>? ?? [];
+    final correctionLetter = _matchResult?['correction_letter']?.toString() ?? '';
 
     final reportBuffer = StringBuffer();
     reportBuffer.writeln('===============================================================');
-    reportBuffer.writeln('    تقرير المطابقة الذكية: الفاتورة التجارية vs البوليصة');
+    reportBuffer.writeln('    ${l.invoiceBlMatcherReportDialogTitle}');
     reportBuffer.writeln('===============================================================');
-    reportBuffer.writeln('نسبة التطابق الإجمالية : $score%');
-    reportBuffer.writeln('حالة النتيجة           : $status');
-    reportBuffer.writeln('قابل للاعتماد          : ${isSafe ? "نعم ✔" : "لا ✖"}');
-    reportBuffer.writeln('الاختلافات الحرجة      : $criticals');
-    reportBuffer.writeln('التنبيهات              : $warnings');
+    reportBuffer.writeln(l.invoiceBlMatcherReportMatchRatio(score));
+    reportBuffer.writeln('${l.invoiceBlMatcherColMatchStatus} : $status');
+    reportBuffer.writeln('${l.invoiceBlMatcherSyncFooterTitle} : ${isSafe ? l.reqBadgeYes : l.reqBadgeNo}');
+    reportBuffer.writeln(l.invoiceBlMatcherCriticalCount(criticals));
+    reportBuffer.writeln(l.invoiceBlMatcherWarningCount(warnings));
     reportBuffer.writeln('---------------------------------------------------------------');
-    reportBuffer.writeln('تفاصيل مصفوفة المقارنة:');
+    reportBuffer.writeln('${l.invoiceBlMatcherColCheckItem}\t${l.invoiceBlMatcherColInvoiceValue}\t${l.invoiceBlMatcherColBlValue}\t${l.invoiceBlMatcherColMatchStatus}\t${l.invoiceBlMatcherColActionRequired}');
     for (final row in matrix) {
       final r = row as Map<String, dynamic>;
-      reportBuffer.writeln(
-        '  ${r['field_label_ar'] ?? r['field_key']} | ${r['match_status']} | '
-        'System: ${r['system_value'] ?? "—"} | Draft: ${r['draft_value'] ?? "—"}',
-      );
+      final checkItem = isArabic ? (r['field_name_ar'] ?? r['field_name_en'] ?? '') : (r['field_name_en'] ?? r['field_name_ar'] ?? '');
+      final invVal = r['invoice_value'] ?? '—';
+      final blVal = r['bl_value'] ?? '—';
+      final matchStat = r['match_status'] == 'MATCH'
+          ? l.invoiceBlMatcherStatusMatch
+          : (r['match_status'] == 'MISMATCH_MINOR' ? l.invoiceBlMatcherStatusMinor : l.invoiceBlMatcherStatusMismatch);
+      final details = r['details'] ?? '';
+      reportBuffer.writeln('$checkItem\t$invVal\t$blVal\t$matchStat\t$details');
     }
     if (correctionLetter.isNotEmpty) {
       reportBuffer.writeln('---------------------------------------------------------------');
-      reportBuffer.writeln('خطاب التصحيح المقترح:');
+      reportBuffer.writeln('${l.invoiceBlMatcherCorrectionLetterTitle}:');
       reportBuffer.writeln(correctionLetter);
     }
     reportBuffer.writeln('===============================================================');
@@ -1354,62 +1452,65 @@ Total Items: 31 Total: 20,030.000 kgs.
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.picture_as_pdf_outlined, color: AppTheme.cobalt),
-            SizedBox(width: 10),
-            Text('تقرير المطابقة الذكية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.cobalt),
+            const SizedBox(width: 10),
+            Text(l.invoiceBlMatcherReportDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
         content: SizedBox(
           width: 700,
           height: 480,
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'نسبة التطابق: $score%  |  ${isSafe ? "✅ آمن للاعتماد" : "⚠ يوجد فوارق حرجة"}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isSafe ? AppTheme.emerald : AppTheme.crimson,
+          child: SelectionArea(
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${l.invoiceBlMatcherReportMatchRatio(score)}  |  ${isSafe ? l.invoiceBlMatcherReportSafeStatus : l.invoiceBlMatcherReportUnsafeStatus}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isSafe ? AppTheme.emerald : AppTheme.crimson,
+                      ),
                     ),
-                  ),
-                  TextButton.icon(
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: const Text('نسخ التقرير'),
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: reportText));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('✔ تم نسخ التقرير إلى الحافظة'), backgroundColor: AppTheme.emerald),
-                      );
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: SingleChildScrollView(
-                    child: SelectableText(
-                      reportText,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    TextButton.icon(
+                      icon: const Icon(Icons.copy, size: 16),
+                      label: Text(l.invoiceBlMatcherCopyReportButton),
+                      onPressed: () {
+                        CopyHelper.copy(
+                          context,
+                          reportText,
+                          customMessage: l.invoiceBlMatcherReportCopiedSuccess,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: SingleChildScrollView(
+                      child: SelectableText(
+                        reportText,
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.invoiceBlMatcherCloseButton)),
         ],
       ),
     );

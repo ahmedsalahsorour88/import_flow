@@ -140,6 +140,35 @@ void main() {
         ar.customsClearanceConfirmReleaseBtn,
         ar.customsClearanceReleaseSuccess,
         ar.customsClearanceReleaseError('err'),
+        ar.customsClearanceAiBrokerExtractorBtn,
+        ar.customsClearanceUnderBondTooltip,
+        ar.underBondReleaseDialogTitle,
+        ar.underBondReleaseDeclSubtitle('DEC-123'),
+        ar.underBondModeUnderBond,
+        ar.underBondModeLabVerdict,
+        ar.underBondInfoBanner,
+        ar.underBondGuaranteeRefLabel,
+        ar.underBondQuarantineLocLabel,
+        ar.underBondDefaultQuarantineLoc,
+        ar.underBondConfirmReleaseBtn,
+        ar.underBondRequiredFieldsError,
+        ar.underBondReleaseSuccess,
+        ar.underBondActionError('err'),
+        ar.underBondLabInfoBanner,
+        ar.underBondLabCertLabel,
+        ar.underBondLabVerdictLabel,
+        ar.underBondLabVerdictPassed,
+        ar.underBondLabVerdictRejected,
+        ar.underBondLabRemarksLabel,
+        ar.underBondApproveReleaseBtn,
+        ar.underBondRejectReleaseBtn,
+        ar.underBondLabCertRequiredError,
+        ar.underBondLabApprovedSuccess,
+        ar.underBondLabRejectedAlert,
+        ar.underBondLabResultError('err'),
+        ar.customsClearanceExportTsvBtn,
+        ar.customsClearanceExportTsvSuccess,
+        ar.customsClearanceCopyFieldTooltip,
       ];
 
       final List<String> enStrings = [
@@ -273,6 +302,35 @@ void main() {
         en.customsClearanceConfirmReleaseBtn,
         en.customsClearanceReleaseSuccess,
         en.customsClearanceReleaseError('err'),
+        en.customsClearanceAiBrokerExtractorBtn,
+        en.customsClearanceUnderBondTooltip,
+        en.underBondReleaseDialogTitle,
+        en.underBondReleaseDeclSubtitle('DEC-123'),
+        en.underBondModeUnderBond,
+        en.underBondModeLabVerdict,
+        en.underBondInfoBanner,
+        en.underBondGuaranteeRefLabel,
+        en.underBondQuarantineLocLabel,
+        en.underBondDefaultQuarantineLoc,
+        en.underBondConfirmReleaseBtn,
+        en.underBondRequiredFieldsError,
+        en.underBondReleaseSuccess,
+        en.underBondActionError('err'),
+        en.underBondLabInfoBanner,
+        en.underBondLabCertLabel,
+        en.underBondLabVerdictLabel,
+        en.underBondLabVerdictPassed,
+        en.underBondLabVerdictRejected,
+        en.underBondLabRemarksLabel,
+        en.underBondApproveReleaseBtn,
+        en.underBondRejectReleaseBtn,
+        en.underBondLabCertRequiredError,
+        en.underBondLabApprovedSuccess,
+        en.underBondLabRejectedAlert,
+        en.underBondLabResultError('err'),
+        en.customsClearanceExportTsvBtn,
+        en.customsClearanceExportTsvSuccess,
+        en.customsClearanceCopyFieldTooltip,
       ];
 
       for (final s in arStrings) {
@@ -330,6 +388,13 @@ void main() {
         expect(s.contains('Duty Breakdown EGP'), isFalse);
       }
 
+      // Under-bond and tax anti-stacking checks
+      expect(ar.underBondModeUnderBond.contains('Under-Bond'), isFalse);
+      expect(ar.underBondLabVerdictPassed.contains('PASSED'), isFalse);
+      expect(ar.underBondLabVerdictRejected.contains('REJECTED'), isFalse);
+      expect(ar.customsClearanceVatInput.contains('VAT'), isFalse);
+      expect(ar.customsClearanceWhtInput.contains('1%'), isFalse);
+
       for (final s in allEn) {
         expect(s.contains('الميناء والتخليص'), isFalse);
         expect(s.contains('سحب العينات'), isFalse);
@@ -347,6 +412,12 @@ void main() {
       expect(en.customsClearanceDutyPaymentDialogTitle('CLR-99'), contains('CLR-99'));
       expect(ar.customsClearanceEstimatedDutiesCard('100.00', '+10.00', '10'), contains('100.00'));
       expect(en.customsClearanceEstimatedDutiesCard('100.00', '+10.00', '10'), contains('100.00'));
+      expect(ar.underBondReleaseDeclSubtitle('DEC-123'), contains('DEC-123'));
+      expect(en.underBondReleaseDeclSubtitle('DEC-123'), contains('DEC-123'));
+      expect(ar.underBondActionError('connection_failed'), contains('connection_failed'));
+      expect(en.underBondActionError('connection_failed'), contains('connection_failed'));
+      expect(ar.underBondLabResultError('timeout'), contains('timeout'));
+      expect(en.underBondLabResultError('timeout'), contains('timeout'));
     });
   });
 }

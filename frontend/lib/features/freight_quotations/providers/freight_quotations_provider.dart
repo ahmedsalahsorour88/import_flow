@@ -12,9 +12,16 @@ final freightQuotationsProvider =
 
 class FreightQuotationsNotifier extends StateNotifier<AsyncValue<List<FreightRFQRequestModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   FreightQuotationsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchRFQs();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('FreightQuotationsNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchRFQs({
@@ -25,6 +32,8 @@ class FreightQuotationsNotifier extends StateNotifier<AsyncValue<List<FreightRFQ
     int? projectId,
     String? status,
   }) async {
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{
@@ -41,12 +50,14 @@ class FreightQuotationsNotifier extends StateNotifier<AsyncValue<List<FreightRFQ
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/freight-quotations',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List<dynamic> data = response.data;
       final rfqs = data.map((json) => FreightRFQRequestModel.fromJson(json)).toList();
       state = AsyncValue.data(rfqs);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       state = AsyncValue.error(e, stack);
     }
   }

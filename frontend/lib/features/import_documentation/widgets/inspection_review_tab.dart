@@ -57,9 +57,13 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     super.initState();
     _selectedImportFileId = widget.initialImportFileId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await ref.read(importFilesProvider.notifier).fetchImportFiles();
-      await ref.read(inspectionReviewsProvider.notifier).fetchInspectionReviews();
-      final files = ref.read(importFilesProvider).value ?? [];
+      if (!ref.read(importFilesProvider).isLoading) {
+        await ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
+      if (!ref.read(inspectionReviewsProvider).isLoading) {
+        await ref.read(inspectionReviewsProvider.notifier).fetchInspectionReviews();
+      }
+      final files = ref.read(importFilesProvider).valueOrNull ?? [];
       if (_selectedImportFileId == null && files.isNotEmpty) {
         if (mounted) {
           setState(() {
@@ -100,7 +104,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   }
 
   void _loadSnapshot(int fileId) {
-    final files = ref.read(importFilesProvider).value ?? [];
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
     final file = files.where((f) => f.importFileId == fileId).firstOrNull;
     if (file != null) {
       _importerCtrl.text = file.companyName;
@@ -122,7 +126,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
           );
       final template = res['template_data'] as Map<String, dynamic>? ?? {};
       final standards = (res['applicable_standards'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
-      final files = ref.read(importFilesProvider).value ?? [];
+      final files = ref.read(importFilesProvider).valueOrNull ?? [];
       final file = files.where((f) => f.importFileId == fileId).firstOrNull;
 
       if (mounted) {
@@ -288,7 +292,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
 
       final template = res['template_data'] as Map<String, dynamic>? ?? {};
       final standards = (res['applicable_standards'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
-      final files = ref.read(importFilesProvider).value ?? [];
+      final files = ref.read(importFilesProvider).valueOrNull ?? [];
       final file = files.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
       final acidNo = file?.acidNumber ?? '7595528271015010011';
 
@@ -476,7 +480,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     return Column(
       children: [
@@ -516,7 +520,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
 
   Widget _buildStep1(List<dynamic> importFiles) {
     final l10n = context.l10n;
-    final existingReviews = ref.watch(inspectionReviewsProvider).value ?? [];
+    final existingReviews = ref.watch(inspectionReviewsProvider).valueOrNull ?? [];
     final existingReview = existingReviews.where((r) => r.importFileId == _selectedImportFileId).firstOrNull;
 
     return Column(
@@ -577,7 +581,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                         items: importFiles
                             .map((f) => SearchableDropdownItem<int>(
                                   value: f.importFileId,
-                                  label: '${f.importFileCode} - ${f.companyName}',
+                                  label: '${f.primaryNameWithCode} - ${f.companyName}',
                                 ))
                             .toList(),
                         onChanged: (v) {
@@ -707,7 +711,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     items: importFiles
                         .map((f) => SearchableDropdownItem<int>(
                               value: f.importFileId,
-                              label: '${f.importFileCode} - ${f.companyName}',
+                              label: '${f.primaryNameWithCode} - ${f.companyName}',
                             ))
                         .toList(),
                     onChanged: (v) {

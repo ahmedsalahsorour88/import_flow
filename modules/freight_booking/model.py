@@ -64,6 +64,10 @@ class ShipmentBooking(Base):
 
     # Financials & Status
     total_freight_cost_usd = Column(Float, nullable=False, default=0.0)
+    original_freight_cost_usd = Column(Float, nullable=False, default=0.0)
+    cost_savings_usd = Column(Float, nullable=False, default=0.0)
+    cost_variance_usd = Column(Float, nullable=False, default=0.0)
+    savings_notes = Column(String(255), nullable=True)
     status = Column(String(50), nullable=False, default="Draft")  # Draft, Booking Requested, Confirmed, Amended, Cancelled, Sailed
     owner = Column(String(100), nullable=False, default="Kamal")
     notes = Column(Text, nullable=True)

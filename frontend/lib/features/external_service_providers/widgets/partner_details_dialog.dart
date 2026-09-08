@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/master_data_export_service.dart';
@@ -45,9 +45,34 @@ class PartnerDetailsDialog extends StatelessWidget {
         return l10n.partnerCatInlandTransport;
       case 'Inspection Agency':
         return l10n.partnerCatInspectionAgency;
+      case 'Insurance Company':
+        return l10n.partnerCatInsuranceCompany;
       default:
         return cat;
     }
+  }
+
+  String _buildPartnerSummary(BuildContext context, PartnerModel p) {
+    final l10n = context.l10n;
+    final b = StringBuffer();
+    b.writeln('📋 ${l10n.partnerProfileTitle}');
+    b.writeln('${l10n.partnerCodeBadgeLabel}${p.partnerCode}');
+    b.writeln('${l10n.partnerNameLabel}: ${p.partnerName}');
+    b.writeln('${l10n.partnerCategoriesLabel}: ${p.partnerType}');
+    b.writeln('${l10n.countryDetailLabel}: ${p.country}');
+    if (p.address != null && p.address!.isNotEmpty) b.writeln('${l10n.fullAddressDetailLabel}: ${p.address}');
+    if (p.phone != null && p.phone!.isNotEmpty) b.writeln('${l10n.partnerPhoneLabel}: ${p.phone}');
+    if (p.mobile != null && p.mobile!.isNotEmpty) b.writeln('${l10n.partnerMobileLabel}: ${p.mobile}');
+    if (p.email != null && p.email!.isNotEmpty) b.writeln('${l10n.emailDetailLabel}: ${p.email}');
+    if (p.website != null && p.website!.isNotEmpty) b.writeln('${l10n.websiteDetailLabel}: ${p.website}');
+    if (p.swiftCode != null && p.swiftCode!.isNotEmpty) b.writeln('${l10n.partnerSwiftCodeDetailLabel}: ${p.swiftCode}');
+    if (p.scacCode != null && p.scacCode!.isNotEmpty) b.writeln('${l10n.partnerScacCodeDetailLabel}: ${p.scacCode}');
+    if (p.clearanceLicenseNumber != null && p.clearanceLicenseNumber!.isNotEmpty) b.writeln('${l10n.clearanceLicenseDetailLabel}: ${p.clearanceLicenseNumber}');
+    if (p.commercialRegister != null && p.commercialRegister!.isNotEmpty) b.writeln('${l10n.commercialRegDetailLabel}: ${p.commercialRegister}');
+    if (p.taxId != null && p.taxId!.isNotEmpty) b.writeln('${l10n.taxIdDetailLabel}: ${p.taxId}');
+    b.writeln('${l10n.partnerStatusCol}: ${p.isActive ? l10n.statusActive : l10n.statusInactive}');
+    if (p.notes != null && p.notes!.isNotEmpty) b.writeln('${l10n.additionalNotesSection}: ${p.notes}');
+    return b.toString().trim();
   }
 
   @override
@@ -60,8 +85,9 @@ class PartnerDetailsDialog extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       backgroundColor: Colors.transparent,
-      child: Container(
-        width: 780,
+      child: SelectionArea(
+        child: Container(
+          width: 780,
         constraints: const BoxConstraints(maxHeight: 800),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -126,18 +152,13 @@ class PartnerDetailsDialog extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Tooltip(
-                              message: 'نسخ اسم الشريك',
+                              message: l10n.partnersCopyFieldTooltip,
                               child: InkWell(
-                                onTap: () {
-                                  Clipboard.setData(ClipboardData(text: partner.partnerName));
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(l10n.copiedToClipboard(partner.partnerName)),
-                                      duration: const Duration(seconds: 1),
-                                      backgroundColor: AppTheme.emerald,
-                                    ),
-                                  );
-                                },
+                                onTap: () => CopyHelper.copy(
+                                  context,
+                                  partner.partnerName,
+                                  customMessage: l10n.copiedToClipboard(partner.partnerName),
+                                ),
                                 borderRadius: BorderRadius.circular(4),
                                 child: Container(
                                   padding: const EdgeInsets.all(5),
@@ -146,6 +167,26 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Icon(Icons.copy_rounded, size: 15, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Tooltip(
+                              message: l10n.partnerCopySummaryBtn,
+                              child: InkWell(
+                                onTap: () => CopyHelper.copy(
+                                  context,
+                                  _buildPartnerSummary(context, partner),
+                                  customMessage: l10n.partnerCopySummarySuccess,
+                                ),
+                                borderRadius: BorderRadius.circular(4),
+                                child: Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.emerald.withOpacity(0.3),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(Icons.copy_all_rounded, size: 15, color: Colors.white),
                                 ),
                               ),
                             ),
@@ -297,7 +338,7 @@ class PartnerDetailsDialog extends StatelessWidget {
                               Expanded(
                                 child: _buildSimpleInfoField(
                                   label: l10n.creditLimitDetailLabel,
-                                  value: '${partner.creditLimit.toStringAsFixed(2)} EGP',
+                                  value: '${partner.creditLimit.toStringAsFixed(2)} ${l10n.soaCurrencyEgp}',
                                   icon: Icons.monetization_on_outlined,
                                 ),
                               ),
@@ -561,7 +602,8 @@ class PartnerDetailsDialog extends StatelessWidget {
                 ],
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -631,14 +673,19 @@ class PartnerDetailsDialog extends StatelessWidget {
                     ),
                   ),
                   if (value != '-' && value != 'غير مسجل')
-                    InkWell(
-                      onTap: () {
-                        Clipboard.setData(ClipboardData(text: value));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(l10n.copiedToClipboard(value)), duration: const Duration(seconds: 1)),
-                        );
-                      },
-                      child: const Icon(Icons.copy, size: 13, color: Colors.grey),
+                    Tooltip(
+                      message: l10n.partnersCopyFieldTooltip,
+                      child: InkWell(
+                        onTap: () => CopyHelper.copy(
+                          context,
+                          value,
+                          customMessage: l10n.copiedToClipboard(value),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(2.0),
+                          child: Icon(Icons.copy, size: 13, color: Colors.grey),
+                        ),
+                      ),
                     ),
                 ],
               ),
@@ -715,11 +762,8 @@ class PartnerDetailsDialog extends StatelessWidget {
             icon: const Icon(Icons.copy, color: Colors.white, size: 16),
             label: Text(l10n.copyWhatsappTextBtn, style: const TextStyle(color: Colors.white)),
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: text));
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(l10n.whatsappCopiedSuccess), backgroundColor: AppTheme.emerald),
-              );
+              CopyHelper.copy(context, text, customMessage: l10n.whatsappCopiedSuccess);
             },
           ),
         ],
@@ -772,10 +816,11 @@ class PartnerDetailsDialog extends StatelessWidget {
             icon: const Icon(Icons.copy, color: Colors.white, size: 16),
             label: Text(l10n.copyEmailTextBtn, style: const TextStyle(color: Colors.white)),
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: '${l10n.emailSubjectPrefix(subject)}\n\n$body'));
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(l10n.emailCopiedSuccess), backgroundColor: AppTheme.emerald),
+              CopyHelper.copy(
+                context,
+                '${l10n.emailSubjectPrefix(subject)}\n\n$body',
+                customMessage: l10n.emailCopiedSuccess,
               );
             },
           ),

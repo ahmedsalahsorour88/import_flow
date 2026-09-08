@@ -1,7 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 
 void showPartnerScorecardDialog(BuildContext context, WidgetRef ref, {
   required int providerId,
@@ -38,6 +40,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
   bool _isLoading = true;
   String? _error;
   Map<String, dynamic>? _scorecard;
+  CancelToken? _cancelToken;
 
   @override
   void initState() {
@@ -45,14 +48,27 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
     _fetchScorecard();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
+  }
+
   Future<void> _fetchScorecard() async {
+    _cancelToken?.cancel();
+    final cancelToken = CancelToken();
+    _cancelToken = cancelToken;
+
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get('/external-service-providers/${widget.providerId}/scorecard');
+      final res = await dio.get(
+        '/external-service-providers/${widget.providerId}/scorecard',
+        cancelToken: cancelToken,
+      );
       if (mounted) {
         setState(() {
           _scorecard = res.data is Map<String, dynamic> ? res.data : null;
@@ -60,6 +76,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
         });
       }
     } catch (e) {
+      if (cancelToken.isCancelled) return;
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -71,35 +88,39 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 800,
-        padding: const EdgeInsets.all(24),
-        child: _isLoading
-            ? const SizedBox(height: 320, child: Center(child: CircularProgressIndicator()))
-            : _error != null
-                ? SizedBox(
-                    height: 250,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.error_outline, color: AppTheme.crimson, size: 48),
-                          const SizedBox(height: 12),
-                          Text(_error!, style: const TextStyle(color: AppTheme.crimson)),
-                          const SizedBox(height: 12),
-                          ElevatedButton(onPressed: _fetchScorecard, child: const Text('إعادة المحاولة')),
-                        ],
+      child: SelectionArea(
+        child: Container(
+          width: 800,
+          padding: const EdgeInsets.all(24),
+          child: _isLoading
+              ? const SizedBox(height: 320, child: Center(child: CircularProgressIndicator()))
+              : _error != null
+                  ? SizedBox(
+                      height: 250,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline, color: AppTheme.crimson, size: 48),
+                            const SizedBox(height: 12),
+                            Text(_error!, style: const TextStyle(color: AppTheme.crimson)),
+                            const SizedBox(height: 12),
+                            ElevatedButton(onPressed: _fetchScorecard, child: Text(l10n.retryConnectionBtn)),
+                          ],
+                        ),
                       ),
-                    ),
-                  )
-                : _buildContent(),
+                    )
+                  : _buildContent(context),
+        ),
       ),
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(BuildContext context) {
+    final l10n = context.l10n;
     final compositeScore = (_scorecard?['composite_score'] as num?)?.toDouble() ?? 0.0;
     final tier = _scorecard?['performance_tier'] ?? 'Gold A';
     final stars = (_scorecard?['star_rating'] as num?)?.toDouble() ?? 4.0;
@@ -142,12 +163,14 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'بطاقة تقييم أداء الشريك اللوجستي (SLA Performance Scorecard)',
+                      l10n.scorecardDialogTitle,
                       style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      'الشريك: ${widget.providerName}  •  نوع الخدمة: ${widget.providerType}',
+                      l10n.scorecardPartnerSubtitle(widget.providerName, widget.providerType),
                       style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -199,13 +222,13 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          'التصنيف المعتمد: $tier',
+                          l10n.scorecardTierLabel(tier.toString()),
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'إجمالي العمليات المقيّمة: $totalJobs عملية تشغيلية سابقة',
+                        l10n.scorecardTotalJobs(totalJobs is int ? totalJobs : int.tryParse(totalJobs.toString()) ?? 0),
                         style: TextStyle(color: Colors.grey.shade700, fontSize: 12.5),
                       ),
                       if (summary.isNotEmpty) ...[
@@ -222,8 +245,8 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
 
           // Detailed KPI Metrics Tiles
           if (metrics.isNotEmpty) ...[
-            const Text('📈 مؤشرات الأداء التشغيلي التفصيلية (Operational KPIs):',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+            Text('📈 ${l10n.scorecardKpiHeader}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 12,
@@ -232,11 +255,11 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                 final key = entry.key;
                 final val = entry.value;
                 String label = key;
-                if (key == 'avg_clearance_turnaround_days') label = 'متوسط زمن التخليص (أيام)';
-                if (key == 'green_channel_rate_pct') label = 'نسبة المسار الأخضر (%)';
-                if (key == 'sla_adherence_rate_pct') label = 'الالتزام باتفاقية الخدمة SLA (%)';
-                if (key == 'avg_arrival_delay_days') label = 'متوسط تأخير الوصول (أيام)';
-                if (key == 'schedule_reliability_pct') label = 'موثوقية الجداول الملاحية (%)';
+                if (key == 'avg_clearance_turnaround_days') label = l10n.scorecardAvgClearanceDays;
+                if (key == 'green_channel_rate_pct') label = l10n.scorecardGreenChannelRate;
+                if (key == 'sla_adherence_rate_pct') label = l10n.scorecardSlaAdherenceRate;
+                if (key == 'avg_arrival_delay_days') label = l10n.scorecardAvgArrivalDelayDays;
+                if (key == 'schedule_reliability_pct') label = l10n.scorecardScheduleReliability;
 
                 return Container(
                   width: 230,
@@ -272,8 +295,8 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('💪 نقاط القوة والتميز:',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.emerald)),
+                      Text('💪 ${l10n.scorecardStrengthsHeader}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.emerald)),
                       const SizedBox(height: 6),
                       ...strengths.map((s) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),
@@ -293,8 +316,8 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('⚠️ فرص التحسين وملاحظات التدقيق:',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.orange)),
+                      Text('⚠️ ${l10n.scorecardImprovementsHeader}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.orange)),
                       const SizedBox(height: 6),
                       ...improvements.map((im) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),

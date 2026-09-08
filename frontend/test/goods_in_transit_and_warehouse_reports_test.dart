@@ -13,6 +13,7 @@ import 'package:frontend/features/warehouse_receiving/providers/warehouse_receiv
 import 'package:frontend/features/warehouse_receiving/screens/goods_in_transit_screen.dart';
 import 'package:frontend/features/warehouse_receiving/screens/warehouse_received_report_screen.dart';
 import 'package:frontend/features/warehouse_receiving/screens/warehouse_receiving_screen.dart';
+import 'package:frontend/features/warehouse_receiving/screens/inbound_warehouse_hub_screen.dart';
 
 class _MockWarehouseReceivingNotifier extends WarehouseReceivingNotifier {
   final List<WarehouseReceivingModel> initialRecords;
@@ -252,6 +253,43 @@ void main() {
       expect(find.textContaining('استلام البضائع بالمخازن وفحص الجودة'), findsOneWidget);
       expect(find.textContaining('تسجيل وصول شاحنة'), findsOneWidget);
       expect(find.text('GRN-2026-001'), findsOneWidget);
+    });
+  });
+
+  group('InboundWarehouseHubScreen Tests', () {
+    testWidgets('InboundWarehouseHubScreen renders with VerticalStageScaffold and subtabs', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            warehouseReceivingProvider.overrideWith((ref) => _MockWarehouseReceivingNotifier([mockGrnRecord])),
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier()),
+            customsClearanceProvider.overrideWith((ref) => _MockCustomsClearanceNotifier()),
+            purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier()),
+          ],
+          child: const AppLocalizationsProvider(
+            locale: Locale('ar'),
+            child: MaterialApp(
+              home: Directionality(
+                textDirection: TextDirection.rtl,
+                child: InboundWarehouseHubScreen(initialSubTab: 0),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('مركز الاستلام والمخازن والبضاعة بالطريق'), findsWidgets);
+      expect(find.textContaining('رصيد ومطابقة البضاعة في الطريق'), findsWidgets);
+      expect(find.textContaining('استلام المخازن وأذون الإضافة'), findsWidgets);
+      expect(find.textContaining('تقرير ومطابقة الشحنات المستلمة'), findsWidgets);
     });
   });
 }

@@ -173,7 +173,11 @@ class BrokerPriceListService:
 class CustomsConsultationService:
 
     @staticmethod
-    def _compute_session_metrics(db: Session, db_session: CustomsConsultationSession) -> CustomsConsultationResponse:
+    def _compute_session_metrics(
+        db: Session,
+        db_session: CustomsConsultationSession,
+        import_file_codes_map: Optional[Dict[int, str]] = None,
+    ) -> CustomsConsultationResponse:
         """
         Calculates total documents, approved count, blocking issues count, readiness %,
         total broker fees, applied broker items count, and overall status.
@@ -214,10 +218,13 @@ class CustomsConsultationService:
 
         import_file_code = None
         if db_session.import_file_id:
-            from modules.import_files.model import ImportFile
-            imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_session.import_file_id).first()
-            if imp:
-                import_file_code = imp.import_file_code or imp.custom_file_number
+            if import_file_codes_map is not None and db_session.import_file_id in import_file_codes_map:
+                import_file_code = import_file_codes_map[db_session.import_file_id]
+            else:
+                from modules.import_files.model import ImportFile
+                imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_session.import_file_id).first()
+                if imp:
+                    import_file_code = imp.import_file_code or imp.custom_file_number
 
         res = CustomsConsultationResponse.model_validate(db_session)
         res.total_documents_count = total_count
@@ -290,7 +297,21 @@ class CustomsConsultationService:
             project_id=project_id,
             status=status,
         )
-        return [CustomsConsultationService._compute_session_metrics(db, s) for s in sessions]
+
+        # Batch preload ImportFile codes to eliminate N+1 queries
+        imp_file_ids = {s.import_file_id for s in sessions if s.import_file_id}
+        imp_codes_map = {}
+        if imp_file_ids:
+            from modules.import_files.model import ImportFile
+            imp_records = db.query(ImportFile).filter(ImportFile.import_file_id.in_(imp_file_ids)).all()
+            imp_codes_map = {
+                f.import_file_id: (f.import_file_code or f.custom_file_number) for f in imp_records
+            }
+
+        return [
+            CustomsConsultationService._compute_session_metrics(db, s, imp_codes_map)
+            for s in sessions
+        ]
 
     @staticmethod
     def update_consultation(

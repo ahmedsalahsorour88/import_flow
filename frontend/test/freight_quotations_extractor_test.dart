@@ -72,6 +72,11 @@ void main() {
             transportLocationsProvider.overrideWith((ref) => MockTransportLocationsNotifier()),
           ],
           child: MaterialApp(
+            locale: const Locale('ar'),
+            builder: (context, child) => Directionality(
+              textDirection: TextDirection.rtl,
+              child: child!,
+            ),
             home: Scaffold(
               body: Builder(
                 builder: (context) => ElevatedButton(
@@ -96,7 +101,7 @@ void main() {
       // Verify title and tabs
       expect(find.textContaining('نتائج الاستخراج — استخراج كامل'), findsOneWidget);
       expect(find.text('📝 لصق نص / بريد إلكتروني'), findsOneWidget);
-      expect(find.text('📁 رفع ملف / مستند / صورة (OCR)'), findsOneWidget);
+      expect(find.text('📁 رفع ملف / مستند / صورة'), findsOneWidget);
 
       // Tap sample text button
       expect(find.text('📋 تحميل نص تجريبي'), findsOneWidget);
@@ -107,7 +112,7 @@ void main() {
       expect(find.textContaining('USD6760/20GP'), findsOneWidget);
 
       // Switch to OCR tab
-      await tester.tap(find.text('📁 رفع ملف / مستند / صورة (OCR)'));
+      await tester.tap(find.text('📁 رفع ملف / مستند / صورة'));
       await tester.pumpAndSettle();
 
       // Verify OCR drag and drop text

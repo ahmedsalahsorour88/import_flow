@@ -50,6 +50,20 @@ class StepAdvancePayload(BaseModel):
     next_step_codes: List[str] = [] # Supports multi-target next steps
     notes: Optional[str] = None
     action_data: Optional[Dict[str, Any]] = None
+    auto_complete_prior: bool = True
+
+
+class LifecycleSyncRequest(BaseModel):
+    completed_step_code: str = Field(..., min_length=2, max_length=50, description="The operational step completed (e.g. STEP_06)")
+    import_file_code: Optional[str] = Field(None, min_length=2, max_length=50, description="Import file business code (e.g. IMP-2026-0001)")
+    import_file_id: Optional[int] = Field(None, description="Import file database primary key ID")
+    target_step_codes: Optional[List[str]] = Field(None, description="Target step codes to activate as In-Progress (None = auto-infer next)")
+    auto_complete_prior: bool = Field(True, description="Automatically mark all prior steps up to completed_step as Completed")
+    assigned_user: Optional[str] = None
+    action_data: Optional[Dict[str, Any]] = None
+    notes: Optional[str] = None
+    source_module: Optional[str] = None
+
 
 
 class SkipStepPayload(BaseModel):

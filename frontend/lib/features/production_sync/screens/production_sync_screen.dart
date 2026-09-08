@@ -44,7 +44,11 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         ref.invalidate(systemVersionInfoProvider);
         ref.invalidate(backupsListProvider);
         _checkDiffsSilently();
-        ref.read(productionSyncNotifierProvider.notifier).checkForUpdates();
+        ref
+            .read(productionSyncNotifierProvider.notifier)
+            .checkForUpdates()
+            .then<void>((_) {})
+            .catchError((_) {});
       }
     });
   }

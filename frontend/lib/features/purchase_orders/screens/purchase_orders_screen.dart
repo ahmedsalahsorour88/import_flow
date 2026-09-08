@@ -12,18 +12,17 @@ import '../../../core/utils/container_requirement_engine.dart';
 
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
 
-import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
-import '../../import_companies/providers/import_companies_provider.dart';
+import '../../import_files/models/import_file_model.dart' show ImportFileModel;
 import '../../import_files/providers/import_files_provider.dart';
-import '../../incoterms/providers/incoterms_provider.dart';
+import '../../../core/performance/dispose_tracker.dart';
 import '../../projects/providers/projects_provider.dart';
-import '../../suppliers/providers/suppliers_provider.dart';
 import '../models/purchase_order_model.dart';
 import '../providers/purchase_orders_provider.dart';
 
@@ -34,21 +33,25 @@ class PurchaseOrdersScreen extends ConsumerStatefulWidget {
   ConsumerState<PurchaseOrdersScreen> createState() => _PurchaseOrdersScreenState();
 }
 
-class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
+class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> with DisposeTrackerMixin<PurchaseOrdersScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
-      ref.read(projectsProvider.notifier).fetchProjects();
-      ref.read(importCompaniesProvider.notifier).fetchCompanies();
-      ref.read(suppliersProvider.notifier).fetchSuppliers();
-      ref.read(incotermsProvider.notifier).fetchIncoterms();
-      ref.read(currenciesProvider.notifier).fetchCurrencies();
-      ref.read(customsTariffProvider.notifier).fetchTariffs();
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
+      final poState = ref.read(purchaseOrdersProvider);
+      if (!poState.isLoading) {
+        ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      }
+      final prjState = ref.read(projectsProvider);
+      if (!prjState.isLoading) {
+        ref.read(projectsProvider.notifier).fetchProjects();
+      }
+      final filesState = ref.read(importFilesProvider);
+      if (!filesState.isLoading) {
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
     });
   }
 
@@ -62,7 +65,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final state = ref.watch(purchaseOrdersProvider);
-    final projectsList = ref.watch(projectsProvider).value ?? [];
+    final projectsList = ref.watch(projectsProvider).valueOrNull ?? [];
 
     final totalOrders = state.purchaseOrders.length;
     final totalFobSum = state.purchaseOrders.fold<double>(0.0, (sum, p) => sum + p.totalAmountFob);
@@ -222,10 +225,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                         labelText: l.filterByStatus,
                         items: [
                           SearchableDropdownItem<String?>(value: null, label: l.allStatuses),
-                          const SearchableDropdownItem<String?>(value: 'Draft', label: 'Draft'),
-                          const SearchableDropdownItem<String?>(value: 'Approved', label: 'Approved'),
-                          const SearchableDropdownItem<String?>(value: 'In Transit', label: 'In Transit'),
-                          const SearchableDropdownItem<String?>(value: 'Closed', label: 'Closed'),
+                          SearchableDropdownItem<String?>(value: 'Draft', label: l.statusDraft),
+                          SearchableDropdownItem<String?>(value: 'Approved', label: l.statusPoApproved),
+                          SearchableDropdownItem<String?>(value: 'In Transit', label: l.statusInTransit),
+                          SearchableDropdownItem<String?>(value: 'Closed', label: l.statusClosed),
                         ],
                         onChanged: (v) => ref.read(purchaseOrdersProvider.notifier).setStatusFilter(v),
                       ),
@@ -307,7 +310,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                 children: [
                   Text(title, style: TextStyle(color: Colors.grey.shade600, fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
-                  Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                  CopyableText(
+                    value,
+                    showIcon: false,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                  ),
                 ],
               ),
             ],
@@ -317,8 +324,32 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
     );
   }
 
+  String _getStatusLabel(String status, AppLocalizations l) {
+    switch (status.trim().toLowerCase()) {
+      case 'draft':
+        return l.statusDraft;
+      case 'approved':
+        return l.statusPoApproved;
+      case 'in transit':
+        return l.statusInTransit;
+      case 'closed':
+        return l.statusClosed;
+      default:
+        return status;
+    }
+  }
+
   Widget _buildPOTable(BuildContext context, List<PurchaseOrderModel> orders) {
     final l = context.l10n;
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+
+    final Map<int, ImportFileModel> filesById = {};
+    final Map<String, ImportFileModel> filesByCode = {};
+    for (final f in importFiles) {
+      filesById[f.importFileId] = f;
+      filesByCode[f.importFileCode] = f;
+    }
+
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
       child: SingleChildScrollView(
@@ -340,7 +371,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                 DataColumn(label: Text(l.importingCompany)),
                 DataColumn(label: Text(l.foreignSupplier)),
                 DataColumn(label: Text(l.totalFobMetric)),
-                DataColumn(label: Text('${l.cbmVolumeMetric} / ${l.grossWeightMetric}')),
+                DataColumn(label: Text(l.cbmAndGrossWeightCol)),
                 DataColumn(label: Text(l.lifecycleBoard)),
                 DataColumn(label: Text(l.actionsCol)),
               ],
@@ -358,105 +389,191 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                     ? '${po.orderDate!.year}-${po.orderDate!.month.toString().padLeft(2, '0')}-${po.orderDate!.day.toString().padLeft(2, '0')}'
                     : '-';
 
+                final matchedFile = (po.importFileId != null ? filesById[po.importFileId] : null) ??
+                    (po.importFileCode != null ? filesByCode[po.importFileCode] : null);
+                final fileName = matchedFile?.displayName ?? po.importFileCode ?? (po.importFileId != null ? 'IMP-${po.importFileId}' : '-');
+                final fileCode = (matchedFile != null && matchedFile.displayName != matchedFile.importFileCode)
+                    ? matchedFile.importFileCode
+                    : (po.importFileCode ?? (po.importFileId != null ? 'IMP-${po.importFileId}' : ''));
+                final amountStr = '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}';
+                final cbmWeightStr = '${po.totalCbm.toStringAsFixed(2)} m³ / ${po.totalGrossWeightKg.toStringAsFixed(0)} kg';
+                final localizedStatus = _getStatusLabel(po.status, l);
+
+                final rowSummary = [
+                  po.displayName,
+                  invoiceDateStr,
+                  fileName,
+                  po.proformaInvoiceNumber ?? '-',
+                  po.projectName ?? 'PRJ-#${po.projectId}',
+                  po.companyName ?? 'COMP-#${po.companyId}',
+                  po.supplierName ?? 'SUP-#${po.supplierId}',
+                  amountStr,
+                  cbmWeightStr,
+                  localizedStatus,
+                ].join('\t');
+
                 return DataRow(
                   onSelectChanged: (_) => _showPODetailsDialog(context, po),
                   cells: [
                     DataCell(
-                      InkWell(
-                        onTap: () => _showPODetailsDialog(context, po),
+                      CopyableTableCell(
+                        value: po.displayName,
+                        rowSummary: rowSummary,
+                        child: InkWell(
+                          onTap: () => _showPODetailsDialog(context, po),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    po.displayName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.cobalt,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.open_in_new, size: 14, color: AppTheme.cobalt),
+                                ],
+                              ),
+                              if (po.poReference != null && po.poReference!.isNotEmpty && po.poReference != po.poNumber)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    po.poNumber,
+                                    style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w500),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: invoiceDateStr,
+                        rowSummary: rowSummary,
+                        child: Text(invoiceDateStr, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: fileName,
+                        rowSummary: rowSummary,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  po.poNumber,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.cobalt,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.open_in_new, size: 14, color: AppTheme.cobalt),
-                              ],
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                              ),
+                              child: Text(
+                                fileName,
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
+                              ),
                             ),
-                            if (po.poReference != null && po.poReference!.isNotEmpty)
+                            if (fileCode.isNotEmpty && fileCode != fileName)
                               Padding(
-                                padding: const EdgeInsets.only(top: 2),
+                                padding: const EdgeInsets.only(top: 2, right: 4, left: 4),
                                 child: Text(
-                                  po.poReference!,
-                                  style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w500),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  fileCode,
+                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
                                 ),
                               ),
                           ],
                         ),
                       ),
                     ),
-                    DataCell(Text(invoiceDateStr, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
                     DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppTheme.charcoal.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          po.importFileCode ?? (po.importFileId != null ? 'IMP-${po.importFileId}' : '-'),
-                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
-                        ),
+                      CopyableTableCell(
+                        value: po.proformaInvoiceNumber ?? '-',
+                        rowSummary: rowSummary,
+                        child: Text(po.proformaInvoiceNumber ?? '-'),
                       ),
                     ),
-                    DataCell(Text(po.proformaInvoiceNumber ?? '-')),
-                    DataCell(Text(po.projectName ?? 'PRJ-#${po.projectId}')),
-                    DataCell(Text(po.companyName ?? 'COMP-#${po.companyId}')),
                     DataCell(
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(po.supplierName ?? 'SUP-#${po.supplierId}'),
-                          if (po.countryOfOrigin != null && po.countryOfOrigin!.isNotEmpty)
-                            Container(
-                              margin: const EdgeInsets.only(top: 2),
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: Colors.blue.shade200),
+                      CopyableTableCell(
+                        value: po.projectName ?? 'PRJ-#${po.projectId}',
+                        rowSummary: rowSummary,
+                        child: Text(po.projectName ?? 'PRJ-#${po.projectId}'),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: po.companyName ?? 'COMP-#${po.companyId}',
+                        rowSummary: rowSummary,
+                        child: Text(po.companyName ?? 'COMP-#${po.companyId}'),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: po.supplierName ?? 'SUP-#${po.supplierId}',
+                        rowSummary: rowSummary,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(po.supplierName ?? 'SUP-#${po.supplierId}'),
+                            if (po.countryOfOrigin != null && po.countryOfOrigin!.isNotEmpty)
+                              Container(
+                                margin: const EdgeInsets.only(top: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Colors.blue.shade200),
+                                ),
+                                child: Text(
+                                  po.countryOfOrigin!,
+                                  style: TextStyle(fontSize: 10, color: Colors.blue.shade800, fontWeight: FontWeight.w600),
+                                ),
                               ),
-                              child: Text(
-                                po.countryOfOrigin!,
-                                style: TextStyle(fontSize: 10, color: Colors.blue.shade800, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-                      ),
-                    ),
-                    DataCell(
-                      Text('${po.totalCbm.toStringAsFixed(2)} m³ / ${po.totalGrossWeightKg.toStringAsFixed(0)} kg'),
-                    ),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: statusColor),
+                          ],
                         ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: amountStr,
+                        rowSummary: rowSummary,
                         child: Text(
-                          po.status,
-                          style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
+                          amountStr,
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: cbmWeightStr,
+                        rowSummary: rowSummary,
+                        child: Text(cbmWeightStr),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: localizedStatus,
+                        rowSummary: rowSummary,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: statusColor.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: statusColor),
+                          ),
+                          child: Text(
+                            localizedStatus,
+                            style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
+                          ),
                         ),
                       ),
                     ),
@@ -467,7 +584,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                           if (po.poId != null)
                             IconButton(
                               icon: const Icon(Icons.account_balance_wallet_outlined, color: AppTheme.cobalt, size: 20),
-                              tooltip: 'ميزان أمر الشراء والشحنات الجزئية (PO Balance Ledger)',
+                              tooltip: l.poBalanceLedgerTooltip,
                               onPressed: () => showPOBalanceLedgerDialog(
                                 context,
                                 ref,
@@ -476,51 +593,49 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                               ),
                             ),
                           RowActionsPill(
-
-                        onView: () => _showPODetailsDialog(context, po),
-                        onEdit: () => _showPODialog(context, po),
-                        onPrint: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('طباعة أمر الشراء وقائمة التعبئة: ${po.poNumber} (${po.proformaInvoiceNumber ?? ""})'),
-                              backgroundColor: AppTheme.charcoal,
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        },
-                        onDelete: () async {
-                          final isActive = po.isActive;
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('تأكيد الإجراء'),
-                              content: Text(isActive
-                                  ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل أمر الشراء (${po.poNumber})؟'
-                                  : 'هل أنت متأكد من استعادة أمر الشراء (${po.poNumber})؟'),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.pop(ctx, true),
-                                  style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                  child: Text(isActive ? 'إيقاف التفعيل' : 'استعادة', style: const TextStyle(color: Colors.white)),
+                            onView: () => _showPODetailsDialog(context, po),
+                            onEdit: () => _showPODialog(context, po),
+                            onPrint: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(l.printPoAndPackingList(po.displayName, po.poNumber)),
+                                  backgroundColor: AppTheme.charcoal,
+                                  duration: const Duration(seconds: 2),
                                 ),
-                              ],
-                            ),
-                          );
-                          if (confirm == true) {
-                            if (po.isActive) {
-                              await ref.read(purchaseOrdersProvider.notifier).deletePurchaseOrder(po.poId!);
-                            } else {
-                              await ref.read(purchaseOrdersProvider.notifier).restorePurchaseOrder(po.poId!);
-                            }
-                          }
-                        },
-                        deleteTooltip: po.isActive ? 'إيقاف تفعيل أمر الشراء (Deactivate)' : 'استعادة أمر الشراء (Restore)',
-                      ),
+                              );
+                            },
+                            onDelete: () async {
+                              final isActive = po.isActive;
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: Text(l.confirmActionTitle),
+                                  content: Text(isActive
+                                      ? l.confirmDeactivatePo(po.displayName)
+                                      : l.confirmRestorePo(po.displayName)),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                      child: Text(isActive ? l.deactivateBtn : l.restore, style: const TextStyle(color: Colors.white)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true) {
+                                if (po.isActive) {
+                                  await ref.read(purchaseOrdersProvider.notifier).deletePurchaseOrder(po.poId!);
+                                } else {
+                                  await ref.read(purchaseOrdersProvider.notifier).restorePurchaseOrder(po.poId!);
+                                }
+                              }
+                            },
+                            deleteTooltip: po.isActive ? l.deactivatePoTooltip : l.restorePoTooltip,
+                          ),
                         ],
                       ),
                     ),
-
                   ],
                 );
               }).toList(),
@@ -532,7 +647,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   }
 
   void _showPODetailsDialog(BuildContext context, PurchaseOrderModel po) {
-    final tariffs = ref.read(customsTariffProvider).value ?? [];
+    final tariffs = ref.read(customsTariffProvider).valueOrNull ?? [];
+    if (tariffs.isEmpty) {
+      ref.read(customsTariffProvider.notifier).fetchTariffs();
+    }
     final reconciliation = evaluatePOReconciliation(
       invoiceItems: po.items,
       packingItems: po.packingListItems,
@@ -593,7 +711,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
               children: [
                 const Icon(Icons.inventory_2, color: AppTheme.cobalt),
                 const SizedBox(width: 8),
-                Text('${l.purchaseOrdersTitle}: ${po.poNumber} (${po.proformaInvoiceNumber ?? "-"})'),
+                Text('${l.purchaseOrdersTitle}: ${po.displayName} (${po.poNumber})'),
               ],
             ),
             content: SizedBox(
@@ -678,10 +796,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                         '${effectivePackingListCbm.toStringAsFixed(3)} m³${totalPalletCount > 0 ? " ($totalPalletCount)" : ""}',
                                       ),
                                       _buildDetailItem(
-                                        '${l.grossWeightMetric} / ${l.netWeightMetric}',
-                                        '${effectivePackingListGrossWeight.toStringAsFixed(1)} kg / ${effectivePackingListNetWeight.toStringAsFixed(1)} kg',
+                                        l.grossWeightMetric,
+                                        '${effectivePackingListGrossWeight.toStringAsFixed(1)} kg',
                                       ),
-
+                                      _buildDetailItem(
+                                        l.netWeightMetric,
+                                        '${effectivePackingListNetWeight.toStringAsFixed(1)} kg',
+                                      ),
                                     ],
                                   ),
 
@@ -957,9 +1078,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                       children: [
                                         const Icon(Icons.pallet, color: AppTheme.cobalt, size: 20),
                                         const SizedBox(width: 8),
-                                        const Text(
-                                          'لوحة مخطط وحدات الشحن والبالتات (Master Palletization Plan)',
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                        Text(
+                                          l.masterPalletPlanTitle,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                         ),
                                         const Spacer(),
                                         Container(
@@ -970,7 +1091,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                             border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
                                           ),
                                           child: Text(
-                                            '🔢 إجمالي البالتات: ${po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount)} بالتة',
+                                            '🔢 ${l.totalPalletsMetric}: ${l.palletCountWithUnit(po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount))}',
                                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                           ),
                                         ),
@@ -983,7 +1104,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                             border: Border.all(color: Colors.orange.withOpacity(0.4)),
                                           ),
                                           child: Text(
-                                            '📐 حجم البالتات: ${po.palletPlanItems.fold<double>(0.0, (sum, p) => sum + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount)).toStringAsFixed(3)} m³',
+                                            '📐 ${l.palletCbmWithUnit(po.palletPlanItems.fold<double>(0.0, (sum, p) => sum + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount)).toStringAsFixed(3))}',
                                             style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
                                           ),
                                         ),
@@ -996,7 +1117,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                           ),
                                           icon: const Icon(Icons.view_in_ar_rounded, size: 15),
                                           label: Text(
-                                            'محاكاة ورص الحاويات 3D (${po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount)} بالتة)',
+                                            l.simulateAndLoad3d(po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount)),
                                             style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
                                           ),
                                           onPressed: () => _showVisualLoadPlannerDialog(context, po),
@@ -1007,16 +1128,16 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                     Table(
                                       border: TableBorder.all(color: Colors.grey.shade300),
                                       children: [
-                                        const TableRow(
-                                          decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                                        TableRow(
+                                          decoration: const BoxDecoration(color: AppTheme.cloudWhite),
                                           children: [
-                                            Padding(padding: EdgeInsets.all(6), child: Text('نوع ومقاس البالتة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: EdgeInsets.all(6), child: Text('عدد البالتات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: EdgeInsets.all(6), child: Text('الأبعاد (L × W × H)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: EdgeInsets.all(6), child: Text('وزن البالتة (Gross)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: EdgeInsets.all(6), child: Text('إجمالي الوزن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: EdgeInsets.all(6), child: Text('حجم السطر CBM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: EdgeInsets.all(6), child: Text('تعليمات الرص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletCountCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletDimensionsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletTotalWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletVolumeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletStackingInstructionsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                                           ],
                                         ),
                                         ...po.palletPlanItems.map((pal) {
@@ -1074,16 +1195,16 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                   TableRow(
                                     decoration: const BoxDecoration(color: AppTheme.cloudWhite),
                                     children: [
-                                      const Padding(padding: EdgeInsets.all(6), child: Text('HS Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      const Padding(padding: EdgeInsets.all(6), child: Text('Item Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.itemCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                                       Padding(padding: const EdgeInsets.all(6), child: Text(l.mainDescription, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      const Padding(padding: EdgeInsets.all(6), child: Text('Qty PCS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      const Padding(padding: EdgeInsets.all(6), child: Text('Qty PKG', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      const Padding(padding: EdgeInsets.all(6), child: Text('Pkg Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      const Padding(padding: EdgeInsets.all(6), child: Text('Dimensions (cm)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      const Padding(padding: EdgeInsets.all(6), child: Text('Net Wt (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      const Padding(padding: EdgeInsets.all(6), child: Text('Gross Wt (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      const Padding(padding: EdgeInsets.all(6), child: Text('CBM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPcsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPkgCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.packageTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.dimensionsCmCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.netWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.grossWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmVolumeMetric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                                     ],
                                   ),
                                   ...po.packingListItems.map(
@@ -1133,20 +1254,20 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                               ),
 
                             const SizedBox(height: 20),
-                            const Text('📊 Report: Packing List Summary By HS Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                            Text('📊 ${l.summaryByHsCodeReport}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                             const SizedBox(height: 6),
                             Table(
                               border: TableBorder.all(color: Colors.grey.shade300),
                               children: [
-                                const TableRow(
-                                  decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                                TableRow(
+                                  decoration: const BoxDecoration(color: AppTheme.cloudWhite),
                                   children: [
-                                    Padding(padding: EdgeInsets.all(6), child: Text('HS Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                    Padding(padding: EdgeInsets.all(6), child: Text('Qty PCS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                    Padding(padding: EdgeInsets.all(6), child: Text('Qty PKG', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                    Padding(padding: EdgeInsets.all(6), child: Text('Total Net Weight (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                    Padding(padding: EdgeInsets.all(6), child: Text('Total Gross Weight (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                    Padding(padding: EdgeInsets.all(6), child: Text('Total CBM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPcsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPkgCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.totalNetWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.totalGrossWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.totalCargoCbmMetric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                                   ],
                                 ),
                                 ...hsSummaryMap.values.map(
@@ -1200,7 +1321,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
               ),
               icon: const Icon(Icons.copy_all, size: 16),
               label: Text(
-                isArabic ? 'نسخ كافة البيانات' : 'Copy All Data',
+                l.copyAllData,
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               onPressed: () {
@@ -1286,6 +1407,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
     }
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
+    final l = context.l10n;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -1293,9 +1415,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
             const Icon(Icons.check_circle, color: Colors.white),
             const SizedBox(width: 8),
             Text(
-              isArabic
-                  ? 'تم نسخ كافة بيانات وبنود أمر الشراء بنجاح (جاهزة للصق في Excel أو Word)'
-                  : 'All PO details and line items copied to clipboard successfully (ready to paste in Excel/Word)',
+              l.copyAllPoDataSuccess,
             ),
           ],
         ),
@@ -1306,14 +1426,17 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
     );
   }
 
-
   Widget _buildDetailItem(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+        CopyableText(
+          value,
+          showIcon: false,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+        ),
       ],
     );
   }
@@ -1397,8 +1520,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
     }
 
     if (cargoItems.isEmpty) {
+      final l = context.l10n;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا توجد أصناف قائمة تعبئة أو بالتات للمحاكاة')),
+        SnackBar(content: Text(l.noCargoOrPalletToSimulate)),
       );
       return;
     }
@@ -1409,6 +1533,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) {
+        final l = dialogCtx.l10n;
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final plan = ContainerRequirementEngine.planShipment(
@@ -1426,7 +1551,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
               }
             }
             final fleetSummary = containerCounts.isEmpty
-                ? 'لا توجد حاويات مناسبة'
+                ? l.noSuitableContainers
                 : containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
 
             return Dialog(
@@ -1454,20 +1579,20 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'مخطط الرص وتوزيع الحاويات 3D — ${po.poNumber}',
+                                l.containerLoadPlanTitle(po.displayName, po.poNumber),
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                               ),
                               Text(
-                                'حجم الشحنة: ${totalPlanVolume.toStringAsFixed(3)} m³ | الوزن: ${totalPlanWeight.toStringAsFixed(1)} kg | الحاويات المطلوبة: $fleetSummary',
+                                l.containerLoadPlanMetrics(totalPlanVolume.toStringAsFixed(3), totalPlanWeight.toStringAsFixed(1), fleetSummary),
                                 style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
                               ),
                             ],
                           ),
                         ),
                         SegmentedButton<bool>(
-                          segments: const [
-                            ButtonSegment<bool>(value: true, label: Text('مسقط علوي (Top)')),
-                            ButtonSegment<bool>(value: false, label: Text('مسقط جانبي (Side)')),
+                          segments: [
+                            ButtonSegment<bool>(value: true, label: Text(l.topView)),
+                            ButtonSegment<bool>(value: false, label: Text(l.sideView)),
                           ],
                           selected: {isTopView},
                           onSelectionChanged: (set) => setDialogState(() => isTopView = set.first),
@@ -1500,9 +1625,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    Text('حاوية #${idx + 1}: ${cResult.spec.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                                    Text(l.containerIndexTitle(idx + 1, cResult.spec.name), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
                                     const Spacer(),
-                                    Text('${cResult.placedItems.length} طرد / بالتة', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                                    Text(l.packagesOrPalletsCount(cResult.placedItems.length), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                                   ],
                                 ),
                                 const SizedBox(height: 6),

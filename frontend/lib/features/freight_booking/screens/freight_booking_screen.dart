@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -18,6 +19,8 @@ import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/freight_booking_model.dart';
 import '../providers/freight_booking_provider.dart';
+import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
 
 class FreightBookingScreen extends ConsumerStatefulWidget {
   const FreightBookingScreen({super.key});
@@ -34,13 +37,27 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(freightBookingProvider.notifier).fetchBookings();
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
-      ref.read(partnersProvider.notifier).fetchPartners();
-      ref.read(transportLocationsProvider.notifier).fetchLocations();
-      ref.read(shippingScenariosProvider.notifier).fetchSessions();
-      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
-      ref.read(currenciesProvider.notifier).fetchCurrencies();
+      if (!ref.read(freightBookingProvider).isLoading) {
+        ref.read(freightBookingProvider.notifier).fetchBookings();
+      }
+      if (!ref.read(importFilesProvider).isLoading) {
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
+      if (!ref.read(partnersProvider).isLoading) {
+        ref.read(partnersProvider.notifier).fetchPartners();
+      }
+      if (!ref.read(transportLocationsProvider).isLoading) {
+        ref.read(transportLocationsProvider.notifier).fetchLocations();
+      }
+      if (!ref.read(shippingScenariosProvider).isLoading) {
+        ref.read(shippingScenariosProvider.notifier).fetchSessions();
+      }
+      if (!ref.read(purchaseOrdersProvider).isLoading) {
+        ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      }
+      if (!ref.read(currenciesProvider).isLoading) {
+        ref.read(currenciesProvider.notifier).fetchCurrencies();
+      }
     });
   }
 
@@ -76,6 +93,8 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final bookingsState = ref.watch(freightBookingProvider);
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final importFilesMap = {for (final f in importFiles) f.importFileId: f};
 
     final tabs = [
       const VerticalNavTabItem(
@@ -106,7 +125,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
       headerActions: [
         ElevatedButton.icon(
           icon: const Icon(Icons.directions_boat_rounded, size: 16),
-          label: const Text('تكويد خط ملاحي بالذكاء الاصطناعي ✨'),
+          label: Text(l.freightBookingAiShippingLineBtn),
           onPressed: () => UniversalEntityExtractorDialog.showShippingLineExtractor(
             context,
             onSaved: () {
@@ -124,7 +143,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
         const SizedBox(width: 8),
         ElevatedButton.icon(
           icon: const Icon(Icons.local_shipping_rounded, size: 16),
-          label: const Text('تكويد شركة شحن بالذكاء الاصطناعي ✨'),
+          label: Text(l.freightBookingAiForwarderBtn),
           onPressed: () => UniversalEntityExtractorDialog.showFreightForwarderExtractor(
             context,
             onSaved: () {
@@ -342,8 +361,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                     ),
                                     child: Text(
                                       () {
-                                        final importFiles = ref.watch(importFilesProvider).value ?? [];
-                                        final f = importFiles.where((file) => file.importFileId == bkg.importFileId).firstOrNull;
+                                        final f = bkg.importFileId != null ? importFilesMap[bkg.importFileId] : null;
                                         final fCode = f?.customFileNumber ?? f?.importFileCode ?? bkg.importFileCode ?? (bkg.importFileId != null ? 'IMP-${bkg.importFileId}' : '—');
                                         final comp = f?.companyName ?? '';
                                         return comp.isNotEmpty ? '[$fCode] $comp' : fCode;
@@ -354,20 +372,22 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                 ),
 
                                 // 4. Confirmation No
-                                DataCell(
-                                  Text(
-                                    bkg.bookingConfirmationNo ?? 'Draft Pending',
+                                DataCell(CopyableTableCell(
+                                  value: bkg.bookingConfirmationNo ?? l.freightBookingDraftPendingLabel,
+                                  child: Text(
+                                    bkg.bookingConfirmationNo ?? l.freightBookingDraftPendingLabel,
                                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                                   ),
-                                ),
+                                )),
 
                                 // 5. Shipping Line / Forwarder
-                                DataCell(
-                                  Column(
+                                DataCell(CopyableTableCell(
+                                  value: '${bkg.shippingLineName ?? "-"} / ${bkg.freightForwarderName ?? "-"}',
+                                  child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(bkg.shippingLineName ?? 'N/A', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                      Text(bkg.shippingLineName ?? '—', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                       if (bkg.scenarioProviderName != null)
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -381,38 +401,43 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                           ],
                                         )
                                       else
-                                        Text('FWD: ${bkg.freightForwarderName ?? "-"}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                        Text(l.freightBookingForwarderPrefixLabel(bkg.freightForwarderName ?? '—'), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                     ],
                                   ),
-                                ),
+                                )),
 
                                 // 6. POL ➔ POD
-                                DataCell(
-                                  Row(
+                                DataCell(CopyableTableCell(
+                                  value: '${bkg.polName ?? "-"} → ${bkg.podName ?? "-"}',
+                                  child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const Icon(Icons.location_on_outlined, size: 13, color: AppTheme.cobalt),
                                       const SizedBox(width: 3),
-                                      Text('${bkg.polName ?? "-"} ➔ ${bkg.podName ?? "-"}', style: const TextStyle(fontSize: 11.5)),
+                                      Text('${bkg.polName ?? "—"} ➔ ${bkg.podName ?? "—"}', style: const TextStyle(fontSize: 11.5)),
                                     ],
                                   ),
-                                ),
+                                )),
 
                                 // 7. Vessel & Voyage
-                                DataCell(Text('${bkg.vesselName ?? "-"} (${bkg.voyageNumber ?? "-"})', style: const TextStyle(fontSize: 11.5))),
+                                DataCell(CopyableTableCell(
+                                  value: '${bkg.vesselName ?? "-"} / ${bkg.voyageNumber ?? "-"}',
+                                  child: Text('${bkg.vesselName ?? "—"} (${bkg.voyageNumber ?? "—"})', style: const TextStyle(fontSize: 11.5)),
+                                )),
 
                                 // 8. Departure (ETD / ATD)
-                                DataCell(
-                                  Column(
+                                DataCell(CopyableTableCell(
+                                  value: '${l.freightBookingEtdPrefixLabel(bkg.etd != null ? bkg.etd!.substring(0, 10) : "-")}${bkg.atd != null ? " | ${l.freightBookingAtdPrefixLabel(bkg.atd!.substring(0, 10))}" : ""}',
+                                  child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text('ETD: ${bkg.etd != null ? bkg.etd!.substring(0, 10) : "-"}', style: const TextStyle(fontSize: 11)),
+                                      Text(l.freightBookingEtdPrefixLabel(bkg.etd != null ? bkg.etd!.substring(0, 10) : '—'), style: const TextStyle(fontSize: 11)),
                                       if (bkg.atd != null)
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Text('ATD: ${bkg.atd!.substring(0, 10)}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                            Text(l.freightBookingAtdPrefixLabel(bkg.atd!.substring(0, 10)), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                                             if (hasDelay) ...[
                                               const SizedBox(width: 4),
                                               Container(
@@ -425,24 +450,28 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                         ),
                                     ],
                                   ),
-                                ),
+                                )),
 
                                 // 9. Arrival (ETA / WH)
-                                DataCell(
-                                  Column(
+                                DataCell(CopyableTableCell(
+                                  value: l.freightBookingEtaPrefixLabel(bkg.eta != null ? bkg.eta!.substring(0, 10) : '-'),
+                                  child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text('ETA: ${bkg.eta != null ? bkg.eta!.substring(0, 10) : "-"}', style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 11)),
+                                      Text(l.freightBookingEtaPrefixLabel(bkg.eta != null ? bkg.eta!.substring(0, 10) : '—'), style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 11)),
                                       if (bkg.expectedWarehouseArrivalDate != null)
                                         Text(l.freightBookingWhArrivalLabel(bkg.expectedWarehouseArrivalDate!.substring(0, 10)), style: const TextStyle(fontSize: 10, color: Colors.blueGrey)),
                                     ],
                                   ),
-                                ),
+                                )),
 
                                 // 10. Allocated Containers
-                                DataCell(
-                                  Container(
+                                DataCell(CopyableTableCell(
+                                  value: bkg.containersData.isNotEmpty
+                                      ? bkg.containersData.map((c) => '${c.quantity}x ${c.containerType}').join(', ')
+                                      : '—',
+                                  child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
                                       color: Colors.blueGrey.shade50,
@@ -455,19 +484,21 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                                     ),
                                   ),
-                                ),
+                                )),
 
                                 // 11. Total Freight USD
-                                DataCell(
-                                  Text(
+                                DataCell(CopyableTableCell(
+                                  value: '\$ ${bkg.totalFreightCostUsd.toStringAsFixed(2)}',
+                                  child: Text(
                                     '\$ ${bkg.totalFreightCostUsd.toStringAsFixed(2)}',
                                     style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12),
                                   ),
-                                ),
+                                )),
 
                                 // 12. Status Pill
-                                DataCell(
-                                  Container(
+                                DataCell(CopyableTableCell(
+                                  value: bkg.status,
+                                  child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
                                       color: bkg.status == 'Confirmed' || bkg.status == 'Sailed'
@@ -491,8 +522,9 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                       ),
                                     ),
                                   ),
-                                ),
+                                )),
                               ],
+
                             );
                           }).toList(),
                         ),
@@ -553,6 +585,11 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
   // Full 17 quote items state matching Phase 1
   String _mainQuoteCurrency = 'USD';
+  double? _originalQuoteTotalUsd;
+  double? _originalContainer40ftPrice;
+  double? _originalContainer20ftPrice;
+  double? _originalLclCbmPrice;
+  double? _originalExpressCourierPrice;
 
   bool _container40ftApp = true;
   double _container40ftPrice = 8500.0;
@@ -683,6 +720,12 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
   void _loadQuotationDataFromMap(Map<String, dynamic> q) {
     _mainQuoteCurrency = q['main_quote_currency'] ?? 'USD';
+    _originalQuoteTotalUsd = (q['original_quote_total_usd'] as num?)?.toDouble() ?? widget.bookingToEdit?.originalFreightCostUsd;
+    _originalContainer40ftPrice = (q['original_container_40ft_price'] as num?)?.toDouble();
+    _originalContainer20ftPrice = (q['original_container_20ft_price'] as num?)?.toDouble();
+    _originalLclCbmPrice = (q['original_lcl_cbm_price'] as num?)?.toDouble();
+    _originalExpressCourierPrice = (q['original_express_courier_price'] as num?)?.toDouble();
+
     _container40ftApp = q['container_40ft_app'] ?? true;
     _container40ftPrice = (q['container_40ft_price'] as num?)?.toDouble() ?? 8500.0;
     _container40ftCur = q['container_40ft_cur'] ?? 'USD';
@@ -812,6 +855,11 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
       'extra_day_storage_app': _extraDayStorageApp,
       'extra_day_storage_price': _extraDayStoragePrice,
       'extra_day_storage_cur': _extraDayStorageCur,
+      if (_originalQuoteTotalUsd != null) 'original_quote_total_usd': _originalQuoteTotalUsd,
+      if (_originalContainer40ftPrice != null) 'original_container_40ft_price': _originalContainer40ftPrice,
+      if (_originalContainer20ftPrice != null) 'original_container_20ft_price': _originalContainer20ftPrice,
+      if (_originalLclCbmPrice != null) 'original_lcl_cbm_price': _originalLclCbmPrice,
+      if (_originalExpressCourierPrice != null) 'original_express_courier_price': _originalExpressCourierPrice,
     };
   }
 
@@ -854,6 +902,11 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
       if (parsedEta != null) _eta = parsedEta;
       _freeDemurrageController.text = item.freeTimeDays.toString();
       _mainQuoteCurrency = item.quotationCurrency;
+      _originalQuoteTotalUsd = item.totalQuotationAmount;
+      _originalContainer40ftPrice = item.container40ftPrice;
+      _originalContainer20ftPrice = item.container20ftPrice;
+      _originalLclCbmPrice = item.lclCbmPrice;
+      _originalExpressCourierPrice = item.expressCourierPrice;
 
       // Map all 17 quote breakdown parameters
       _container40ftApp = item.container40ftApplicable;
@@ -1189,6 +1242,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
         'containers_data': _containers.map((c) => c.toJson()).toList(),
         'cost_charges_data': _charges.map((c) => c.toJson()).toList(),
         'quotation_details_data': _buildQuotationDataMap(),
+        'original_freight_cost_usd': _originalQuoteTotalUsd,
         'status': _status,
         'owner': _ownerController.text.trim(),
         'notes': _notesController.text.trim(),
@@ -1200,6 +1254,11 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
         await ref.read(freightBookingProvider.notifier).updateBooking(widget.bookingToEdit!.bookingId, payload);
       }
 
+      ref.invalidate(lifecycleBoardSummaryProvider);
+      ref.invalidate(liveLogisticsTrackingProvider);
+      ref.invalidate(importFilesProvider);
+      ref.invalidate(smartTasksProvider);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('✅ ${l.freightBookingSaveSuccess}'), backgroundColor: AppTheme.emerald),
@@ -1210,7 +1269,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
       if (mounted) {
         final errStr = e.toString();
         if (errStr.contains('يوجد بالفعل حجز شحن') || errStr.contains('مسجل لهذا الملف')) {
-          final existingBookings = ref.read(freightBookingProvider).value ?? [];
+          final existingBookings = ref.read(freightBookingProvider).valueOrNull ?? [];
           final duplicate = existingBookings.where((b) => b.importFileId == _selectedImportFileId && b.isActive).toList();
           if (duplicate.isNotEmpty) {
             _showDuplicateBookingWarningDialog(duplicate.first);
@@ -1226,10 +1285,10 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
   void _showDuplicateBookingWarningDialog(ShipmentBookingModel existing) {
     final l = AppLocalizations.of(context);
-    final importFiles = ref.read(importFilesProvider).value ?? [];
+    final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
     final curFile = importFiles.where((f) => f.importFileId == existing.importFileId).toList();
     final fileLabel = curFile.isNotEmpty
-        ? '${curFile.first.customFileNumber ?? curFile.first.importFileCode} (${curFile.first.companyName})'
+        ? '${curFile.first.primaryNameWithCode} (${curFile.first.companyName})'
         : 'IMP-${existing.importFileId}';
 
     showDialog(
@@ -1344,6 +1403,102 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
     );
   }
 
+  double get _computedCurrentExecutedFreight {
+    double total = 0.0;
+    if (_container40ftApp) total += _container40ftPrice * (_container40ftQty > 0 ? _container40ftQty : 1);
+    if (_container20ftApp) total += _container20ftPrice * (_container20ftQty > 0 ? _container20ftQty : 1);
+    if (_lclCbmApp) total += _lclCbmPrice * _lclCbmQty;
+    if (_expressCourierApp) total += _expressCourierPrice;
+    if (_eurAtrApp) total += _eurAtrPrice;
+    if (_solasVgmApp) total += _solasVgmPrice;
+    if (_vgmNotifApp) total += _vgmNotifPrice;
+    if (_telexReleaseApp) total += _telexReleasePrice;
+    if (_insuranceApp) total += _insurancePrice;
+    if (_cancellationApp) total += _cancellationPrice;
+    if (_ics2App) total += _ics2Price;
+    if (_otherFeesApp) total += _otherFeesPrice;
+    if (_docFeesApp) total += _docFeesPrice;
+    if (_waiverApp) total += _waiverPrice;
+    if (_dthcApp) total += _dthcPrice;
+    if (_storagePerWeekApp) total += _storagePerWeekPrice;
+    if (_extraDayStorageApp) total += _extraDayStoragePrice;
+    return total;
+  }
+
+  Widget _buildLiveSavingsFormBanner(AppLocalizations l) {
+    if (_originalQuoteTotalUsd == null || _originalQuoteTotalUsd! <= 0) {
+      return const SizedBox.shrink();
+    }
+    final orig = _originalQuoteTotalUsd!;
+    final exec = _computedCurrentExecutedFreight;
+    final diff = (orig - exec).abs();
+    final hasSavings = exec < orig;
+    final hasIncrease = exec > orig;
+    final pct = orig > 0 ? (diff / orig * 100) : 0.0;
+
+    final primaryColor = hasSavings
+        ? AppTheme.emerald
+        : (hasIncrease ? AppTheme.crimson : AppTheme.cobalt);
+    final bgColor = hasSavings
+        ? const Color(0xFFF0FDF4)
+        : (hasIncrease ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC));
+    final borderColor = hasSavings
+        ? Colors.green.shade300
+        : (hasIncrease ? Colors.red.shade300 : Colors.blueGrey.shade200);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                hasSavings
+                    ? Icons.savings_outlined
+                    : (hasIncrease ? Icons.trending_up : Icons.compare_arrows),
+                color: primaryColor,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  hasSavings
+                      ? '🎉 ${l.freightBookingCostSavingsTitle}'
+                      : (hasIncrease
+                          ? '⚠️ ${l.freightBookingCostIncreaseTitle}'
+                          : l.freightBookingNoPriceVariance),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: primaryColor),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: primaryColor, borderRadius: BorderRadius.circular(12)),
+                child: Text(
+                  hasSavings
+                      ? 'توفير: \$${diff.toStringAsFixed(2)} (${pct.toStringAsFixed(1)}%)'
+                      : (hasIncrease ? 'زيادة: \$${diff.toStringAsFixed(2)}' : 'مطابق'),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '• ${l.freightBookingOriginalQuotedPrice}: \$${orig.toStringAsFixed(2)}  ➔  ${l.freightBookingExecutedPrice}: \$${exec.toStringAsFixed(2)}',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCostItemRow({
     required BuildContext context,
     required String title,
@@ -1449,9 +1604,9 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
   @override
   Widget build(BuildContext context) {
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
-    final partners = ref.watch(allPartnersProvider).value ?? ref.watch(partnersProvider).value ?? [];
-    final ports = ref.watch(transportLocationsProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final partners = ref.watch(allPartnersProvider).valueOrNull ?? ref.watch(partnersProvider).valueOrNull ?? [];
+    final ports = ref.watch(transportLocationsProvider).valueOrNull ?? [];
     final shippingSessions = ref.watch(shippingScenariosProvider).sessions;
     final poList = ref.watch(purchaseOrdersProvider).purchaseOrders;
 
@@ -1557,7 +1712,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                     items: importFiles
                                         .map((f) => SearchableDropdownItem<int?>(
                                               value: f.importFileId,
-                                              label: '${f.customFileNumber ?? f.importFileCode} (${f.companyName})',
+                                              label: '${f.primaryNameWithCode} (${f.companyName})',
                                               subtitle: f.supplierName,
                                             ))
                                         .toList(),
@@ -1567,7 +1722,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                         return;
                                       }
                                       // Check if there is already an active booking for this file
-                                      final existingBookings = ref.read(freightBookingProvider).value ?? [];
+                                      final existingBookings = ref.read(freightBookingProvider).valueOrNull ?? [];
                                       final duplicate = existingBookings.where((b) =>
                                           b.importFileId == val &&
                                           b.isActive &&
@@ -2104,6 +2259,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                               ],
                             ),
                             const SizedBox(height: 12),
+                            _buildLiveSavingsFormBanner(l),
 
                             // 1. Container 40ft
                             _buildCostItemRow(
@@ -2416,11 +2572,12 @@ class _FreightBookingViewDialog extends StatelessWidget {
       content: SizedBox(
         width: 750,
         height: 520,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header Card
+        child: SelectionArea(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Card
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: Colors.blueGrey.shade50, borderRadius: BorderRadius.circular(8)),
@@ -2529,13 +2686,288 @@ class _FreightBookingViewDialog extends StatelessWidget {
                   Text('\$ ${booking.totalFreightCostUsd.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.emerald)),
                 ],
               ),
+              if (booking.originalFreightCostUsd > 0 ||
+                  booking.costSavingsUsd > 0 ||
+                  booking.costVarianceUsd != 0.0)
+                _buildCostSavingsComparisonCard(context, l),
             ],
           ),
+        ),
         ),
       ),
       actions: [
         ElevatedButton(onPressed: () => Navigator.pop(context), child: Text(l.close)),
       ],
+    );
+  }
+
+  Widget _buildCostSavingsComparisonCard(BuildContext context, AppLocalizations l) {
+    final orig = booking.originalFreightCostUsd;
+    final exec = booking.totalFreightCostUsd;
+    final diff = (orig - exec).abs();
+    final hasSavings = booking.hasSavings || (orig > 0 && exec < orig);
+    final hasIncrease = booking.hasCostIncrease || (orig > 0 && exec > orig);
+    final pct = orig > 0 ? (diff / orig * 100) : 0.0;
+
+    final primaryColor = hasSavings
+        ? AppTheme.emerald
+        : (hasIncrease ? AppTheme.crimson : AppTheme.cobalt);
+    final bgColor = hasSavings
+        ? const Color(0xFFF0FDF4)
+        : (hasIncrease ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC));
+    final borderColor = hasSavings
+        ? Colors.green.shade300
+        : (hasIncrease ? Colors.red.shade300 : Colors.blueGrey.shade200);
+
+    final breakdownList = (booking.quotationDetailsData['savings_breakdown'] as List<dynamic>?) ?? [];
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withOpacity(0.08),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  hasSavings
+                      ? Icons.savings_outlined
+                      : (hasIncrease ? Icons.trending_up : Icons.compare_arrows),
+                  color: primaryColor,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hasSavings
+                          ? l.freightBookingCostSavingsTitle
+                          : (hasIncrease
+                              ? l.freightBookingCostIncreaseTitle
+                              : l.freightBookingNoPriceVariance),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: primaryColor,
+                      ),
+                    ),
+                    if (booking.scenarioProviderName != null && booking.scenarioProviderName!.isNotEmpty)
+                      Text(
+                        l.freightBookingBasedOnQuote(booking.scenarioProviderName!),
+                        style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: primaryColor,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  hasSavings
+                      ? l.freightBookingCostSavingsBadgeAmount(diff.toStringAsFixed(2), pct.toStringAsFixed(1))
+                      : (hasIncrease
+                          ? l.freightBookingCostIncreaseBadgeAmount(diff.toStringAsFixed(2))
+                          : l.freightBookingCostMatchBadge),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+
+          // 3-Column Comparison: Original Quoted Price | Executed Booking Price | Net Difference
+          Row(
+            children: [
+              // Column 1: Original Quoted Price
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l.freightBookingOriginalQuotedPrice,
+                        style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '\$ ${orig.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.charcoal,
+                          decoration: TextDecoration.lineThrough,
+                          decorationColor: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Column 2: Executed Booking Price
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l.freightBookingExecutedPrice,
+                        style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '\$ ${exec.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.cobalt,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Column 3: Savings / Variance
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: hasSavings ? Colors.green.shade50 : (hasIncrease ? Colors.red.shade50 : Colors.grey.shade50),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: primaryColor.withOpacity(0.4)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hasSavings ? l.freightBookingCostSavingsBadge : (hasIncrease ? l.freightBookingCostIncreaseBadge : l.freightBookingNetDifference),
+                        style: TextStyle(fontSize: 11, color: primaryColor, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${hasSavings ? "-" : "+"}\$ ${diff.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Savings breakdown or Multiplier Details
+          if (breakdownList.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l.freightBookingBreakdownHeader,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                  const SizedBox(height: 4),
+                  ...breakdownList.map((item) {
+                    final cName = item['charge_type'] ?? '';
+                    final oRate = (item['original_unit_rate'] as num?)?.toDouble() ?? 0.0;
+                    final eRate = (item['executed_unit_rate'] as num?)?.toDouble() ?? 0.0;
+                    final uDiff = (item['unit_diff'] as num?)?.toDouble() ?? 0.0;
+                    final qty = item['quantity'] ?? 1;
+                    final uType = item['unit_type'] ?? '';
+                    final iSavings = (item['item_savings'] as num?)?.toDouble() ?? 0.0;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text(
+                        l.freightBookingBreakdownSavingsUnit(
+                          cName,
+                          oRate.toStringAsFixed(2),
+                          eRate.toStringAsFixed(2),
+                          uDiff.toStringAsFixed(2),
+                          qty.toString(),
+                          uType,
+                          iSavings.toStringAsFixed(2),
+                        ),
+                        style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.w600),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ] else if (booking.savingsNotes != null && booking.savingsNotes!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Text(
+                '💡 ${booking.savingsNotes}',
+                style: TextStyle(fontSize: 11, color: primaryColor, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -2566,21 +2998,22 @@ class _FreightBookingPrintDialog extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.grey.shade400),
           ),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Column(
-                    children: [
-                      const Text('IMPORTFLOW ERP - CARRIER BOOKING CONFIRMATION', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1.1)),
-                      Text(l.freightBookingPrintManifestHeader(booking.bookingCode), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      Text(l.freightBookingPrintDate(DateTime.now().toIso8601String().substring(0, 16).replaceAll("T", " ")), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                    ],
+          child: SelectionArea(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Column(
+                      children: [
+                        Text(l.freightBookingPrintSystemHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1.1)),
+                        Text(l.freightBookingPrintManifestHeader(booking.bookingCode), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        Text(l.freightBookingPrintDate(DateTime.now().toIso8601String().substring(0, 16).replaceAll("T", " ")), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                      ],
+                    ),
                   ),
-                ),
-                const Divider(thickness: 1.5),
-                const SizedBox(height: 8),
+                  const Divider(thickness: 1.5),
+                  const SizedBox(height: 8),
 
                 Row(
                   children: [
@@ -2621,13 +3054,57 @@ class _FreightBookingPrintDialog extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: Text(l.freightBookingPrintGrandTotal(booking.totalFreightCostUsd.toStringAsFixed(2)), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.emerald)),
                 ),
+                if (booking.originalFreightCostUsd > 0 || booking.costSavingsUsd > 0) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.green.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.savings_outlined, color: Colors.green, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${l.freightBookingOriginalQuotedPrice}: \$${booking.originalFreightCostUsd.toStringAsFixed(2)} | ${l.freightBookingExecutedPrice}: \$${booking.totalFreightCostUsd.toStringAsFixed(2)} | ${l.freightBookingCostSavingsBadge}: \$${booking.costSavingsUsd.toStringAsFixed(2)} (${booking.savingsPercent.toStringAsFixed(1)}%)',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.green),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
+          ),
           ),
         ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: Text(l.close)),
+        TextButton.icon(
+          icon: const Icon(Icons.copy_outlined, size: 16),
+          label: Text(l.copyTooltip),
+          onPressed: () {
+            final lines = <String>[
+              l.freightBookingPrintSystemHeader,
+              '${l.freightBookingColBookingCode}: ${booking.bookingCode}',
+              '${l.freightBookingViewShippingLine} ${booking.shippingLineName ?? "-"}',
+              '${l.freightBookingViewConfirmNo} ${booking.bookingConfirmationNo ?? "-"}',
+              '${l.freightBookingColRoute}: ${booking.polName ?? "-"} → ${booking.podName ?? "-"}',
+              '${l.freightBookingColVesselVoyage}: ${booking.vesselName ?? "-"} / ${booking.voyageNumber ?? "-"}',
+              l.freightBookingViewEtd(booking.etd != null ? booking.etd!.substring(0, 10) : '-'),
+              l.freightBookingViewEta(booking.eta != null ? booking.eta!.substring(0, 10) : '-'),
+              ...booking.containersData.expand((c) => c.individualContainers.map((i) => '${c.containerType} | ${i.containerNumber} | ${i.sealNumber}')),
+              ...booking.costChargesData.map((ch) => '${ch.chargeType}: ${ch.total.toStringAsFixed(2)} ${ch.currency}'),
+              '${l.freightBookingViewTotalFreight}: \$${booking.totalFreightCostUsd.toStringAsFixed(2)}',
+            ];
+            CopyHelper.copy(context, lines.join('\n'));
+          },
+        ),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
           onPressed: () {

@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/providers/ai_assistant_provider.dart';
 import 'package:frontend/core/providers/workspace_tabs_provider.dart';
 import 'package:frontend/core/widgets/ai_assistant_panel.dart';
 
 void main() {
+  setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('AI Assistant & Multi-Screen Workspace Tests', () {
     test('WorkspaceTabsNotifier enforces max 10 tabs limit', () {
       final container = ProviderContainer();
@@ -65,6 +71,36 @@ void main() {
 
       notifier.togglePanel();
       expect(container.read(aiAssistantProvider).isPanelOpen, isFalse);
+    });
+
+    test('AiAssistantNotifier loads default API key and supports clearApiKey', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(aiAssistantProvider.notifier);
+      // Wait for initial load
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final state = container.read(aiAssistantProvider);
+      expect(state.hasApiKey, isTrue);
+      expect(state.apiKey, AiAssistantNotifier.defaultApiKey);
+      expect(state.messages.isNotEmpty, isTrue);
+      expect(state.messages.first.id, 'welcome');
+
+      // Test clear
+      await notifier.clearApiKey();
+      final clearedState = container.read(aiAssistantProvider);
+      expect(clearedState.hasApiKey, isFalse);
+      expect(clearedState.apiKey, isNull);
+    });
+
+    test('AiAssistantNotifier maintains robust fallback models chain against 503 high demand', () {
+      expect(AiAssistantNotifier.kSupportedModels, contains('gemini-flash-latest'));
+      expect(AiAssistantNotifier.kSupportedModels, contains('gemini-3.6-flash'));
+      expect(AiAssistantNotifier.kSupportedModels, contains('gemini-3.7-flash'));
+      expect(AiAssistantNotifier.kSupportedModels, contains('gemini-3.1-flash-lite'));
+      // First model should be gemini-flash-latest for best load balancing
+      expect(AiAssistantNotifier.kSupportedModels.first, equals('gemini-flash-latest'));
     });
 
     testWidgets('AiAssistantOverlay renders floating button and greeting bubble', (tester) async {

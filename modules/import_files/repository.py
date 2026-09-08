@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from modules.import_files.model import ImportFile
+from modules.external_service_providers.model import ExternalServiceProvider
 
 
 def generate_import_file_code(db: Session) -> str:
@@ -257,11 +258,11 @@ def get_operational_dashboard_data(
     shipments = query.order_by(ImportFile.import_file_id.desc()).all()
     shipment_count = len(shipments)
 
-    # Calculate Phase distribution across all active files
-    all_active = db.query(ImportFile).filter(ImportFile.is_active == True).all()
+    # Calculate Phase distribution across all active files using lightweight column query
+    active_stages = db.query(ImportFile.current_module, ImportFile.current_stage).filter(ImportFile.is_active == True).all()
     phase_counts = {f"Phase {i}": 0 for i in range(1, 11)}
-    for file in all_active:
-        stage_text = f"{file.current_module} {file.current_stage}"
+    for mod, stg in active_stages:
+        stage_text = f"{mod or ''} {stg or ''}"
         for i in range(1, 11):
             if f"Phase {i}" in stage_text:
                 phase_counts[f"Phase {i}"] += 1
@@ -273,7 +274,6 @@ def get_operational_dashboard_data(
         ImportFile.broker_name != "",
     ).distinct().all()
 
-    from modules.external_service_providers.model import ExternalServiceProvider
     ext_brokers = db.query(ExternalServiceProvider).filter(
         ExternalServiceProvider.is_active == True,
         ExternalServiceProvider.partner_type == "Customs Broker",

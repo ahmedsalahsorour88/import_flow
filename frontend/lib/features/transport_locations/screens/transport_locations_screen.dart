@@ -29,9 +29,17 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(transportLocationsProvider.notifier).fetchLocations();
-    });
+    if (!ref.read(transportLocationsProvider).isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(transportLocationsProvider.notifier).fetchLocations();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   String _getLocationTypeLabel(String type, AppLocalizations l10n) {
@@ -155,48 +163,58 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                 // Search Input
                 SizedBox(
                   width: 320,
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: l10n.searchTransportLocationsHint,
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() {
-                                  _searchQuery = '';
-                                  _currentPage = 1;
-                                });
-                                ref.read(transportLocationsProvider.notifier).fetchLocations(
-                                      locationType: _selectedType,
-                                      search: '',
-                                    );
-                              },
-                            )
-                          : null,
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                    ),
-                    onChanged: (val) {
-                      setState(() {
-                        _searchQuery = val;
-                        _currentPage = 1;
-                      });
-                      ref.read(transportLocationsProvider.notifier).fetchLocations(
-                            locationType: _selectedType,
-                            search: val,
-                          );
+                  child: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _searchController,
+                    builder: (context, val, _) {
+                      return TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: l10n.searchTransportLocationsHint,
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          suffixIcon: val.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      _searchQuery = '';
+                                      _currentPage = 1;
+                                    });
+                                    ref
+                                        .read(transportLocationsProvider.notifier)
+                                        .fetchLocations(
+                                          locationType: _selectedType,
+                                          search: '',
+                                        );
+                                  },
+                                ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                              vertical: 10, horizontal: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                        ),
+                        onChanged: (v) {
+                          setState(() {
+                            _searchQuery = v;
+                            _currentPage = 1;
+                          });
+                          ref
+                              .read(transportLocationsProvider.notifier)
+                              .fetchLocations(
+                                locationType: _selectedType,
+                                search: v,
+                              );
+                        },
+                      );
                     },
                   ),
                 ),
@@ -588,132 +606,192 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
     final cityCtrl = TextEditingController(text: location?.city ?? '');
     final notesCtrl = TextEditingController(text: location?.notes ?? '');
 
+    bool isSubmitting = false;
+
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text(location == null ? l10n.addLocationDialogTitle : l10n.editLocationDialogTitle(location.unLocode)),
-        content: SizedBox(
-          width: 500,
-          child: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: locodeCtrl,
-                          enabled: location == null,
-                          decoration: InputDecoration(
-                            labelText: l10n.unLocodeLabel,
-                            hintText: l10n.unLocodeHint,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(location == null
+              ? l10n.addLocationDialogTitle
+              : l10n.editLocationDialogTitle(location.unLocode)),
+          content: SizedBox(
+            width: 500,
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: locodeCtrl,
+                            enabled: location == null,
+                            decoration: InputDecoration(
+                              labelText: l10n.unLocodeLabel,
+                              hintText: l10n.unLocodeHint,
+                            ),
+                            validator: (v) =>
+                                v == null || v.trim().isEmpty
+                                    ? l10n.requiredField
+                                    : null,
                           ),
-                          validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SearchableDropdownField<String>(
-                          value: selectedType,
-                          labelText: l10n.locationTypeLabel,
-                          items: ['Sea Port', 'Airport', 'Dry Port', 'Land Border', 'ICD', 'Rail Terminal']
-                              .map((t) => SearchableDropdownItem<String>(value: t, label: _getLocationTypeLabel(t, l10n)))
-                              .toList(),
-                          onChanged: (v) => selectedType = v ?? 'Sea Port',
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SearchableDropdownField<String>(
+                            value: selectedType,
+                            labelText: l10n.locationTypeLabel,
+                            items: [
+                              'Sea Port',
+                              'Airport',
+                              'Dry Port',
+                              'Land Border',
+                              'ICD',
+                              'Rail Terminal'
+                            ]
+                                .map((t) => SearchableDropdownItem<String>(
+                                    value: t,
+                                    label: _getLocationTypeLabel(t, l10n)))
+                                .toList(),
+                            onChanged: (v) => selectedType = v ?? 'Sea Port',
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: nameCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.locationNameLabel,
-                      hintText: l10n.locationNameHint,
+                      ],
                     ),
-                    validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: countryCtrl,
-                          decoration: InputDecoration(
-                            labelText: l10n.countryLabelRequired,
-                            hintText: l10n.countryHint,
-                          ),
-                          validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
-                        ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.locationNameLabel,
+                        hintText: l10n.locationNameHint,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: cityCtrl,
-                          decoration: InputDecoration(
-                            labelText: l10n.cityLabelRequired,
-                            hintText: l10n.cityHint,
-                          ),
-                          validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: notesCtrl,
-                    maxLines: 2,
-                    decoration: InputDecoration(
-                      labelText: l10n.locationNotesLabel,
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty
+                              ? l10n.requiredField
+                              : null,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: countryCtrl,
+                            decoration: InputDecoration(
+                              labelText: l10n.countryLabelRequired,
+                              hintText: l10n.countryHint,
+                            ),
+                            validator: (v) =>
+                                v == null || v.trim().isEmpty
+                                    ? l10n.requiredField
+                                    : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: cityCtrl,
+                            decoration: InputDecoration(
+                              labelText: l10n.cityLabelRequired,
+                              hintText: l10n.cityHint,
+                            ),
+                            validator: (v) =>
+                                v == null || v.trim().isEmpty
+                                    ? l10n.requiredField
+                                    : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: notesCtrl,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        labelText: l10n.locationNotesLabel,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
+              child: Text(l10n.cancel),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.cobalt,
+                  foregroundColor: Colors.white),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      if (formKey.currentState!.validate()) {
+                        setDialogState(() => isSubmitting = true);
+                        try {
+                          if (location == null) {
+                            final newModel = TransportLocationModel(
+                              unLocode: locodeCtrl.text.trim().toUpperCase(),
+                              locationName: nameCtrl.text.trim(),
+                              locationType: selectedType,
+                              country: countryCtrl.text.trim(),
+                              city: cityCtrl.text.trim(),
+                              notes: notesCtrl.text.trim().isEmpty
+                                  ? null
+                                  : notesCtrl.text.trim(),
+                            );
+                            final ok = await ref
+                                .read(transportLocationsProvider.notifier)
+                                .createLocation(newModel);
+                            if (ok && context.mounted) Navigator.pop(dialogCtx);
+                          } else {
+                            final updateData = {
+                              'location_name': nameCtrl.text.trim(),
+                              'location_type': selectedType,
+                              'country': countryCtrl.text.trim(),
+                              'city': cityCtrl.text.trim(),
+                              'notes': notesCtrl.text.trim().isEmpty
+                                  ? null
+                                  : notesCtrl.text.trim(),
+                            };
+                            final ok = await ref
+                                .read(transportLocationsProvider.notifier)
+                                .updateLocation(
+                                    location.locationId!, updateData);
+                            if (ok && context.mounted) Navigator.pop(dialogCtx);
+                          }
+                        } finally {
+                          if (context.mounted) {
+                            setDialogState(() => isSubmitting = false);
+                          }
+                        }
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(location == null
+                      ? l10n.createLocationSubmitBtn
+                      : l10n.saveChangesSubmitBtn),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: Text(l10n.cancel),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-            onPressed: () async {
-              if (formKey.currentState!.validate()) {
-                if (location == null) {
-                  final newModel = TransportLocationModel(
-                    unLocode: locodeCtrl.text.trim().toUpperCase(),
-                    locationName: nameCtrl.text.trim(),
-                    locationType: selectedType,
-                    country: countryCtrl.text.trim(),
-                    city: cityCtrl.text.trim(),
-                    notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-                  );
-                  final ok = await ref.read(transportLocationsProvider.notifier).createLocation(newModel);
-                  if (ok && context.mounted) Navigator.pop(dialogCtx);
-                } else {
-                  final updateData = {
-                    'location_name': nameCtrl.text.trim(),
-                    'location_type': selectedType,
-                    'country': countryCtrl.text.trim(),
-                    'city': cityCtrl.text.trim(),
-                    'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-                  };
-                  final ok = await ref
-                      .read(transportLocationsProvider.notifier)
-                      .updateLocation(location.locationId!, updateData);
-                  if (ok && context.mounted) Navigator.pop(dialogCtx);
-                }
-              }
-            },
-            child: Text(location == null ? l10n.createLocationSubmitBtn : l10n.saveChangesSubmitBtn),
-          ),
-        ],
       ),
-    );
+    ).then((_) {
+      locodeCtrl.dispose();
+      nameCtrl.dispose();
+      countryCtrl.dispose();
+      cityCtrl.dispose();
+      notesCtrl.dispose();
+    });
   }
 
   Future<void> _handleExcelImport(BuildContext context, WidgetRef ref) async {

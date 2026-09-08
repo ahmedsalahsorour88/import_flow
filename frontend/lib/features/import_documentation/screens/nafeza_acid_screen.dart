@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
@@ -110,14 +111,39 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
     });
   }
 
+  @override
+  void didUpdateWidget(NafezaAcidScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialSubTab != widget.initialSubTab) {
+      setState(() => _selectedSubTab = widget.initialSubTab);
+    }
+    if (oldWidget.initialImportFileId != widget.initialImportFileId) {
+      _onImportFileChanged(widget.initialImportFileId);
+    }
+  }
+
   void _refreshData() {
-    ref.read(importFilesProvider.notifier).fetchImportFiles();
-    ref.read(importCompaniesProvider.notifier).fetchCompanies();
-    ref.read(suppliersProvider.notifier).fetchSuppliers();
-    ref.read(partnersProvider.notifier).fetchPartners();
-    ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
-    ref.read(acidSessionsProvider.notifier).fetchAcidSessions();
-    ref.read(acidTrackerProvider.notifier).fetchAcidTracker();
+    if (!ref.read(importFilesProvider).isLoading) {
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    }
+    if (!ref.read(importCompaniesProvider).isLoading) {
+      ref.read(importCompaniesProvider.notifier).fetchCompanies();
+    }
+    if (!ref.read(suppliersProvider).isLoading) {
+      ref.read(suppliersProvider.notifier).fetchSuppliers();
+    }
+    if (!ref.read(partnersProvider).isLoading) {
+      ref.read(partnersProvider.notifier).fetchPartners();
+    }
+    if (!ref.read(purchaseOrdersProvider).isLoading) {
+      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+    }
+    if (!ref.read(acidSessionsProvider).isLoading) {
+      ref.read(acidSessionsProvider.notifier).fetchAcidSessions();
+    }
+    if (!ref.read(acidTrackerProvider).isLoading) {
+      ref.read(acidTrackerProvider.notifier).fetchAcidTracker();
+    }
   }
 
   @override
@@ -160,12 +186,12 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
       return;
     }
 
-    final files = ref.read(importFilesProvider).value ?? [];
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
     final file = files.where((f) => f.importFileId == fileId).firstOrNull;
     if (file == null) return;
 
     // Check if an existing ACID session exists for this import file
-    final sessions = ref.read(acidSessionsProvider).value ?? [];
+    final sessions = ref.read(acidSessionsProvider).valueOrNull ?? [];
     final existingSession = sessions.where((s) => s.importFileId == fileId && s.isActive).firstOrNull;
     if (existingSession != null) {
       _editingAcidSessionId = existingSession.acidId;
@@ -179,7 +205,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
     }
 
     // Importer
-    final companies = ref.read(importCompaniesProvider).value ?? [];
+    final companies = ref.read(importCompaniesProvider).valueOrNull ?? [];
     final matchedComp = companies.where((c) => c.companyId == file.companyId).firstOrNull;
     if (matchedComp != null) {
       _selectedImporterId = matchedComp.companyId;
@@ -191,7 +217,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
     }
 
     // Exporter
-    final suppliers = ref.read(suppliersProvider).value ?? [];
+    final suppliers = ref.read(suppliersProvider).valueOrNull ?? [];
     final matchedSupp = suppliers.where((s) => s.supplierId == file.supplierId).firstOrNull;
     if (matchedSupp != null) {
       _selectedSupplierId = matchedSupp.supplierId;
@@ -208,7 +234,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
     }
 
     // Broker
-    final partners = ref.read(partnersProvider).value ?? [];
+    final partners = ref.read(partnersProvider).valueOrNull ?? [];
     final matchedBroker = partners.where((p) => p.providerId == file.brokerId).firstOrNull;
     if (matchedBroker != null) {
       _selectedBrokerId = matchedBroker.providerId;
@@ -216,17 +242,35 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
       _brokerPhoneCtrl.text = matchedBroker.phone ?? '';
     }
 
-    // PO
+    // PO & Proforma
     final pos = ref.read(purchaseOrdersProvider).purchaseOrders;
     final matchedPo = pos.where((p) => p.importFileId == fileId).firstOrNull;
     if (matchedPo != null) {
       _selectedPoId = matchedPo.poId;
-      _poNoCtrl.text = matchedPo.poNumber;
       _poDateCtrl.text = matchedPo.orderDate != null ? matchedPo.orderDate!.toIso8601String().substring(0, 10) : '';
-      _proformaNoCtrl.text = (file.piNumber != null && file.piNumber!.isNotEmpty) ? file.piNumber! : 'PI-${matchedPo.poNumber}';
     } else {
-      _poNoCtrl.text = (file.poNumber != null && file.poNumber!.isNotEmpty) ? file.poNumber! : 'PO-${file.importFileCode}';
-      _proformaNoCtrl.text = (file.piNumber != null && file.piNumber!.isNotEmpty) ? file.piNumber! : 'PI-${file.importFileCode}';
+      _selectedPoId = null;
+      _poDateCtrl.text = '';
+    }
+
+    if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
+      _poNoCtrl.text = file.poNumber!.trim();
+    } else if (matchedPo != null) {
+      _poNoCtrl.text = (matchedPo.poReference != null && matchedPo.poReference!.trim().isNotEmpty)
+          ? matchedPo.poReference!.trim()
+          : matchedPo.poNumber;
+    } else {
+      _poNoCtrl.text = '';
+    }
+
+    if (file.piNumber != null && file.piNumber!.trim().isNotEmpty) {
+      _proformaNoCtrl.text = file.piNumber!.trim();
+    } else if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
+      _proformaNoCtrl.text = file.poNumber!.trim();
+    } else if (matchedPo != null && matchedPo.proformaInvoiceNumber != null && matchedPo.proformaInvoiceNumber!.isNotEmpty) {
+      _proformaNoCtrl.text = matchedPo.proformaInvoiceNumber!;
+    } else {
+      _proformaNoCtrl.text = '';
     }
 
     if (_polCtrl.text.isEmpty || _polCtrl.text == 'Shanghai Port (CNSHA)') {
@@ -239,8 +283,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final acidSessions = ref.watch(acidSessionsProvider).value ?? [];
-    final trackerSummary = ref.watch(acidTrackerProvider).value;
+    final acidSessions = ref.watch(acidSessionsProvider).valueOrNull ?? [];
+    final trackerSummary = ref.watch(acidTrackerProvider).valueOrNull;
     final trackerItems = trackerSummary?.items ?? [];
 
     final tabs = [
@@ -366,10 +410,10 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
 
   // --- SUB-VIEW 0: ACID REQUEST FORM ---
   Widget _buildAcidRequestTab() {
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
-    final importCompanies = ref.watch(importCompaniesProvider).value ?? [];
-    final suppliers = ref.watch(suppliersProvider).value ?? [];
-    final partners = ref.watch(partnersProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final importCompanies = ref.watch(importCompaniesProvider).valueOrNull ?? [];
+    final suppliers = ref.watch(suppliersProvider).valueOrNull ?? [];
+    final partners = ref.watch(partnersProvider).valueOrNull ?? [];
     final brokers = partners.where((p) => p.partnerType.contains('Broker') || p.partnerType.contains('مخلص')).toList();
 
     return Form(
@@ -418,13 +462,13 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        CopyableText(
                           '${context.l10n.activeEditModeBanner}: ${_editingAcidCode ?? ''}',
                           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900, fontSize: 13.5),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          context.l10n.savePaymentChangesButton,
+                          context.l10n.acidSessionLoadedForEdit(_editingAcidCode ?? ''),
                           style: const TextStyle(fontSize: 12, color: Colors.black87),
                         ),
                       ],
@@ -461,7 +505,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
               isRequired: true,
               items: importFiles.map((f) => SearchableDropdownItem<int>(
                 value: f.importFileId,
-                label: '${f.importFileCode} — ${f.supplierName} (${f.companyName})',
+                label: '${f.primaryNameWithCode}${f.poNumber != null && f.poNumber!.isNotEmpty ? " [PO: ${f.poNumber!}]" : ""} — ${f.supplierName} (${f.companyName})',
               )).toList(),
               onChanged: _onImportFileChanged,
             ),
@@ -583,14 +627,14 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: DropdownButtonFormField<String>(
+                                child: SearchableDropdownField<String>(
                                   value: _exporterRegType,
-                                  decoration: InputDecoration(labelText: context.l10n.regTypeLabel, border: const OutlineInputBorder()),
-                                  items: const [
-                                    DropdownMenuItem(value: 'VAT Number', child: Text('VAT')),
-                                    DropdownMenuItem(value: 'Commercial Register', child: Text('CR')),
-                                    DropdownMenuItem(value: 'Tax ID', child: Text('Tax ID')),
-                                    DropdownMenuItem(value: 'DUNS Number', child: Text('DUNS')),
+                                  labelText: context.l10n.regTypeLabel,
+                                  items: [
+                                    SearchableDropdownItem(value: 'VAT Number', label: context.l10n.vatRegType),
+                                    SearchableDropdownItem(value: 'Commercial Register', label: context.l10n.crRegType),
+                                    SearchableDropdownItem(value: 'Tax ID', label: context.l10n.taxIdRegType),
+                                    SearchableDropdownItem(value: 'DUNS Number', label: context.l10n.dunsRegType),
                                   ],
                                   onChanged: (val) => setState(() => _exporterRegType = val ?? 'VAT Number'),
                                 ),
@@ -674,12 +718,12 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                     ),
                     const SizedBox(width: 14),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownField<String>(
                         value: _invoiceType,
-                        decoration: InputDecoration(labelText: context.l10n.invoiceTypeLabel, border: const OutlineInputBorder()),
+                        labelText: context.l10n.invoiceTypeLabel,
                         items: [
-                          DropdownMenuItem(value: 'Proforma Invoice', child: Text(context.l10n.proformaInvoiceNoLabel)),
-                          const DropdownMenuItem(value: 'Commercial Invoice', child: Text('Commercial Invoice')),
+                          SearchableDropdownItem(value: 'Proforma Invoice', label: context.l10n.proformaInvoiceLabel),
+                          SearchableDropdownItem(value: 'Commercial Invoice', label: context.l10n.commercialInvoiceLabel),
                         ],
                         onChanged: (val) => setState(() => _invoiceType = val ?? 'Proforma Invoice'),
                       ),
@@ -835,10 +879,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: _buildWhatsAppMessage()));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('✅ WhatsApp Message Copied'), backgroundColor: AppTheme.emerald),
-                        );
+                        CopyHelper.copy(context, _buildWhatsAppMessage(), customMessage: context.l10n.whatsAppMessageCopied);
                       },
                       icon: const Icon(Icons.copy, size: 16),
                       label: Text(context.l10n.copyArabicWhatsApp, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -851,10 +892,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: _buildEnglishRequestMessage()));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('✅ ACID Request Message Copied (English)'), backgroundColor: AppTheme.emerald),
-                        );
+                        CopyHelper.copy(context, _buildEnglishRequestMessage(), customMessage: context.l10n.acidRequestCopied);
                       },
                       icon: const Icon(Icons.language, size: 16),
                       label: Text(context.l10n.copyEnglishRequest, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -866,10 +904,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       ),
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: _buildEmailMessage()));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('✅ Email Template Copied'), backgroundColor: AppTheme.emerald),
-                        );
+                        CopyHelper.copy(context, _buildEmailMessage(), customMessage: context.l10n.emailTemplateCopied);
                       },
                       icon: const Icon(Icons.email_outlined, size: 16),
                       label: Text(context.l10n.emailTemplateButton),
@@ -886,7 +921,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                     border: Border.all(color: Colors.green.shade200),
                   ),
                   child: SelectableText(
-                    _buildWhatsAppMessage(),
+                    Localizations.localeOf(context).languageCode == 'en' ? _buildEnglishRequestMessage() : _buildWhatsAppMessage(),
                     style: const TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.5, color: AppTheme.charcoal),
                   ),
                 ),
@@ -900,7 +935,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
 
   // --- SUB-VIEW 1: SMART MTS PARSER TAB ---
   Widget _buildSmartMtsParserTab() {
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -941,7 +976,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
             value: _selectedImportFileId,
             items: importFiles.map((f) => SearchableDropdownItem<int>(
               value: f.importFileId,
-              label: '${f.importFileCode} — ${f.supplierName}',
+              label: '${f.primaryNameWithCode}${f.poNumber != null && f.poNumber!.isNotEmpty ? " [PO: ${f.poNumber!}]" : ""} — ${f.supplierName}',
             )).toList(),
             onChanged: (val) => _onImportFileChanged(val),
           ),
@@ -989,11 +1024,11 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
               TextField(
                 controller: _rawMtsTextCtrl,
                 maxLines: 8,
-                decoration: const InputDecoration(
-                  hintText: 'MTS Notification [ACID: 19 digits]...',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  hintText: context.l10n.mtsNotificationHint,
+                  border: const OutlineInputBorder(),
                   filled: true,
-                  fillColor: Color(0xFFFAFAFA),
+                  fillColor: const Color(0xFFFAFAFA),
                 ),
               ),
               const SizedBox(height: 16),
@@ -1166,7 +1201,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
         children: [
           Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
           const SizedBox(height: 2),
-          Text(val, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+          CopyableText(val, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
         ],
       ),
     );
@@ -1174,7 +1209,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
 
   // --- SUB-VIEW 2: DISCREPANCY MATRIX TAB ---
   Widget _buildDiscrepancyMatrixTab() {
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1196,7 +1231,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                   value: _selectedImportFileId,
                   items: importFiles.map((f) => SearchableDropdownItem<int>(
                     value: f.importFileId,
-                    label: '${f.importFileCode} — ${f.supplierName}',
+                    label: '${f.primaryNameWithCode}${f.poNumber != null && f.poNumber!.isNotEmpty ? " [PO: ${f.poNumber!}]" : ""} — ${f.supplierName}',
                   )).toList(),
                   onChanged: (val) {
                     _onImportFileChanged(val);
@@ -1289,9 +1324,21 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       return TableRow(
                         decoration: BoxDecoration(color: item.isMatched ? Colors.white : Colors.red.shade50.withOpacity(0.5)),
                         children: [
-                          Padding(padding: const EdgeInsets.all(10), child: Text(item.labelAr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                          Padding(padding: const EdgeInsets.all(10), child: Text(item.requestedValue, style: const TextStyle(fontSize: 12))),
-                          Padding(padding: const EdgeInsets.all(10), child: Text(item.generatedValue, style: const TextStyle(fontSize: 12))),
+                          Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Text(
+                              Localizations.localeOf(context).languageCode == 'en' ? item.labelEn : item.labelAr,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: CopyableText(item.requestedValue, style: const TextStyle(fontSize: 12)),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: CopyableText(item.generatedValue, style: const TextStyle(fontSize: 12)),
+                          ),
                           Padding(
                             padding: const EdgeInsets.all(10),
                             child: Row(
@@ -1315,9 +1362,9 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: _discrepancyOverrideReasonCtrl,
-                    decoration: const InputDecoration(
-                      hintText: 'Discrepancy override reason...',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: context.l10n.discrepancyOverrideReasonHint,
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1345,7 +1392,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
 
   // --- SUB-VIEW 3: ACID REGISTRY TAB ---
   Widget _buildAcidSessionsRegistryTab() {
-    final acidSessions = ref.watch(acidSessionsProvider).value ?? [];
+    final acidSessions = ref.watch(acidSessionsProvider).valueOrNull ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final filtered = acidSessions.where((s) {
       if (_acidSearchQuery.isEmpty) return true;
       return s.acidNumber.toLowerCase().contains(_acidSearchQuery.toLowerCase()) ||
@@ -1410,25 +1458,90 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
               rows: filtered.map((s) {
                 final dateStr = s.generatedDate ?? s.requestedDate ?? '';
                 final expStr = s.expiryDate ?? '';
+                final matchedFile = importFiles.where((f) => f.importFileId == s.importFileId).firstOrNull;
+                final fileLabel = matchedFile?.displayName ?? s.importFileCode ?? '-';
+                final poLabel = (s.poNumber != null && s.poNumber!.trim().isNotEmpty)
+                    ? s.poNumber!.trim()
+                    : (matchedFile?.poNumber ?? s.proformaInvoiceNo);
+                final statusLabel = s.status == 'Issued' ? context.l10n.issuedAndValidStatus : (s.status == 'DRAFT' ? context.l10n.tempDraftStatus : context.l10n.underReviewStatus);
+                final rowSummary = [
+                  s.acidNumber,
+                  fileLabel,
+                  (poLabel.isNotEmpty && poLabel != '-') ? poLabel : '',
+                  s.exporterName,
+                  s.importerName,
+                  dateStr.isNotEmpty ? dateStr.substring(0, min(10, dateStr.length)) : '-',
+                  expStr.isNotEmpty ? expStr.substring(0, min(10, expStr.length)) : '-',
+                  statusLabel,
+                ].join('\t');
+
                 return DataRow(
                   cells: [
-                    DataCell(Text(s.acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                    DataCell(Text(s.importFileCode ?? '-')),
-                    DataCell(Text(s.exporterName)),
-                    DataCell(Text(s.importerName)),
-                    DataCell(Text(dateStr.isNotEmpty ? dateStr.substring(0, min(10, dateStr.length)) : '-')),
-                    DataCell(Text(expStr.isNotEmpty ? expStr.substring(0, min(10, expStr.length)) : '-')),
                     DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: s.status == 'Issued' ? Colors.green.shade50 : Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: s.status == 'Issued' ? Colors.green.shade300 : Colors.blue.shade300),
+                      CopyableTableCell(
+                        value: s.acidNumber,
+                        rowSummary: rowSummary,
+                        child: Text(s.acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: fileLabel,
+                        rowSummary: rowSummary,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(fileLabel, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                            if (poLabel.isNotEmpty && poLabel != '-')
+                              Text('${context.l10n.poLabelPrefix}: $poLabel', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          ],
                         ),
-                        child: Text(
-                          s.status == 'Issued' ? context.l10n.issuedAndValidStatus : (s.status == 'DRAFT' ? context.l10n.tempDraftStatus : context.l10n.underReviewStatus),
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: s.status == 'Issued' ? Colors.green.shade800 : Colors.blue.shade800),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: s.exporterName,
+                        rowSummary: rowSummary,
+                        child: Text(s.exporterName),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: s.importerName,
+                        rowSummary: rowSummary,
+                        child: Text(s.importerName),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: dateStr.isNotEmpty ? dateStr.substring(0, min(10, dateStr.length)) : '-',
+                        rowSummary: rowSummary,
+                        child: Text(dateStr.isNotEmpty ? dateStr.substring(0, min(10, dateStr.length)) : '-'),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: expStr.isNotEmpty ? expStr.substring(0, min(10, expStr.length)) : '-',
+                        rowSummary: rowSummary,
+                        child: Text(expStr.isNotEmpty ? expStr.substring(0, min(10, expStr.length)) : '-'),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: statusLabel,
+                        rowSummary: rowSummary,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: s.status == 'Issued' ? Colors.green.shade50 : Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: s.status == 'Issued' ? Colors.green.shade300 : Colors.blue.shade300),
+                          ),
+                          child: Text(
+                            statusLabel,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: s.status == 'Issued' ? Colors.green.shade800 : Colors.blue.shade800),
+                          ),
                         ),
                       ),
                     ),
@@ -1461,8 +1574,9 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
 
   // --- SUB-VIEW 4: EXPIRY TRACKER TAB ---
   Widget _buildExpiryTrackerTab() {
-    final trackerSummary = ref.watch(acidTrackerProvider).value;
+    final trackerSummary = ref.watch(acidTrackerProvider).valueOrNull;
     final trackerItems = trackerSummary?.items ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     final filtered = trackerItems.where((t) {
       if (_acidSearchQuery.isEmpty) return true;
@@ -1544,29 +1658,86 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
               final days = t.daysRemaining;
               final isExp = t.status == 'Expired' || days <= 0;
               final isWarning = !isExp && days <= 14;
-
               final expDate = t.acidExpiryDate ?? '';
+              final matchedFile = importFiles.where((f) => f.importFileId == t.importFileId).firstOrNull;
+              final fileLabel = matchedFile?.displayName ?? t.importFileCode ?? '-';
+              final poLabel = (matchedFile?.poNumber != null && matchedFile!.poNumber!.isNotEmpty)
+                  ? matchedFile.poNumber!
+                  : '';
+              final statusLabel = isExp ? context.l10n.expiredStatusBadge : isWarning ? context.l10n.expiringSoonStatusBadge : context.l10n.validStatusBadge;
+              final rowSummary = [
+                t.acidNumber,
+                fileLabel,
+                poLabel,
+                t.supplierName,
+                expDate.length >= 10 ? expDate.substring(0, 10) : expDate,
+                '$days',
+                statusLabel,
+              ].join('\t');
+
               return DataRow(
                 cells: [
-                  DataCell(Text(t.acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                  DataCell(Text(t.importFileCode ?? '-')),
-                  DataCell(Text(t.supplierName)),
-                  DataCell(Text(expDate.length >= 10 ? expDate.substring(0, 10) : expDate)),
-                  DataCell(Text('$days', style: TextStyle(fontWeight: FontWeight.bold, color: isExp ? Colors.red : isWarning ? Colors.orange : Colors.green))),
                   DataCell(
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: isExp ? Colors.red.shade50 : isWarning ? Colors.orange.shade50 : Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: isExp ? Colors.red.shade300 : isWarning ? Colors.orange.shade300 : Colors.green.shade300),
+                    CopyableTableCell(
+                      value: t.acidNumber,
+                      rowSummary: rowSummary,
+                      child: Text(t.acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                    ),
+                  ),
+                  DataCell(
+                    CopyableTableCell(
+                      value: fileLabel,
+                      rowSummary: rowSummary,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(fileLabel, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                          if (poLabel.isNotEmpty)
+                            Text('${context.l10n.poLabelPrefix}: $poLabel', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        ],
                       ),
-                      child: Text(
-                        isExp ? context.l10n.expiredStatusBadge : isWarning ? context.l10n.expiringSoonStatusBadge : context.l10n.validStatusBadge,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: isExp ? Colors.red.shade900 : isWarning ? Colors.orange.shade900 : Colors.green.shade900,
+                    ),
+                  ),
+                  DataCell(
+                    CopyableTableCell(
+                      value: t.supplierName,
+                      rowSummary: rowSummary,
+                      child: Text(t.supplierName),
+                    ),
+                  ),
+                  DataCell(
+                    CopyableTableCell(
+                      value: expDate.length >= 10 ? expDate.substring(0, 10) : expDate,
+                      rowSummary: rowSummary,
+                      child: Text(expDate.length >= 10 ? expDate.substring(0, 10) : expDate),
+                    ),
+                  ),
+                  DataCell(
+                    CopyableTableCell(
+                      value: '$days',
+                      rowSummary: rowSummary,
+                      child: Text('$days', style: TextStyle(fontWeight: FontWeight.bold, color: isExp ? Colors.red : isWarning ? Colors.orange : Colors.green)),
+                    ),
+                  ),
+                  DataCell(
+                    CopyableTableCell(
+                      value: statusLabel,
+                      rowSummary: rowSummary,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isExp ? Colors.red.shade50 : isWarning ? Colors.orange.shade50 : Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: isExp ? Colors.red.shade300 : isWarning ? Colors.orange.shade300 : Colors.green.shade300),
+                        ),
+                        child: Text(
+                          statusLabel,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isExp ? Colors.red.shade900 : isWarning ? Colors.orange.shade900 : Colors.green.shade900,
+                          ),
                         ),
                       ),
                     ),
@@ -1605,13 +1776,20 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
               child: Icon(icon, color: color, size: 22),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 11.5, color: Colors.grey, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 2),
-                Text('$count', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontSize: 11.5, color: Colors.grey, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  CopyableText('$count', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+                ],
+              ),
             ),
           ],
         ),
@@ -1624,7 +1802,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
     if (!_requestFormKey.currentState!.validate()) return;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.selectImportFileFirst), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -1660,7 +1838,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
       };
 
       // Check if session exists or is in edit mode
-      final sessions = ref.read(acidSessionsProvider).value ?? [];
+      final sessions = ref.read(acidSessionsProvider).valueOrNull ?? [];
       final existing = sessions.where((s) => s.importFileId == _selectedImportFileId && s.isActive).firstOrNull;
       final targetAcidId = _editingAcidSessionId ?? existing?.acidId;
 
@@ -1669,7 +1847,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('تم تعديل وتحديث بيانات طلب ACID (${existing?.acidCode ?? _editingAcidCode ?? ''}) بنجاح'),
+              content: Text(context.l10n.acidRequestUpdatedSuccess(existing?.acidCode ?? _editingAcidCode ?? '')),
               backgroundColor: AppTheme.emerald,
             ),
           );
@@ -1682,14 +1860,14 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
         await ref.read(acidSessionsProvider.notifier).createAcidSession(payload);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تم تسجيل وحفظ طلب ACID بنجاح'), backgroundColor: AppTheme.emerald),
+            SnackBar(content: Text(context.l10n.acidRequestSavedSuccess), backgroundColor: AppTheme.emerald),
           );
           setState(() => _selectedSubTab = 1);
         }
       }
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: 'خطأ في حفظ طلب ACID', error: e);
+        showErrorDetailsDialog(context, title: context.l10n.errorSavingAcid, error: e);
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -1712,22 +1890,14 @@ Address: 44ش 18 المعادى القاهرة رقم ملف 36221ق
 
 Foreign Exporter
 Foreign Exporter Name: Suzhou Yuheng Textile Co.,Ltd
-Registration Type: Company Registration Number
 Foreign Exporter ID: 913205813141920259
-Country: CHINA
-Country Code: CN 
-Address: No.16 Kangsheng Road, Changshu,Suzhou,China 215500
-Tel. No.: 0
+Registration Type: Company Registration Number
+Country of Export: CHINA
 
-Shipment
 Proforma Invoice No.: YH20260730-6
-Proforma Invoice Date: 7/30/2026 12:00:00 AM
-Invoice Date: 8/19/2026 11:23:01 AM
-Type of invoice: Proforma Invoice
-Shipping Port: CHANGSHU
-Destination Port: Alexandria
-
-Please note that the required documents for the mentioned shipment must be uploaded from the exporter who registered with ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e on the CargoX platform.''';
+Port of Loading: CHANGSHU
+Port of Discharge: Alexandria
+CargoX Platform ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e''';
 
       if (_importerNameCtrl.text.isEmpty) _importerNameCtrl.text = 'SCAS For Construction And Finishing';
       if (_importerTaxIdCtrl.text.isEmpty) _importerTaxIdCtrl.text = '528153439';
@@ -1749,7 +1919,7 @@ Please note that the required documents for the mentioned shipment must be uploa
     final raw = _rawMtsTextCtrl.text.trim();
     if (raw.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى لصق نص نافذة أولاً'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.pasteMtsTextFirst), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -1762,24 +1932,21 @@ Please note that the required documents for the mentioned shipment must be uploa
         context: context,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 26),
-              SizedBox(width: 8),
-              Text('تنبيه: نص تذييل الإيميل فقط'),
+              const Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 26),
+              const SizedBox(width: 8),
+              Text(context.l10n.mtsNoticeDisclaimerAlertTitle),
             ],
           ),
-          content: const Text(
-            'النص الملصق يحتوي فقط على إشعار السرية وتذييل الإيميل القانوني (Email Disclaimer):\n\n'
-            '«MTS EMAIL NOTICE This Electronic Mail...»\n\n'
-            'ولا يحتوي على بيانات إشعار القيد الجمركي (رقم ACID، تاريخ الصلاحية، المصدر والمستورد).\n\n'
-            '👉 يرجى نسخ محتوى الإيميل الرئيسي من الأعلى، أو تجربة النموذج بالنقر على الزر أدناه.',
-            style: TextStyle(fontSize: 13, height: 1.5),
+          content: Text(
+            context.l10n.mtsNoticeDisclaimerAlertContent,
+            style: const TextStyle(fontSize: 13, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('إغلاق'),
+              child: Text(context.l10n.close),
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
@@ -1788,7 +1955,7 @@ Please note that the required documents for the mentioned shipment must be uploa
                 _loadSampleMtsText();
               },
               icon: const Icon(Icons.auto_fix_high, size: 16),
-              label: const Text('تحميل نص إشعار نافذة نموذجي وتجربته فوراً'),
+              label: Text(context.l10n.loadSampleMtsAndTest),
             ),
           ],
         ),
@@ -1821,7 +1988,7 @@ Please note that the required documents for the mentioned shipment must be uploa
         if (acidFound) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✅ تم استخراج رقم ACID: ${parsedFields['acid_number']} وكافة بيانات الشحنة بنجاح!'),
+              content: Text(context.l10n.acidExtractedSuccess(parsedFields['acid_number']?.toString() ?? '')),
               backgroundColor: AppTheme.emerald,
               duration: const Duration(seconds: 4),
             ),
@@ -1831,22 +1998,21 @@ Please note that the required documents for the mentioned shipment must be uploa
             context: context,
             builder: (ctx) => AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              title: const Row(
+              title: Row(
                 children: [
-                  Icon(Icons.info_outline, color: AppTheme.orange, size: 26),
-                  SizedBox(width: 8),
-                  Text('لم يتم العثور على رقم ACID في النص الملصق'),
+                  const Icon(Icons.info_outline, color: AppTheme.orange, size: 26),
+                  const SizedBox(width: 8),
+                  Text(context.l10n.mtsNoticeNoAcidAlertTitle),
                 ],
               ),
-              content: const Text(
-                'النص الذي تم لصقه ينقصه السطور العلوية الأولى من إشعار نافذة (التي تحتوي على رقم ACID المكون من 19 رقماً وتواريخ الصلاحية).\n\n'
-                '📌 للتجربة الفورية ورؤية جدول الاستخراج بالكامل، اضغط على "تحميل إشعار نافذة نموذجي".',
-                style: TextStyle(fontSize: 13, height: 1.5),
+              content: Text(
+                context.l10n.mtsNoticeNoAcidAlertContent,
+                style: const TextStyle(fontSize: 13, height: 1.5),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('إغلاق'),
+                  child: Text(context.l10n.close),
                 ),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
@@ -1855,7 +2021,7 @@ Please note that the required documents for the mentioned shipment must be uploa
                     _loadSampleMtsText();
                   },
                   icon: const Icon(Icons.auto_fix_high, size: 16),
-                  label: const Text('تحميل نص نموذجي واستخراجه فوراً'),
+                  label: Text(context.l10n.loadSampleMtsAndExtract),
                 ),
               ],
             ),
@@ -1864,7 +2030,7 @@ Please note that the required documents for the mentioned shipment must be uploa
       }
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: 'خطأ في تحليل نص نافذة', error: e);
+        showErrorDetailsDialog(context, title: context.l10n.errorParsingMts, error: e);
       }
     } finally {
       if (mounted) setState(() => _isParsingMts = false);
@@ -1874,16 +2040,16 @@ Please note that the required documents for the mentioned shipment must be uploa
   Future<void> _runComparison() async {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة للتحقق'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.selectImportFileToVerify), backgroundColor: AppTheme.crimson),
       );
       return;
     }
 
-    final files = ref.read(importFilesProvider).value ?? [];
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
     final file = files.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
-    final companies = ref.read(importCompaniesProvider).value ?? [];
+    final companies = ref.read(importCompaniesProvider).valueOrNull ?? [];
     final comp = companies.where((c) => c.companyId == file?.companyId).firstOrNull;
-    final suppliers = ref.read(suppliersProvider).value ?? [];
+    final suppliers = ref.read(suppliersProvider).valueOrNull ?? [];
     final supp = suppliers.where((s) => s.supplierId == file?.supplierId).firstOrNull;
     final pos = ref.read(purchaseOrdersProvider).purchaseOrders;
     final po = pos.where((p) => p.importFileId == _selectedImportFileId).firstOrNull;
@@ -1899,7 +2065,7 @@ Please note that the required documents for the mentioned shipment must be uploa
         'exporter_reg_id': _exporterRegIdCtrl.text.isNotEmpty ? _exporterRegIdCtrl.text : (supp?.foreignExporterId ?? ''),
         'exporter_country': _exporterCountryCtrl.text.isNotEmpty ? _exporterCountryCtrl.text : (supp?.foreignExporterCountry ?? ''),
         'exporter_country_code': _exporterCountryCodeCtrl.text.isNotEmpty ? _exporterCountryCodeCtrl.text : (supp?.foreignExporterCountryCode ?? ''),
-        'proforma_invoice_no': _proformaNoCtrl.text.isNotEmpty ? _proformaNoCtrl.text : (file?.piNumber ?? (po != null ? 'PI-${po.poNumber}' : 'YH20260730-6')),
+        'proforma_invoice_no': _proformaNoCtrl.text.isNotEmpty ? _proformaNoCtrl.text : (file?.piNumber ?? (file?.poNumber ?? (po != null ? po.poNumber : ''))),
         'pol_name': _polCtrl.text.isNotEmpty ? _polCtrl.text : 'CHANGSHU',
         'pod_name': _podCtrl.text.isNotEmpty ? _podCtrl.text : 'Alexandria',
         'cargox_id': _cargoxIdCtrl.text.isNotEmpty ? _cargoxIdCtrl.text : (supp?.cargoxPlatformId ?? '5b1b827d-5840-4ad6-b692-c5f636881c0e'),
@@ -1910,7 +2076,7 @@ Please note that the required documents for the mentioned shipment must be uploa
       setState(() => _comparisonResult = res);
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: 'خطأ في المقارنة الجمركية', error: e);
+        showErrorDetailsDialog(context, title: context.l10n.errorCustomsComparison, error: e);
       }
     } finally {
       if (mounted) setState(() => _isComparing = false);
@@ -1931,6 +2097,7 @@ Please note that the required documents for the mentioned shipment must be uploa
         'exporter_name': _exporterNameCtrl.text.trim(),
         'exporter_reg_id': _exporterRegIdCtrl.text.trim(),
         'exporter_country': _exporterCountryCtrl.text.trim(),
+        'po_number': _poNoCtrl.text.trim(),
         'proforma_invoice_no': _proformaNoCtrl.text.trim(),
         'pol_name': _polCtrl.text.trim(),
         'pod_name': _podCtrl.text.trim(),
@@ -1939,7 +2106,7 @@ Please note that the required documents for the mentioned shipment must be uploa
         'discrepancy_override_reason': _discrepancyOverrideReasonCtrl.text.trim(),
       };
 
-      final sessions = ref.read(acidSessionsProvider).value ?? [];
+      final sessions = ref.read(acidSessionsProvider).valueOrNull ?? [];
       final existing = sessions.where((s) => s.importFileId == _selectedImportFileId && s.isActive).firstOrNull;
       final targetAcidId = _editingAcidSessionId ?? existing?.acidId;
 
@@ -1954,13 +2121,13 @@ Please note that the required documents for the mentioned shipment must be uploa
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم اعتماد وتثبيت رقم ACID بنجاح ✅'), backgroundColor: AppTheme.emerald),
+          SnackBar(content: Text(context.l10n.acidCertifiedSuccess), backgroundColor: AppTheme.emerald),
         );
         setState(() => _selectedSubTab = 3);
       }
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: 'خطأ في اعتماد رقم ACID', error: e);
+        showErrorDetailsDialog(context, title: context.l10n.errorCertifyingAcid, error: e);
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -1995,7 +2162,7 @@ Please note that the required documents for the mentioned shipment must be uploa
       _selectedSubTab = 0;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('تم فتح طلب ACID (${session.acidCode}) للتعديل الكامل'), backgroundColor: AppTheme.cobalt),
+      SnackBar(content: Text(context.l10n.acidSessionLoadedForEdit(session.acidCode)), backgroundColor: AppTheme.cobalt),
     );
   }
 
@@ -2015,7 +2182,7 @@ Please note that the required documents for the mentioned shipment must be uploa
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('ACID (${session.acidCode}) — (${session.acidNumber})'),
+            CopyableText('ACID (${session.acidCode}) — (${session.acidNumber})'),
             const SizedBox(height: 10),
             Text(context.l10n.confirmSoftDelete, style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ],
@@ -2033,14 +2200,14 @@ Please note that the required documents for the mentioned shipment must be uploa
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('ACID (${session.acidCode}) deleted successfully'),
+                      content: Text(context.l10n.acidSessionDeletedSuccess(session.acidCode)),
                       backgroundColor: AppTheme.charcoal,
                     ),
                   );
                 }
               } catch (e) {
                 if (mounted) {
-                  showErrorDetailsDialog(context, title: 'Error deleting ACID session', error: e);
+                  showErrorDetailsDialog(context, title: context.l10n.errorDeletingAcid, error: e);
                 }
               }
             },
@@ -2056,7 +2223,7 @@ Please note that the required documents for the mentioned shipment must be uploa
     if (_parsedMtsData == null) return;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select import file first'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.selectImportFileFirst), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -2099,7 +2266,7 @@ Please note that the required documents for the mentioned shipment must be uploa
       };
 
       // Check if session exists or is in edit mode
-      final sessions = ref.read(acidSessionsProvider).value ?? [];
+      final sessions = ref.read(acidSessionsProvider).valueOrNull ?? [];
       final existing = sessions.where((s) => s.importFileId == _selectedImportFileId && s.isActive).firstOrNull;
       final targetAcidId = _editingAcidSessionId ?? existing?.acidId;
 
@@ -2116,15 +2283,15 @@ Please note that the required documents for the mentioned shipment must be uploa
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(isDraft
-                ? 'MTS draft saved successfully!'
-                : 'ACID data certified and saved successfully!'),
+                ? context.l10n.acidRequestSavedSuccess
+                : context.l10n.acidCertifiedSuccess),
             backgroundColor: isDraft ? AppTheme.charcoal : AppTheme.emerald,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: isDraft ? 'Error saving draft' : 'Error saving ACID', error: e);
+        showErrorDetailsDialog(context, title: isDraft ? context.l10n.errorSavingDraft : context.l10n.errorSavingAcid, error: e);
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -2256,13 +2423,13 @@ Please note that the required documents for the mentioned shipment must be uploa
                               child: SearchableDropdownField<String>(
                                 labelText: context.l10n.regTypeLabel,
                                 value: regType,
-                                items: const [
-                                  SearchableDropdownItem(value: 'Company Registration Number', label: 'Company Registration Number'),
-                                  SearchableDropdownItem(value: 'Foreign Exporter Number (Nafeza)', label: 'Foreign Exporter Number (Nafeza)'),
-                                  SearchableDropdownItem(value: 'Factory Registration', label: 'Factory Registration'),
-                                  SearchableDropdownItem(value: 'VAT Number', label: 'VAT Number'),
-                                  SearchableDropdownItem(value: 'Tax Number', label: 'Tax Number'),
-                                  SearchableDropdownItem(value: 'Commercial Register', label: 'Commercial Register'),
+                                items: [
+                                  SearchableDropdownItem(value: 'Company Registration Number', label: context.l10n.companyRegNumberType),
+                                  SearchableDropdownItem(value: 'Foreign Exporter Number (Nafeza)', label: context.l10n.foreignExporterNafezaType),
+                                  SearchableDropdownItem(value: 'Factory Registration', label: context.l10n.factoryRegType),
+                                  SearchableDropdownItem(value: 'VAT Number', label: context.l10n.vatRegType),
+                                  SearchableDropdownItem(value: 'Tax Number', label: context.l10n.taxIdRegType),
+                                  SearchableDropdownItem(value: 'Commercial Register', label: context.l10n.crRegType),
                                 ],
                                 onChanged: (val) {
                                   if (val != null) setDialogState(() => regType = val);
@@ -2344,7 +2511,7 @@ Please note that the required documents for the mentioned shipment must be uploa
                           });
                           Navigator.pop(dialogCtx);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('MTS Extracted Data Updated'), backgroundColor: AppTheme.emerald),
+                            SnackBar(content: Text(context.l10n.mtsExtractedDataUpdated), backgroundColor: AppTheme.emerald),
                           );
                         },
                         icon: const Icon(Icons.check, size: 18),
@@ -2366,13 +2533,13 @@ Please note that the required documents for the mentioned shipment must be uploa
     final expName = _parsedMtsData!['exporter_name']?.toString().trim() ?? '';
     if (expName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('اسم المصدر الأجنبي غير موجود في بيانات نافذة'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.foreignSupplierNotInData), backgroundColor: AppTheme.crimson),
       );
       return;
     }
 
     try {
-      final existingSuppliers = ref.read(suppliersProvider).value ?? [];
+      final existingSuppliers = ref.read(suppliersProvider).valueOrNull ?? [];
       final existing = existingSuppliers.where((s) => s.companyName.toLowerCase() == expName.toLowerCase() || s.foreignExporterId == (_parsedMtsData!['exporter_reg_id']?.toString().trim() ?? '')).firstOrNull;
 
       final supplier = SupplierModel(
@@ -2399,7 +2566,7 @@ Please note that the required documents for the mentioned shipment must be uploa
 
       if (err != null) {
         if (mounted) {
-          showErrorDetailsDialog(context, title: 'خطأ في تكويد المورد', error: err);
+          showErrorDetailsDialog(context, title: context.l10n.errorCodingSupplier, error: err);
         }
         return;
       }
@@ -2408,14 +2575,14 @@ Please note that the required documents for the mentioned shipment must be uploa
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('تم تكويد / تحديث المورد الأجنبي ($expName) بنوع تسجيل Company Registration Number بنجاح!'),
+            content: Text(context.l10n.supplierCodedSuccess(expName)),
             backgroundColor: AppTheme.emerald,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: 'خطأ في تكويد المورد', error: e);
+        showErrorDetailsDialog(context, title: context.l10n.errorCodingSupplier, error: e);
       }
     }
   }

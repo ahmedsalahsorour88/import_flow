@@ -42,7 +42,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   List<CustomsInvoiceTrackModel> _customsTracks = [];
 
   bool _isLoading = false;
-  bool _isDownloading = false;
+  final bool _isDownloading = false;
   bool _isParsing = false;
   bool _isSaving = false;
 
@@ -173,7 +173,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'الملف: ${file.importFileCode} — ${file.supplierName} (ACID: ${file.acidNumber ?? "N/A"})',
+                              'الملف: ${file.primaryNameWithCode} — ${file.supplierName} (ACID: ${file.acidNumber ?? "N/A"})',
                               style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                             ),
                           ],
@@ -367,7 +367,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                                   });
                                   final tracks = await notifier.fetchCustomsTracks(file.importFileId);
                                   setDialogState(() => isSavingCustomsTrack = false);
-                                  if (!mounted) return;
+                                  if (!context.mounted) return;
                                   setState(() {
                                     _customsTracks = tracks;
                                   });
@@ -609,8 +609,8 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                             DataCell(Text(item.manufacturer ?? '', style: const TextStyle(fontSize: 11))),
                             DataCell(Text(item.description, style: const TextStyle(fontSize: 11))),
                             DataCell(Text('${item.quantity} ${item.qtyUnit}', style: const TextStyle(fontSize: 11))),
-                            DataCell(Text('${item.unitPrice.toStringAsFixed(4)}', style: const TextStyle(fontSize: 11))),
-                            DataCell(Text('${item.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF27AE60)))),
+                            DataCell(Text(item.unitPrice.toStringAsFixed(4), style: const TextStyle(fontSize: 11))),
+                            DataCell(Text(item.totalAmount.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF27AE60)))),
                             DataCell(Text('${item.grossWeightKg} ${result.payload.weightUnit}', style: const TextStyle(fontSize: 11))),
                             DataCell(Text('${item.netWeightKg} ${result.payload.weightUnit}', style: const TextStyle(fontSize: 11))),
                           ],
@@ -886,8 +886,8 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                   items: files
                       .map((f) => SearchableDropdownItem<int>(
                             value: f.importFileId,
-                            label: '${f.importFileCode} — ${f.supplierName} (${f.companyName}) [ACID: ${f.acidNumber ?? "N/A"}]',
-                            searchValue: '${f.importFileCode} ${f.supplierName} ${f.companyName} ${f.acidNumber ?? ""}',
+                            label: '${f.primaryNameWithCode} — ${f.supplierName} (${f.companyName}) [ACID: ${f.acidNumber ?? "N/A"}]',
+                            searchValue: '${f.primaryNameWithCode} ${f.supplierName} ${f.companyName} ${f.acidNumber ?? ""}',
                           ))
                       .toList(),
                   onChanged: (fileId) {
@@ -1199,7 +1199,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                   barrierDismissible: false,
                   builder: (ctx) => DualExtractionModal(
                     importFileId: _selectedImportFile!.importFileId,
-                    importFileCode: _selectedImportFile!.importFileCode ?? '',
+                    importFileCode: _selectedImportFile!.importFileCode,
                     onTrackCreated: () async {
                       final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
                       final tracks = await notifier.fetchCustomsTracks(_selectedImportFile!.importFileId);
@@ -1832,17 +1832,20 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
               try {
                 final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
                 await notifier.deleteCustomsTrack(track.trackId);
+                if (!mounted) return;
                 if (_selectedImportFile != null) {
                   final updated = await notifier.fetchCustomsTracks(_selectedImportFile!.importFileId);
-                  if (mounted) setState(() => _customsTracks = updated);
+                  if (!mounted) return;
+                  setState(() => _customsTracks = updated);
                 }
-                if (!context.mounted) return;
+                if (!ctx.mounted) return;
                 Navigator.of(ctx).pop();
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('تم حذف المسار الجمركي ${track.trackCode} بنجاح'), backgroundColor: const Color(0xFF27AE60)),
                 );
               } catch (e) {
-                if (!context.mounted) return;
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('خطأ أثناء الحذف: $e'), backgroundColor: Colors.red),
                 );

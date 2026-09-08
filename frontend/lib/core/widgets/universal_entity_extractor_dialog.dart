@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import '../theme/app_theme.dart';
 import '../constants/api_constants.dart';
+import 'copyable_data_helper.dart';
 import 'searchable_dropdown_field.dart';
 import 'extraction_progress_dialog.dart';
 
@@ -844,116 +845,129 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      child: Container(
-        width: 1080,
-        height: 720,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            _buildDialogHeader(isArabic),
-            if (!widget.lockTarget) _buildTargetSelectorBar(isArabic),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Left Side: Input (Raw Text or File Upload)
-                  Expanded(
-                    flex: 4,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        border: isArabic
-                            ? Border(left: BorderSide(color: Colors.grey.shade200))
-                            : Border(right: BorderSide(color: Colors.grey.shade200)),
-                      ),
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildInputModeSwitcher(isArabic),
-                          const SizedBox(height: 12),
-                          Expanded(
-                            child: _inputModeTab == 0 ? _buildRawTextInputArea(isArabic) : _buildFileUploadArea(isArabic),
-                          ),
-                          const SizedBox(height: 12),
-                          _buildExtractActionButton(isArabic),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Right Side: Extracted Structured Form
-                  Expanded(
-                    flex: 6,
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Form(
-                        key: _formKey,
+      child: SelectionArea(
+        child: Container(
+          width: 1080,
+          height: 720,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              _buildDialogHeader(isArabic),
+              if (!widget.lockTarget) _buildTargetSelectorBar(isArabic),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Left Side: Input (Raw Text or File Upload)
+                    Expanded(
+                      flex: 4,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          border: isArabic
+                              ? Border(left: BorderSide(color: Colors.grey.shade200))
+                              : Border(right: BorderSide(color: Colors.grey.shade200)),
+                        ),
+                        padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(_getTargetIcon(_selectedTarget), color: AppTheme.cobalt, size: 20),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      isArabic
-                                          ? 'بيانات تكويد ${_targetName(context, _selectedTarget)}'
-                                          : '${_targetName(context, _selectedTarget)} Registration Profile',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
-                                    ),
-                                  ],
-                                ),
-                                if (_confidenceScore > 0)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: _confidenceScore >= 0.8 ? AppTheme.emerald.withOpacity(0.15) : AppTheme.orange.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      isArabic
-                                          ? 'دقة التحليل: ${(_confidenceScore * 100).toStringAsFixed(0)}%'
-                                          : 'Extraction Accuracy: ${(_confidenceScore * 100).toStringAsFixed(0)}%',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: _confidenceScore >= 0.8 ? AppTheme.emerald : AppTheme.orange,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const Divider(height: 20),
+                            _buildInputModeSwitcher(isArabic),
+                            const SizedBox(height: 12),
                             Expanded(
-                              child: SingleChildScrollView(
-                                child: _buildTargetSpecificFields(isArabic),
-                              ),
+                              child: _inputModeTab == 0 ? _buildRawTextInputArea(isArabic) : _buildFileUploadArea(isArabic),
                             ),
                             const SizedBox(height: 12),
-                            _buildSaveActionButton(isArabic),
+                            _buildExtractActionButton(isArabic),
                           ],
                         ),
                       ),
                     ),
-                  ),
-                ],
+
+                    // Right Side: Extracted Structured Form
+                    Expanded(
+                      flex: 6,
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(_getTargetIcon(_selectedTarget), color: AppTheme.cobalt, size: 20),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        isArabic
+                                            ? 'بيانات تكويد ${_targetName(context, _selectedTarget)}'
+                                            : '${_targetName(context, _selectedTarget)} Registration Profile',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
+                                      ),
+                                    ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      if (_confidenceScore > 0) ...[
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: _confidenceScore >= 0.8 ? AppTheme.emerald.withOpacity(0.15) : AppTheme.orange.withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            isArabic
+                                                ? 'دقة التحليل: ${(_confidenceScore * 100).toStringAsFixed(0)}%'
+                                                : 'Extraction Accuracy: ${(_confidenceScore * 100).toStringAsFixed(0)}%',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: _confidenceScore >= 0.8 ? AppTheme.emerald : AppTheme.orange,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      IconButton(
+                                        icon: const Icon(Icons.copy_all_rounded, size: 18, color: AppTheme.cobalt),
+                                        tooltip: isArabic ? 'نسخ البيانات المستخرجة' : 'Copy Extracted Profile',
+                                        onPressed: () => _copyExtractedDataSummary(context),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 20),
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  child: _buildTargetSpecificFields(isArabic),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildSaveActionButton(isArabic),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1312,7 +1326,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextFormField(
                 controller: _foreignTaxIdCtrl,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'رقم السجل / معرف نافذة الأجنبي (Foreign Exporter ID) *' : 'Foreign Exporter ID (Nafeza) *',
+                  labelText: isArabic ? 'رقم السجل ومعرف المصدر الأجنبي بمنظومة نافذة *' : 'Foreign Exporter ID (Nafeza) *',
                   prefixIcon: const Icon(Icons.badge_rounded, size: 18),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'رقم السجل مطلوب' : 'Foreign Exporter ID is required') : null,
@@ -1323,7 +1337,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextFormField(
                 controller: _cargoxIdCtrl,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'معرف منصة كارجو إكس (CargoX Platform ID)' : 'CargoX Platform Registered ID',
+                  labelText: isArabic ? 'معرف منصة كارجو إكس المعتمد' : 'CargoX Platform Registered ID',
                   prefixIcon: const Icon(Icons.hub_rounded, size: 18, color: Colors.blue),
                 ),
               ),
@@ -1357,7 +1371,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextFormField(
                 controller: _countryCodeCtrl,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'كود الدولة (ISO 2-letter) *' : 'Country Code (ISO 2-letter) *',
+                  labelText: isArabic ? 'كود الدولة المكون من حرفين *' : 'Country Code (ISO 2-letter) *',
                   prefixIcon: const Icon(Icons.code, size: 18),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'كود الدولة مطلوب' : 'Country code is required') : null,
@@ -1500,7 +1514,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                     child: TextFormField(
                       controller: _swiftCodeCtrl,
                       decoration: InputDecoration(
-                        labelText: isArabic ? 'كود السويفت البنكي (SWIFT Code)' : 'Bank SWIFT Code',
+                        labelText: isArabic ? 'كود السويفت البنكي الدولي' : 'Bank SWIFT Code',
                         prefixIcon: const Icon(Icons.code, size: 16),
                         isDense: true,
                       ),
@@ -1515,7 +1529,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                     child: TextFormField(
                       controller: _accountNumberCtrl,
                       decoration: InputDecoration(
-                        labelText: isArabic ? 'رقم الحساب المصرفي (Account #)' : 'Account Number',
+                        labelText: isArabic ? 'رقم الحساب المصرفي' : 'Account Number',
                         prefixIcon: const Icon(Icons.numbers, size: 16),
                         isDense: true,
                       ),
@@ -1526,7 +1540,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                     child: TextFormField(
                       controller: _ibanCtrl,
                       decoration: InputDecoration(
-                        labelText: isArabic ? 'رقم الآيبان (IBAN)' : 'IBAN',
+                        labelText: isArabic ? 'رقم الآيبان الدولي' : 'IBAN',
                         prefixIcon: const Icon(Icons.credit_card, size: 16),
                         isDense: true,
                       ),
@@ -1552,7 +1566,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                 child: CheckboxListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  title: Text(isArabic ? 'شهادة ISO' : 'ISO Certified', style: const TextStyle(fontSize: 11)),
+                  title: Text(isArabic ? 'شهادة آيزو العالمية' : 'ISO Certified', style: const TextStyle(fontSize: 11)),
                   value: _hasIso,
                   activeColor: AppTheme.cobalt,
                   onChanged: (val) => setState(() => _hasIso = val ?? false),
@@ -1659,7 +1673,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextFormField(
                 controller: _importerCardCtrl,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'رقم البطاقة الاستيرادية (9 أرقام) *' : 'Importer Card ID (9 digits) *',
+                  labelText: isArabic ? 'رقم البطاقة الاستيرادية المكون من 9 أرقام *' : 'Importer Card ID (9 digits) *',
                   prefixIcon: const Icon(Icons.credit_card_rounded, size: 18),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'البطاقة الاستيرادية مطلوبة' : 'Importer card is required') : null,
@@ -1696,7 +1710,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextFormField(
                 controller: _taxIdCtrl,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'رقم التسجيل الضريبي / القيمة المضافة (9 أرقام) *' : 'VAT Registration ID (9 digits) *',
+                  labelText: isArabic ? 'رقم التسجيل الضريبي والقيمة المضافة المكون من 9 أرقام *' : 'VAT Registration ID (9 digits) *',
                   prefixIcon: const Icon(Icons.pin_rounded, size: 18),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'الرقم الضريبي مطلوب' : 'Tax ID is required') : null,
@@ -1733,7 +1747,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextFormField(
                 controller: _commercialRegisterCtrl,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'رقم السجل التجاري (15 رقم) *' : 'Commercial Reg # (15 digits) *',
+                  labelText: isArabic ? 'رقم السجل التجاري المكون من 15 رقماً *' : 'Commercial Reg # (15 digits) *',
                   prefixIcon: const Icon(Icons.badge_rounded, size: 18),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'السجل التجاري مطلوب' : 'Commercial register is required') : null,
@@ -1925,10 +1939,10 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextFormField(
                 controller: _scacCodeCtrl,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'كود الناقل الملاحي (SCAC) *' : 'SCAC Carrier Code *',
+                  labelText: isArabic ? 'كود الناقل الملاحي المعتمد *' : 'SCAC Carrier Code *',
                   prefixIcon: const Icon(Icons.qr_code_rounded, size: 18, color: Colors.blue),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'كود SCAC مطلوب' : 'SCAC code is required') : null,
+                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'كود الناقل الملاحي مطلوب' : 'SCAC code is required') : null,
               ),
             ),
             const SizedBox(width: 10),
@@ -2520,5 +2534,47 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           return 'Paste partner data here...';
       }
     }
+  }
+
+  void _copyExtractedDataSummary(BuildContext context) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+    final buffer = StringBuffer();
+    buffer.writeln(isArabic
+        ? '--- بيانات ${_targetName(context, _selectedTarget)} المستخرجة ---'
+        : '--- Extracted ${_targetName(context, _selectedTarget)} Profile ---');
+
+    void addField(String labelAr, String labelEn, String val) {
+      if (val.trim().isNotEmpty) {
+        buffer.writeln('${isArabic ? labelAr : labelEn}: ${val.trim()}');
+      }
+    }
+
+    addField('اسم الكيان', 'Entity Name', _companyNameCtrl.text);
+    addField('الاسم بالعربية', 'Arabic Name', _arabicNameCtrl.text);
+    addField('رقم السجل / التعريف الضريبي', 'Tax / Reg ID', _taxIdCtrl.text.isNotEmpty ? _taxIdCtrl.text : _foreignTaxIdCtrl.text);
+    addField('معرف كارجو إكس', 'CargoX Platform ID', _cargoxIdCtrl.text);
+    addField('رقم السجل التجاري', 'Commercial Register', _commercialRegisterCtrl.text);
+    addField('البطاقة الاستيرادية', 'Importer Card', _importerCardCtrl.text);
+    addField('الدولة', 'Country', _countryCtrl.text);
+    addField('العنوان', 'Address', _addressCtrl.text);
+    addField('المسؤول', 'Contact Person', _contactPersonCtrl.text);
+    addField('الهاتف', 'Phone', _phoneCtrl.text);
+    addField('المحمول', 'Mobile', _mobileCtrl.text);
+    addField('البريد الإلكتروني', 'Email', _emailCtrl.text);
+    addField('الموقع الإلكتروني', 'Website', _websiteCtrl.text);
+    addField('البنك', 'Bank Name', _bankNameCtrl.text);
+    addField('سويفت', 'SWIFT Code', _swiftCodeCtrl.text);
+    addField('الحساب المصرفي', 'Bank Account', _accountNumberCtrl.text);
+    addField('الآيبان', 'IBAN', _ibanCtrl.text);
+    addField('كود الناقل', 'SCAC Code', _scacCodeCtrl.text);
+    addField('رخصة التخليص', 'Broker License', _brokerLicenseCtrl.text);
+    addField('نطاق العمل', 'Services Scope', _servicesScopeCtrl.text);
+    addField('ملاحظات', 'Notes', _notesCtrl.text);
+
+    CopyHelper.copy(
+      context,
+      buffer.toString(),
+      customMessage: isArabic ? 'تم نسخ البيانات المستخرجة بنجاح' : 'Extracted data copied successfully',
+    );
   }
 }

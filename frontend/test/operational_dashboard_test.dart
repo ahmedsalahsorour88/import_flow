@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/locale_provider.dart';
+import 'package:frontend/core/widgets/copyable_data_helper.dart';
+import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/operational_dashboard/models/operational_dashboard_model.dart';
 import 'package:frontend/features/operational_dashboard/providers/operational_dashboard_provider.dart';
 import 'package:frontend/features/operational_dashboard/screens/operational_dashboard_screen.dart';
@@ -39,6 +41,32 @@ void main() {
     ],
     phaseCounts: {'Phase 1': 1},
     shipments: [],
+  );
+
+  final sampleDashboardDataWithShipment = OperationalDashboardData(
+    shipmentCount: 1,
+    lastUpdatedAt: '2026-08-23T20:00:00Z',
+    availableBrokers: [
+      DashboardBroker(brokerId: 1, brokerName: 'Al-Ameen Customs Clearance'),
+    ],
+    phaseCounts: {'Phase 1': 1},
+    shipments: [
+      ImportFileModel(
+        importFileId: 1,
+        importFileCode: 'IMP-2026-0001',
+        companyName: 'Alpha Import Ltd',
+        supplierName: 'Sino Tech Ltd',
+        brokerName: 'Al-Ameen Customs Clearance',
+        priority: 'High',
+        currentModule: 'Phase 5 - Customs Clearance',
+        currentStage: 'Duty Payment Requested',
+        progressPercent: 70.0,
+        nextAction: 'Pay Duties',
+        isActive: true,
+        createdAt: '2026-08-09T10:00:00Z',
+        updatedAt: '2026-08-09T10:00:00Z',
+      ),
+    ],
   );
 
   group('OperationalDashboardModel Unit Tests (Feature 2.9)', () {
@@ -184,6 +212,102 @@ void main() {
       expect(find.text('الأولوية (Priority):'), findsNothing);
       expect(find.text('المخلص الجمركي (Customs Broker):'), findsNothing);
       expect(find.text('إعادة ضبط الفلاتر'), findsNothing);
+    });
+
+    testWidgets('Renders shipment card with pure Arabic priority badge, no stacked text, and CopyableText widgets', (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            localeProvider.overrideWith((ref) {
+              final n = LocaleNotifier();
+              n.setLocale(const Locale('ar'));
+              return n;
+            }),
+            operationalDashboardProvider.overrideWith(
+              (ref) => MockOperationalDashboardNotifier(sampleDashboardDataWithShipment),
+            ),
+          ],
+          child: const MaterialApp(
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: OperationalDashboardScreen(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // In Arabic mode, priority badge must say 'عالي' and NOT English 'High'
+      expect(find.text('عالي'), findsWidgets);
+      expect(find.text('High'), findsNothing);
+
+      // Verify NEW badge says 'جديد' in Arabic
+      expect(find.text('جديد'), findsOneWidget);
+      expect(find.text('NEW'), findsNothing);
+
+      // Scroll down to bring virtualized shipment card into view
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -700));
+      await tester.pumpAndSettle();
+      expect(find.byType(CopyableText), findsWidgets);
+      expect(find.text('IMP-2026-0001'), findsWidgets);
+      expect(find.text('Alpha Import Ltd'), findsOneWidget);
+
+      // Verify no stacked bilingual labels remain in next step card
+      expect(find.textContaining('/ Freight Forwarder'), findsNothing);
+      expect(find.textContaining('(Customs Broker)'), findsNothing);
+      expect(find.textContaining('(Import Manager)'), findsNothing);
+    });
+
+    testWidgets('Renders shipment card with pure English priority badge and English NEW badge', (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            localeProvider.overrideWith((ref) {
+              final n = LocaleNotifier();
+              n.setLocale(const Locale('en'));
+              return n;
+            }),
+            operationalDashboardProvider.overrideWith(
+              (ref) => MockOperationalDashboardNotifier(sampleDashboardDataWithShipment),
+            ),
+          ],
+          child: const MaterialApp(
+            home: AppLocalizationsProvider(
+              locale: Locale('en'),
+              child: Directionality(
+                textDirection: TextDirection.ltr,
+                child: OperationalDashboardScreen(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // In English mode, priority badge must say 'High' and NOT Arabic 'مرتفعة'
+      expect(find.text('High'), findsWidgets);
+      expect(find.text('مرتفعة'), findsNothing);
+
+      // Verify NEW badge says 'NEW' in English
+      expect(find.text('NEW'), findsOneWidget);
+      expect(find.text('جديد'), findsNothing);
+
+      // Scroll down to bring virtualized shipment card into view
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -900));
+      await tester.pumpAndSettle();
+      expect(find.byType(CopyableText), findsWidgets);
+      expect(find.text('IMP-2026-0001'), findsWidgets);
     });
   });
 }

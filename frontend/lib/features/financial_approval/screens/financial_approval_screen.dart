@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
@@ -89,10 +90,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
   // Edit Mode for Tab 2 (Import Budgets)
   int? _editingBudgetId;
+  late final Set<int> _visitedTabs = {widget.initialIndex};
 
   double _getExchangeRateForCurrency(String currencyCode) {
     if (currencyCode.toUpperCase() == 'EGP') return 1.0;
-    final currencies = ref.read(currenciesProvider).value ?? [];
+    final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
     final cur = currencies.where((c) => c.currencyCode.toUpperCase() == currencyCode.toUpperCase()).firstOrNull;
     if (cur != null) {
       if (cur.isBaseCurrency) return 1.0;
@@ -107,13 +109,30 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this, initialIndex: widget.initialIndex);
+    _tabController.addListener(() {
+      if (!_visitedTabs.contains(_tabController.index)) {
+        setState(() => _visitedTabs.add(_tabController.index));
+      }
+    });
     Future.microtask(() {
-      ref.read(currenciesProvider.notifier).fetchCurrencies();
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
-      ref.read(suppliersProvider.notifier).fetchSuppliers();
-      ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
-      ref.read(importBudgetsProvider.notifier).fetchImportBudgets();
-      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      if (!ref.read(currenciesProvider).isLoading) {
+        ref.read(currenciesProvider.notifier).fetchCurrencies();
+      }
+      if (!ref.read(importFilesProvider).isLoading) {
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
+      if (!ref.read(suppliersProvider).isLoading) {
+        ref.read(suppliersProvider.notifier).fetchSuppliers();
+      }
+      if (!ref.read(paymentRequestsProvider).isLoading) {
+        ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
+      }
+      if (!ref.read(importBudgetsProvider).isLoading) {
+        ref.read(importBudgetsProvider.notifier).fetchImportBudgets();
+      }
+      if (!ref.read(purchaseOrdersProvider).isLoading) {
+        ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      }
       
       if (widget.initialImportFileId != null) {
         _onPayImportFileSelected(widget.initialImportFileId);
@@ -126,6 +145,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   void didUpdateWidget(FinancialApprovalScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialIndex != widget.initialIndex) {
+      _visitedTabs.add(widget.initialIndex);
       _tabController.animateTo(widget.initialIndex);
     }
   }
@@ -166,22 +186,22 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     }
 
     // Check for existing Payment Request duplicate
-    final existingList = ref.read(paymentRequestsProvider).value ?? [];
+    final existingList = ref.read(paymentRequestsProvider).valueOrNull ?? [];
     final existing = existingList.where((p) => p.importFileId == fileId && p.isActive && p.paymentId != _editingPaymentId).firstOrNull;
     if (existing != null) {
       if (mounted) {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.orange),
-                SizedBox(width: 8),
-                Text('طلب سداد مالي محفوظ مسبقاً'),
+                const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                const SizedBox(width: 8),
+                Text(context.l10n.duplicatePaymentRequestTitle),
               ],
             ),
             content: Text(
-              '⚠️ تم إصدار وحفظ طلب سداد مالي سابق لملف الشحنة هذا (${existing.paymentCode} - ${existing.title}).\n\nوفقاً للسياسة، لا يمكن إنشاء طلب جديد مكرر، ويجب الذهاب للتعديل على الطلب الحالي.',
+              context.l10n.duplicatePaymentRequestMessage(existing.paymentCode, existing.title),
             ),
             actions: [
               TextButton(
@@ -192,12 +212,12 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                     _payPrefillData = null;
                   });
                 },
-                child: const Text('إلغاء التحديد'),
+                child: Text(context.l10n.cancelSelection),
               ),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                 icon: const Icon(Icons.visibility, color: Colors.white, size: 16),
-                label: const Text('استعراض وتعديل طلب السداد الحالي', style: TextStyle(color: Colors.white)),
+                label: Text(context.l10n.viewAndEditPaymentRequest, style: const TextStyle(color: Colors.white)),
                 onPressed: () {
                   Navigator.pop(ctx);
                   _showPaymentDetailsDialog(existing);
@@ -217,11 +237,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
     try {
       final prefill = await ref.read(importBudgetsProvider.notifier).fetchBudgetPrefill(fileId);
-      final importFiles = ref.read(importFilesProvider).value ?? [];
+      final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
       final impFile = importFiles.where((f) => f.importFileId == fileId).firstOrNull;
       final poList = ref.read(purchaseOrdersProvider).purchaseOrders;
       final linkedPOs = poList.where((po) => po.importFileId == fileId || (impFile?.poIds?.contains(po.poId) ?? false)).toList();
-      final currencies = ref.read(currenciesProvider).value ?? [];
+      final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
 
       // Calculate total invoices from linked POs or invoicesData or estimatedCost
       double calculatedInvoiceAmount = 0.0;
@@ -253,7 +273,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         }
       }
 
-      final suppliersList = ref.read(suppliersProvider).value ?? [];
+      final suppliersList = ref.read(suppliersProvider).valueOrNull ?? [];
       final targetSupId = impFile?.supplierId ?? prefill?.supplierId ?? (linkedPOs.isNotEmpty ? linkedPOs.first.supplierId : null);
       final supObj = suppliersList.where((s) => 
           (targetSupId != null && s.supplierId == targetSupId) || 
@@ -275,12 +295,12 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         final dynamicRate = _getExchangeRateForCurrency(calculatedCurrency);
         final effRate = dynamicRate > 0 ? dynamicRate : (prefill != null && prefill.exchangeRate > 0 ? prefill.exchangeRate : 50.0);
 
-        final fCode = impFile?.customFileNumber ?? impFile?.importFileCode ?? prefill?.importFileTitle ?? 'IMP-$fileId';
+        final fCode = impFile?.primaryNameWithCode ?? prefill?.importFileTitle ?? 'IMP-$fileId';
         final compName = impFile?.companyName ?? '';
 
         setState(() {
           _payPrefillData = prefill;
-          _payTitleController.text = compName.isNotEmpty ? '[$fCode] $compName' : '[$fCode]';
+          _payTitleController.text = compName.isNotEmpty ? '$fCode - $compName' : fCode;
           _selectedSupplierId = effectiveSupplierId;
           _supplierNameController.text = effectiveSupplierName;
           _paymentType = (prefill != null && prefill.paymentTermsSummary.isNotEmpty) ? prefill.paymentTermsSummary : 'Advance Payment';
@@ -314,22 +334,22 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     }
 
     // Check for existing Budget Approval duplicate
-    final existingList = ref.read(importBudgetsProvider).value ?? [];
+    final existingList = ref.read(importBudgetsProvider).valueOrNull ?? [];
     final existing = existingList.where((b) => b.importFileId == fileId && b.isActive && b.budgetId != _editingBudgetId).firstOrNull;
     if (existing != null) {
       if (mounted) {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.orange),
-                SizedBox(width: 8),
-                Text('اعتماد ميزانية محفوظ مسبقاً'),
+                const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                const SizedBox(width: 8),
+                Text(context.l10n.duplicateBudgetTitle),
               ],
             ),
             content: Text(
-              '⚠️ تم اعتماد ميزانية سابقة لملف الشحنة هذا (${existing.budgetCode} - ${existing.title}).\n\nوفقاً للسياسة، لا يمكن إنشاء اعتماد ميزانية مكرر، ويجب الذهاب للاستعراض والتعديل على الميزانية الحالية.',
+              context.l10n.duplicateBudgetMessage(existing.budgetCode, existing.title),
             ),
             actions: [
               TextButton(
@@ -340,12 +360,12 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                     _bgtPrefillData = null;
                   });
                 },
-                child: const Text('إلغاء التحديد'),
+                child: Text(context.l10n.cancelSelection),
               ),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
                 icon: const Icon(Icons.print, color: Colors.white, size: 16),
-                label: const Text('استعراض وطباعة الميزانية الحالية', style: TextStyle(color: Colors.white)),
+                label: Text(context.l10n.viewAndPrintBudget, style: const TextStyle(color: Colors.white)),
                 onPressed: () {
                   Navigator.pop(ctx);
                   _showBudgetDetailsDialog(existing);
@@ -365,11 +385,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
     try {
       final prefill = await ref.read(importBudgetsProvider.notifier).fetchBudgetPrefill(fileId);
-      final importFiles = ref.read(importFilesProvider).value ?? [];
+      final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
       final impFile = importFiles.where((f) => f.importFileId == fileId).firstOrNull;
       final poList = ref.read(purchaseOrdersProvider).purchaseOrders;
       final linkedPOs = poList.where((po) => po.importFileId == fileId || (impFile?.poIds?.contains(po.poId) ?? false)).toList();
-      final currencies = ref.read(currenciesProvider).value ?? [];
+      final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
 
       double calculatedInvoiceAmount = 0.0;
       String calculatedCurrency = 'USD';
@@ -412,12 +432,12 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         final customsDutiesEgp = prefill?.estimatedCustomsDutiesEgp ?? 0.0;
         final clearanceFeesEgp = prefill?.estimatedClearanceFeesEgp ?? 0.0;
 
-        final fCode = impFile?.customFileNumber ?? impFile?.importFileCode ?? prefill?.importFileTitle ?? 'IMP-$fileId';
+        final fCode = impFile?.primaryNameWithCode ?? prefill?.importFileTitle ?? 'IMP-$fileId';
         final compName = impFile?.companyName ?? '';
 
         setState(() {
           _bgtPrefillData = prefill;
-          _bgtTitleController.text = compName.isNotEmpty ? '[$fCode] $compName' : '[$fCode]';
+          _bgtTitleController.text = compName.isNotEmpty ? '$fCode - $compName' : fCode;
           
           _invoiceForeignController.text = calculatedInvoiceAmount > 0 ? calculatedInvoiceAmount.toStringAsFixed(2) : '0.00';
           _bgtInvoiceCurrency = calculatedCurrency;
@@ -467,7 +487,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         final updated = await ref.read(paymentRequestsProvider.notifier).updatePaymentRequest(_editingPaymentId!, payload);
         if (mounted && updated != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('✅ تم تعديل طلب السداد بنجاح (${updated.paymentCode})'), backgroundColor: AppTheme.emerald),
+            SnackBar(content: Text(context.l10n.paymentRequestUpdatedSuccess(updated.paymentCode)), backgroundColor: AppTheme.emerald),
           );
           setState(() {
             _editingPaymentId = null;
@@ -479,7 +499,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         final created = await ref.read(paymentRequestsProvider.notifier).createPaymentRequest(payload);
         if (mounted && created != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('✅ تم إصدار طلب السداد بنجاح (${created.paymentCode})'), backgroundColor: AppTheme.emerald),
+            SnackBar(content: Text(context.l10n.paymentRequestCreatedSuccess(created.paymentCode)), backgroundColor: AppTheme.emerald),
           );
           _showPaymentDetailsDialog(created);
         }
@@ -488,7 +508,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       if (mounted) {
         await showErrorDetailsDialog(
           context,
-          title: '❌ تعذر حفظ طلب السداد المالي',
+          title: context.l10n.savePaymentFailedTitle,
           error: e,
           onRetry: () async {
             await _savePaymentRequest();
@@ -502,6 +522,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
   void _loadPaymentRequestForEdit(PaymentRequestModel p) {
     setState(() {
+      _visitedTabs.add(0);
       _editingPaymentId = p.paymentId;
       _editingPaymentCode = p.paymentCode;
       _paySelectedImportFileId = p.importFileId;
@@ -522,7 +543,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     _tabController.animateTo(0);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('✏️ تم تحميل طلب السداد (${p.paymentCode}) للتعديل'),
+        content: Text(context.l10n.paymentLoadedForEditMsg(p.paymentCode)),
         backgroundColor: AppTheme.cobalt,
       ),
     );
@@ -530,6 +551,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
   void _loadBudgetForEdit(ImportBudgetModel b) {
     setState(() {
+      _visitedTabs.add(1);
       _editingBudgetId = b.budgetId;
       _bgtTitleController.text = b.title;
       _bgtSelectedImportFileId = b.importFileId;
@@ -548,7 +570,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     _tabController.animateTo(1);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('✏️ تم استدعاء وتحميل بيانات الميزانية (${b.budgetCode}) للنموذج للتعديل'),
+        content: Text(context.l10n.budgetLoadedForEditMsg(b.budgetCode)),
         backgroundColor: AppTheme.cobalt,
       ),
     );
@@ -558,20 +580,20 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
-            SizedBox(width: 8),
-            Text('تأكيد حذف طلب السداد', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
+            const SizedBox(width: 8),
+            Text(context.l10n.confirmDeletePaymentTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: Text('هل أنت متأكد من رغبتك في حذف طلب السداد المالي (${p.paymentCode} - ${p.title})؟\n\nسيتم أرشفة السجل وإمكانية استعادته لاحقاً.'),
+        content: Text(context.l10n.confirmDeletePaymentMessage(p.paymentCode, p.title)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(context.l10n.cancel)),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
             icon: const Icon(Icons.delete, color: Colors.white, size: 16),
-            label: const Text('تأكيد الحذف', style: TextStyle(color: Colors.white)),
+            label: Text(context.l10n.delete, style: const TextStyle(color: Colors.white)),
             onPressed: () => Navigator.pop(ctx, true),
           ),
         ],
@@ -583,13 +605,13 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         await ref.read(paymentRequestsProvider.notifier).softDeletePaymentRequest(p.paymentId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('🗑️ تم حذف طلب السداد (${p.paymentCode}) بنجاح'), backgroundColor: AppTheme.emerald),
+            SnackBar(content: Text(context.l10n.paymentDeletedSuccess(p.paymentCode)), backgroundColor: AppTheme.emerald),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('❌ خطأ أثناء الحذف: $e'), backgroundColor: AppTheme.crimson),
+            SnackBar(content: Text(context.l10n.deleteErrorMsg(e.toString())), backgroundColor: AppTheme.crimson),
           );
         }
       }
@@ -609,7 +631,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       if (p['beneficiary_name'] != null && (p['beneficiary_name'] as String).isNotEmpty) {
         _supplierNameController.text = p['beneficiary_name'];
         // Auto-match supplier from Master Data
-        final suppliers = ref.read(suppliersProvider).value ?? [];
+        final suppliers = ref.read(suppliersProvider).valueOrNull ?? [];
         final bName = (p['beneficiary_name'] as String).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
         final matchedSup = suppliers.where((s) {
           final sName = s.companyName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
@@ -643,7 +665,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       }
 
       // Auto-match Import File if available
-      final importFiles = ref.read(importFilesProvider).value ?? [];
+      final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
       final piNum = p['pi_number']?.toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
       final poNum = p['po_number']?.toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
       final transRef = p['transaction_reference']?.toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
@@ -663,25 +685,27 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         }
       }
 
+      final l = context.l10n;
       if (_payTitleController.text.trim().isEmpty && p['beneficiary_name'] != null) {
         final refNo = p['transaction_reference'] ?? '';
         final piText = p['pi_number'] != null ? ' - PI: ${p['pi_number']}' : '';
-        _payTitleController.text = 'سداد تحويل سويفت: ${p['beneficiary_name']}$piText ($refNo)';
+        _payTitleController.text = '${l.swiftPaymentPrefix}: ${p['beneficiary_name']}$piText ($refNo)';
       }
       final notesParts = <String>[];
       if (p['transaction_reference'] != null) notesParts.add('SWIFT Ref: ${p['transaction_reference']}');
       if (p['pi_number'] != null) notesParts.add('PI: ${p['pi_number']}');
-      if (p['ordering_customer_name'] != null) notesParts.add('الآمر بالتحويل: ${p['ordering_customer_name']}');
-      if (p['payment_details'] != null) notesParts.add('التفاصيل: ${p['payment_details']}');
+      if (p['ordering_customer_name'] != null) notesParts.add('${l.orderingCustomerPrefix}: ${p['ordering_customer_name']}');
+      if (p['payment_details'] != null) notesParts.add('${l.paymentDetailsPrefix}: ${p['payment_details']}');
       if (notesParts.isNotEmpty) {
         _payNotesController.text = notesParts.join(' | ');
       }
     });
 
     if (mounted) {
+      final l = context.l10n;
       final msg = fileName != null
-          ? '📄 تم استخراج بيانات السويفت بنجاح من مستند "$fileName" وتعبئة النموذج ⚡'
-          : '⚡ تم استخراج بيانات السويفت البنكي وتعبئة حقول طلب السداد بنجاح!';
+          ? l.swiftDataExtractedSuccess(fileName)
+          : l.swiftMatchedSuccess;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), backgroundColor: AppTheme.emerald),
       );
@@ -690,7 +714,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
   Map<String, dynamic> _parseSwiftClientFallback(String rawText) {
     final text = rawText.trim();
-    if (text.isEmpty) return {'success': false, 'error': 'نص فارغ'};
+    if (text.isEmpty) return {'success': false, 'error': context.l10n.emptyTextError};
 
     // 1. Transaction Ref (:20)
     String? transRef;
@@ -714,12 +738,23 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     double amount = 0.0;
     String? valueDate;
 
-    final valMatch = RegExp(r'(?:^|[\r\n])\s*:?32A(?:/Value\s+Date,?\s*CCY,?\s*Amount)?\s*[:/]?\s*(\d{6})([A-Za-z]{3})([0-9.,]+)', caseSensitive: false).firstMatch(text);
+    final valMatch = RegExp(r'(?:^|[\r\n])\s*:?32A(?:/Value\s+Date,?\s*CCY,?\s*Amount)?\s*[:/]?\s*(\d{6})\s*([A-Za-z0-9]{3})\s*([0-9.,]+)', caseSensitive: false).firstMatch(text);
     if (valMatch != null) {
       final rawDate = valMatch.group(1)!;
-      currency = valMatch.group(2)!.toUpperCase();
-      final rawAmt = valMatch.group(3)!.replaceAll(',', '.');
-      amount = double.tryParse(rawAmt) ?? 0.0;
+      var rawCurr = valMatch.group(2)!.toUpperCase();
+      if (rawCurr == 'U5D' || rawCurr == 'U50' || rawCurr == 'US0') rawCurr = 'USD';
+      if (rawCurr == 'E0R' || rawCurr == 'EVR' || rawCurr == 'FUR') rawCurr = 'EUR';
+      if (rawCurr == 'E6P' || rawCurr == 'ECP') rawCurr = 'EGP';
+      if (rawCurr == '6BP') rawCurr = 'GBP';
+      currency = rawCurr;
+
+      final rawAmtStr = valMatch.group(3)!.trim();
+      if (!rawAmtStr.contains(',') && !rawAmtStr.contains('.') && rawAmtStr.length > 4 && rawAmtStr.endsWith('00')) {
+        amount = (double.tryParse(rawAmtStr) ?? 0.0) / 100.0;
+      } else {
+        final rawAmt = rawAmtStr.replaceAll(',', '.');
+        amount = double.tryParse(rawAmt) ?? 0.0;
+      }
       try {
         final yy = int.parse(rawDate.substring(0, 2));
         final mm = int.parse(rawDate.substring(2, 4));
@@ -854,7 +889,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('⚠️ تعذر قراءة بيانات السويفت من النص. يرجى التأكد من احتواء النص على بيانات التحويل.'), backgroundColor: AppTheme.orange),
+            SnackBar(content: Text(context.l10n.swiftTextParseError), backgroundColor: AppTheme.orange),
           );
         }
       }
@@ -888,14 +923,14 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('❌ تعذر استخراج البيانات من الملف: ${res['error']}'), backgroundColor: AppTheme.crimson),
+            SnackBar(content: Text(context.l10n.swiftFileExtractError(res['error'].toString())), backgroundColor: AppTheme.crimson),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ خطأ أثناء استخراج الملف: $e'), backgroundColor: AppTheme.crimson),
+          SnackBar(content: Text(context.l10n.swiftFileExtractError(e.toString())), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -939,7 +974,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
             _editingBudgetId = null;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('✅ تم تعديل الميزانية الاستيرادية (${updated.budgetCode}) بنجاح'), backgroundColor: AppTheme.emerald),
+            SnackBar(content: Text(context.l10n.budgetUpdatedSuccess(updated.budgetCode)), backgroundColor: AppTheme.emerald),
           );
           _showBudgetDetailsDialog(updated);
         }
@@ -948,7 +983,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         if (mounted && created != null) {
           setState(() => _lastSavedBudget = created);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('✅ تم اعتماد وحفظ الميزانية الاستيرادية (${created.budgetCode})'), backgroundColor: AppTheme.emerald),
+            SnackBar(content: Text(context.l10n.budgetCreatedSuccess(created.budgetCode)), backgroundColor: AppTheme.emerald),
           );
           _showBudgetDetailsDialog(created);
         }
@@ -957,7 +992,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       if (mounted) {
         await showErrorDetailsDialog(
           context,
-          title: '❌ تعذر اعتماد وحفظ الميزانية الاستيرادية',
+          title: context.l10n.saveBudgetFailedTitle,
           error: e,
           onRetry: () async {
             await _saveImportBudget();
@@ -978,7 +1013,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('طلب سداد مالي: ${pay.paymentCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(context.l10n.paymentRequestDetailsTitle(pay.paymentCode), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               _buildStatusBadge(pay.status),
             ],
           ),
@@ -990,16 +1025,16 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                 children: [
                   Text(pay.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
                   const SizedBox(height: 6),
-                  Text('المورد المستفيد: ${pay.beneficiaryName ?? pay.supplierName}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text('طريقة السداد: ${pay.paymentType} | تاريخ تقديم الطلب: ${pay.requestDate.isNotEmpty ? pay.requestDate : "-"} | تاريخ الاستحقاق: ${pay.dueDate}'),
+                  Text(context.l10n.beneficiarySupplierDetails(pay.beneficiaryName ?? pay.supplierName), style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text('${context.l10n.paymentTypeLabel}: ${pay.paymentType} | ${context.l10n.requestDateLabel}: ${pay.requestDate.isNotEmpty ? pay.requestDate : "-"} | ${context.l10n.dueDateLabel}: ${pay.dueDate}'),
                   const Divider(),
                   Row(
                     children: [
-                      _buildMetricBadge('المبلغ بالعملة الأجنبية', '${pay.requestedAmount} ${pay.currencyCode}', AppTheme.cobalt),
+                      _buildMetricBadge(context.l10n.foreignAmountMetric, '${pay.requestedAmount} ${pay.currencyCode}', AppTheme.cobalt),
                       const SizedBox(width: 10),
-                      _buildMetricBadge('سعر الصرف', '${pay.exchangeRate} EGP', Colors.orange),
+                      _buildMetricBadge(context.l10n.exchangeRateCol, '${pay.exchangeRate} EGP', Colors.orange),
                       const SizedBox(width: 10),
-                      _buildMetricBadge('المعادل بالجنيه', '${pay.requestedAmountEgp.toStringAsFixed(2)} EGP', Colors.green),
+                      _buildMetricBadge(context.l10n.equivalentEgpCol, '${pay.requestedAmountEgp.toStringAsFixed(2)} EGP', Colors.green),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -1030,11 +1065,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.share_outlined, size: 16, color: AppTheme.cobalt),
-                            SizedBox(width: 6),
-                            Text('خيارات التصدير، الطباعة والمشاركة المباشرة:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                            const Icon(Icons.share_outlined, size: 16, color: AppTheme.cobalt),
+                            const SizedBox(width: 6),
+                            Text(context.l10n.exportAndShareOptionsTitle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -1049,7 +1084,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                               icon: const Icon(Icons.print, color: Colors.white, size: 16),
-                              label: const Text('طباعة / حفظ PDF', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              label: Text(context.l10n.printSavePdfBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                               onPressed: () {
                                 FinancialExportService.printPaymentRequestPdf(payment: pay);
                               },
@@ -1061,7 +1096,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                               icon: const Icon(Icons.table_chart, color: Colors.green, size: 16),
-                              label: const Text('تصدير EXCEL', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                              label: Text(context.l10n.downloadExcelBtn, style: const TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
                               onPressed: () async {
                                 final path = await FinancialExportService.exportSinglePaymentRequestToExcel(
                                   context: context,
@@ -1069,7 +1104,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 );
                                 if (path != null && mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('✅ تم حفظ ملف Excel بنجاح: $path'), backgroundColor: Colors.green),
+                                    SnackBar(content: Text(context.l10n.excelSavedSuccess(path)), backgroundColor: Colors.green),
                                   );
                                 }
                               },
@@ -1081,7 +1116,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                               icon: const Icon(Icons.chat, color: Colors.white, size: 16),
-                              label: const Text('إرسال واتساب', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              label: Text(context.l10n.whatsappShareBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                               onPressed: () {
                                 _showWhatsAppShareDialog(pay);
                               },
@@ -1093,7 +1128,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                               icon: const Icon(Icons.email_outlined, color: Colors.white, size: 16),
-                              label: const Text('إرسال بالإيميل', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              label: Text(context.l10n.emailShareBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                               onPressed: () {
                                 _showEmailShareDialog(pay);
                               },
@@ -1105,13 +1140,10 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                               icon: const Icon(Icons.copy, color: AppTheme.charcoal, size: 16),
-                              label: const Text('نسخ الملخص', style: TextStyle(color: AppTheme.charcoal, fontSize: 11, fontWeight: FontWeight.bold)),
+                              label: Text(context.l10n.copySummaryBtn, style: const TextStyle(color: AppTheme.charcoal, fontSize: 11, fontWeight: FontWeight.bold)),
                               onPressed: () {
                                 final text = FinancialExportService.generatePaymentWhatsAppText(pay);
-                                Clipboard.setData(ClipboardData(text: text));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('📋 تم نسخ بيانات طلب السداد للحافظة بنجاح'), backgroundColor: AppTheme.emerald),
-                                );
+                                CopyHelper.copy(context, text);
                               },
                             ),
                             // 6. SWIFT Smart Reconcile & Auto Match
@@ -1121,7 +1153,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                               icon: const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
-                              label: const Text('⚡ استخراج ومطابقة السويفت', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              label: Text(context.l10n.extractAndMatchSwiftBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                               onPressed: () {
                                 Navigator.pop(ctx);
                                 setState(() => _tabController.index = 3);
@@ -1137,7 +1169,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                     const Divider(),
                     TextField(
                       controller: swiftController,
-                      decoration: const InputDecoration(labelText: 'رقم إشعار التحويل البنكي (SWIFT Copy Reference) *', border: OutlineInputBorder()),
+                      decoration: InputDecoration(labelText: context.l10n.swiftReferenceInputLabel, border: const OutlineInputBorder()),
                     ),
                   ],
                 ],
@@ -1145,7 +1177,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.close)),
             if (pay.status == 'Draft' || pay.status == 'Pending Approval') ...[
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
@@ -1154,7 +1186,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   await ref.read(paymentRequestsProvider.notifier).approvePaymentRequest(pay.paymentId);
                   nav.pop();
                 },
-                child: const Text('اعتماد الطلب (Approve)', style: TextStyle(color: Colors.white)),
+                child: Text(context.l10n.approvePaymentAction, style: const TextStyle(color: Colors.white)),
               ),
             ],
             if (pay.status == 'Approved') ...[
@@ -1165,7 +1197,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   await ref.read(paymentRequestsProvider.notifier).executePayment(pay.paymentId, swiftRef: swiftController.text.trim());
                   nav.pop();
                 },
-                child: const Text('تأكيد التحويل والسداد (Mark as Paid)', style: TextStyle(color: Colors.white)),
+                child: Text(context.l10n.markAsPaidAction, style: const TextStyle(color: Colors.white)),
               ),
             ],
           ],
@@ -1181,11 +1213,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.chat, color: Color(0xFF25D366)),
-            SizedBox(width: 8),
-            Text('إرسال تفاصيل السداد عبر واتساب (WhatsApp)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.chat, color: Color(0xFF25D366)),
+            const SizedBox(width: 8),
+            Text(context.l10n.sendPaymentWhatsAppTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -1197,15 +1229,15 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                 TextField(
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'رقم الواتساب مع كود الدولة (اختياري - مثال: 201001234567)',
-                    hintText: 'اتركه فارغاً لاختيار جهة الاتصال في واتساب مباشرة',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone_android),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.whatsAppNumberLabel,
+                    hintText: context.l10n.whatsAppNumberHint,
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.phone_android),
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text('معاينة نص الرسالة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                Text(context.l10n.messagePreviewLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -1224,21 +1256,18 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.cancel)),
           OutlinedButton.icon(
             icon: const Icon(Icons.copy, size: 16),
-            label: const Text('نسخ النص'),
+            label: Text(context.l10n.copySummaryBtn),
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: text));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('📋 تم نسخ نص الواتساب للحافظة'), backgroundColor: AppTheme.emerald),
-              );
+              CopyHelper.copy(ctx, text);
             },
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
             icon: const Icon(Icons.open_in_new, color: Colors.white, size: 16),
-            label: const Text('فتح في واتساب 🚀', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            label: Text(context.l10n.openWhatsAppBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             onPressed: () {
               final phone = phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
               final encoded = Uri.encodeComponent(text);
@@ -1260,11 +1289,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.email, color: AppTheme.orange),
-            SizedBox(width: 8),
-            Text('إرسال طلب السداد عبر البريد الإلكتروني (Email)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.email, color: AppTheme.orange),
+            const SizedBox(width: 8),
+            Text(context.l10n.sendPaymentEmailTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -1276,11 +1305,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                 TextField(
                   controller: toController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'البريد الإلكتروني للمستلم (To Email)',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.recipientEmailLabel,
                     hintText: 'accounting@company.com',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.alternate_email),
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.alternate_email),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1294,7 +1323,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('الموضوع: $subject', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      Text(context.l10n.emailSubjectLabel(subject), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       const Divider(height: 12),
                       SelectableText(
                         body,
@@ -1308,21 +1337,18 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.cancel)),
           OutlinedButton.icon(
             icon: const Icon(Icons.copy, size: 16),
-            label: const Text('نسخ الإيميل'),
+            label: Text(context.l10n.copySummaryBtn),
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: 'Subject: $subject\n\n$body'));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('📋 تم نسخ موضوع ونص الإيميل للحافظة'), backgroundColor: AppTheme.emerald),
-              );
+              CopyHelper.copy(ctx, 'Subject: $subject\n\n$body');
             },
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
             icon: const Icon(Icons.send, color: Colors.white, size: 16),
-            label: const Text('فتح برنامج البريد 📧', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            label: Text(context.l10n.openEmailClientBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             onPressed: () {
               final to = toController.text.trim();
               final encodedSubject = Uri.encodeComponent(subject);
@@ -1345,7 +1371,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('اعتماد الميزانية: ${bgt.budgetCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(context.l10n.budgetDetailsTitle(bgt.budgetCode), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               _buildStatusBadge(bgt.budgetStatus),
             ],
           ),
@@ -1372,11 +1398,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.share_outlined, size: 16, color: AppTheme.cobalt),
-                            SizedBox(width: 6),
-                            Text('خيارات التصدير، الطباعة والمشاركة المباشرة:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                            const Icon(Icons.share_outlined, size: 16, color: AppTheme.cobalt),
+                            const SizedBox(width: 6),
+                            Text(context.l10n.exportAndShareOptionsTitle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -1391,7 +1417,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                               icon: const Icon(Icons.print, color: Colors.white, size: 16),
-                              label: const Text('طباعة / حفظ PDF', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              label: Text(context.l10n.printSavePdfBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                               onPressed: () {
                                 FinancialExportService.printOrSaveBudgetPdf(
                                   budget: bgt,
@@ -1406,7 +1432,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                               icon: const Icon(Icons.table_chart, color: Colors.green, size: 16),
-                              label: const Text('تصدير EXCEL', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                              label: Text(context.l10n.downloadExcelBtn, style: const TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
                               onPressed: () async {
                                 final path = await FinancialExportService.exportBudgetToExcel(
                                   context: context,
@@ -1415,7 +1441,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 );
                                 if (path != null && mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('✅ تم تصدير ملف Excel بنجاح: $path'), backgroundColor: Colors.green),
+                                    SnackBar(content: Text(context.l10n.excelSavedSuccess(path)), backgroundColor: Colors.green),
                                   );
                                 }
                               },
@@ -1427,7 +1453,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                               icon: const Icon(Icons.chat, color: Colors.white, size: 16),
-                              label: const Text('إرسال واتساب', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              label: Text(context.l10n.whatsappShareBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                               onPressed: () {
                                 _showBudgetWhatsAppShareDialog(bgt);
                               },
@@ -1439,7 +1465,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                               icon: const Icon(Icons.email_outlined, color: Colors.white, size: 16),
-                              label: const Text('إرسال بالإيميل', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              label: Text(context.l10n.emailShareBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                               onPressed: () {
                                 _showBudgetEmailShareDialog(bgt);
                               },
@@ -1451,13 +1477,10 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                               icon: const Icon(Icons.copy, color: AppTheme.charcoal, size: 16),
-                              label: const Text('نسخ الملخص', style: TextStyle(color: AppTheme.charcoal, fontSize: 11, fontWeight: FontWeight.bold)),
+                              label: Text(context.l10n.copySummaryBtn, style: const TextStyle(color: AppTheme.charcoal, fontSize: 11, fontWeight: FontWeight.bold)),
                               onPressed: () {
                                 final text = FinancialExportService.generateBudgetWhatsAppText(bgt, _bgtPrefillData);
-                                Clipboard.setData(ClipboardData(text: text));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('📋 تم نسخ تقرير الميزانية للحافظة بنجاح'), backgroundColor: AppTheme.emerald),
-                                );
+                                CopyHelper.copy(context, text);
                               },
                             ),
                           ],
@@ -1470,7 +1493,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.close)),
             if (bgt.budgetStatus == 'Pending Review' || bgt.budgetStatus == 'Draft') ...[
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
@@ -1495,11 +1518,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.chat, color: Color(0xFF25D366)),
-            SizedBox(width: 8),
-            Text('WhatsApp', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.chat, color: Color(0xFF25D366)),
+            const SizedBox(width: 8),
+            Text(context.l10n.sendBudgetWhatsAppTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -1511,15 +1534,15 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                 TextField(
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'رقم الواتساب مع كود الدولة (اختياري - مثال: 201001234567)',
-                    hintText: 'اتركه فارغاً لاختيار جهة الاتصال في واتساب مباشرة',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone_android),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.whatsAppNumberLabel,
+                    hintText: context.l10n.whatsAppNumberHint,
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.phone_android),
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text('معاينة نص الرسالة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                Text(context.l10n.messagePreviewLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -1538,21 +1561,18 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.cancel)),
           OutlinedButton.icon(
             icon: const Icon(Icons.copy, size: 16),
-            label: const Text('نسخ النص'),
+            label: Text(context.l10n.copySummaryBtn),
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: text));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('📋 تم نسخ نص الميزانية للحافظة'), backgroundColor: AppTheme.emerald),
-              );
+              CopyHelper.copy(ctx, text);
             },
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
             icon: const Icon(Icons.open_in_new, color: Colors.white, size: 16),
-            label: const Text('فتح في واتساب 🚀', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            label: Text(context.l10n.openWhatsAppBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             onPressed: () {
               final phone = phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
               final encoded = Uri.encodeComponent(text);
@@ -1574,11 +1594,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.email, color: AppTheme.orange),
-            SizedBox(width: 8),
-            Text('إرسال تقرير الميزانية بالبريد الإلكتروني (Email)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.email, color: AppTheme.orange),
+            const SizedBox(width: 8),
+            Text(context.l10n.sendBudgetEmailTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -1590,11 +1610,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                 TextField(
                   controller: toController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'البريد الإلكتروني للمستلم (To Email)',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.recipientEmailLabel,
                     hintText: 'cfo@company.com',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.alternate_email),
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.alternate_email),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1608,7 +1628,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('الموضوع: $subject', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      Text(context.l10n.emailSubjectLabel(subject), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       const Divider(height: 12),
                       SelectableText(
                         body,
@@ -1622,21 +1642,18 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.cancel)),
           OutlinedButton.icon(
             icon: const Icon(Icons.copy, size: 16),
-            label: const Text('نسخ الإيميل'),
+            label: Text(context.l10n.copySummaryBtn),
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: 'Subject: $subject\n\n$body'));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('📋 تم نسخ موضوع ونص تقرير الميزانية للحافظة'), backgroundColor: AppTheme.emerald),
-              );
+              CopyHelper.copy(ctx, 'Subject: $subject\n\n$body');
             },
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
             icon: const Icon(Icons.send, color: Colors.white, size: 16),
-            label: const Text('فتح برنامج البريد 📧', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            label: Text(context.l10n.openEmailClientBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             onPressed: () {
               final to = toController.text.trim();
               final encodedSubject = Uri.encodeComponent(subject);
@@ -1654,12 +1671,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final suppliersState = ref.watch(suppliersProvider);
     final paymentsState = ref.watch(paymentRequestsProvider);
     final budgetsState = ref.watch(importBudgetsProvider);
 
-    final suppliersList = suppliersState.value ?? [];
+    final suppliersList = suppliersState.valueOrNull ?? [];
 
     final tabs = [
       const VerticalNavTabItem(
@@ -1676,7 +1692,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         icon: Icons.account_balance_wallet_outlined,
         titleEn: 'Saved Budgets Registry',
         titleAr: 'سجل الميزانيات المعتمدة',
-        badge: (budgetsState.value?.length ?? 0) > 0
+        badge: (budgetsState.valueOrNull?.length ?? 0) > 0
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -1684,7 +1700,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  '${budgetsState.value?.length ?? 0}',
+                  '${budgetsState.valueOrNull?.length ?? 0}',
                   style: const TextStyle(color: AppTheme.emerald, fontSize: 10, fontWeight: FontWeight.bold),
                 ),
               )
@@ -1694,7 +1710,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         icon: Icons.history_edu_outlined,
         titleEn: 'Payment Requests Registry',
         titleAr: 'سجل طلبات السداد والتحويلات',
-        badge: (paymentsState.value?.length ?? 0) > 0
+        badge: (paymentsState.valueOrNull?.length ?? 0) > 0
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -1702,7 +1718,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  '${paymentsState.value?.length ?? 0}',
+                  '${paymentsState.valueOrNull?.length ?? 0}',
                   style: const TextStyle(color: AppTheme.orange, fontSize: 10, fontWeight: FontWeight.bold),
                 ),
               )
@@ -1723,7 +1739,10 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       headerColor: AppTheme.orange,
       tabs: tabs,
       selectedIndex: _tabController.index,
-      onTabSelected: (index) => setState(() => _tabController.index = index),
+      onTabSelected: (index) => setState(() {
+        _visitedTabs.add(index);
+        _tabController.index = index;
+      }),
       headerActions: [
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
@@ -1738,14 +1757,14 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
             );
           },
           icon: const Icon(Icons.analytics_outlined, size: 16),
-          label: const Text(
-            'محاكي الأزمات وتحوط الصرف (What-If)',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          label: Text(
+            l.whatIfSimulatorButton,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
           ),
         ),
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: isArabic ? 'تحديث حي' : 'Live Refresh',
+          tooltip: l.liveRefreshTooltip,
           onPressed: () {
             ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
             ref.read(importBudgetsProvider.notifier).fetchImportBudgets();
@@ -1760,7 +1779,8 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         index: _tabController.index,
         children: [
           // ── TAB 1: PAYMENT REQUEST FORM (BP-012) ───────────────────────────
-          SingleChildScrollView(
+          if (_visitedTabs.contains(0))
+            SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Form(
               key: _paymentFormKey,
@@ -1844,9 +1864,9 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                       value: null,
                                       label: '-- ${l.notLinked} --',
                                     ),
-                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
+                                    ...(ref.watch(importFilesProvider).valueOrNull ?? []).map((f) => SearchableDropdownItem<int?>(
                                           value: f.importFileId,
-                                          label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                                          label: '${f.primaryNameWithCode} - ${f.companyName}',
                                           subtitle: f.companyName,
                                         )),
                                   ],
@@ -1937,7 +1957,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                   labelText: '${l.currencyCol} *',
                                   searchHintText: l.search,
                                   items: () {
-                                    final curList = ref.watch(currenciesProvider).value ?? [];
+                                    final curList = ref.watch(currenciesProvider).valueOrNull ?? [];
                                     final list = curList.isNotEmpty
                                         ? curList.map((c) => SearchableDropdownItem<String>(
                                               value: c.currencyCode,
@@ -2087,19 +2107,19 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                 ..._payPrefillData!.linkedPos.map((po) {
                                   return TableRow(
                                     children: [
-                                      Padding(padding: const EdgeInsets.all(8), child: Text(po.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                      Padding(padding: const EdgeInsets.all(8), child: Text(po.projectName ?? '-')),
+                                      Padding(padding: const EdgeInsets.all(8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [CopyableText(po.displayName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)), if (po.displayName != po.poNumber) CopyableText(po.poNumber, style: const TextStyle(fontSize: 10, color: Colors.grey))])),
+                                      Padding(padding: const EdgeInsets.all(8), child: CopyableText(po.projectName ?? '-')),
                                       Padding(
                                         padding: const EdgeInsets.all(8),
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.amber.shade200)),
-                                          child: Text(po.paymentTerms, style: TextStyle(fontSize: 11, color: Colors.brown.shade800, fontWeight: FontWeight.bold)),
+                                          child: CopyableText(po.paymentTerms, style: TextStyle(fontSize: 11, color: Colors.brown.shade800, fontWeight: FontWeight.bold)),
                                         ),
                                       ),
-                                      Padding(padding: const EdgeInsets.all(8), child: Text(po.currency, style: const TextStyle(fontWeight: FontWeight.w600))),
-                                      Padding(padding: const EdgeInsets.all(8), child: Text('${po.totalAmount.toStringAsFixed(2)} ${po.currency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
-                                      Padding(padding: const EdgeInsets.all(8), child: Text(po.status, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt))),
+                                      Padding(padding: const EdgeInsets.all(8), child: CopyableText(po.currency, style: const TextStyle(fontWeight: FontWeight.w600))),
+                                      Padding(padding: const EdgeInsets.all(8), child: CopyableText('${po.totalAmount.toStringAsFixed(2)} ${po.currency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+                                      Padding(padding: const EdgeInsets.all(8), child: CopyableText(po.status, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt))),
                                     ],
                                   );
                                 }),
@@ -2166,10 +2186,13 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                 ],
               ),
             ),
-          ),
+          )
+          else
+            const SizedBox.shrink(),
 
           // ── TAB 2: IMPORT BUDGET APPROVAL FORM (BP-013) ────────────────────
-          SingleChildScrollView(
+          if (_visitedTabs.contains(1))
+            SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Form(
               key: _budgetFormKey,
@@ -2206,9 +2229,9 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                       value: null,
                                       label: '-- ${l.notLinked} --',
                                     ),
-                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
+                                    ...(ref.watch(importFilesProvider).valueOrNull ?? []).map((f) => SearchableDropdownItem<int?>(
                                           value: f.importFileId,
-                                          label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                                          label: '${f.primaryNameWithCode} - ${f.companyName}',
                                           subtitle: f.companyName,
                                         )),
                                   ],
@@ -2405,16 +2428,25 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                 ],
               ),
             ),
-          ),
+          )
+          else
+            const SizedBox.shrink(),
 
           // ── TAB 3: SAVED BUDGETS REGISTRY (سجل الميزانيات الاستيرادية المعتمدة) ───
-          SavedBudgetsRegistryTab(
-            onEditBudget: _loadBudgetForEdit,
-            onSwitchToForm: () => setState(() => _tabController.index = 1),
-          ),
+          if (_visitedTabs.contains(2))
+            SavedBudgetsRegistryTab(
+              onEditBudget: _loadBudgetForEdit,
+              onSwitchToForm: () => setState(() {
+                _visitedTabs.add(1);
+                _tabController.index = 1;
+              }),
+            )
+          else
+            const SizedBox.shrink(),
 
           // ── TAB 4: PAYMENT REQUESTS REGISTRY (سجل طلبات السداد والتحويلات) ─────────
-          Padding(
+          if (_visitedTabs.contains(3))
+            Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2564,6 +2596,17 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                       final index = entry.key;
                                       final p = entry.value;
                                       final isEven = index % 2 == 0;
+                                      final rowSummary = [
+                                        p.paymentCode,
+                                        p.importFileCode ?? (p.importFileId != null ? 'IMP-${p.importFileId}' : '-'),
+                                        p.beneficiaryName ?? p.supplierName,
+                                        '${p.bankName ?? "-"} ${p.swiftCode ?? ""}'.trim(),
+                                        p.paymentType,
+                                        '${p.requestedAmount.toStringAsFixed(2)} ${p.currencyCode}',
+                                        '${p.requestedAmountEgp.toStringAsFixed(2)} EGP',
+                                        '${p.requestDate} / ${p.dueDate}',
+                                        p.status,
+                                      ].join('\t');
 
                                       return DataRow(
                                         color: WidgetStateProperty.all(isEven ? Colors.white : Colors.grey.shade50),
@@ -2577,101 +2620,139 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                             ),
                                           ),
                                           DataCell(
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: AppTheme.cobalt.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                                              ),
-                                              child: Text(
-                                                p.paymentCode,
-                                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
-                                              ),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: AppTheme.charcoal.withOpacity(0.08),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                p.importFileCode ?? (p.importFileId != null ? 'IMP-${p.importFileId}' : '-'),
-                                                style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                            CopyableTableCell(
+                                              value: p.paymentCode,
+                                              rowSummary: rowSummary,
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.cobalt.withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                                ),
+                                                child: Text(
+                                                  p.paymentCode,
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
+                                                ),
                                               ),
                                             ),
                                           ),
                                           DataCell(
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Text(p.beneficiaryName ?? p.supplierName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                                Text(p.title, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                                              ],
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Text(p.bankName ?? '-', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                                                if (p.swiftCode != null && p.swiftCode!.isNotEmpty)
-                                                  Text('SWIFT: ${p.swiftCode}', style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
-                                              ],
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: Colors.amber.shade50,
-                                                borderRadius: BorderRadius.circular(4),
-                                                border: Border.all(color: Colors.amber.shade200),
-                                              ),
-                                              child: Text(p.paymentType, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.brown.shade800)),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: Colors.blue.shade50,
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                '${p.requestedAmount.toStringAsFixed(2)} ${p.currencyCode}',
-                                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade800, fontSize: 12),
+                                            CopyableTableCell(
+                                              value: p.importFileCode ?? (p.importFileId != null ? 'IMP-${p.importFileId}' : '-'),
+                                              rowSummary: rowSummary,
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.charcoal.withOpacity(0.08),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  p.importFileCode ?? (p.importFileId != null ? 'IMP-${p.importFileId}' : '-'),
+                                                  style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                                ),
                                               ),
                                             ),
                                           ),
                                           DataCell(
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: Colors.green.shade50,
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                '${p.requestedAmountEgp.toStringAsFixed(2)} EGP',
-                                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 12),
+                                            CopyableTableCell(
+                                              value: '${p.beneficiaryName ?? p.supplierName} - ${p.title}',
+                                              rowSummary: rowSummary,
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Text(p.beneficiaryName ?? p.supplierName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                                  Text(p.title, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                                ],
                                               ),
                                             ),
                                           ),
                                           DataCell(
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Text('الطلب: ${p.requestDate.isNotEmpty ? p.requestDate : "-"}', style: const TextStyle(fontSize: 11)),
-                                                Text('الاستحقاق: ${p.dueDate}', style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
-                                              ],
+                                            CopyableTableCell(
+                                              value: '${p.bankName ?? "-"} ${p.swiftCode ?? ""}'.trim(),
+                                              rowSummary: rowSummary,
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Text(p.bankName ?? '-', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                                                  if (p.swiftCode != null && p.swiftCode!.isNotEmpty)
+                                                    Text('SWIFT: ${p.swiftCode}', style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
+                                                ],
+                                              ),
                                             ),
                                           ),
-                                          DataCell(_buildStatusBadge(p.status)),
+                                          DataCell(
+                                            CopyableTableCell(
+                                              value: p.paymentType,
+                                              rowSummary: rowSummary,
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.amber.shade50,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  border: Border.all(color: Colors.amber.shade200),
+                                                ),
+                                                child: Text(p.paymentType, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.brown.shade800)),
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            CopyableTableCell(
+                                              value: '${p.requestedAmount.toStringAsFixed(2)} ${p.currencyCode}',
+                                              rowSummary: rowSummary,
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.blue.shade50,
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  '${p.requestedAmount.toStringAsFixed(2)} ${p.currencyCode}',
+                                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade800, fontSize: 12),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            CopyableTableCell(
+                                              value: '${p.requestedAmountEgp.toStringAsFixed(2)} EGP',
+                                              rowSummary: rowSummary,
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.green.shade50,
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  '${p.requestedAmountEgp.toStringAsFixed(2)} EGP',
+                                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 12),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            CopyableTableCell(
+                                              value: '${p.requestDate} - ${p.dueDate}',
+                                              rowSummary: rowSummary,
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Text('${l.requestDateLabel}: ${p.requestDate.isNotEmpty ? p.requestDate : "-"}', style: const TextStyle(fontSize: 11)),
+                                                  Text('${l.dueDateLabel}: ${p.dueDate}', style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            CopyableTableCell(
+                                              value: p.status,
+                                              rowSummary: rowSummary,
+                                              child: _buildStatusBadge(p.status),
+                                            ),
+                                          ),
                                         ],
                                       );
                                     }).toList(),
@@ -2687,10 +2768,15 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                 ),
               ],
             ),
-          ),
+          )
+          else
+            const SizedBox.shrink(),
 
           // ── TAB 4: SWIFT MT103 PARSER & RECONCILIATION ───────────────────────
-          const SwiftReconciliationScreen(isEmbedded: true),
+          if (_visitedTabs.contains(4))
+            const SwiftReconciliationScreen(isEmbedded: true)
+          else
+            const SizedBox.shrink(),
         ],
       ),
     );
@@ -2800,17 +2886,17 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
               TableRow(
                 children: [
                   Padding(padding: const EdgeInsets.all(6), child: Text(l.estimatedInvoiceValue, style: const TextStyle(fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(6), child: Text(invForeign.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(6), child: Text(invCurr, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(6), child: Text('${invEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: CopyableText(invForeign.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: CopyableText(invCurr, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: CopyableText('${invEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12))),
                 ],
               ),
               TableRow(
                 children: [
                   Padding(padding: const EdgeInsets.all(6), child: Text(l.estimatedFreightCost, style: const TextStyle(fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(6), child: Text(frtForeign.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(6), child: Text(frtCurr, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(6), child: Text('${frtEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: CopyableText(frtForeign.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: CopyableText(frtCurr, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: CopyableText('${frtEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12))),
                 ],
               ),
               TableRow(
@@ -2819,7 +2905,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   Padding(padding: const EdgeInsets.all(6), child: Text(l.totalExpenses, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                   Padding(
                     padding: const EdgeInsets.all(6),
-                    child: Text(
+                    child: CopyableText(
                       invCurr.toUpperCase() == frtCurr.toUpperCase()
                           ? (invForeign + frtForeign).toStringAsFixed(2)
                           : '${invForeign.toStringAsFixed(2)} ($invCurr)\n+ ${frtForeign.toStringAsFixed(2)} ($frtCurr)',
@@ -2828,14 +2914,14 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   ),
                   Padding(
                     padding: const EdgeInsets.all(6),
-                    child: Text(
+                    child: CopyableText(
                       invCurr.toUpperCase() == frtCurr.toUpperCase() ? invCurr : '-',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(6),
-                    child: Text(
+                    child: CopyableText(
                       '${(invEgp + frtEgp).toStringAsFixed(2)} EGP',
                       style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12),
                     ),
@@ -2868,15 +2954,15 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
               TableRow(
                 children: [
                   Padding(padding: const EdgeInsets.all(6), child: Text(l.customsAndVatEstimate, style: const TextStyle(fontSize: 12))),
-                  const Padding(padding: EdgeInsets.all(6), child: Text('Customs', style: TextStyle(fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(6), child: Text('${custEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: CopyableText(l.customsAuthority, style: const TextStyle(fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: CopyableText('${custEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple, fontSize: 12))),
                 ],
               ),
               TableRow(
                 children: [
                   Padding(padding: const EdgeInsets.all(6), child: Text(l.clearanceAndTransportEstimate, style: const TextStyle(fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(6), child: Text(l.customsBrokerLabel, style: const TextStyle(fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(6), child: Text('${clrEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: CopyableText(l.customsBrokerLabel, style: const TextStyle(fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: CopyableText('${clrEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal, fontSize: 12))),
                 ],
               ),
               TableRow(
@@ -2884,7 +2970,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                 children: [
                   Padding(padding: const EdgeInsets.all(6), child: Text(l.totalExpenses, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                   const Padding(padding: EdgeInsets.all(6), child: Text('-', style: TextStyle(fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(6), child: Text('${(custEgp + clrEgp).toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(6), child: CopyableText('${(custEgp + clrEgp).toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12))),
                 ],
               ),
             ],
@@ -2906,7 +2992,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   '${l.totalBudgetEgp}:',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                 ),
-                Text(
+                CopyableText(
                   '${grandTotalEgp.toStringAsFixed(2)} EGP',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.emerald),
                 ),
@@ -3180,22 +3266,38 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         children: [
           Text(title, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
           const SizedBox(height: 2),
-          Text(value, style: TextStyle(fontSize: 14, color: color, fontWeight: FontWeight.bold)),
+          CopyableText(value, style: TextStyle(fontSize: 14, color: color, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
   Widget _buildStatusBadge(String status) {
+    final l = context.l10n;
     Color bg = Colors.grey;
-    if (status == 'Paid' || status == 'Budget Approved') bg = Colors.green;
-    if (status == 'Approved') bg = Colors.blue;
-    if (status == 'Pending Approval' || status == 'Pending Review') bg = Colors.orange;
+    String localizedStatus = status;
+
+    if (status == 'Paid' || status == 'Budget Approved') {
+      bg = Colors.green;
+      localizedStatus = status == 'Paid' ? l.paidStatus : l.statusApproved;
+    } else if (status == 'Approved') {
+      bg = Colors.blue;
+      localizedStatus = l.statusApproved;
+    } else if (status == 'Pending Approval' || status == 'Pending Review') {
+      bg = Colors.orange;
+      localizedStatus = l.statusPendingReview;
+    } else if (status == 'Draft') {
+      bg = Colors.grey;
+      localizedStatus = l.draftStatus;
+    } else if (status == 'Reconciled') {
+      bg = Colors.purple;
+      localizedStatus = l.reconciledStatus;
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(color: bg.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
-      child: Text(status, style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 11)),
+      child: Text(localizedStatus, style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 11)),
     );
   }
 }

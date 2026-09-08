@@ -61,6 +61,38 @@ void main() {
         ar.customsDeclColRegistrationDate,
         ar.customsDeclColDeclarationStatus,
         ar.customsDeclStatusRegisteredNafeza,
+        ar.customsDeclRequiredField,
+        ar.customsDeclCopyValueTooltip,
+        ar.customsDeclPrintPreviewButton,
+        ar.customsDeclPreviewTitle,
+        ar.customsDeclCopySummarySuccess,
+        ar.customsDeclExportTsvButton,
+        ar.customsDeclExportSuccess,
+        ar.customsDeclExportRegistryTsv,
+        ar.customsDeclCopyAllSuccess,
+        ar.customsDeclCloseDialog,
+        ar.customsDeclAssessmentTitle,
+        ar.customsDeclViewAssessmentTooltip,
+        ar.customsDeclAssessmentSubtitle,
+        ar.customsDeclShipmentParticularsHeader,
+        ar.customsDeclValuationBreakdownHeader,
+        ar.customsDeclFobForeignLabel,
+        ar.customsDeclFreightEgpLabel,
+        ar.customsDeclInsuranceEgpLabel,
+        ar.customsDeclCifTotalEgpLabel,
+        ar.customsDeclTariffTaxesHeader,
+        ar.customsDeclImportDutyRateLabel,
+        ar.customsDeclVatRateLabel,
+        ar.customsDeclDevFeeLabel,
+        ar.customsDeclCustomsServicesFeeLabel,
+        ar.customsDeclColActions,
+        ar.customsDeclAssessmentCopySuccess,
+        ar.customsDeclMetricTotalDeclarations,
+        ar.customsDeclMetricTotalCif,
+        ar.customsDeclMetricTotalDuties,
+        ar.customsDeclMetricExemptions,
+        ar.customsDeclFxRateLabel,
+        ar.customsDeclVatBaseLabel,
       ];
 
       final List<String> enStrings = [
@@ -115,6 +147,38 @@ void main() {
         en.customsDeclColRegistrationDate,
         en.customsDeclColDeclarationStatus,
         en.customsDeclStatusRegisteredNafeza,
+        en.customsDeclRequiredField,
+        en.customsDeclCopyValueTooltip,
+        en.customsDeclPrintPreviewButton,
+        en.customsDeclPreviewTitle,
+        en.customsDeclCopySummarySuccess,
+        en.customsDeclExportTsvButton,
+        en.customsDeclExportSuccess,
+        en.customsDeclExportRegistryTsv,
+        en.customsDeclCopyAllSuccess,
+        en.customsDeclCloseDialog,
+        en.customsDeclAssessmentTitle,
+        en.customsDeclViewAssessmentTooltip,
+        en.customsDeclAssessmentSubtitle,
+        en.customsDeclShipmentParticularsHeader,
+        en.customsDeclValuationBreakdownHeader,
+        en.customsDeclFobForeignLabel,
+        en.customsDeclFreightEgpLabel,
+        en.customsDeclInsuranceEgpLabel,
+        en.customsDeclCifTotalEgpLabel,
+        en.customsDeclTariffTaxesHeader,
+        en.customsDeclImportDutyRateLabel,
+        en.customsDeclVatRateLabel,
+        en.customsDeclDevFeeLabel,
+        en.customsDeclCustomsServicesFeeLabel,
+        en.customsDeclColActions,
+        en.customsDeclAssessmentCopySuccess,
+        en.customsDeclMetricTotalDeclarations,
+        en.customsDeclMetricTotalCif,
+        en.customsDeclMetricTotalDuties,
+        en.customsDeclMetricExemptions,
+        en.customsDeclFxRateLabel,
+        en.customsDeclVatBaseLabel,
       ];
 
       expect(arStrings.length, enStrings.length);
@@ -181,6 +245,16 @@ void main() {
         en.customsDeclColRegistrationDate,
         en.customsDeclColDeclarationStatus,
         en.customsDeclStatusRegisteredNafeza,
+        en.customsDeclRequiredField,
+        en.customsDeclCopyValueTooltip,
+        en.customsDeclPrintPreviewButton,
+        en.customsDeclPreviewTitle,
+        en.customsDeclCopySummarySuccess,
+        en.customsDeclExportTsvButton,
+        en.customsDeclExportSuccess,
+        en.customsDeclExportRegistryTsv,
+        en.customsDeclCopyAllSuccess,
+        en.customsDeclCloseDialog,
       ];
 
       final arabicPattern = RegExp(r'[\u0600-\u06FF]');
@@ -201,11 +275,117 @@ void main() {
         en.customsDeclExemptionHeader,
         ar.customsDeclRegulatoryHeader,
         en.customsDeclRegulatoryHeader,
+        ar.customsDeclEur1Condition1,
+        ar.customsDeclEur1Condition2,
+        ar.customsDeclEur1Condition3,
+        ar.customsDeclColHsCode,
+        ar.customsDeclDefaultAuthority,
       ];
 
       for (final label in labels) {
         expect(label.contains(' / '), isFalse, reason: 'Labels should not contain dual stacked format " / ": $label');
       }
+    });
+
+    test('Screen 24: Customs Declaration 46 Tariff Assessment getters should not have stacked bilingual text or slashes', () {
+      final List<String> screen24Labels = [
+        ar.customsDeclAssessmentTitle,
+        en.customsDeclAssessmentTitle,
+        ar.customsDeclViewAssessmentTooltip,
+        en.customsDeclViewAssessmentTooltip,
+        ar.customsDeclAssessmentSubtitle,
+        en.customsDeclAssessmentSubtitle,
+        ar.customsDeclShipmentParticularsHeader,
+        en.customsDeclShipmentParticularsHeader,
+        ar.customsDeclValuationBreakdownHeader,
+        en.customsDeclValuationBreakdownHeader,
+        ar.customsDeclFobForeignLabel,
+        en.customsDeclFobForeignLabel,
+        ar.customsDeclFreightEgpLabel,
+        en.customsDeclFreightEgpLabel,
+        ar.customsDeclInsuranceEgpLabel,
+        en.customsDeclInsuranceEgpLabel,
+        ar.customsDeclCifTotalEgpLabel,
+        en.customsDeclCifTotalEgpLabel,
+        ar.customsDeclTariffTaxesHeader,
+        en.customsDeclTariffTaxesHeader,
+        ar.customsDeclImportDutyRateLabel,
+        en.customsDeclImportDutyRateLabel,
+        ar.customsDeclVatRateLabel,
+        en.customsDeclVatRateLabel,
+        ar.customsDeclDevFeeLabel,
+        en.customsDeclDevFeeLabel,
+        ar.customsDeclCustomsServicesFeeLabel,
+        en.customsDeclCustomsServicesFeeLabel,
+        ar.customsDeclColActions,
+        en.customsDeclColActions,
+        ar.customsDeclAssessmentCopySuccess,
+        en.customsDeclAssessmentCopySuccess,
+        ar.customsDeclMetricTotalDeclarations,
+        en.customsDeclMetricTotalDeclarations,
+        ar.customsDeclMetricTotalCif,
+        en.customsDeclMetricTotalCif,
+        ar.customsDeclMetricTotalDuties,
+        en.customsDeclMetricTotalDuties,
+        ar.customsDeclMetricExemptions,
+        en.customsDeclMetricExemptions,
+        ar.customsDeclFxRateLabel,
+        en.customsDeclFxRateLabel,
+        ar.customsDeclVatBaseLabel,
+        en.customsDeclVatBaseLabel,
+      ];
+
+      for (final label in screen24Labels) {
+        expect(label.contains(' / '), isFalse, reason: 'Screen 24 label should not contain dual stacked format " / ": $label');
+      }
+
+      // Check Arabic strings don't contain parenthetical English abbreviations
+      final List<String> arLabels = [
+        ar.customsDeclAssessmentTitle,
+        ar.customsDeclValuationBreakdownHeader,
+        ar.customsDeclInsuranceEgpLabel,
+        ar.customsDeclCifTotalEgpLabel,
+        ar.customsDeclTariffTaxesHeader,
+        ar.customsDeclImportDutyRateLabel,
+        ar.customsDeclVatRateLabel,
+        ar.customsDeclDevFeeLabel,
+        ar.customsDeclCustomsServicesFeeLabel,
+        ar.customsDeclMetricTotalCif,
+        ar.customsDeclMetricTotalDuties,
+        ar.customsDeclVatBaseLabel,
+      ];
+
+      for (final label in arLabels) {
+        expect(label.contains('(CIF)'), isFalse, reason: 'Arabic label should not contain (CIF): $label');
+        expect(label.contains('(VAT)'), isFalse, reason: 'Arabic label should not contain (VAT): $label');
+        expect(label.contains('(HS Code)'), isFalse, reason: 'Arabic label should not contain (HS Code): $label');
+      }
+    });
+
+    test('Screen 24: Customs Tariff & Duty Calculation Mathematical Rules', () {
+      const double fobForeign = 10000.0;
+      const double exchangeRate = 50.7917;
+      const double dutyRate = 5.0; // 5% import duty
+      const double vatRate = 14.0; // 14% VAT
+      const double serviceRate = 1.0; // 1% customs service fee
+
+      const double fobEgp = fobForeign * exchangeRate;
+      const double freightEgp = fobEgp * 0.02; // 2% freight
+      const double insuranceEgp = fobEgp * 0.025; // 2.5% insurance
+      const double cifEgp = fobEgp + freightEgp + insuranceEgp;
+
+      const double importDutyEgp = cifEgp * (dutyRate / 100.0);
+      const double serviceFeeEgp = cifEgp * (serviceRate / 100.0);
+      const double otherFeesEgp = serviceFeeEgp;
+      const double vatBaseEgp = cifEgp + importDutyEgp + otherFeesEgp;
+      const double vatEgp = vatBaseEgp * (vatRate / 100.0);
+      const double totalDutiesEgp = importDutyEgp + vatEgp + otherFeesEgp;
+
+      expect(fobEgp, 507917.0);
+      expect(cifEgp, greaterThan(fobEgp));
+      expect(importDutyEgp, greaterThan(0));
+      expect(vatBaseEgp, greaterThan(cifEgp));
+      expect(totalDutiesEgp, equals(importDutyEgp + vatEgp + otherFeesEgp));
     });
   });
 }

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -25,6 +26,51 @@ class POReconciliationTab extends ConsumerStatefulWidget {
 }
 
 class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
+  String _getLocalizedCheckField(BuildContext context, String fieldName) {
+    final l = context.l10n;
+    switch (fieldName) {
+      case 'invoice_number':
+        return l.poRecCheckFieldInvoiceNumber;
+      case 'acid_number':
+        return l.poRecCheckFieldAcidNumber;
+      case 'total_amount':
+        return l.poRecCheckFieldTotalAmount;
+      default:
+        return fieldName;
+    }
+  }
+
+  String _getLocalizedCheckMessage(BuildContext context, String fieldName, String status, String? rawMessage) {
+    final l = context.l10n;
+    if (status == 'MATCH') {
+      switch (fieldName) {
+        case 'invoice_number':
+          return l.poRecCheckMsgInvoiceMatched;
+        case 'acid_number':
+          return l.poRecCheckMsgAcidMatched;
+        case 'total_amount':
+          return l.poRecCheckMsgTotalAmountMatched;
+        default:
+          return l.poRecOk;
+      }
+    }
+    return rawMessage ?? '';
+  }
+
+  String _getLocalizedSessionStatus(BuildContext context, String status) {
+    final l = context.l10n;
+    switch (status) {
+      case 'FULLY_MATCHED':
+        return l.poRecMatchStatusMatched;
+      case 'ACCEPTED_WITH_WARNINGS':
+        return l.poRecMatchStatusWarning;
+      case 'CRITICAL_DISCREPANCY':
+        return l.poRecMatchStatusCritical;
+      default:
+        return status;
+    }
+  }
+
   final ScrollController _mainScrollController = ScrollController();
   final _formKey = GlobalKey<FormState>();
   int? _selectedImportFileId;
@@ -115,11 +161,17 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     super.initState();
     _selectedImportFileId = widget.initialImportFileId;
     Future.microtask(() async {
-      await ref.read(importFilesProvider.notifier).fetchImportFiles();
-      await ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
-      await ref.read(poReconciliationSessionsProvider.notifier).fetchSessions();
+      if (!ref.read(importFilesProvider).isLoading) {
+        await ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
+      if (!ref.read(purchaseOrdersProvider).isLoading) {
+        await ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      }
+      if (!ref.read(poReconciliationSessionsProvider).isLoading) {
+        await ref.read(poReconciliationSessionsProvider.notifier).fetchSessions();
+      }
       if (_selectedImportFileId == null && mounted) {
-        final files = ref.read(importFilesProvider).value ?? [];
+        final files = ref.read(importFilesProvider).valueOrNull ?? [];
         if (files.isNotEmpty) {
           setState(() {
             _selectedImportFileId = files.first.importFileId;
@@ -763,7 +815,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     double totalNetWeight = _packingItems.fold(0.0, (s, itm) => s + itm.finalNetWeightKg);
     double totalCbm = _packingItems.fold(0.0, (s, itm) => s + itm.finalCbm);
 
-    final sessionsList = ref.read(poReconciliationSessionsProvider).value ?? [];
+    final sessionsList = ref.read(poReconciliationSessionsProvider).valueOrNull ?? [];
     final existingSession = sessionsList
         .where((s) => s.importFileId == _selectedImportFileId && s.sessionId != _activeSessionId)
         .firstOrNull;
@@ -1101,9 +1153,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
   @override
   Widget build(BuildContext context) {
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final sessionsState = ref.watch(poReconciliationSessionsProvider);
-    final sessionsList = sessionsState.value ?? [];
+    final sessionsList = sessionsState.valueOrNull ?? [];
 
     double totalAmount = _invoiceItems.fold(0.0, (s, itm) => s + (itm.finalQuantity * (itm.finalUnitPrice > 0 ? itm.finalUnitPrice : itm.unitPrice)));
     double totalPackages = _packingItems.fold(0.0, (s, itm) => s + itm.finalPackagesCount);
@@ -1114,28 +1166,30 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     return SingleChildScrollView(
       controller: _mainScrollController,
       padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ==========================================
-          // PART 1: ACTIVE RECONCILIATION & AUDIT EDITOR
-          // ==========================================
-          _buildReconciliationEditorTab(
-            importFiles,
-            totalAmount,
-            totalPackages,
-            totalGrossWeight,
-            totalNetWeight,
-            totalCbm,
-          ),
+      child: SelectionArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ==========================================
+            // PART 1: ACTIVE RECONCILIATION & AUDIT EDITOR
+            // ==========================================
+            _buildReconciliationEditorTab(
+              importFiles,
+              totalAmount,
+              totalPackages,
+              totalGrossWeight,
+              totalNetWeight,
+              totalCbm,
+            ),
 
-          const SizedBox(height: 36),
+            const SizedBox(height: 36),
 
-          // ==========================================
-          // PART 2: SAVED SESSIONS HISTORY REGISTRY
-          // ==========================================
-          _buildSavedSessionsHistorySection(sessionsList),
-        ],
+            // ==========================================
+            // PART 2: SAVED SESSIONS HISTORY REGISTRY
+            // ==========================================
+            _buildSavedSessionsHistorySection(sessionsList),
+          ],
+        ),
       ),
     );
   }
@@ -1219,7 +1273,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                           items: importFiles
                               .map((f) => SearchableDropdownItem<int?>(
                                     value: f.importFileId,
-                                    label: '${f.importFileCode} - ${f.companyName}',
+                                    label: '${f.primaryNameWithCode} - ${f.companyName}',
                                   ))
                               .toList(),
                           onChanged: (val) {
@@ -1400,11 +1454,24 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                           double qtyVariance = itm.finalQuantity - itm.initialQuantity;
                           double priceVariance = itm.finalUnitPrice - itm.initialUnitPrice;
                           double totalRow = itm.finalQuantity * (itm.finalUnitPrice > 0 ? itm.finalUnitPrice : itm.unitPrice);
+                          const currencyStr = r'$';
+                          final rowSummary = [
+                            itm.itemCode,
+                            itm.description,
+                            '${itm.initialQuantity}',
+                            '${itm.finalQuantity}',
+                            '$qtyVariance',
+                            '${itm.initialUnitPrice}',
+                            '${itm.finalUnitPrice}',
+                            '$priceVariance',
+                            '${totalRow.toStringAsFixed(2)} $currencyStr',
+                            itm.hsCode ?? '',
+                          ].join('\t');
 
                           return DataRow(cells: [
-                            DataCell(Text(itm.itemCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataCell(SizedBox(width: 160, child: Text(itm.description, overflow: TextOverflow.ellipsis))),
-                            DataCell(Text('${itm.initialQuantity}')),
+                            DataCell(CopyableTableCell(value: itm.itemCode, rowSummary: rowSummary, child: Text(itm.itemCode, style: const TextStyle(fontWeight: FontWeight.bold)))),
+                            DataCell(CopyableTableCell(value: itm.description, rowSummary: rowSummary, child: SizedBox(width: 160, child: Text(itm.description, overflow: TextOverflow.ellipsis)))),
+                            DataCell(CopyableTableCell(value: '${itm.initialQuantity}', rowSummary: rowSummary, child: Text('${itm.initialQuantity}'))),
                             DataCell(
                               SizedBox(
                                 width: 85,
@@ -1423,8 +1490,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                 ),
                               ),
                             ),
-                            DataCell(_buildVarianceBadge(qtyVariance)),
-                            DataCell(Text('${itm.initialUnitPrice}')),
+                            DataCell(CopyableTableCell(value: '$qtyVariance', rowSummary: rowSummary, child: _buildVarianceBadge(qtyVariance))),
+                            DataCell(CopyableTableCell(value: '${itm.initialUnitPrice}', rowSummary: rowSummary, child: Text('${itm.initialUnitPrice}'))),
                             DataCell(
                               SizedBox(
                                 width: 85,
@@ -1443,8 +1510,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                 ),
                               ),
                             ),
-                            DataCell(_buildVarianceBadge(priceVariance)),
-                            DataCell(Text('${totalRow.toStringAsFixed(2)} \$', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                            DataCell(CopyableTableCell(value: '$priceVariance', rowSummary: rowSummary, child: _buildVarianceBadge(priceVariance))),
+                            DataCell(CopyableTableCell(value: '${totalRow.toStringAsFixed(2)} $currencyStr', rowSummary: rowSummary, child: Text('${totalRow.toStringAsFixed(2)} $currencyStr', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
                             DataCell(
                               SizedBox(
                                 width: 100,
@@ -1514,9 +1581,17 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         rows: _packingItems.asMap().entries.map((entry) {
                           int idx = entry.key;
                           var itm = entry.value;
+                          final rowSummary = [
+                            itm.itemCode,
+                            itm.packageType,
+                            '${itm.finalPackagesCount}',
+                            '${itm.finalGrossWeightKg}',
+                            '${itm.finalNetWeightKg}',
+                            '${itm.finalCbm}',
+                          ].join('\t');
 
                           return DataRow(cells: [
-                            DataCell(Text(itm.itemCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataCell(CopyableTableCell(value: itm.itemCode, rowSummary: rowSummary, child: Text(itm.itemCode, style: const TextStyle(fontWeight: FontWeight.bold)))),
                             DataCell(
                               SizedBox(
                                 width: 100,
@@ -1884,121 +1959,140 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         final idx = entry.key + 1;
                         final sess = entry.value;
 
+                        final importFileSummary = '${sess.importFileCode ?? "IMP-${sess.importFileId}"} - ${sess.importerName ?? ""}';
+                        final invPlSummary = '${sess.finalInvoiceNumber ?? ""} | ${sess.finalPackingListNumber ?? ""}';
+                        final totalValSummary = '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}';
+                        final pkgGrossSummary = '${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit} | ${sess.totalGrossWeightKg.toStringAsFixed(0)} ${l.poRecKgUnit}';
+                        final cbmSummary = '${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}';
+                        final dateStr = (sess.createdAt != null && sess.createdAt!.length >= 10) ? sess.createdAt!.substring(0, 10) : '—';
+                        final localizedStatus = _getLocalizedSessionStatus(context, sess.overallStatus);
+
+                        final rowSummary = [
+                          '$idx',
+                          sess.sessionCode,
+                          importFileSummary,
+                          invPlSummary,
+                          totalValSummary,
+                          pkgGrossSummary,
+                          cbmSummary,
+                          localizedStatus,
+                          dateStr,
+                        ].join('\t');
+
                         return DataRow(
                           cells: [
                             // 1. Index
-                            DataCell(Text('$idx', style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataCell(CopyableTableCell(value: '$idx', rowSummary: rowSummary, child: Text('$idx', style: const TextStyle(fontWeight: FontWeight.bold)))),
 
-
-                                // 2. Session Code
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.cobalt.withOpacity(0.12),
-                                          borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
-                                        ),
-                                        child: Text(
-                                          sess.sessionCode,
-                                          style: const TextStyle(
-                                            color: AppTheme.cobalt,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          ),
+                            // 2. Session Code
+                            DataCell(
+                              CopyableTableCell(value: sess.sessionCode, rowSummary: rowSummary, child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.cobalt.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
+                                      ),
+                                      child: Text(
+                                        sess.sessionCode,
+                                        style: const TextStyle(
+                                          color: AppTheme.cobalt,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
                                         ),
                                       ),
-                                      const SizedBox(width: 4),
-                                      IconButton(
-                                        icon: const Icon(Icons.copy_rounded, size: 14, color: Colors.grey),
-                                        tooltip: l.poRecHistoryCopyCodeTooltip,
-                                        onPressed: () {
-                                          Clipboard.setData(ClipboardData(text: sess.sessionCode));
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text(l.poRecHistoryCodeCopiedNotice), duration: const Duration(seconds: 1)),
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 14, color: Colors.grey),
+                                      tooltip: l.poRecHistoryCopyCodeTooltip,
+                                      onPressed: () {
+                                        CopyHelper.copy(context, sess.sessionCode, customMessage: l.poRecHistoryCodeCopiedNotice);
+                                      },
+                                    ),
+                                  ],
+                                )),
+                            ),
 
-                                // 3. Import File & Importer
-                                DataCell(
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        sess.importFileCode ?? 'IMP-${sess.importFileId}',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                                      ),
-                                      Text(
-                                        sess.importerName ?? '—',
-                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                            // 3. Import File & Importer
+                            DataCell(
+                              CopyableTableCell(value: importFileSummary, rowSummary: rowSummary, child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      sess.importFileCode ?? 'IMP-${sess.importFileId}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                                    ),
+                                    Text(
+                                      sess.importerName ?? '—',
+                                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                )),
+                            ),
 
-                                // 4. Final Invoice & Packing List
-                                DataCell(
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        'INV: ${sess.finalInvoiceNumber ?? "—"}',
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                      ),
-                                      Text(
-                                        'PL: ${sess.finalPackingListNumber ?? "—"}',
-                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                            // 4. Final Invoice & Packing List
+                            DataCell(
+                              CopyableTableCell(value: invPlSummary, rowSummary: rowSummary, child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '${l.poRecInvoicePrefix} ${sess.finalInvoiceNumber ?? "—"}',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    ),
+                                    Text(
+                                      '${l.poRecPackingPrefix} ${sess.finalPackingListNumber ?? "—"}',
+                                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                )),
+                            ),
 
-                                // 5. Total Value
-                                DataCell(
-                                  Text(
-                                    '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13),
-                                  ),
-                                ),
+                            // 5. Total Value
+                            DataCell(
+                              CopyableTableCell(value: totalValSummary, rowSummary: rowSummary, child: Text(
+                                  totalValSummary,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13),
+                                )),
+                            ),
 
-                                // 6. Packages & Weights
-                                DataCell(
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text('${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: const TextStyle(fontSize: 12)),
-                                      Text('Gross: ${sess.totalGrossWeightKg.toStringAsFixed(0)} ${l.poRecKgUnit}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                                    ],
-                                  ),
-                                ),
+                            // 6. Packages & Weights
+                            DataCell(
+                              CopyableTableCell(value: pkgGrossSummary, rowSummary: rowSummary, child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text('${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: const TextStyle(fontSize: 12)),
+                                    Text('${l.poRecGrossPrefix} ${sess.totalGrossWeightKg.toStringAsFixed(0)} ${l.poRecKgUnit}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                  ],
+                                )),
+                            ),
 
-                                // 7. Total CBM
-                                DataCell(
-                                  Text('${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                ),
+                            // 7. Total CBM
+                            DataCell(
+                              CopyableTableCell(value: cbmSummary, rowSummary: rowSummary, child: Text(
+                                  cbmSummary,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                )),
+                            ),
 
-                                // 8. Overall Status Badge
-                                DataCell(_buildSessionStatusBadge(sess.overallStatus)),
+                            // 8. Overall Status Badge
+                            DataCell(
+                              CopyableTableCell(value: localizedStatus, rowSummary: rowSummary, child: _buildSessionStatusBadge(sess.overallStatus)),
+                            ),
 
-                                // 9. Saved Date
-                                DataCell(
-                                  Text(
-                                    sess.createdAt != null && sess.createdAt!.length >= 10
-                                        ? sess.createdAt!.substring(0, 10)
-                                        : '—',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
+                            // 9. Saved Date
+                            DataCell(
+                              CopyableTableCell(value: dateStr, rowSummary: rowSummary, child: Text(
+                                  dateStr,
+                                  style: const TextStyle(fontSize: 12),
+                                )),
+                            ),
 
                                 // 10. Actions
                                 DataCell(
@@ -2129,7 +2223,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+              CopyableText(
+                value,
+                isSelectable: false,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+              ),
               Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
             ],
           ),
@@ -2159,37 +2257,39 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         ),
         content: SizedBox(
           width: 500,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${l.poRecImportFileLabel}: ${sess.importFileCode ?? "IMP-${sess.importFileId}"} - ${sess.importerName ?? "N/A"}'),
-              const SizedBox(height: 6),
-              Text('${l.poRecFinalInvoiceNoLabel}: ${sess.finalInvoiceNumber ?? "N/A"} | ${l.poRecFinalPackingListNoLabel}: ${sess.finalPackingListNumber ?? "N/A"}'),
-              const SizedBox(height: 6),
-              Text('${l.poRecKpiTotalInvoice}: ${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency} | ${l.poRecKpiTotalPackages}: ${sess.totalPackages.toStringAsFixed(0)} | ${l.poRecKpiTotalCbm}: ${sess.totalCbm.toStringAsFixed(3)} m³'),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.shade200),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.shield_rounded, color: AppTheme.emerald, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        l.poRecHistorySavedUniqueNotice,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.bold),
+          child: SelectionArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${l.poRecImportFileLabel}: ${sess.importFileCode ?? "IMP-${sess.importFileId}"} - ${sess.importerName ?? "N/A"}'),
+                const SizedBox(height: 6),
+                Text('${l.poRecFinalInvoiceNoLabel}: ${sess.finalInvoiceNumber ?? "N/A"} | ${l.poRecFinalPackingListNoLabel}: ${sess.finalPackingListNumber ?? "N/A"}'),
+                const SizedBox(height: 6),
+                Text('${l.poRecKpiTotalInvoice}: ${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency} | ${l.poRecKpiTotalPackages}: ${sess.totalPackages.toStringAsFixed(0)} | ${l.poRecKpiTotalCbm}: ${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}'),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.shield_rounded, color: AppTheme.emerald, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l.poRecHistorySavedUniqueNotice,
+                          style: const TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [
@@ -2232,82 +2332,84 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         ),
         content: SizedBox(
           width: 750,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header Info Grid
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
+          child: SelectionArea(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Info Grid
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildExtractedPill(l.poRecImportFileLabel, sess.importFileCode ?? 'IMP-${sess.importFileId}', Icons.folder_rounded),
+                        const SizedBox(width: 8),
+                        _buildExtractedPill(l.poRecFinalInvoiceNoLabel, sess.finalInvoiceNumber ?? '—', Icons.receipt_long),
+                        const SizedBox(width: 8),
+                        _buildExtractedPill(l.poRecFinalPackingListNoLabel, sess.finalPackingListNumber ?? '—', Icons.inventory_2),
+                        const SizedBox(width: 8),
+                        _buildExtractedPill(l.poRecExtractedAcid, sess.acidNumber ?? '—', Icons.tag),
+                      ],
+                    ),
                   ),
-                  child: Row(
+                  const SizedBox(height: 14),
+
+                  // Metrics Row
+                  Row(
                     children: [
-                      _buildExtractedPill(l.poRecImportFileLabel, sess.importFileCode ?? 'IMP-${sess.importFileId}', Icons.folder_rounded),
+                      _buildSummaryCard(l.poRecKpiTotalInvoice, '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}', Icons.monetization_on, AppTheme.cobalt),
                       const SizedBox(width: 8),
-                      _buildExtractedPill(l.poRecFinalInvoiceNoLabel, sess.finalInvoiceNumber ?? '—', Icons.receipt_long),
+                      _buildSummaryCard(l.poRecKpiTotalPackages, '${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', Icons.all_inbox, AppTheme.charcoal),
                       const SizedBox(width: 8),
-                      _buildExtractedPill(l.poRecFinalPackingListNoLabel, sess.finalPackingListNumber ?? '—', Icons.inventory_2),
+                      _buildSummaryCard(l.poRecKpiTotalGrossWeight, '${sess.totalGrossWeightKg.toStringAsFixed(1)} ${l.poRecKgUnit}', Icons.scale, AppTheme.orange),
                       const SizedBox(width: 8),
-                      _buildExtractedPill(l.poRecExtractedAcid, sess.acidNumber ?? '—', Icons.tag),
+                      _buildSummaryCard(l.poRecKpiTotalCbm, '${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', Icons.view_in_ar, AppTheme.emerald),
                     ],
                   ),
-                ),
-                const SizedBox(height: 14),
+                  const SizedBox(height: 16),
 
-                // Metrics Row
-                Row(
-                  children: [
-                    _buildSummaryCard(l.poRecKpiTotalInvoice, '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}', Icons.monetization_on, AppTheme.cobalt),
-                    const SizedBox(width: 8),
-                    _buildSummaryCard(l.poRecKpiTotalPackages, '${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', Icons.all_inbox, AppTheme.charcoal),
-                    const SizedBox(width: 8),
-                    _buildSummaryCard(l.poRecKpiTotalGrossWeight, '${sess.totalGrossWeightKg.toStringAsFixed(1)} ${l.poRecKgUnit}', Icons.scale, AppTheme.orange),
-                    const SizedBox(width: 8),
-                    _buildSummaryCard(l.poRecKpiTotalCbm, '${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', Icons.view_in_ar, AppTheme.emerald),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Items list summary
-                if (sess.reconciledInvoiceItems != null && sess.reconciledInvoiceItems!.isNotEmpty) ...[
-                  Text(l.poRecHistoryDetailsCertifiedItemsTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 8),
-                  Table(
-                    border: TableBorder.all(color: Colors.grey.shade300),
-                    children: [
-                      TableRow(
-                        decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                        children: [
-                          Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColItemCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColDescription, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColFinalQty, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColFinalUnitPrice, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColFinalTotal, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                        ],
-                      ),
-                      ...sess.reconciledInvoiceItems!.map((itm) {
-                        final map = itm as Map<String, dynamic>;
-                        final qty = (map['final_quantity'] as num?)?.toDouble() ?? 1.0;
-                        final price = (map['final_unit_price'] as num?)?.toDouble() ?? 0.0;
-                        final total = (map['total_amount'] as num?)?.toDouble() ?? (qty * price);
-                        return TableRow(
+                  // Items list summary
+                  if (sess.reconciledInvoiceItems != null && sess.reconciledInvoiceItems!.isNotEmpty) ...[
+                    Text(l.poRecHistoryDetailsCertifiedItemsTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 8),
+                    Table(
+                      border: TableBorder.all(color: Colors.grey.shade300),
+                      children: [
+                        TableRow(
+                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
                           children: [
-                            Padding(padding: const EdgeInsets.all(6), child: Text(map['item_code']?.toString() ?? '—', style: const TextStyle(fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6), child: Text(map['description']?.toString() ?? '—', style: const TextStyle(fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6), child: Text('$qty', style: const TextStyle(fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6), child: Text('$price', style: const TextStyle(fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6), child: Text('${total.toStringAsFixed(2)} ${sess.currency}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColItemCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColDescription, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColFinalQty, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColFinalUnitPrice, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                            Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColFinalTotal, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
                           ],
-                        );
-                      }),
-                    ],
-                  ),
+                        ),
+                        ...sess.reconciledInvoiceItems!.map((itm) {
+                          final map = itm as Map<String, dynamic>;
+                          final qty = (map['final_quantity'] as num?)?.toDouble() ?? 1.0;
+                          final price = (map['final_unit_price'] as num?)?.toDouble() ?? 0.0;
+                          final total = (map['total_amount'] as num?)?.toDouble() ?? (qty * price);
+                          return TableRow(
+                            children: [
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText(map['item_code']?.toString() ?? '—', isSelectable: false, style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText(map['description']?.toString() ?? '—', isSelectable: false, style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText('$qty', isSelectable: false, style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText('$price', isSelectable: false, style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText('${total.toStringAsFixed(2)} ${sess.currency}', isSelectable: false, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -2331,17 +2433,17 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     final l = context.l10n;
     final buffer = StringBuffer();
     buffer.writeln('================================================================');
-    buffer.writeln('Sorour Logistics ERP - PO & Packing Final Reconciliation Report');
-    buffer.writeln('Session Code: ${sess.sessionCode}');
-    buffer.writeln('Import File: ${sess.importFileCode ?? "IMP-${sess.importFileId}"} | Importer: ${sess.importerName ?? "N/A"}');
-    buffer.writeln('Shipper: ${sess.shipperName ?? "N/A"} | ACID: ${sess.acidNumber ?? "N/A"}');
-    buffer.writeln('Final Commercial Invoice: ${sess.finalInvoiceNumber ?? "N/A"} | Final Packing List: ${sess.finalPackingListNumber ?? "N/A"}');
-    buffer.writeln('Total Value: ${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}');
-    buffer.writeln('Total Packages: ${sess.totalPackages.toStringAsFixed(0)} | Gross Wt: ${sess.totalGrossWeightKg.toStringAsFixed(1)} kg | Net Wt: ${sess.totalNetWeightKg.toStringAsFixed(1)} kg');
-    buffer.writeln('Total CBM: ${sess.totalCbm.toStringAsFixed(3)} m3');
-    buffer.writeln('Overall Status: ${sess.overallStatus} | Certified By: ${sess.certifiedBy ?? "N/A"}');
+    buffer.writeln(l.poRecReportTitle);
+    buffer.writeln('${l.poRecReportSessionCode}: ${sess.sessionCode}');
+    buffer.writeln('${l.poRecReportImportFile}: ${sess.importFileCode ?? "IMP-${sess.importFileId}"} | ${l.poRecReportImporter}: ${sess.importerName ?? "N/A"}');
+    buffer.writeln('${l.poRecReportShipper}: ${sess.shipperName ?? "N/A"} | ${l.poRecReportAcid}: ${sess.acidNumber ?? "N/A"}');
+    buffer.writeln('${l.poRecReportInvoiceNo}: ${sess.finalInvoiceNumber ?? "N/A"} | ${l.poRecReportPackingNo}: ${sess.finalPackingListNumber ?? "N/A"}');
+    buffer.writeln('${l.poRecReportTotalValue}: ${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}');
+    buffer.writeln('${l.poRecReportPackages}: ${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit} | ${l.poRecReportGrossWeight}: ${sess.totalGrossWeightKg.toStringAsFixed(1)} ${l.poRecKgUnit} | ${l.poRecReportNetWeight}: ${sess.totalNetWeightKg.toStringAsFixed(1)} ${l.poRecKgUnit}');
+    buffer.writeln('${l.poRecReportTotalCbm}: ${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}');
+    buffer.writeln('${l.poRecReportOverallStatus}: ${_getLocalizedSessionStatus(context, sess.overallStatus)} | ${l.poRecReportCertifiedBy}: ${sess.certifiedBy ?? "N/A"}');
     buffer.writeln('================================================================\n');
-    buffer.writeln('Item Code,Description,HS Code,Quantity,Unit Price,Total Amount,Packages,Gross Wt,Net Wt,CBM');
+    buffer.writeln(l.poRecReportCsvHeader);
 
     if (sess.reconciledInvoiceItems != null) {
       for (var itm in sess.reconciledInvoiceItems!) {
@@ -2350,11 +2452,54 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       }
     }
 
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l.poRecHistoryPrintCopiedSuccess),
-        backgroundColor: AppTheme.cobalt,
+    final reportText = buffer.toString();
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            const Icon(Icons.print_rounded, color: AppTheme.cobalt, size: 24),
+            const SizedBox(width: 8),
+            Text(l.poRecReportPreviewTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: SizedBox(
+          width: 700,
+          height: 400,
+          child: SelectionArea(
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  reportText,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4),
+                ),
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: Text(l.close),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+            icon: const Icon(Icons.copy_rounded, size: 16),
+            label: Text(l.poRecHistoryCopyReportButton),
+            onPressed: () {
+              CopyHelper.copy(context, reportText, customMessage: l.poRecHistoryPrintCopiedSuccess);
+              Navigator.pop(dialogCtx);
+            },
+          ),
+        ],
       ),
     );
   }
@@ -2432,7 +2577,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 children: [
                   Text(title, style: TextStyle(fontSize: 11, color: Colors.grey.shade600, height: 1.2)),
                   const SizedBox(height: 3),
-                  Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+                  CopyableText(
+                    value,
+                    isSelectable: false,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
+                  ),
                 ],
               ),
             ),
@@ -2806,12 +2955,20 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               rows: headerDiscrepancies.map((d) {
                 final map = d as Map<String, dynamic>;
                 final status = map['status'] as String? ?? 'MATCH';
+                final fieldName = map['field_name'] as String? ?? '';
+                final localizedFieldName = _getLocalizedCheckField(context, fieldName);
+                final systemVal = map['system_value']?.toString() ?? '—';
+                final extractedVal = map['extracted_value']?.toString() ?? '—';
+                final localizedMsg = _getLocalizedCheckMessage(context, fieldName, status, map['message'] as String?);
+                final localizedStatus = _getLocalizedSessionStatus(context, status);
+                final rowSummary = [localizedFieldName, systemVal, extractedVal, localizedStatus, localizedMsg].join('\t');
+
                 return DataRow(cells: [
-                  DataCell(Text(map['field_name_ar'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5))),
-                  DataCell(Text(map['system_value']?.toString() ?? '—', style: TextStyle(color: Colors.grey.shade800, fontSize: 12))),
-                  DataCell(Text(map['extracted_value']?.toString() ?? '—', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt))),
-                  DataCell(_buildMatchStatusBadge(status)),
-                  DataCell(Text(map['message'] ?? '', style: TextStyle(fontSize: 12, color: status == 'MATCH' ? Colors.green.shade800 : Colors.red.shade800))),
+                  DataCell(CopyableTableCell(value: localizedFieldName, rowSummary: rowSummary, child: Text(localizedFieldName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)))),
+                  DataCell(CopyableTableCell(value: systemVal, rowSummary: rowSummary, child: Text(systemVal, style: TextStyle(color: Colors.grey.shade800, fontSize: 12)))),
+                  DataCell(CopyableTableCell(value: extractedVal, rowSummary: rowSummary, child: Text(extractedVal, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)))),
+                  DataCell(CopyableTableCell(value: localizedStatus, rowSummary: rowSummary, child: _buildMatchStatusBadge(status))),
+                  DataCell(CopyableTableCell(value: localizedMsg, rowSummary: rowSummary, child: Text(localizedMsg, style: TextStyle(fontSize: 12, color: status == 'MATCH' ? Colors.green.shade800 : Colors.red.shade800)))),
                 ]);
               }).toList(),
             ),
@@ -2827,7 +2984,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               const SizedBox(width: 8),
               _buildExtractedPill(l.poRecExtractedAcid, plData['acid_number']?.toString() ?? invData['acid_number']?.toString() ?? '—', Icons.tag),
               const SizedBox(width: 8),
-              _buildExtractedPill(l.poRecExtractedPackagesWeight, '${plData['total_packages'] ?? "—"} ${l.poRecPackagesUnit} / ${plData['total_gross_weight_kg'] ?? "—"} ${l.poRecKgUnit}', Icons.inventory_2),
+              _buildExtractedPill(l.poRecExtractedPackagesWeight, '${plData['total_packages'] ?? "—"} ${l.poRecPackagesUnit} - ${plData['total_gross_weight_kg'] ?? "—"} ${l.poRecKgUnit}', Icons.inventory_2),
             ],
           ),
         ],

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
+import '../widgets/copyable_data_helper.dart';
 import '../../features/import_files/models/import_file_model.dart';
 import '../../features/import_files/providers/import_files_provider.dart';
 
@@ -118,63 +119,70 @@ class _ReopenShipmentDialogState extends ConsumerState<ReopenShipmentDialog> {
       ),
       content: SizedBox(
         width: 550,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Notice Banner
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.shade200),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.l10n.reopenShipmentRestoredPhase(restoredPhase),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.emerald,
-                        fontSize: 13,
+        child: SelectionArea(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Notice Banner
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.reopenShipmentRestoredPhase(restoredPhase),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.emerald,
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      context.l10n.reopenShipmentNotice,
-                      style: const TextStyle(fontSize: 11, color: AppTheme.charcoal, height: 1.4),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        context.l10n.reopenShipmentNotice,
+                        style: const TextStyle(fontSize: 11, color: AppTheme.charcoal, height: 1.4),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // Reason Text Field
-              TextFormField(
-                controller: _reasonController,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  labelText: context.l10n.reopenShipmentReasonLabel,
-                  hintText: context.l10n.reopenShipmentReasonHint,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  alignLabelWithHint: true,
+                // Reason Text Field
+                TextFormField(
+                  controller: _reasonController,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    labelText: context.l10n.reopenShipmentReasonLabel,
+                    hintText: context.l10n.reopenShipmentReasonHint,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    alignLabelWithHint: true,
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: context.l10n.fileClosureCopyFieldTooltip,
+                      onPressed: () => CopyHelper.copy(context, _reasonController.text),
+                    ),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return context.l10n.reopenShipmentReasonValidatorEmpty;
+                    }
+                    if (val.trim().length < 3) {
+                      return context.l10n.reopenShipmentReasonValidatorMin;
+                    }
+                    return null;
+                  },
                 ),
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return context.l10n.reopenShipmentReasonValidatorEmpty;
-                  }
-                  if (val.trim().length < 3) {
-                    return context.l10n.reopenShipmentReasonValidatorMin;
-                  }
-                  return null;
-                },
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

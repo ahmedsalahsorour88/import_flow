@@ -3,7 +3,7 @@ import json
 from typing import List, Optional
 
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from modules.purchase_orders.model import POLineItem, PackingListItem, PurchaseOrder
 from modules.purchase_orders.schemas import PurchaseOrderCreate, PurchaseOrderUpdate
@@ -34,7 +34,18 @@ class PurchaseOrderRepository:
         supplier_id: Optional[int] = None,
         search: Optional[str] = None,
     ) -> List[PurchaseOrder]:
-        query = self.db.query(PurchaseOrder)
+        query = (
+            self.db.query(PurchaseOrder)
+            .options(
+                joinedload(PurchaseOrder.project),
+                joinedload(PurchaseOrder.company),
+                joinedload(PurchaseOrder.supplier),
+                joinedload(PurchaseOrder.incoterm),
+                joinedload(PurchaseOrder.currency),
+                selectinload(PurchaseOrder.line_items),
+                selectinload(PurchaseOrder.packing_list_items),
+            )
+        )
 
         if not include_inactive:
             query = query.filter(PurchaseOrder.is_active.is_(True))

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 class ConsultationMetricBadge extends StatelessWidget {
   final String title;
@@ -37,7 +38,10 @@ class ConsultationMetricBadge extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          CopyableText(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
         ],
       ),
     );

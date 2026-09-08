@@ -1,6 +1,5 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/features/lifecycle_board/models/lifecycle_board_model.dart';
 import 'package:frontend/features/lifecycle_board/providers/live_polling_provider.dart';
 
 void main() {

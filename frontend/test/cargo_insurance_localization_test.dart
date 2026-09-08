@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
 
@@ -166,8 +166,8 @@ void main() {
         final arVal = entry.value[0];
         final enVal = entry.value[1];
 
-        expect(arVal.trim().isNotEmpty, isTrue, reason: ' (Arabic) must not be empty');
-        expect(enVal.trim().isNotEmpty, isTrue, reason: ' (English) must not be empty');
+        expect(arVal.trim().isNotEmpty, isTrue, reason: '$key (Arabic) must not be empty');
+        expect(enVal.trim().isNotEmpty, isTrue, reason: '$key (English) must not be empty');
       }
     });
 
@@ -178,7 +178,7 @@ void main() {
         expect(
           arabicRegex.hasMatch(enVal),
           isFalse,
-          reason: 'English key "" contains Arabic text: ""',
+          reason: 'English key "$key" contains Arabic text: "$enVal"',
         );
       }
     });
@@ -202,8 +202,8 @@ void main() {
         final enVal = entry.value[1];
 
         for (final pattern in stackedBilingualPatterns) {
-          expect(arVal.contains(pattern), isFalse, reason: 'Arabic key "" contains stacked pattern ""');
-          expect(enVal.contains(pattern), isFalse, reason: 'English key "" contains stacked pattern ""');
+          expect(arVal.contains(pattern), isFalse, reason: 'Arabic key "$key" contains stacked pattern "$pattern"');
+          expect(enVal.contains(pattern), isFalse, reason: 'English key "$key" contains stacked pattern "$pattern"');
         }
       }
     });

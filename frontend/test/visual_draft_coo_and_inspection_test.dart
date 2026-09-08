@@ -117,7 +117,6 @@ void main() {
 
       // Check Customs note with Chamber of Commerce
       expect(find.textContaining('ختم الجمارك وختم الغرفة التجارية'), findsOneWidget);
-      expect(find.textContaining('Customs stamp and Chamber of Commerce stamp'), findsOneWidget);
     });
   });
 

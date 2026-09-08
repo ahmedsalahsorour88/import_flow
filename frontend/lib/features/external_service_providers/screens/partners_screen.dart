@@ -15,6 +15,7 @@ import '../widgets/partner_details_dialog.dart';
 import '../widgets/partner_statement_of_account_dialog.dart';
 import '../widgets/partner_scorecard_dialog.dart';
 import '../../../core/services/master_data_export_service.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 class PartnersScreen extends ConsumerStatefulWidget {
   const PartnersScreen({super.key});
@@ -56,10 +57,82 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
       case 'Inspection Agency':
         return l10n.partnerCatInspectionAgency;
       case 'Insurance Company':
-        return 'شركة تأمين';
+        return l10n.partnerCatInsuranceCompany;
       default:
         return cat;
     }
+  }
+
+  void _copyPartnersTsv(BuildContext context, List<PartnerModel> partners) {
+    final l10n = context.l10n;
+    final headers = [
+      l10n.partnersTsvHeaderCode,
+      l10n.partnersTsvHeaderName,
+      l10n.partnersTsvHeaderCategories,
+      l10n.partnersTsvHeaderCountry,
+      l10n.partnersTsvHeaderAddress,
+      l10n.partnersTsvHeaderPhone,
+      l10n.partnersTsvHeaderMobile,
+      l10n.partnersTsvHeaderFax,
+      l10n.partnersTsvHeaderEmail,
+      l10n.partnersTsvHeaderSecondaryEmail,
+      l10n.partnersTsvHeaderWebsite,
+      l10n.partnersTsvHeaderSwift,
+      l10n.partnersTsvHeaderScac,
+      l10n.partnersTsvHeaderLicense,
+      l10n.partnersTsvHeaderCommercialReg,
+      l10n.partnersTsvHeaderTaxId,
+      l10n.partnersTsvHeaderStatus,
+      l10n.partnersTsvHeaderNotes,
+    ];
+    final rows = partners.map((p) => [
+      p.partnerCode,
+      p.partnerName,
+      p.partnerType,
+      p.country,
+      p.address ?? '',
+      p.phone ?? '',
+      p.mobile ?? '',
+      p.fax ?? '',
+      p.email ?? '',
+      p.secondaryEmail ?? '',
+      p.website ?? '',
+      p.swiftCode ?? '',
+      p.scacCode ?? '',
+      p.clearanceLicenseNumber ?? '',
+      p.commercialRegister ?? '',
+      p.taxId ?? '',
+      p.isActive ? l10n.statusActive : l10n.statusInactive,
+      p.notes ?? '',
+    ]);
+    final tsv = [
+      headers.join('\t'),
+      ...rows.map((r) => r.map((c) => c.toString().replaceAll('\t', ' ').replaceAll('\n', ' ')).join('\t')),
+    ].join('\n');
+    CopyHelper.copy(context, tsv, customMessage: l10n.partnersExportTsvSuccess);
+  }
+
+  String _buildPartnerSummary(BuildContext context, PartnerModel p) {
+    final l10n = context.l10n;
+    final b = StringBuffer();
+    b.writeln('📋 ${l10n.partnerProfileTitle}');
+    b.writeln('${l10n.partnerCodeBadgeLabel}${p.partnerCode}');
+    b.writeln('${l10n.partnerNameLabel}: ${p.partnerName}');
+    b.writeln('${l10n.partnerCategoriesLabel}: ${p.partnerType}');
+    b.writeln('${l10n.countryDetailLabel}: ${p.country}');
+    if (p.address != null && p.address!.isNotEmpty) b.writeln('${l10n.fullAddressDetailLabel}: ${p.address}');
+    if (p.phone != null && p.phone!.isNotEmpty) b.writeln('${l10n.partnerPhoneLabel}: ${p.phone}');
+    if (p.mobile != null && p.mobile!.isNotEmpty) b.writeln('${l10n.partnerMobileLabel}: ${p.mobile}');
+    if (p.email != null && p.email!.isNotEmpty) b.writeln('${l10n.emailDetailLabel}: ${p.email}');
+    if (p.website != null && p.website!.isNotEmpty) b.writeln('${l10n.websiteDetailLabel}: ${p.website}');
+    if (p.swiftCode != null && p.swiftCode!.isNotEmpty) b.writeln('${l10n.partnerSwiftCodeDetailLabel}: ${p.swiftCode}');
+    if (p.scacCode != null && p.scacCode!.isNotEmpty) b.writeln('${l10n.partnerScacCodeDetailLabel}: ${p.scacCode}');
+    if (p.clearanceLicenseNumber != null && p.clearanceLicenseNumber!.isNotEmpty) b.writeln('${l10n.clearanceLicenseDetailLabel}: ${p.clearanceLicenseNumber}');
+    if (p.commercialRegister != null && p.commercialRegister!.isNotEmpty) b.writeln('${l10n.commercialRegDetailLabel}: ${p.commercialRegister}');
+    if (p.taxId != null && p.taxId!.isNotEmpty) b.writeln('${l10n.taxIdDetailLabel}: ${p.taxId}');
+    b.writeln('${l10n.partnerStatusCol}: ${p.isActive ? l10n.statusActive : l10n.statusInactive}');
+    if (p.notes != null && p.notes!.isNotEmpty) b.writeln('${l10n.additionalNotesSection}: ${p.notes}');
+    return b.toString().trim();
   }
 
   void _openExtractorForCategory(BuildContext context, String category) {
@@ -126,10 +199,18 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      ref.read(partnersProvider.notifier).fetchPartners();
-      ref.read(allPartnersProvider.notifier).fetchPartners();
-    });
+    if (!ref.read(partnersProvider).isLoading) {
+      Future.microtask(() => ref.read(partnersProvider.notifier).fetchPartners());
+    }
+    if (!ref.read(allPartnersProvider).isLoading) {
+      Future.microtask(() => ref.read(allPartnersProvider.notifier).fetchPartners());
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -138,10 +219,12 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     final partnersAsync = ref.watch(partnersProvider);
     final selectedCategory = ref.watch(selectedPartnerCategoryProvider);
     final showInactive = ref.watch(showInactivePartnersProvider);
+    final partnerList = partnersAsync.asData?.value ?? [];
 
     return Scaffold(
       backgroundColor: AppTheme.cloudWhite,
-      body: Padding(
+      body: SelectionArea(
+        child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,12 +257,26 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                   children: [
                     const BackToDashboardButton(),
                     const SizedBox(width: 10),
+                    if (partnerList.isNotEmpty) ...[
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.table_chart_outlined, size: 18),
+                        label: Text(l10n.partnersExportTsvBtn),
+                        onPressed: () => _copyPartnersTsv(context, partnerList),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
                     ElevatedButton.icon(
                       icon: const Icon(Icons.auto_awesome_rounded, size: 18),
                       label: Text(
                         selectedCategory == 'All'
-                            ? 'تكويد شريك بالذكاء الاصطناعي ✨'
-                            : 'تكويد ${_getCategoryLabel(context, selectedCategory)} بالذكاء الاصطناعي ✨',
+                            ? l10n.aiCodePartnerBtn
+                            : l10n.aiCodeCategoryPartner(_getCategoryLabel(context, selectedCategory)),
                       ),
                       onPressed: () => _openExtractorForCategory(context, selectedCategory),
                       style: ElevatedButton.styleFrom(
@@ -258,25 +355,37 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                         ),
                       ],
                     ),
-                    child: TextField(
-                      controller: _searchController,
-                      style: const TextStyle(fontSize: 14),
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
-                        hintText: l10n.searchPartnersHint,
-                        filled: false,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppTheme.cobalt, width: 2),
+                    child: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _searchController,
+                      builder: (_, val, __) => TextField(
+                        controller: _searchController,
+                        style: const TextStyle(fontSize: 14),
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
+                          hintText: l10n.searchPartnersHint,
+                          filled: false,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: AppTheme.cobalt, width: 2),
+                          ),
+                          suffixIcon: val.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                ),
                         ),
+                        onChanged: (v) {
+                          setState(() {
+                            _searchQuery = v.toLowerCase();
+                          });
+                        },
                       ),
-                      onChanged: (val) {
-                        setState(() {
-                          _searchQuery = val.toLowerCase();
-                        });
-                      },
                     ),
                   ),
                 ),
@@ -321,33 +430,37 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
               child: partnersAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
                 error: (err, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.wifi_off_rounded, size: 48, color: AppTheme.crimson),
-                      const SizedBox(height: 12),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: Text(
-                          l10n.partnersFetchError.replaceAll('\$error', err.toString()),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.wifi_off_rounded, size: 48, color: AppTheme.crimson),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          child: Text(
+                            l10n.partnersFetchError.replaceAll('\$error', err.toString()),
+                            textAlign: TextAlign.center,
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.cobalt,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: Text(l10n.retryConnectionBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            ref.read(partnersProvider.notifier).fetchPartners();
+                          },
                         ),
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: Text(l10n.retryConnectionBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          ref.read(partnersProvider.notifier).fetchPartners();
-                        },
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 data: (partners) {
@@ -443,20 +556,38 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                         children: [
                                           // Code
                                           _cell(
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                              decoration: BoxDecoration(
-                                                color: AppTheme.charcoal.withOpacity(0.08),
+                                            child: Tooltip(
+                                              message: '${l10n.partnerCodeBadgeLabel}${partner.partnerCode} (${l10n.partnersCopyFieldTooltip})',
+                                              child: InkWell(
+                                                onTap: () => CopyHelper.copy(
+                                                  context,
+                                                  partner.partnerCode,
+                                                  customMessage: l10n.copiedToClipboard(partner.partnerCode),
+                                                ),
                                                 borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(color: AppTheme.charcoal.withOpacity(0.15)),
-                                              ),
-                                              child: Text(
-                                                partner.partnerCode,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                  letterSpacing: 0.3,
-                                                  color: AppTheme.charcoal,
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.charcoal.withOpacity(0.08),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(color: AppTheme.charcoal.withOpacity(0.15)),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        partner.partnerCode,
+                                                        style: const TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 12,
+                                                          letterSpacing: 0.3,
+                                                          color: AppTheme.charcoal,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      const Icon(Icons.copy_rounded, size: 11, color: AppTheme.charcoal),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
                                             ),
@@ -468,16 +599,38 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
-                                                Text(
-                                                  partner.partnerName,
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 14,
-                                                    color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
-                                                    decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
-                                                  ),
+                                                Row(
+                                                  children: [
+                                                    Flexible(
+                                                      child: Text(
+                                                        partner.partnerName,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 14,
+                                                          color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
+                                                          decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Tooltip(
+                                                      message: l10n.partnersCopyFieldTooltip,
+                                                      child: InkWell(
+                                                        onTap: () => CopyHelper.copy(
+                                                          context,
+                                                          partner.partnerName,
+                                                          customMessage: l10n.copiedToClipboard(partner.partnerName),
+                                                        ),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        child: const Padding(
+                                                          padding: EdgeInsets.all(2.0),
+                                                          child: Icon(Icons.copy_rounded, size: 13, color: Colors.grey),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                                 const SizedBox(height: 5),
                                                 Wrap(
@@ -695,42 +848,73 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                   ),
                                                 ),
                                                 if (partner.providerId != null) ...[
-                                                  const SizedBox(width: 6),
+                                                    const SizedBox(width: 6),
+                                                    Tooltip(
+                                                      message: l10n.partnerScorecardTooltip,
+                                                      child: InkWell(
+                                                        onTap: () => showPartnerScorecardDialog(
+                                                          context,
+                                                          ref,
+                                                          providerId: partner.providerId!,
+                                                          providerName: partner.partnerName,
+                                                          providerType: partner.partnerType,
+                                                        ),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                          decoration: BoxDecoration(
+                                                            color: Colors.amber.shade50,
+                                                            borderRadius: BorderRadius.circular(6),
+                                                            border: Border.all(color: Colors.amber.shade600),
+                                                          ),
+                                                          child: Row(
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            children: [
+                                                              Icon(Icons.workspace_premium_outlined, size: 14, color: Colors.amber.shade800),
+                                                              const SizedBox(width: 4),
+                                                              Text(
+                                                                l10n.partnerScorecardBtn,
+                                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                  ],
                                                   Tooltip(
-                                                    message: 'بطاقة تقييم الأداء والـ SLA (Partner Scorecard)',
+                                                    message: l10n.partnerCopySummaryBtn,
                                                     child: InkWell(
-                                                      onTap: () => showPartnerScorecardDialog(
+                                                      onTap: () => CopyHelper.copy(
                                                         context,
-                                                        ref,
-                                                        providerId: partner.providerId!,
-                                                        providerName: partner.partnerName,
-                                                        providerType: partner.partnerType,
+                                                        _buildPartnerSummary(context, partner),
+                                                        customMessage: l10n.partnerCopySummarySuccess,
                                                       ),
                                                       borderRadius: BorderRadius.circular(6),
                                                       child: Container(
                                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                        margin: const EdgeInsets.only(right: 6),
                                                         decoration: BoxDecoration(
-                                                          color: Colors.amber.shade50,
+                                                          color: AppTheme.emerald.withOpacity(0.12),
                                                           borderRadius: BorderRadius.circular(6),
-                                                          border: Border.all(color: Colors.amber.shade600),
+                                                          border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
                                                         ),
                                                         child: Row(
                                                           mainAxisSize: MainAxisSize.min,
                                                           children: [
-                                                            Icon(Icons.workspace_premium_outlined, size: 14, color: Colors.amber.shade800),
+                                                            const Icon(Icons.copy_all_rounded, size: 14, color: AppTheme.emerald),
                                                             const SizedBox(width: 4),
                                                             Text(
-                                                              'تقييم الأداء',
-                                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                                              l10n.partnerCopySummaryBtn,
+                                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                                                             ),
                                                           ],
                                                         ),
                                                       ),
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 6),
-                                                ],
-                                                RowActionsPill(
+                                                  RowActionsPill(
                                                   onView: () => PartnerDetailsDialog.show(
                                                     context,
                                                     partner,
@@ -779,8 +963,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                   );
                 },
               ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -873,12 +1058,37 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
             final isShippingLine = selectedCategories.contains('Shipping Line');
             final isCustomsBroker = selectedCategories.contains('Customs Broker');
 
+            Widget buildCopySuffix(TextEditingController ctrl) {
+              return ValueListenableBuilder<TextEditingValue>(
+                valueListenable: ctrl,
+                builder: (ctx, val, _) {
+                  if (val.text.trim().isEmpty) return const SizedBox.shrink();
+                  return Tooltip(
+                    message: l10n.partnersCopyFieldTooltip,
+                    child: InkWell(
+                      onTap: () => CopyHelper.copy(
+                        context,
+                        val.text.trim(),
+                        customMessage: l10n.copiedToClipboard(val.text.trim()),
+                      ),
+                      borderRadius: BorderRadius.circular(4),
+                      child: const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Icon(Icons.copy_rounded, size: 15, color: Colors.grey),
+                      ),
+                    ),
+                  );
+                },
+              );
+            }
+
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: SizedBox(
-                width: 640,
-                height: MediaQuery.of(context).size.height * 0.85,
-                child: Column(
+              child: SelectionArea(
+                child: SizedBox(
+                  width: 640,
+                  height: MediaQuery.of(context).size.height * 0.85,
+                  child: Column(
                   children: [
                     // Banner
                     Container(
@@ -960,6 +1170,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
                               CustomTextField(
                                 controller: nameCtrl,
+suffixIcon: buildCopySuffix(nameCtrl),
                                 label: l10n.partnerNameLabel,
                                 icon: Icons.business,
                                 isRequired: true,
@@ -986,6 +1197,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                           Expanded(
                                             child: CustomTextField(
                                               controller: swiftCtrl,
+suffixIcon: buildCopySuffix(swiftCtrl),
                                               label: l10n.bankSwiftCodeLabel,
                                               icon: Icons.code,
                                               isRequired: true,
@@ -996,6 +1208,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                           Expanded(
                                             child: CustomTextField(
                                               controller: bankCodeCtrl,
+suffixIcon: buildCopySuffix(bankCodeCtrl),
                                               label: l10n.bankCodeLabel,
                                               icon: Icons.account_balance,
                                               hint: l10n.bankCodeHint,
@@ -1006,6 +1219,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                       const SizedBox(height: 10),
                                       CustomTextField(
                                         controller: branchCtrl,
+suffixIcon: buildCopySuffix(branchCtrl),
                                         label: l10n.branchNameLabel,
                                         icon: Icons.location_city,
                                         hint: l10n.branchNameHint,
@@ -1034,6 +1248,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                           Expanded(
                                             child: CustomTextField(
                                               controller: scacCtrl,
+suffixIcon: buildCopySuffix(scacCtrl),
                                               label: l10n.scacCarrierCodeLabel,
                                               icon: Icons.code,
                                               isRequired: true,
@@ -1044,6 +1259,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                           Expanded(
                                             child: CustomTextField(
                                               controller: trackingCtrl,
+suffixIcon: buildCopySuffix(trackingCtrl),
                                               label: l10n.trackingWebUrlLabel,
                                               icon: Icons.link,
                                               hint: l10n.trackingWebUrlHint,
@@ -1072,6 +1288,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                       const SizedBox(height: 10),
                                       CustomTextField(
                                         controller: licenseCtrl,
+suffixIcon: buildCopySuffix(licenseCtrl),
                                         label: l10n.customsClearanceLicenseNumLabel,
                                         icon: Icons.assignment_ind,
                                         isRequired: true,
@@ -1088,6 +1305,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: taxIdCtrl,
+suffixIcon: buildCopySuffix(taxIdCtrl),
                                       label: l10n.partnerTaxIdLabel,
                                       icon: Icons.receipt_long,
                                       hint: l10n.partnerTaxIdHint,
@@ -1097,6 +1315,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: regCtrl,
+suffixIcon: buildCopySuffix(regCtrl),
                                       label: l10n.partnerCommercialRegLabel,
                                       icon: Icons.app_registration,
                                       hint: l10n.partnerCommercialRegHint,
@@ -1111,6 +1330,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: emailCtrl,
+suffixIcon: buildCopySuffix(emailCtrl),
                                       label: l10n.partnerPrimaryEmailLabel,
                                       icon: Icons.email,
                                       hint: l10n.partnerPrimaryEmailHint,
@@ -1120,6 +1340,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: secondaryEmailCtrl,
+suffixIcon: buildCopySuffix(secondaryEmailCtrl),
                                       label: l10n.partnerSecondaryEmailLabel,
                                       icon: Icons.mark_email_read_outlined,
                                       hint: l10n.partnerSecondaryEmailHint,
@@ -1134,6 +1355,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: phoneCtrl,
+suffixIcon: buildCopySuffix(phoneCtrl),
                                       label: l10n.partnerPhoneLabel,
                                       icon: Icons.phone,
                                       hint: l10n.partnerPhoneHint,
@@ -1143,6 +1365,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: mobileCtrl,
+suffixIcon: buildCopySuffix(mobileCtrl),
                                       label: l10n.partnerMobileLabel,
                                       icon: Icons.smartphone,
                                       hint: l10n.partnerMobileHint,
@@ -1152,6 +1375,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: faxCtrl,
+suffixIcon: buildCopySuffix(faxCtrl),
                                       label: l10n.partnerFaxLabel,
                                       icon: Icons.print,
                                       hint: l10n.partnerFaxHint,
@@ -1163,6 +1387,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
                               CustomTextField(
                                 controller: websiteCtrl,
+suffixIcon: buildCopySuffix(websiteCtrl),
                                 label: l10n.partnerWebsiteUrlLabel,
                                 icon: Icons.language,
                                 hint: l10n.partnerWebsiteUrlHint,
@@ -1174,6 +1399,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: addressCtrl,
+suffixIcon: buildCopySuffix(addressCtrl),
                                       label: l10n.partnerAddressLabel,
                                       icon: Icons.location_on,
                                       hint: l10n.partnerAddressHint,
@@ -1183,6 +1409,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: countryCtrl,
+suffixIcon: buildCopySuffix(countryCtrl),
                                       label: l10n.partnerCountryLabelField,
                                       icon: Icons.flag,
                                       isRequired: true,
@@ -1322,10 +1549,29 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                   ],
                 ),
               ),
-            );
-          },
-        );
+            ),
+          );
+        },
+      );
       },
-    );
+    ).then((_) {
+      nameCtrl.dispose();
+      taxIdCtrl.dispose();
+      regCtrl.dispose();
+      licenseCtrl.dispose();
+      scacCtrl.dispose();
+      trackingCtrl.dispose();
+      swiftCtrl.dispose();
+      bankCodeCtrl.dispose();
+      branchCtrl.dispose();
+      phoneCtrl.dispose();
+      mobileCtrl.dispose();
+      faxCtrl.dispose();
+      emailCtrl.dispose();
+      secondaryEmailCtrl.dispose();
+      websiteCtrl.dispose();
+      addressCtrl.dispose();
+      countryCtrl.dispose();
+    });
   }
 }

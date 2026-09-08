@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
 
@@ -75,6 +75,7 @@ class CBMRepository:
     def get_by_id(db: Session, calc_id: int) -> Optional[CBMCalculation]:
         return (
             db.query(CBMCalculation)
+            .options(selectinload(CBMCalculation.items))
             .filter(CBMCalculation.calc_id == calc_id)
             .first()
         )
@@ -88,7 +89,7 @@ class CBMRepository:
         po_id: Optional[int] = None,
         search: Optional[str] = None,
     ) -> List[CBMCalculation]:
-        query = db.query(CBMCalculation)
+        query = db.query(CBMCalculation).options(selectinload(CBMCalculation.items))
 
         if not include_inactive:
             query = query.filter(CBMCalculation.is_active.is_(True))

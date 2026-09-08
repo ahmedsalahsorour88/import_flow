@@ -23,7 +23,7 @@ from database.database import engine
 from modules.import_companies.model import ImportCompany
 from modules.suppliers.model import Supplier
 from modules.external_service_providers.model import ExternalServiceProvider
-from modules.users.model import User
+from modules.users.model import User, Role, Permission, RolePermission, UserPermission
 from modules.audit_logs.model import AuditLog
 from modules.incoterms.model import Incoterm, CostItem, IncotermResponsibility
 from modules.customs_tariff.model import CustomsTariff
@@ -122,7 +122,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="ImportFlow ERP API",
-    version="1.0.137",
+    version="1.0.155",
 )
 
 # ==================================================
@@ -249,7 +249,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "ImportFlow ERP",
-        "version": "1.0.137",
+        "version": "1.0.155",
         "status": "running",
     }
 
@@ -280,7 +280,7 @@ def health_check():
     return {
         "status": "OK",
         "system": "ImportFlow ERP",
-        "version": "1.0.137",
+        "version": "1.0.155",
         "database": {
             "connected": db_exists,
             "path": db_path,

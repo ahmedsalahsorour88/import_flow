@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import List, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import or_, desc
 
 from modules.shipping_scenarios.model import (
@@ -160,6 +160,7 @@ class ShippingScenarioRepository:
     def get_by_id(db: Session, session_id: int) -> Optional[ShippingEvaluationSession]:
         return (
             db.query(ShippingEvaluationSession)
+            .options(selectinload(ShippingEvaluationSession.items))
             .filter(ShippingEvaluationSession.session_id == session_id)
             .first()
         )
@@ -173,7 +174,7 @@ class ShippingScenarioRepository:
         po_id: Optional[int] = None,
         search: Optional[str] = None,
     ) -> List[ShippingEvaluationSession]:
-        query = db.query(ShippingEvaluationSession)
+        query = db.query(ShippingEvaluationSession).options(selectinload(ShippingEvaluationSession.items))
         if not include_inactive:
             query = query.filter(ShippingEvaluationSession.is_active.is_(True))
         if import_file_id:

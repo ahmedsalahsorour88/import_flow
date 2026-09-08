@@ -17,7 +17,6 @@ import '../currencies/screens/currencies_screen.dart';
 import '../customs_clearance/screens/customs_clearance_screen.dart';
 import '../customs_consultation/screens/customs_consultation_screen.dart';
 import '../customs_tariff/screens/customs_tariff_screen.dart';
-import '../customs_tariff/screens/hs_code_search_screen.dart';
 import '../demurrage_detention/screens/demurrage_detention_screen.dart';
 import '../dynamic_reporting/screens/dynamic_report_builder_screen.dart';
 import '../external_service_providers/screens/partners_screen.dart';
@@ -25,9 +24,9 @@ import '../file_closure/screens/file_closure_screen.dart';
 import '../financial_approval/screens/financial_approval_screen.dart';
 import '../financial_approval/screens/swift_reconciliation_screen.dart';
 import '../financial_settlement/screens/financial_settlement_screen.dart';
-import '../financial_settlement/screens/landed_cost_comparison_screen.dart';
 import '../freight_booking/screens/freight_booking_screen.dart';
 import '../freight_quotations/screens/freight_quotations_screen.dart';
+import '../shipping_scenarios/screens/shipping_scenarios_screen.dart';
 import '../import_companies/screens/import_companies_screen.dart';
 import '../import_documentation/screens/bank_form4_screen.dart';
 import '../cargo_insurance/screens/cargo_insurance_screen.dart';
@@ -45,13 +44,10 @@ import '../projects/screens/projects_screen.dart';
 import '../lifecycle_board/screens/lifecycle_board_screen.dart';
 import '../purchase_orders/screens/purchase_orders_screen.dart';
 import '../shipment_updates/screens/shipment_update_engine_screen.dart';
-import '../shipping_scenarios/screens/shipping_scenarios_screen.dart';
 import '../smart_tasks/screens/smart_tasks_screen.dart';
 import '../suppliers/screens/suppliers_screen.dart';
 import '../transport_locations/screens/transport_locations_screen.dart';
-import '../warehouse_receiving/screens/warehouse_receiving_screen.dart';
-import '../warehouse_receiving/screens/goods_in_transit_screen.dart';
-import '../warehouse_receiving/screens/warehouse_received_report_screen.dart';
+import '../warehouse_receiving/screens/inbound_warehouse_hub_screen.dart';
 import '../production_sync/screens/production_sync_screen.dart';
 import '../production_sync/widgets/production_sync_hub_dialog.dart';
 import '../production_sync/providers/production_sync_provider.dart';
@@ -74,9 +70,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         PurchaseOrdersScreen(),
         CBMCalculatorScreen(),
 
-        // 4..5: Phase 1 Shipping Scenarios
-        ShippingScenariosScreen(initialIndex: 0),
-        ShippingScenariosScreen(initialIndex: 1),
+        // 4..5: Phase 1 Freight Studies, Timeline & Scenarios (Study & Saved Records)
+        ShippingScenariosScreen(key: ValueKey('shipping_scenarios_tab0'), initialIndex: 0),
+        ShippingScenariosScreen(key: ValueKey('shipping_scenarios_tab1'), initialIndex: 1),
 
         // 6..7: Phase 1 Customs Broker Consultation
         CustomsConsultationScreen(initialIndex: 0),
@@ -113,8 +109,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         FreightBookingScreen(),
         CargoShippingScreen(key: ValueKey('cargo_shipping_allocations_0'), initialSubTab: 0), // 26: Freight Allocations (VGM)
         CustomsClearanceScreen(),
-        WarehouseReceivingScreen(),
-        FinancialSettlementScreen(),
+        InboundWarehouseHubScreen(key: ValueKey('inbound_hub_grn'), initialSubTab: 1),
+        FinancialSettlementScreen(key: ValueKey('settlement_tab0'), initialSubTab: 0),
         FileClosureScreen(),
 
         // 31..34: Master Data
@@ -125,7 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 35..39: Reference Master Tables & Audit
         IncotermsScreen(),
-        CustomsTariffScreen(),
+        CustomsTariffScreen(key: ValueKey('customs_tariff_tab0'), initialTabIndex: 0),
         TransportLocationsScreen(),
         CurrenciesScreen(),
         AuditLogsScreen(),
@@ -136,18 +132,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ShipmentUpdateEngineScreen(),
         ImportRequirementsScreen(),
         DemurrageDetentionScreen(),
-        HsCodeSearchScreen(),
+        CustomsTariffScreen(key: ValueKey('customs_tariff_tab1'), initialTabIndex: 1), // 45: HS Code Explorer & Duty Calculator
         SwiftReconciliationScreen(),
         ImportFileComprehensiveReportScreen(),
 
         // 48: Native 6-Phase Lifecycle Operations Board
         LifecycleBoardScreen(),
 
-        // 49: Freight Quotations Comparison
-        FreightQuotationsScreen(),
+        // 49: Freight Quotations Comparison & Fast Awarding (Operational Workspace)
+        FreightQuotationsScreen(key: ValueKey('freight_quotations_operational')),
 
-        // 50: Landed Cost Comparison
-        LandedCostComparisonScreen(),
+        // 50: Landed Cost Comparison (Integrated in Financial Settlement Hub)
+        FinancialSettlementScreen(key: ValueKey('settlement_tab1'), initialSubTab: 1),
 
         // 51: Central Shipment Documents Archive & Discrepancies Summary Hub
         CentralDocsArchiveScreen(),
@@ -185,11 +181,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // 62: Final Customs Payment (subTab 3)
         CustomsClearanceScreen(key: ValueKey('customs_clearance_tab_3'), initialSubTab: 3),
 
-        // 63: Goods In Transit (GIT) Inventory Ledger
-        GoodsInTransitScreen(),
+        // 63: Goods In Transit (GIT) Inventory Ledger (Inbound Hub Tab 0)
+        InboundWarehouseHubScreen(key: ValueKey('inbound_hub_git'), initialSubTab: 0),
 
-        // 64: Warehouse Received Shipments Detailed Report
-        WarehouseReceivedReportScreen(),
+        // 64: Warehouse Received Shipments Detailed Report (Inbound Hub Tab 2)
+        InboundWarehouseHubScreen(key: ValueKey('inbound_hub_rep'), initialSubTab: 2),
 
         // 65: Cargo & Marine Insurance Certificate Module
         CargoInsuranceScreen(),
@@ -269,6 +265,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ─── Mini Icon Rail (52px width) ───────────────────────────────────────────
 
   Widget _buildCollapsedRail(int selectedIndex, dynamic user) {
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
     return Column(
       children: [
         const SizedBox(height: 8),
@@ -286,14 +283,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _buildRailIcon(Icons.dashboard_customize_outlined, context.l10n.operationalDashboard, 0, selectedIndex, AppTheme.emerald),
               const Divider(color: Colors.white12, height: 8),
               _buildRailIcon(Icons.analytics_outlined, context.l10n.phase1, 4, selectedIndex, Colors.amber.shade700),
-              _buildRailIcon(Icons.app_registration_outlined, context.l10n.phase2, 8, selectedIndex, AppTheme.cobalt),
-              _buildRailIcon(Icons.assignment_turned_in_outlined, context.l10n.phase3, 11, selectedIndex, Colors.teal),
-              _buildRailIcon(Icons.verified_user_outlined, context.l10n.phase4, 20, selectedIndex, AppTheme.crimson),
-              _buildRailIcon(Icons.anchor_outlined, context.l10n.phase5, 24, selectedIndex, Colors.purple),
-              _buildRailIcon(Icons.inventory_outlined, context.l10n.phase6, 31, selectedIndex, AppTheme.emerald),
+              _buildRailIcon(Icons.app_registration_outlined, context.l10n.phase2, 11, selectedIndex, AppTheme.cobalt),
+              _buildRailIcon(Icons.assignment_turned_in_outlined, context.l10n.phase3, 25, selectedIndex, Colors.teal),
+              _buildRailIcon(Icons.verified_user_outlined, context.l10n.phase4, 54, selectedIndex, AppTheme.crimson),
+              _buildRailIcon(Icons.anchor_outlined, context.l10n.phase5, 27, selectedIndex, Colors.purple),
+              _buildRailIcon(Icons.inventory_outlined, context.l10n.phase6, 28, selectedIndex, AppTheme.emerald),
               const Divider(color: Colors.white12, height: 8),
+              _buildRailIcon(Icons.manage_search_outlined, isArabic ? 'استعلامات' : 'Inquiries', 49, selectedIndex, Colors.indigoAccent),
               _buildRailIcon(Icons.folder_special_outlined, context.l10n.shipmentPlanning, 1, selectedIndex, Colors.cyan),
-              _buildRailIcon(Icons.storage_outlined, context.l10n.masterData, 34, selectedIndex, Colors.teal),
+              _buildRailIcon(Icons.storage_outlined, context.l10n.masterData, 32, selectedIndex, Colors.teal),
               _buildRailIcon(Icons.summarize_outlined, context.l10n.dashboardAndReports, 47, selectedIndex, Colors.indigo),
             ],
           ),
@@ -473,7 +471,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildMenuItem(Icons.assignment_outlined, 'Projects & Cost Centers', 'المشاريع ومراكز التكلفة', 31, selectedIndex),
                   _buildMenuItem(Icons.location_on_outlined, 'Ports & Locations', 'الموانئ والمنافذ الجمركية', 37, selectedIndex),
                   _buildMenuItem(Icons.handshake_outlined, 'Incoterms Rules', 'الشروط التجارية الدولية', 35, selectedIndex),
-                  _buildMenuItem(Icons.description_outlined, 'Customs Tariff Schedule', 'جدول التعريفة الجمركية', 36, selectedIndex),
+                  _buildMenuItem(Icons.description_outlined, 'Customs Tariff & HS Explorer', 'جدول ومستكشف التعريفة الجمركية', 36, selectedIndex),
                   _buildMenuItem(Icons.currency_exchange_outlined, 'Currencies & Rates', 'العملات وأسعار الصرف', 38, selectedIndex),
                 ],
               ),
@@ -490,7 +488,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _buildMenuItem(Icons.folder_special_outlined, 'Import Files', 'ملفات الشحنات الاستيرادية', 1, selectedIndex),
                   _buildMenuItem(Icons.shopping_cart_outlined, 'Purchase Orders & Origin', 'أوامر الشراء وإثبات المنشأ', 2, selectedIndex),
-                  _buildMenuItem(Icons.calculate_outlined, 'CBM & Container Loading', 'حاسبة الأحجام وتوزيع الحاويات', 3, selectedIndex),
                 ],
               ),
 
@@ -504,10 +501,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: Colors.amber.shade800,
                 initiallyExpanded: false,
                 children: [
-                  _buildMenuItem(Icons.compare_arrows_outlined, 'Freight Studies', 'دراسات ومفاضلة نولون الشحن', 4, selectedIndex),
-                  _buildMenuItem(Icons.price_change_outlined, 'Freight Quotations Comparison', 'مقارنة عروض أسعار الشحن', 49, selectedIndex),
-                  _buildMenuItem(Icons.gavel_outlined, 'Customs Studies', 'الدراسات والاستشارات الجمركية', 6, selectedIndex),
-                  _buildMenuItem(Icons.request_quote_outlined, 'Clearance Quotations & Extractor', 'عروض ومقايسات التخليص والاستخراج', 55, selectedIndex),
+                  _buildMenuItem(Icons.analytics_outlined, 'Freight Studies & Saved Log', 'دراسة النولون والجدول الزمني والسجلات المحفوظة', 4, selectedIndex),
+                  _buildMenuItem(Icons.gavel_outlined, 'Customs Studies & Clearance RFQ', 'الدراسات الجمركية وعروض التخليص ومراجعة الضرائب', 6, selectedIndex),
                   _buildMenuItem(Icons.verified_outlined, 'Import Regulatory Requirements', 'متطلبات واشتراطات الاستيراد للشحنة', 43, selectedIndex),
                 ],
               ),
@@ -538,16 +533,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 initiallyExpanded: false,
                 children: [
                   _buildMenuItem(Icons.bookmark_added_outlined, 'Freight Booking', 'حجز النولون وتأكيد الخط الملاحي', 25, selectedIndex),
-                  _buildMenuItem(Icons.grid_view_outlined, 'Freight Allocations', 'تخصيص وتوزيع الحاويات والبضائع (VGM)', 26, selectedIndex),
-                  _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping Tracking', 'متابعة حركة الشحن البحري والجوي', 52, selectedIndex),
+                  _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping & Tracking', 'حركة وتتبع الشحن وتوزيع الحاويات', 26, selectedIndex),
                   _buildMenuItem(Icons.shield_outlined, 'Cargo Insurance', 'شهادات ووثائق التأمين على البضائع', 65, selectedIndex),
-                  _buildMenuItem(Icons.rule_folder_outlined, 'PO & Packing Reconciliation', 'مطابقة وتأكيد الفاتورة والباكينج ليست', 21, selectedIndex),
-                  _buildMenuItem(Icons.rate_review_outlined, 'Draft Docs Review (B/L)', 'مراجعة وتدقيق مسودات بوالص الشحن', 18, selectedIndex),
-                  _buildMenuItem(Icons.flag_circle_outlined, 'Draft COO / EUR.1', 'مسودة وتوليد شهادة المنشأ الرسمية', 19, selectedIndex),
-                  _buildMenuItem(Icons.fact_check_outlined, 'Draft Inspection / COC', 'مسودة وتوليد شهادة الفحص والمطابقة', 53, selectedIndex),
-                  _buildMenuItem(Icons.verified_outlined, 'Docs Customs Approval', 'الاعتماد النهائي للمستندات جمركياً', 20, selectedIndex),
+                  _buildMenuItem(Icons.assignment_turned_in_outlined, 'Shipment Draft Docs Review Hub', 'مراجعة وتدقيق مسودات المستندات (B/L, COO, COC)', 18, selectedIndex),
                   _buildMenuItem(Icons.inventory_2_outlined, 'Central Docs & Rectifications Hub', 'الأرشيف المركزي لمستندات وتعديلات الشحنة', 51, selectedIndex),
-                  _buildMenuItem(Icons.calculate_outlined, 'Customs Duty Estimator', 'حساب ومراجعة الضرائب والرسوم الجمركية', 56, selectedIndex),
                 ],
               ),
 
@@ -561,8 +550,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: AppTheme.crimson,
                 initiallyExpanded: false,
                 children: [
-                  _buildMenuItem(Icons.cloud_upload_outlined, 'CargoX Blockchain & ACI Hub', 'منظومة الشحن المسبق والبلوك تشين CargoX', 54, selectedIndex),
-                  _buildMenuItem(Icons.mark_email_read_outlined, 'Originals Collection', 'تحصيل أصول مستندات الشحنة وتتبع الكورير', 57, selectedIndex),
+                  _buildMenuItem(Icons.cloud_upload_outlined, 'Original Docs & CargoX Hub', 'أصول المستندات ومنظومة CargoX الرقمية', 54, selectedIndex),
                   _buildMenuItem(Icons.account_balance_outlined, 'Bank Form 4', 'النموذج الإحصائي والتحويل البنكي نموذج 4', 16, selectedIndex),
                 ],
               ),
@@ -578,10 +566,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 initiallyExpanded: false,
                 children: [
                   _buildMenuItem(Icons.description_outlined, 'Customs Declaration 46', 'شهادة الإجراءات الجمركية إقرار 46 ك.م', 23, selectedIndex),
-                  _buildMenuItem(Icons.fact_check_outlined, 'Customs Clearance Follow-up', 'متابعة الكشف والتثمين والتفتيش الجمركي', 27, selectedIndex),
-                  _buildMenuItem(Icons.science_outlined, 'Drawing Samples / Shortage', 'سحب العينات وتحديد عجز البضائع', 60, selectedIndex),
-                  _buildMenuItem(Icons.report_problem_outlined, 'Discrepancy / Damage', 'إثبات الفاقد والتلف الجمركي', 61, selectedIndex),
-                  _buildMenuItem(Icons.receipt_long_outlined, 'Final Customs Payment', 'سداد الرسوم والضرائب الجمركية النهائية', 62, selectedIndex),
+                  _buildMenuItem(Icons.fact_check_outlined, 'Customs Clearance Hub', 'متابعة التخليص والكشف والعينات والرسوم', 27, selectedIndex),
                   _buildMenuItem(Icons.timer_outlined, 'Demurrage & Detention', 'تتبع غرامات الأرضيات وحراسات الحاويات', 44, selectedIndex),
                 ],
               ),
@@ -596,12 +581,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: AppTheme.emerald,
                 initiallyExpanded: false,
                 children: [
-                  _buildMenuItem(Icons.local_shipping_outlined, 'Goods In Transit (GIT) Ledger', 'رصيد ومطابقة البضاعة في الطريق', 63, selectedIndex),
-                  _buildMenuItem(Icons.warehouse_outlined, 'Warehouse Receiving GRN', 'إذن إضافة المخزن واستلام الشحنة', 28, selectedIndex),
-                  _buildMenuItem(Icons.inventory_2_outlined, 'Received Shipments Report', 'تقرير الشحنات المستلمة بالمخزن تفصيلي', 64, selectedIndex),
-                  _buildMenuItem(Icons.price_check_outlined, 'Landed Cost Settlement', 'حساب تكلفة الوصول النهائية للوحدة', 29, selectedIndex),
-                  _buildMenuItem(Icons.analytics_outlined, 'Landed Cost Comparison', 'مقارنة تكاليف الوصول', 50, selectedIndex),
+                  _buildMenuItem(Icons.warehouse_outlined, 'Inbound & Warehouse Hub', 'مركز الاستلام والمخازن والبضاعة بالطريق', 28, selectedIndex),
+                  _buildMenuItem(Icons.price_check_outlined, 'Landed Cost & Settlement Hub', 'تكلفة الوصول والتسوية المالية ومقارنة الفروق', 29, selectedIndex),
                   _buildMenuItem(Icons.task_alt_outlined, 'Import File Final Closure', 'الإغلاق المالي والإداري لملف الاستيراد', 30, selectedIndex),
+                ],
+              ),
+
+              // =========================================================
+              // HUB: INQUIRIES & TOOLS (استعلامات)
+              // =========================================================
+              _buildHubTile(
+                icon: Icons.manage_search_outlined,
+                titleEn: 'Inquiries',
+                titleAr: 'استعلامات',
+                color: Colors.indigoAccent,
+                initiallyExpanded: false,
+                children: [
+                  _buildMenuItem(Icons.request_quote_outlined, 'Freight RFQ & Quotations Comparison', 'طلب ومقارنة عروض النولون والترسية', 49, selectedIndex),
+                  _buildMenuItem(Icons.calculate_outlined, 'Cargo Measurement Engine', 'حاسبة الأحجام وتوزيع الحاويات (CBM)', 3, selectedIndex),
                 ],
               ),
 
@@ -708,7 +705,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final versionText = versionAsync.when(
                   data: (info) => 'v${info.version} (Build ${info.buildNumber})',
                   loading: () => 'v... (Loading)',
-                  error: (_, __) => 'v1.0.137 (Build 138)',
+                  error: (_, __) => 'v1.0.155 (Build 156)',
                 );
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

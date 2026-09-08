@@ -40,9 +40,16 @@ final smartTasksProvider =
 
 class SmartTasksNotifier extends StateNotifier<SmartTasksState> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   SmartTasksNotifier(this._dio) : super(SmartTasksState()) {
     fetchTasks();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('SmartTasksNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchTasks({
@@ -52,6 +59,8 @@ class SmartTasksNotifier extends StateNotifier<SmartTasksState> {
     int? importFileId,
     String? search,
   }) async {
+    _cancelToken?.cancel('Cancelled by new fetchTasks request');
+    _cancelToken = CancelToken();
     state = state.copyWith(isLoading: true, error: null);
     try {
       final queryParams = <String, dynamic>{};
@@ -61,14 +70,22 @@ class SmartTasksNotifier extends StateNotifier<SmartTasksState> {
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
 
-      final resTasks = await _dio.get('${ApiConstants.baseUrl}/smart-tasks', queryParameters: queryParams);
+      final resTasks = await _dio.get(
+        '${ApiConstants.baseUrl}/smart-tasks',
+        queryParameters: queryParams,
+        cancelToken: _cancelToken,
+      );
       final list = (resTasks.data as List).map((x) => SmartTaskModel.fromJson(x)).toList();
 
-      final resMetrics = await _dio.get('${ApiConstants.baseUrl}/smart-tasks/metrics/summary');
+      final resMetrics = await _dio.get(
+        '${ApiConstants.baseUrl}/smart-tasks/metrics/summary',
+        cancelToken: _cancelToken,
+      );
       final metrics = SmartTaskSummaryMetricsModel.fromJson(resMetrics.data);
 
       state = state.copyWith(isLoading: false, tasks: list, metrics: metrics);
     } catch (e) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }

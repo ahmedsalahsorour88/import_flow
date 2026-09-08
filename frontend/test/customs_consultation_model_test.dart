@@ -242,14 +242,14 @@ void main() {
       expect(candfForeign, 55250.0);
 
       const double insuranceRatePct = 0.5;
-      final double insuranceForeign = candfForeign * (insuranceRatePct / 100.0);
+      const double insuranceForeign = candfForeign * (insuranceRatePct / 100.0);
       expect(insuranceForeign, 276.25);
 
-      final double declaredCifForeign = candfForeign + insuranceForeign;
+      const double declaredCifForeign = candfForeign + insuranceForeign;
       expect(declaredCifForeign, 55526.25);
 
       const double customsExchangeRate = 50.0;
-      final double declaredCifEgp = declaredCifForeign * customsExchangeRate;
+      const double declaredCifEgp = declaredCifForeign * customsExchangeRate;
       expect(declaredCifEgp, 2776312.50);
     });
 

@@ -172,6 +172,10 @@ class ShipmentBookingModel {
   final List<BookingChargeModel> costChargesData;
   final Map<String, dynamic> quotationDetailsData;
   final double totalFreightCostUsd;
+  final double originalFreightCostUsd;
+  final double costSavingsUsd;
+  final double costVarianceUsd;
+  final String? savingsNotes;
   final String status;
   final String owner;
   final String? notes;
@@ -179,6 +183,10 @@ class ShipmentBookingModel {
   final String createdAt;
   final String updatedAt;
   final String? importFileCode;
+
+  bool get hasSavings => costSavingsUsd > 0.0;
+  bool get hasCostIncrease => costVarianceUsd < 0.0 && originalFreightCostUsd > 0.0;
+  double get savingsPercent => originalFreightCostUsd > 0.0 ? (costSavingsUsd / originalFreightCostUsd) * 100.0 : 0.0;
 
   ShipmentBookingModel({
     required this.bookingId,
@@ -219,6 +227,10 @@ class ShipmentBookingModel {
     this.costChargesData = const [],
     this.quotationDetailsData = const {},
     this.totalFreightCostUsd = 0.0,
+    this.originalFreightCostUsd = 0.0,
+    this.costSavingsUsd = 0.0,
+    this.costVarianceUsd = 0.0,
+    this.savingsNotes,
     this.status = 'Draft',
     this.owner = 'Kamal',
     this.notes,
@@ -272,6 +284,10 @@ class ShipmentBookingModel {
       costChargesData: rawCost.map((c) => BookingChargeModel.fromJson(c)).toList(),
       quotationDetailsData: rawQuote,
       totalFreightCostUsd: (json['total_freight_cost_usd'] as num?)?.toDouble() ?? 0.0,
+      originalFreightCostUsd: (json['original_freight_cost_usd'] as num?)?.toDouble() ?? (rawQuote['original_quote_total_usd'] as num?)?.toDouble() ?? 0.0,
+      costSavingsUsd: (json['cost_savings_usd'] as num?)?.toDouble() ?? (rawQuote['cost_savings_usd'] as num?)?.toDouble() ?? 0.0,
+      costVarianceUsd: (json['cost_variance_usd'] as num?)?.toDouble() ?? (rawQuote['cost_variance_usd'] as num?)?.toDouble() ?? 0.0,
+      savingsNotes: json['savings_notes'],
       status: json['status'] ?? 'Draft',
       owner: json['owner'] ?? 'Kamal',
       notes: json['notes'],
@@ -318,6 +334,11 @@ class ShipmentBookingModel {
       'containers_data': containersData.map((c) => c.toJson()).toList(),
       'cost_charges_data': costChargesData.map((c) => c.toJson()).toList(),
       'quotation_details_data': quotationDetailsData,
+      'total_freight_cost_usd': totalFreightCostUsd,
+      'original_freight_cost_usd': originalFreightCostUsd,
+      'cost_savings_usd': costSavingsUsd,
+      'cost_variance_usd': costVarianceUsd,
+      'savings_notes': savingsNotes,
       'status': status,
       'owner': owner,
       'notes': notes,

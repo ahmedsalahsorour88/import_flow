@@ -48,8 +48,8 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
   late TextEditingController _swiftController;
   late TextEditingController _form46Controller;
   late TextEditingController _notesController;
+  late TextEditingController _ownerController;
 
-  String? _selectedOwner;
   int? _selectedCompanyId;
   String _companyName = '';
   int? _selectedSupplierId;
@@ -94,8 +94,10 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     _swiftController = TextEditingController(text: f?.swiftNo ?? '');
     _form46Controller = TextEditingController(text: f?.form46No ?? '');
     _notesController = TextEditingController(text: f?.notes ?? '');
-
-    _selectedOwner = f?.owner ?? (f?.companyName.isNotEmpty == true ? f!.companyName : null);
+    final initialOwner = (f?.owner != null && f!.owner.isNotEmpty && f.owner != f.companyName)
+        ? f.owner
+        : (f?.owner != null && f!.owner.isNotEmpty && f.owner != 'Kamal' ? f.owner : '');
+    _ownerController = TextEditingController(text: initialOwner);
 
     if (f?.fileOpeningDate != null && f!.fileOpeningDate!.isNotEmpty) {
       _fileOpeningDate = DateTime.tryParse(f.fileOpeningDate!) ?? DateTime.now();
@@ -135,14 +137,14 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     // 1. Auto populate Form 4 from Phase 3 (Banking Documents / ACID) if empty
     if (_form4Controller.text.trim().isEmpty) {
       final docState = ref.read(bankingDocumentsProvider);
-      final docs = docState.value ?? [];
+      final docs = docState.valueOrNull ?? [];
       final linkedDoc = docs.firstWhere(
         (d) => d.importFileId == fileId && d.docType.toLowerCase().contains('form 4') && d.docReferenceNumber.isNotEmpty,
         orElse: () => BankingDocumentModel(
           bankDocId: 0, bankDocCode: '', docType: '', bankName: '', docReferenceNumber: '', amount: 0, currencyCode: '', issueDate: '', status: '', isActive: true, createdAt: '', updatedAt: ''
         ),
       );
-      if (linkedDoc.docReferenceNumber.isNotEmpty) {
+      if (linkedDoc.docReferenceNumber.isNotEmpty && mounted) {
         setState(() => _form4Controller.text = linkedDoc.docReferenceNumber);
       }
     }
@@ -150,14 +152,14 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     // 2. Auto populate Swift No from Phase 2 (Financial Approval) if empty
     if (_swiftController.text.trim().isEmpty) {
       final finState = ref.read(paymentRequestsProvider);
-      final reqs = finState.value ?? [];
+      final reqs = finState.valueOrNull ?? [];
       final linkedReq = reqs.firstWhere(
         (r) => r.importFileId == fileId && r.swiftReferenceNo != null && r.swiftReferenceNo!.isNotEmpty,
         orElse: () => PaymentRequestModel(
           paymentId: 0, paymentCode: '', title: '', supplierName: '', paymentType: '', requestedAmount: 0, currencyCode: '', exchangeRate: 1.0, requestedAmountEgp: 0, dueDate: '', requestDate: '', status: '', isActive: true, createdAt: '', updatedAt: ''
         ),
       );
-      if (linkedReq.swiftReferenceNo != null && linkedReq.swiftReferenceNo!.isNotEmpty) {
+      if (linkedReq.swiftReferenceNo != null && linkedReq.swiftReferenceNo!.isNotEmpty && mounted) {
         setState(() => _swiftController.text = linkedReq.swiftReferenceNo!);
       }
     }
@@ -165,14 +167,14 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     // 3. Auto populate Form 46 Declaration No from Phase 7 (Customs Consultation BP-009) if empty
     if (_form46Controller.text.trim().isEmpty) {
       final ccState = ref.read(customsConsultationsProvider);
-      final ccs = ccState.value ?? [];
+      final ccs = ccState.valueOrNull ?? [];
       final linkedCc = ccs.firstWhere(
         (c) => c.importFileId == fileId && c.consultationCode.isNotEmpty,
         orElse: () => CustomsConsultationModel(
           consultationId: 0, consultationCode: '', title: '', brokerId: 0, brokerName: '', overallStatus: 'Draft', hasBlockingIssues: false, readinessPercentage: 0, estimatedDutiesEgp: 0, isActive: true, createdAt: '', updatedAt: '', checklistItems: [], totalDocumentsCount: 0, approvedDocumentsCount: 0, blockingIssuesCount: 0
         ),
       );
-      if (linkedCc.consultationCode.isNotEmpty) {
+      if (linkedCc.consultationCode.isNotEmpty && mounted) {
         setState(() => _form46Controller.text = 'DEC46-${linkedCc.consultationCode}');
       }
     }
@@ -194,16 +196,17 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     _swiftController.dispose();
     _form46Controller.dispose();
     _notesController.dispose();
+    _ownerController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final companies = ref.read(importCompaniesProvider).value ?? [];
-    final suppliers = ref.read(suppliersProvider).value ?? [];
-    final partners = ref.read(partnersProvider).value ?? [];
-    final projects = ref.read(projectsProvider).value ?? [];
+    final companies = ref.read(importCompaniesProvider).valueOrNull ?? [];
+    final suppliers = ref.read(suppliersProvider).valueOrNull ?? [];
+    final partners = ref.read(partnersProvider).valueOrNull ?? [];
+    final projects = ref.read(projectsProvider).valueOrNull ?? [];
 
     if (_selectedCompanyId != null && companies.any((c) => c.companyId == _selectedCompanyId)) {
       _companyName = companies.firstWhere((c) => c.companyId == _selectedCompanyId).importerName;
@@ -224,9 +227,9 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
       return;
     }
 
-    final selectedOwner = (_selectedOwner != null && _selectedOwner!.isNotEmpty)
-        ? _selectedOwner!
-        : (_companyName.isNotEmpty ? _companyName : 'Kamal');
+    final selectedOwner = _ownerController.text.trim().isNotEmpty
+        ? _ownerController.text.trim()
+        : (_companyName.isNotEmpty ? _companyName : 'مسؤول الشحنة');
 
     final selectedPjNames = projects
         .where((p) => _selectedProjectIds.contains(p.projectId))
@@ -234,6 +237,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         .join(', ');
 
     setState(() => _isSaving = true);
+    final l = context.l10n;
     try {
       final payload = {
         'custom_file_number': _customFileIdController.text.trim().isEmpty ? null : _customFileIdController.text.trim(),
@@ -282,7 +286,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
 
         if (FieldChangeItem.isDifferent(oldFile.customFileNumber, payload['custom_file_number'])) {
           changes.add(FieldChangeItem(
-            fieldName: 'رقم الملف الجمركي / الداخلي',
+            fieldName: l.importFileIdLabel,
             oldValue: oldFile.customFileNumber ?? '—',
             newValue: payload['custom_file_number'] ?? '—',
           ));
@@ -291,7 +295,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
           final oldComp = companies.where((c) => c.companyId == oldFile.companyId).firstOrNull?.importerName ?? oldFile.companyName;
           final newComp = companies.where((c) => c.companyId == payload['company_id']).firstOrNull?.importerName ?? _companyName;
           changes.add(FieldChangeItem(
-            fieldName: 'الشركة المستوردة',
+            fieldName: l.importingCompany,
             oldValue: oldComp,
             newValue: newComp,
           ));
@@ -300,49 +304,49 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
           final oldSup = suppliers.where((s) => s.supplierId == oldFile.supplierId).firstOrNull?.companyName ?? oldFile.supplierName;
           final newSup = suppliers.where((s) => s.supplierId == payload['supplier_id']).firstOrNull?.companyName ?? _supplierName;
           changes.add(FieldChangeItem(
-            fieldName: 'المورد الأجنبي',
+            fieldName: l.foreignSupplier,
             oldValue: oldSup,
             newValue: newSup,
           ));
         }
         if (FieldChangeItem.isDifferent(oldFile.owner, payload['owner'])) {
           changes.add(FieldChangeItem(
-            fieldName: 'مسؤول الملف / المالك (Owner)',
+            fieldName: l.responsiblePersonLabel,
             oldValue: oldFile.owner,
             newValue: payload['owner'],
           ));
         }
         if (FieldChangeItem.isDifferent(oldFile.poNumber, payload['po_number'])) {
           changes.add(FieldChangeItem(
-            fieldName: 'أمر الشراء (PO Number)',
+            fieldName: l.purchaseOrder,
             oldValue: oldFile.poNumber ?? '—',
             newValue: payload['po_number'] ?? '—',
           ));
         }
         if (FieldChangeItem.isDifferent(oldFile.piNumber, payload['pi_number'])) {
           changes.add(FieldChangeItem(
-            fieldName: 'الفاتورة المبدئية (PI Number)',
+            fieldName: l.proformaInvoiceNoLabel,
             oldValue: oldFile.piNumber ?? '—',
             newValue: payload['pi_number'] ?? '—',
           ));
         }
         if (FieldChangeItem.isDifferent(oldFile.estimatedCost, payload['estimated_cost'])) {
           changes.add(FieldChangeItem(
-            fieldName: 'التكلفة التقديرية',
+            fieldName: l.dynColEstimatedCost,
             oldValue: '${oldFile.estimatedCost} ${oldFile.estimatedCostCurrency}',
             newValue: '${payload['estimated_cost']} ${payload['estimated_cost_currency']}',
           ));
         }
         if (FieldChangeItem.isDifferent(oldFile.status, payload['status'])) {
           changes.add(FieldChangeItem(
-            fieldName: 'حالة ملف الاستيراد',
+            fieldName: l.status,
             oldValue: oldFile.status,
             newValue: payload['status'],
           ));
         }
         if (FieldChangeItem.isDifferent(oldFile.notes, payload['notes'])) {
           changes.add(FieldChangeItem(
-            fieldName: 'الملاحظات والتعليمات',
+            fieldName: l.notesInstructions,
             oldValue: oldFile.notes ?? '—',
             newValue: payload['notes'] ?? '—',
           ));
@@ -351,7 +355,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         if (changes.isNotEmpty) {
           final confirmed = await showChangeDiffConfirmationDialog(
             context,
-            title: 'مراجعة وتأكيد تعديلات ملف الاستيراد',
+            title: l.importFileReviewChangesTitle,
             itemReference: oldFile.customFileNumber ?? oldFile.importFileCode,
             changes: changes,
           );
@@ -370,7 +374,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
       await ref.read(importFilesProvider.notifier).fetchImportFiles();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ تم حفظ وتحديث ملف الاستيراد بنجاح!'), backgroundColor: AppTheme.emerald));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ ${l.importFileSavedSuccess}'), backgroundColor: AppTheme.emerald));
         Navigator.pop(context);
       }
     } catch (e) {
@@ -385,24 +389,32 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final companies = ref.watch(importCompaniesProvider).value ?? [];
-    final suppliers = ref.watch(suppliersProvider).value ?? [];
-    final partners = ref.watch(partnersProvider).value ?? [];
-    final incoterms = ref.watch(incotermsProvider).value ?? [];
-    final currencies = ref.watch(currenciesProvider).value ?? [];
+    final companies = ref.watch(importCompaniesProvider).valueOrNull ?? [];
+    final suppliers = ref.watch(suppliersProvider).valueOrNull ?? [];
+    final partners = ref.watch(partnersProvider).valueOrNull ?? [];
+    final incoterms = ref.watch(incotermsProvider).valueOrNull ?? [];
+    final currencies = ref.watch(currenciesProvider).valueOrNull ?? [];
     final locations = ref.watch(transportLocationsProvider).asData?.value ?? [];
-    final projects = (ref.watch(projectsProvider).value ?? []).where((p) => _selectedCompanyId == null || p.companyId == _selectedCompanyId).toList();
+    final projects = (ref.watch(projectsProvider).valueOrNull ?? []).where((p) => _selectedCompanyId == null || p.companyId == _selectedCompanyId).toList();
 
     return AlertDialog(
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.folder, color: AppTheme.cobalt),
-              const SizedBox(width: 8),
-              Text(widget.fileToEdit == null ? l.addNewImportFile : '${l.editImportFile}: ${widget.fileToEdit!.importFileCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ],
+          Expanded(
+            child: Row(
+              children: [
+                const Icon(Icons.folder, color: AppTheme.cobalt),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    widget.fileToEdit == null ? l.addNewImportFile : '${l.editImportFile}: ${widget.fileToEdit!.displayName}${widget.fileToEdit!.displayName != widget.fileToEdit!.importFileCode ? " (${widget.fileToEdit!.importFileCode})" : ""}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.close, color: Colors.grey),
@@ -448,9 +460,6 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                             setState(() {
                               _selectedCompanyId = val;
                               _companyName = comp.importerName;
-                              if (_selectedOwner == null || _selectedOwner!.isEmpty) {
-                                _selectedOwner = comp.importerName;
-                              }
                               _selectedProjectIds.clear(); // Reset projects on company change
                             });
                           }
@@ -948,6 +957,10 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                           if (val != null && !_selectedProjectIds.contains(val)) {
                             setState(() {
                               _selectedProjectIds.add(val);
+                              final proj = projects.where((p) => p.projectId == val).firstOrNull;
+                              if (proj != null && proj.projectOwner.isNotEmpty && _ownerController.text.trim().isEmpty) {
+                                _ownerController.text = proj.projectOwner;
+                              }
                             });
                           }
                         },
@@ -992,29 +1005,15 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 1,
-                      child: SearchableDropdownField<String?>(
-                        value: _selectedOwner != null && companies.any((c) => c.importerName == _selectedOwner)
-                            ? _selectedOwner
-                            : (_selectedCompanyId != null && companies.any((c) => c.companyId == _selectedCompanyId)
-                                ? companies.firstWhere((c) => c.companyId == _selectedCompanyId).importerName
-                                : (_selectedOwner?.isNotEmpty == true ? _selectedOwner : null)),
-                        labelText: '${l.owner} *',
-                        searchHintText: l.searchByShipmentOrCompany,
-                        items: [
-                          ...companies.map((c) => SearchableDropdownItem<String?>(
-                                value: c.importerName,
-                                label: c.importerName,
-                                subtitle: c.vatId,
-                              )),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _selectedOwner = val;
-                            });
-                          }
-                        },
-                        validator: (v) => (v == null || v.trim().isEmpty) ? l.owner : null,
+                      child: TextFormField(
+                        controller: _ownerController,
+                        decoration: InputDecoration(
+                          labelText: '${l.owner} (المسئول عن المشروع) *',
+                          hintText: 'اسم الشخص أو مسؤول المتابعة للمشروع',
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.person_outline),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? '${l.owner} مطلوب' : null,
                       ),
                     ),
                   ],

@@ -37,10 +37,17 @@ class DemurrageState {
 
 class DemurrageNotifier extends StateNotifier<DemurrageState> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   DemurrageNotifier()
       : _dio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl)),
         super(const DemurrageState());
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
+  }
 
   Future<void> loadInitialData() async {
     state = state.copyWith(isLoading: true, error: null);
@@ -50,15 +57,22 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
         fetchTrackings(),
       ]);
     } catch (e) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
   Future<void> fetchPolicies({String? carrierName}) async {
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
+
     try {
       final res = await _dio.get(
         '/demurrage-detention/policies',
         queryParameters: carrierName != null ? {'carrier_name': carrierName} : null,
+        cancelToken: _cancelToken,
       );
       if (res.data is List) {
         final policies = (res.data as List)
@@ -67,11 +81,17 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
         state = state.copyWith(policies: policies, isLoading: false);
       }
     } catch (e) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
   Future<void> fetchTrackings({int? importFileId, String? carrierName, String? status}) async {
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
+
     try {
       final queryParams = <String, dynamic>{};
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
@@ -81,6 +101,7 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
       final res = await _dio.get(
         '/demurrage-detention/trackings',
         queryParameters: queryParams.isNotEmpty ? queryParams : null,
+        cancelToken: _cancelToken,
       );
       if (res.data is List) {
         final trackings = (res.data as List)
@@ -89,6 +110,9 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
         state = state.copyWith(trackings: trackings, isLoading: false);
       }
     } catch (e) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }

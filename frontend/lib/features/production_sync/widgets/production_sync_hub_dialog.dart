@@ -7,13 +7,14 @@ import 'sync_console_widget.dart';
 import 'sync_progress_and_diff_widget.dart';
 
 class ProductionSyncHubDialog extends ConsumerStatefulWidget {
-  const ProductionSyncHubDialog({super.key});
+  final LocalProcessSyncService? service;
+  const ProductionSyncHubDialog({super.key, this.service});
 
-  static Future<void> show(BuildContext context) {
+  static Future<void> show(BuildContext context, {LocalProcessSyncService? service}) {
     return showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (ctx) => const ProductionSyncHubDialog(),
+      builder: (ctx) => ProductionSyncHubDialog(service: service),
     );
   }
 
@@ -24,7 +25,7 @@ class ProductionSyncHubDialog extends ConsumerStatefulWidget {
 class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialog>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final LocalProcessSyncService _service = LocalProcessSyncService();
+  late final LocalProcessSyncService _service;
 
   final List<ConsoleLogLine> _consoleLogs = [];
   bool _isRunning = false;
@@ -39,6 +40,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
   @override
   void initState() {
     super.initState();
+    _service = widget.service ?? LocalProcessSyncService();
     _tabController = TabController(length: 2, vsync: this);
     _refreshLocalData();
     Future.microtask(() => _checkDiffsSilently());
@@ -179,7 +181,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
         width: 1060,
-        height: 760,
+        height: 820,
         decoration: BoxDecoration(
           color: const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(12),
@@ -204,20 +206,24 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                     child: const Icon(Icons.sync_alt_rounded, color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 12),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'مركز مزامنة ونقل تحديثات الإنتاج المباشر (Production Sync Hub)',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                      Text(
-                        'أداة مستقلة فائقة السرعة لمزامنة وتحديث قاعدة بيانات وحزم الإنتاج بدون الاعتماد على الـ API',
-                        style: TextStyle(color: Colors.white70, fontSize: 11),
-                      ),
-                    ],
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'مركز مزامنة ونقل تحديثات الإنتاج المباشر (Production Sync Hub)',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'أداة مستقلة فائقة السرعة لمزامنة وتحديث قاعدة بيانات وحزم الإنتاج بدون الاعتماد على الـ API',
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
                     tooltip: 'تحديث حالة الملفات',
@@ -233,7 +239,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
 
             // ─── DB Status Header Cards ────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Row(
                 children: [
                   Expanded(
@@ -274,17 +280,43 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 indicatorWeight: 3,
                 tabs: const [
                   Tab(
-                    icon: Icon(Icons.flash_on_rounded, size: 18),
-                    text: 'عمليات المزامنة والتشغيل المباشر (Sync Operations)',
+                    height: 40,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.flash_on_rounded, size: 17),
+                        SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'عمليات المزامنة والتشغيل المباشر (Sync Operations)',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   Tab(
-                    icon: Icon(Icons.history_rounded, size: 18),
-                    text: 'أرشيف النسخ الاحتياطية (Backups Archive)',
+                    height: 40,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.history_rounded, size: 17),
+                        SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'أرشيف النسخ الاحتياطية (Backups Archive)',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
             // ─── Tab Views ────────────────────────────────────────────────
             Expanded(
@@ -314,15 +346,15 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
       children: [
         // Action Buttons Row
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.grey.shade300),
           ),
           child: Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: 8,
+            runSpacing: 8,
             alignment: WrapAlignment.center,
             children: [
               // 1. Sync Dev -> Prod
@@ -330,14 +362,14 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.emerald,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                 ),
                 icon: _isRunning && _currentAction.contains('Dev → Prod')
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.cloud_upload_rounded, size: 18),
+                    ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.cloud_upload_rounded, size: 17),
                 label: const Text(
                   '⚡ مزامنة لقاعدة الإنتاج (Dev → Prod)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                 ),
                 onPressed: _isRunning
                     ? null
@@ -361,14 +393,14 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.cobalt,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
                 ),
                 icon: _isRunning && _currentAction.contains('مقارنة')
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.compare_arrows_rounded, size: 18),
+                    ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.compare_arrows_rounded, size: 17),
                 label: const Text(
                   '🔍 فحص ومقارنة الجداول (Compare)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                 ),
                 onPressed: _isRunning
                     ? null
@@ -389,14 +421,14 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.charcoal,
                   side: const BorderSide(color: AppTheme.charcoal),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
                 ),
                 icon: _isRunning && _currentAction.contains('سحب')
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.charcoal))
-                    : const Icon(Icons.download_rounded, size: 18),
+                    ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.charcoal))
+                    : const Icon(Icons.download_rounded, size: 17),
                 label: const Text(
                   '⬇ سحب الإنتاج للتطوير (Prod → Dev)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
                 ),
                 onPressed: _isRunning
                     ? null
@@ -417,14 +449,14 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.orange,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
                 ),
                 icon: _isRunning && _currentAction.contains('بناء كامل')
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.inventory_rounded, size: 18),
+                    ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.inventory_rounded, size: 17),
                 label: const Text(
                   '📦 بناء وحزم الإنتاج بالكامل (Full Build)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
                 ),
                 onPressed: _isRunning
                     ? null
@@ -448,12 +480,12 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6366F1), // Indigo
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
                 ),
-                icon: const Icon(Icons.play_circle_filled_rounded, size: 18),
+                icon: const Icon(Icons.play_circle_filled_rounded, size: 17),
                 label: const Text(
                   '🚀 إطلاق تطبيق البرودكشن الآن',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
                 ),
                 onPressed: _isRunning
                     ? null
@@ -468,7 +500,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
 
         // ── Visual Progress & Database Changes Diff Inspector ────────────
         SyncProgressAndDiffWidget(

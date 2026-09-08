@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../services/coo_export_service.dart';
 
 class VisualDraftCOOSheet extends StatefulWidget {
@@ -298,10 +298,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       certificateType: widget.certificateType,
                       acidNumber: widget.acidNumber,
                     );
-                    Clipboard.setData(ClipboardData(text: text));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(context.l10n.cooVisualCopiedSnackbar), duration: const Duration(seconds: 1)),
-                    );
+                    CopyHelper.copy(context, text, customMessage: context.l10n.cooVisualCopiedSnackbar);
                   },
                 ),
                 const SizedBox(width: 8),
@@ -322,7 +319,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                     if (path != null && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('✅ تم حفظ ملف الإكسل بنجاح في: $path'),
+                          content: Text(context.l10n.cooExcelSavedSuccess(path)),
                           backgroundColor: Colors.green,
                           duration: const Duration(seconds: 4),
                         ),
@@ -334,15 +331,8 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                         certificateType: widget.certificateType,
                         acidNumber: widget.acidNumber,
                       );
-                      Clipboard.setData(ClipboardData(text: csv));
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(context.l10n.cooVisualExcelReadySnackbar),
-                            backgroundColor: Colors.green,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
+                        CopyHelper.copy(context, csv, customMessage: context.l10n.cooVisualExcelReadySnackbar);
                       }
                     }
                   },
@@ -380,7 +370,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
         ),
         const SizedBox(height: 12),
 
-        // ─── Egyptian Customs Compliance Alert Banner (Bilingual) ───
+        // ─── Egyptian Customs Compliance Alert Banner ───
         Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
@@ -389,37 +379,20 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
           ),
-          child: const Row(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.verified_user_outlined, color: Color(0xFFD97706), size: 22),
-              SizedBox(width: 10),
+              const Icon(Icons.verified_user_outlined, color: Color(0xFFD97706), size: 22),
+              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Arabic Note
-                    Text(
-                      'ملاحظة جمركية: في مرحلة التخليص الجمركي بمصر، يُشترط أن يحتوي البند 11 على ختم وتوقيع المصدر، وأن يحتوي البند 12 على الختم الرسمي للجهة المعتمدة (ختم الجمارك وختم الغرفة التجارية) أو رمز التحقق الإلكتروني QR Code / Barcode في حال الشهادات الإلكترونية.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF92400E),
-                        height: 1.4,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    // English Note
-                    Text(
-                      'Customs Note: During the customs clearance process in Egypt, Box 11 must contain the exporter\'s signature and stamp, and Box 12 must contain the official stamp of the certifying authority (Customs stamp and Chamber of Commerce stamp) or an electronic verification QR Code / Barcode in the case of electronic certificates.',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFFB45309),
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
+                child: CopyableText(
+                  context.l10n.cooCustomsClearanceNote,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF92400E),
+                    height: 1.4,
+                  ),
                 ),
               ),
             ],
@@ -569,7 +542,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                           const Text('Serial No.', style: TextStyle(fontSize: 9.5, color: Colors.black87)),
                           const SizedBox(width: 8),
                           Flexible(
-                            child: Text(
+                            child: CopyableText(
                               'Certificate No. $certNo',
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.end,
@@ -768,7 +741,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       ),
                     ],
                   );
-                }).toList()
+                })
               else
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -936,7 +909,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                             const Text('EUR.1', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black)),
                             const SizedBox(width: 8),
                             Flexible(
-                              child: Text(
+                              child: CopyableText(
                                 certNo.startsWith('DRAFT') ? certNo : 'No A $certNo',
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black),
                                 overflow: TextOverflow.ellipsis,
@@ -1210,7 +1183,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                       ),
                     ],
                   );
-                }).toList()
+                })
               else
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1462,10 +1435,10 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
         children: [
           Text(label, style: const TextStyle(fontSize: 9, color: Colors.black54)),
           const SizedBox(height: 2),
-          Text(firstLine, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.black87)),
+          CopyableText(firstLine, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.black87)),
           if (otherLines.isNotEmpty) ...[
             const SizedBox(height: 2),
-            Text(
+            CopyableText(
               otherLines,
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 9.5, color: Colors.black87, height: 1.25),
             ),
@@ -1500,7 +1473,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
         decoration: BoxDecoration(
           border: Border(right: hasRightBorder ? const BorderSide(color: Colors.black87, width: 0.8) : BorderSide.none),
         ),
-        child: Text(
+        child: CopyableText(
           content,
           style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87),
         ),

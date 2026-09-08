@@ -53,6 +53,10 @@ class ShipmentBookingBase(BaseModel):
     containers_data: List[ContainerAllocationItem] = Field(default_factory=list)
     cost_charges_data: List[BookingChargeItem] = Field(default_factory=list)
     quotation_details_data: Optional[dict] = Field(default_factory=dict)
+    original_freight_cost_usd: float = 0.0
+    cost_savings_usd: float = 0.0
+    cost_variance_usd: float = 0.0
+    savings_notes: Optional[str] = None
     status: str = "Draft"
     owner: str = "Kamal"
     notes: Optional[str] = None
@@ -90,6 +94,10 @@ class ShipmentBookingUpdate(BaseModel):
     containers_data: Optional[List[ContainerAllocationItem]] = None
     cost_charges_data: Optional[List[BookingChargeItem]] = None
     quotation_details_data: Optional[dict] = None
+    original_freight_cost_usd: Optional[float] = None
+    cost_savings_usd: Optional[float] = None
+    cost_variance_usd: Optional[float] = None
+    savings_notes: Optional[str] = None
     status: Optional[str] = None
     owner: Optional[str] = None
     notes: Optional[str] = None
@@ -102,6 +110,10 @@ class ShipmentBookingResponse(ShipmentBookingBase):
     booking_confirmation_date: Optional[datetime] = None
     transit_time_days: int = 0
     total_freight_cost_usd: float = 0.0
+    original_freight_cost_usd: float = 0.0
+    cost_savings_usd: float = 0.0
+    cost_variance_usd: float = 0.0
+    savings_notes: Optional[str] = None
     is_active: bool = True
     created_at: datetime
     updated_at: datetime

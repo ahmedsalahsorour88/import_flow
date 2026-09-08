@@ -76,18 +76,29 @@ class UsersState {
 
 class UsersNotifier extends StateNotifier<UsersState> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   UsersNotifier(this._dio) : super(const UsersState());
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('UsersNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchUsers() async {
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _dio.get('${ApiConstants.auth}/users');
+      final response = await _dio.get('${ApiConstants.auth}/users', cancelToken: _cancelToken);
       final data = response.data as List<dynamic>;
       final users = data.map((j) => UserDetail.fromJson(j as Map<String, dynamic>)).toList();
       state = state.copyWith(users: users, isLoading: false);
     } on DioException catch (e) {
-      final msg = e.response?.data?['detail']?.toString() ?? 'فشل في جلب المستخدمين.';
+      if (CancelToken.isCancel(e)) return;
+      final respData = e.response?.data;
+      final msg = respData is Map ? respData['detail']?.toString() ?? 'فشل في جلب المستخدمين.' : 'فشل في جلب المستخدمين.';
       state = state.copyWith(isLoading: false, error: msg);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: 'خطأ غير متوقع: $e');
@@ -117,7 +128,8 @@ class UsersNotifier extends StateNotifier<UsersState> {
       await fetchUsers();
       return null; // success
     } on DioException catch (e) {
-      final msg = e.response?.data?['detail']?.toString() ?? 'فشل في إنشاء المستخدم.';
+      final respData = e.response?.data;
+      final msg = respData is Map ? respData['detail']?.toString() ?? 'فشل في إنشاء المستخدم.' : 'فشل في إنشاء المستخدم.';
       state = state.copyWith(isSaving: false, error: msg);
       return msg;
     } catch (e) {
@@ -147,7 +159,8 @@ class UsersNotifier extends StateNotifier<UsersState> {
       await fetchUsers();
       return null; // success
     } on DioException catch (e) {
-      final msg = e.response?.data?['detail']?.toString() ?? 'فشل في تعديل المستخدم.';
+      final respData = e.response?.data;
+      final msg = respData is Map ? respData['detail']?.toString() ?? 'فشل في تعديل المستخدم.' : 'فشل في تعديل المستخدم.';
       state = state.copyWith(isSaving: false, error: msg);
       return msg;
     } catch (e) {
@@ -165,7 +178,8 @@ class UsersNotifier extends StateNotifier<UsersState> {
       await fetchUsers();
       return null;
     } on DioException catch (e) {
-      final msg = e.response?.data?['detail']?.toString() ?? 'فشل في تغيير حالة المستخدم.';
+      final respData = e.response?.data;
+      final msg = respData is Map ? respData['detail']?.toString() ?? 'فشل في تغيير حالة المستخدم.' : 'فشل في تغيير حالة المستخدم.';
       state = state.copyWith(isSaving: false, error: msg);
       return msg;
     } catch (e) {

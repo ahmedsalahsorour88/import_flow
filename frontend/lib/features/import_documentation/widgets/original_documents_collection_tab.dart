@@ -52,8 +52,12 @@ class _OriginalDocumentsCollectionTabState
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
-      ref.read(originalDocumentsSessionsProvider.notifier).fetchSessions();
+      if (!ref.read(importFilesProvider).isLoading) {
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
+      if (!ref.read(originalDocumentsSessionsProvider).isLoading) {
+        ref.read(originalDocumentsSessionsProvider.notifier).fetchSessions();
+      }
       if (widget.initialImportFileId != null) {
         _loadInitialFile(widget.initialImportFileId!);
       }
@@ -474,8 +478,8 @@ class _OriginalDocumentsCollectionTabState
                   items: files
                       .map((f) => SearchableDropdownItem<int>(
                             value: f.importFileId,
-                            label: '${f.importFileCode} — ${f.supplierName} (${f.companyName}) [ACID: ${f.acidNumber ?? "N/A"}]',
-                            searchValue: '${f.importFileCode} ${f.supplierName} ${f.companyName} ${f.acidNumber ?? ""}',
+                            label: '${f.primaryNameWithCode} — ${f.supplierName} (${f.companyName}) [ACID: ${f.acidNumber ?? "N/A"}]',
+                            searchValue: '${f.primaryNameWithCode} ${f.supplierName} ${f.companyName} ${f.acidNumber ?? ""}',
                           ))
                       .toList(),
                   onChanged: (fileId) {

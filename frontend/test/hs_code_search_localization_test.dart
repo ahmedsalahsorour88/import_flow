@@ -8,8 +8,8 @@ void main() {
     late AppLocalizationsEn en;
 
     setUp(() {
-      ar = AppLocalizationsAr();
-      en = AppLocalizationsEn();
+      ar = const AppLocalizationsAr();
+      en = const AppLocalizationsEn();
     });
 
     test('Header & search strings are distinct and non-empty', () {

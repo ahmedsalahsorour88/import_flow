@@ -1,19 +1,19 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
 
 void main() {
-  group('Screen 16: Bank Form 4 Localization Tests', () {
+  group('Screens 16 & 17: Bank Form 4 & Endorsement Localization Tests', () {
     const ar = AppLocalizationsAr();
     const en = AppLocalizationsEn();
 
-    final screen16Getters = <String, List<String>>{
-      'bankForm4Title': [ar.bankForm4Title, en.bankForm4Title],
+    final form4Getters = <String, List<String>>{
       'form4RequestTab': [ar.form4RequestTab, en.form4RequestTab],
       'bankForm4RegistryTab': [ar.bankForm4RegistryTab, en.bankForm4RegistryTab],
       'bankForm4EditingBanner': [ar.bankForm4EditingBanner('DOC-001'), en.bankForm4EditingBanner('DOC-001')],
       'cancelEditNewForm4': [ar.cancelEditNewForm4, en.cancelEditNewForm4],
       'selectImportFileForm4Label': [ar.selectImportFileForm4Label, en.selectImportFileForm4Label],
+      'searchFileOrSupplierHint': [ar.searchFileOrSupplierHint, en.searchFileOrSupplierHint],
       'bankApplicationDetailsSection': [ar.bankApplicationDetailsSection, en.bankApplicationDetailsSection],
       'issuingBankLabel': [ar.issuingBankLabel, en.issuingBankLabel],
       'selectBankHint': [ar.selectBankHint, en.selectBankHint],
@@ -43,16 +43,16 @@ void main() {
       'endorsementStatusCol': [ar.endorsementStatusCol, en.endorsementStatusCol],
       'endorsedStatusBadge': [ar.endorsedStatusBadge, en.endorsedStatusBadge],
       'bankProcessingStatusBadge': [ar.bankProcessingStatusBadge, en.bankProcessingStatusBadge],
-      'selectImportFileFirstWarning': [ar.selectImportFileFirstWarning, en.selectImportFileFirstWarning],
       'form4SavedSuccess': [ar.form4SavedSuccess, en.form4SavedSuccess],
       'form4SaveError': [ar.form4SaveError, en.form4SaveError],
+      'selectImportFileFirst': [ar.selectImportFileFirst, en.selectImportFileFirst],
     };
 
-    final arabicRegex = RegExp(r'[\u0600-\u06FF]');
+    final arabicRegex = RegExp(r'[؀-ۿ]');
 
-    test('All Screen 16 getters are defined and non-empty in Arabic & English', () {
-      expect(screen16Getters.length, greaterThanOrEqualTo(35));
-      for (final entry in screen16Getters.entries) {
+    test('All Screen 16 & 17 getters are defined and non-empty in Arabic & English', () {
+      expect(form4Getters.length, greaterThanOrEqualTo(35));
+      for (final entry in form4Getters.entries) {
         final key = entry.key;
         final arVal = entry.value[0];
         final enVal = entry.value[1];
@@ -63,7 +63,7 @@ void main() {
     });
 
     test('English strings must never contain Arabic characters', () {
-      for (final entry in screen16Getters.entries) {
+      for (final entry in form4Getters.entries) {
         final key = entry.key;
         final enVal = entry.value[1];
         expect(
@@ -76,17 +76,16 @@ void main() {
 
     test('No getters contain stacked bilingual text patterns', () {
       final stackedBilingualPatterns = [
-        '(Select Import File)',
-        '(Bank Application & Endorsement Details)',
-        '(Issuing Bank)',
-        '(Amount)',
-        '(Currency)',
-        '(Request Date)',
-        '(Required Attachments Checklist)',
-        '(Refresh)',
+        '(PI)',
+        '(P/L)',
+        '(COO)',
+        '(B/L)',
+        '(Insurance)',
+        '(ACID Notice)',
+        ' / ',
       ];
 
-      for (final entry in screen16Getters.entries) {
+      for (final entry in form4Getters.entries) {
         final key = entry.key;
         final arVal = entry.value[0];
         final enVal = entry.value[1];

@@ -89,3 +89,25 @@ def get_active_shipments_with_details(db: Session, step_code: Optional[str] = No
     if step_code:
         query = query.filter(ShipmentStageActivity.step_code == step_code)
     return query.all()
+
+
+def get_completed_activities_for_files(db: Session, import_file_codes: List[str]) -> Dict[str, List[ShipmentStageActivity]]:
+    """
+    Batch fetches all completed activities for a list of import file codes in a single query
+    to eliminate N+1 roundtrips.
+    """
+    if not import_file_codes:
+        return {}
+    activities = (
+        db.query(ShipmentStageActivity)
+        .filter(
+            ShipmentStageActivity.import_file_code.in_(import_file_codes),
+            ShipmentStageActivity.status == "Completed",
+        )
+        .order_by(ShipmentStageActivity.id.asc())
+        .all()
+    )
+    result: Dict[str, List[ShipmentStageActivity]] = {}
+    for act in activities:
+        result.setdefault(act.import_file_code, []).append(act)
+    return result

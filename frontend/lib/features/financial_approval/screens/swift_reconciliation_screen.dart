@@ -59,8 +59,12 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
+      if (!ref.read(paymentRequestsProvider).isLoading) {
+        ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
+      }
+      if (!ref.read(importFilesProvider).isLoading) {
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
     });
   }
 
@@ -775,7 +779,12 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           },
         );
       },
-    );
+    ).then((_) {
+      swiftRefController.dispose();
+      transferredAmountController.dispose();
+      currencyController.dispose();
+      notesController.dispose();
+    });
   }
 
   void _showSwiftDetailsDialog(PaymentRequestModel pay) {
@@ -1518,7 +1527,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
   Widget build(BuildContext context) {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final paymentsState = ref.watch(paymentRequestsProvider);
-    final paymentsList = paymentsState.value ?? [];
+    final paymentsList = paymentsState.valueOrNull ?? [];
 
     // Filter payments
     final filtered = paymentsList.where((pay) {
@@ -1595,15 +1604,29 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                     children: [
                       Expanded(
                         flex: 3,
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: isArabic ? 'بحث بكود الطلب، ملف الشحنة، المورد، رقم السويفت...' : 'Search by payment code, shipment file, supplier, SWIFT ref...',
-                            prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          onChanged: (v) => setState(() {}),
+                        child: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _searchController,
+                          builder: (context, val, child) {
+                            return TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: isArabic ? 'بحث بكود الطلب، ملف الشحنة، المورد، رقم السويفت...' : 'Search by payment code, shipment file, supplier, SWIFT ref...',
+                                prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
+                                suffixIcon: val.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, size: 18),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          setState(() {});
+                                        },
+                                      )
+                                    : null,
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              onChanged: (v) => setState(() {}),
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(width: 16),

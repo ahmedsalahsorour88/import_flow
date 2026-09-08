@@ -14,9 +14,16 @@ final acidSessionsProvider =
 
 class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistrationModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   AcidSessionsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchAcidSessions();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('AcidSessionsNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchAcidSessions({
@@ -24,6 +31,8 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
     String? search,
     String? status,
   }) async {
+    _cancelToken?.cancel('Cancelled by new request');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{
@@ -35,12 +44,14 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/import-documentation/acid-sessions',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List<dynamic> data = response.data;
       final sessions = data.map((json) => AcidRegistrationModel.fromJson(json)).toList();
       state = AsyncValue.data(sessions);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       state = AsyncValue.error(e, stack);
     }
   }
@@ -145,19 +156,34 @@ final bankingDocumentsProvider =
 
 class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocumentModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   BankingDocumentsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchBankingDocuments();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
+  }
+
   Future<void> fetchBankingDocuments() async {
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
-      final response = await _dio.get('${ApiConstants.baseUrl}/import-documentation/banking-documents');
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/import-documentation/banking-documents',
+        cancelToken: _cancelToken,
+      );
       final List<dynamic> data = response.data;
       final docs = data.map((json) => BankingDocumentModel.fromJson(json)).toList();
       state = AsyncValue.data(docs);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }
@@ -278,18 +304,31 @@ final acidTrackerProvider =
 
 class AcidTrackerNotifier extends StateNotifier<AsyncValue<AcidTrackerSummaryModel>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   AcidTrackerNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchAcidTracker();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('AcidTrackerNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchAcidTracker() async {
+    _cancelToken?.cancel('Cancelled by new request');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
-      final response = await _dio.get('${ApiConstants.baseUrl}/import-documentation/acid/tracker');
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/import-documentation/acid/tracker',
+        cancelToken: _cancelToken,
+      );
       final summary = AcidTrackerSummaryModel.fromJson(response.data);
       state = AsyncValue.data(summary);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       state = AsyncValue.error(e, stack);
     }
   }
@@ -320,12 +359,21 @@ final draftBLReviewsProvider =
 
 class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   DraftBLNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchReviews();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
+  }
+
   Future<void> fetchReviews({int? importFileId, String? search}) async {
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{};
@@ -335,11 +383,15 @@ class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/import-documentation/draft-bl',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
       final List<dynamic> data = response.data;
       final reviews = data.map((json) => DraftBLReviewModel.fromJson(json)).toList();
       state = AsyncValue.data(reviews);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }
@@ -471,12 +523,21 @@ final cooReviewsProvider =
 
 class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginReviewModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   COONotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchReviews();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
+  }
+
   Future<void> fetchReviews({int? importFileId}) async {
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{};
@@ -485,11 +546,15 @@ class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginRevie
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/import-documentation/coo',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
       final List<dynamic> data = response.data;
       final reviews = data.map((json) => CertificateOfOriginReviewModel.fromJson(json)).toList();
       state = AsyncValue.data(reviews);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }
@@ -575,12 +640,21 @@ final inspectionReviewsProvider =
 
 class InspectionNotifier extends StateNotifier<AsyncValue<List<InspectionCertificateReviewModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   InspectionNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchReviews();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
+  }
+
   Future<void> fetchReviews({int? importFileId}) async {
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{};
@@ -589,11 +663,15 @@ class InspectionNotifier extends StateNotifier<AsyncValue<List<InspectionCertifi
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/import-documentation/inspection',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
       final List<dynamic> data = response.data;
       final reviews = data.map((json) => InspectionCertificateReviewModel.fromJson(json)).toList();
       state = AsyncValue.data(reviews);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }
@@ -705,9 +783,16 @@ final poReconciliationSessionsProvider =
 class POReconciliationSessionsNotifier
     extends StateNotifier<AsyncValue<List<POReconciliationSessionModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   POReconciliationSessionsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchSessions();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
   }
 
   Future<void> fetchSessions({
@@ -715,6 +800,8 @@ class POReconciliationSessionsNotifier
     String? overallStatus,
     String? search,
   }) async {
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
     try {
       state = const AsyncValue.loading();
       final queryParams = <String, dynamic>{};
@@ -727,6 +814,7 @@ class POReconciliationSessionsNotifier
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/import-documentation/po-reconciliation/sessions',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List<dynamic> data = response.data;
@@ -735,6 +823,9 @@ class POReconciliationSessionsNotifier
           .toList();
       state = AsyncValue.data(sessions);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }
@@ -785,10 +876,20 @@ class POReconciliationSessionsNotifier
 final centralArchiveProvider =
     FutureProvider.family<Map<String, dynamic>, int>((ref, importFileId) async {
   final dio = ref.read(dioProvider);
-  final response = await dio.get(
-    '${ApiConstants.baseUrl}/import-documentation/central-archive/$importFileId',
-  );
-  return response.data as Map<String, dynamic>;
+  final cancelToken = CancelToken();
+  ref.onDispose(() => cancelToken.cancel('centralArchiveProvider disposed'));
+  try {
+    final response = await dio.get(
+      '${ApiConstants.baseUrl}/import-documentation/central-archive/$importFileId',
+      cancelToken: cancelToken,
+    );
+    return response.data as Map<String, dynamic>;
+  } catch (e) {
+    if (e is DioException && CancelToken.isCancel(e)) {
+      return <String, dynamic>{};
+    }
+    rethrow;
+  }
 });
 
 

@@ -12,11 +12,43 @@ class ImportRequirementHSCodeItem(BaseModel):
     item_value: float = 0.0
     quantity: float = 0.0
     unit_of_measure: Optional[str] = "PCS"
+    
+    # Pillar 1: Decree 43 & Factory Registration
     decree_43_applicable: bool = False
+    white_list_verified: bool = False
+    factory_registration_no: Optional[str] = None
+    decree_43_action: Optional[str] = None  # verified, justified, task_created, pending
+    decree_43_justification: Optional[str] = None  # سبب الاعتماد / مبرر الاستثناء
+    decree_43_notes: Optional[str] = None
+
+    # Pillar 2: COO & Trade Agreements
     coo_required: bool = False
+    coo_type: Optional[str] = "EUR.1"
+    coo_status: str = "Not Required"
+    coo_notes: Optional[str] = None
+
+    # Pillar 3: Pre-Shipment Inspection
     inspection_required: bool = False
+    inspection_body: Optional[str] = "SGS"
+    inspection_status: str = "Not Required"
+    inspection_report_no: Optional[str] = None
+    inspection_notes: Optional[str] = None
+
+    # Pillar 4: Prior Regulatory Permits
     permit_required: bool = False
     regulatory_authority: Optional[str] = None
+    permit_number: Optional[str] = None
+    permit_status: str = "Not Required"
+    permit_notes: Optional[str] = None
+
+    # Pillar 5: Technical Certificates
+    msds_required: bool = False
+    msds_status: str = "Not Required"
+    halal_cert_required: bool = False
+    halal_cert_status: str = "Not Required"
+    coa_required: bool = False
+    coa_status: str = "Not Required"
+    technical_notes: Optional[str] = None
 
 
 class ImportRequirementBase(BaseModel):

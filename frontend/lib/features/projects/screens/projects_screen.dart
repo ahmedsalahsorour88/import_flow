@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -31,10 +32,22 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(projectsProvider.notifier).fetchProjects();
-      ref.read(importCompaniesProvider.notifier).fetchCompanies();
-      ref.read(suppliersProvider.notifier).fetchSuppliers();
-      ref.read(incotermsProvider.notifier).fetchIncoterms();
+      final projectsState = ref.read(projectsProvider);
+      if (!projectsState.isLoading) {
+        ref.read(projectsProvider.notifier).fetchProjects();
+      }
+      final companiesState = ref.read(importCompaniesProvider);
+      if (!companiesState.isLoading) {
+        ref.read(importCompaniesProvider.notifier).fetchCompanies();
+      }
+      final suppliersState = ref.read(suppliersProvider);
+      if (!suppliersState.isLoading) {
+        ref.read(suppliersProvider.notifier).fetchSuppliers();
+      }
+      final incotermsState = ref.read(incotermsProvider);
+      if (!incotermsState.isLoading) {
+        ref.read(incotermsProvider.notifier).fetchIncoterms();
+      }
     });
   }
 
@@ -115,6 +128,124 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     }
   }
 
+  void _copyProjectsTsv(List<ProjectModel> projects) {
+    final l10n = context.l10n;
+    final headers = [
+      l10n.projectCodeCol,
+      l10n.projectNameAndOwnerCol,
+      l10n.projectOwnerLabelField.replaceAll('*', '').trim(),
+      l10n.companyAndSupplierCol,
+      l10n.primarySupplierLabel.replaceAll('*', '').trim(),
+      l10n.importTypeLabel.replaceAll('*', '').trim(),
+      l10n.projectColShipmentCategories,
+      l10n.defaultIncotermLabel.replaceAll('*', '').trim(),
+      l10n.budgetUsdCol,
+      l10n.capMultiShipment,
+      l10n.capMultiCompany,
+      l10n.statusCol,
+      l10n.projectColActive,
+      l10n.projectNotesLabel,
+    ];
+
+    final rows = projects.map((p) {
+      final categoriesText = p.shipmentCategory
+          .split(',')
+          .map((c) => _getCategoryLabel(context, c))
+          .join(', ');
+      final incotermText = p.incotermCode ?? l10n.projectIncotermFallback;
+      final budgetText = p.totalBudgetUsd != null
+          ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
+          : l10n.projectBudgetNotSet;
+      final activeText = p.isActive ? l10n.projectActiveYes : l10n.projectActiveNo;
+      final multiShipmentText = p.allowMultiShipment ? l10n.projectMultiShipmentYes : l10n.projectMultiShipmentNo;
+      final multiCompanyText = p.allowMultiCompany ? l10n.projectMultiCompanyYes : l10n.projectMultiCompanyNo;
+      final notesText = (p.notes != null && p.notes!.trim().isNotEmpty) ? p.notes!.trim() : l10n.projectNotesFallback;
+
+      return [
+        p.projectCode,
+        p.projectName,
+        p.projectOwner,
+        p.companyName ?? l10n.projectCompanyFallback(p.companyId),
+        p.supplierName ?? '#${p.supplierId}',
+        _getImportTypeLabel(context, p.importType),
+        categoriesText,
+        incotermText,
+        budgetText,
+        multiShipmentText,
+        multiCompanyText,
+        _getStatusLabel(context, p.status),
+        activeText,
+        notesText,
+      ].join('\t');
+    }).join('\n');
+
+    final tsv = '${headers.join('\t')}\n$rows';
+    CopyHelper.copy(context, tsv, customMessage: l10n.projectsExportTsvSuccess);
+  }
+
+  String _buildProjectSummary(BuildContext context, ProjectModel p) {
+    final l10n = context.l10n;
+    final categoriesText = p.shipmentCategory
+        .split(',')
+        .map((c) => _getCategoryLabel(context, c))
+        .join(', ');
+    final incotermText = p.incotermCode ?? l10n.projectIncotermFallback;
+    final budgetText = p.totalBudgetUsd != null
+        ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
+        : l10n.projectBudgetNotSet;
+    final activeText = p.isActive ? l10n.projectActiveYes : l10n.projectActiveNo;
+    final multiShipmentText = p.allowMultiShipment ? l10n.projectMultiShipmentYes : l10n.projectMultiShipmentNo;
+    final multiCompanyText = p.allowMultiCompany ? l10n.projectMultiCompanyYes : l10n.projectMultiCompanyNo;
+    final notesText = (p.notes != null && p.notes!.trim().isNotEmpty) ? p.notes!.trim() : l10n.projectNotesFallback;
+
+    return '''
+[${p.projectCode}] ${p.projectName}
+- ${l10n.projectOwnerLabelField.replaceAll('*', '').trim()}: ${p.projectOwner}
+- ${l10n.importingCompaniesFieldLabel.replaceAll('*', '').trim()}: ${p.companyName ?? l10n.projectCompanyFallback(p.companyId)}
+- ${l10n.primarySupplierLabel.replaceAll('*', '').trim()}: ${p.supplierName ?? '#${p.supplierId}'}
+- ${l10n.importTypeLabel.replaceAll('*', '').trim()}: ${_getImportTypeLabel(context, p.importType)}
+- ${l10n.projectColShipmentCategories}: $categoriesText
+- ${l10n.defaultIncotermLabel.replaceAll('*', '').trim()}: $incotermText
+- ${l10n.budgetUsdCol}: $budgetText
+- ${l10n.capMultiShipment}: $multiShipmentText
+- ${l10n.capMultiCompany}: $multiCompanyText
+- ${l10n.statusCol}: ${_getStatusLabel(context, p.status)}
+- ${l10n.projectColActive}: $activeText
+- ${l10n.projectNotesLabel}: $notesText
+'''.trim();
+  }
+
+  String _buildProjectRowSummary(BuildContext context, ProjectModel p) {
+    final l10n = context.l10n;
+    final categoriesText = p.shipmentCategory
+        .split(',')
+        .map((c) => _getCategoryLabel(context, c))
+        .join(', ');
+    final incotermText = p.incotermCode ?? l10n.projectIncotermFallback;
+    final budgetText = p.totalBudgetUsd != null
+        ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
+        : l10n.projectBudgetNotSet;
+    final activeText = p.isActive ? l10n.projectActiveYes : l10n.projectActiveNo;
+    final multiShipmentText = p.allowMultiShipment ? l10n.projectMultiShipmentYes : l10n.projectMultiShipmentNo;
+    final multiCompanyText = p.allowMultiCompany ? l10n.projectMultiCompanyYes : l10n.projectMultiCompanyNo;
+
+    return [
+      p.projectCode,
+      p.projectName,
+      p.projectOwner,
+      p.companyName ?? l10n.projectCompanyFallback(p.companyId),
+      p.supplierName ?? '#${p.supplierId}',
+      _getImportTypeLabel(context, p.importType),
+      categoriesText,
+      incotermText,
+      budgetText,
+      multiShipmentText,
+      multiCompanyText,
+      _getStatusLabel(context, p.status),
+      activeText,
+    ].join('\t');
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -122,52 +253,67 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Title & Actions
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.projectsScreenTitle,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.charcoal,
+      body: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Title & Actions
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.projectsScreenTitle,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.charcoal,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.projectsScreenSubtitle,
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const BackToDashboardButton(),
-                    const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      onPressed: () => _showProjectDialog(context),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: Text(l10n.createNewProjectBtn),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      const SizedBox(height: 4),
+                      Text(
+                        l10n.projectsScreenSubtitle,
+                        style: const TextStyle(fontSize: 13, color: Colors.grey),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const BackToDashboardButton(),
+                      const SizedBox(width: 10),
+                      if (projectsAsync.valueOrNull != null && projectsAsync.valueOrNull!.isNotEmpty) ...[
+                        OutlinedButton.icon(
+                          onPressed: () => _copyProjectsTsv(projectsAsync.valueOrNull!),
+                          icon: const Icon(Icons.table_chart_outlined, size: 18),
+                          label: Text(l10n.projectsExportTsvBtn),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.cobalt,
+                            side: const BorderSide(color: AppTheme.cobalt),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      ElevatedButton.icon(
+                        onPressed: () => _showProjectDialog(context),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: Text(l10n.createNewProjectBtn),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
 
             const SizedBox(height: 16),
 
@@ -217,21 +363,23 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     decoration: InputDecoration(
                       hintText: l10n.projectsSearchHint,
                       prefixIcon: const Icon(Icons.search, size: 20),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() {
-                                  _searchQuery = '';
-                                });
-                                ref.read(projectsProvider.notifier).fetchProjects(
-                                      status: _selectedStatus,
-                                      search: '',
-                                    );
-                              },
-                            )
-                          : null,
+                      suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _searchController,
+                        builder: (context, value, _) {
+                          if (value.text.isEmpty) return const SizedBox.shrink();
+                          return IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              _searchQuery = '';
+                              ref.read(projectsProvider.notifier).fetchProjects(
+                                    status: _selectedStatus,
+                                    search: '',
+                                  );
+                            },
+                          );
+                        },
+                      ),
                       filled: true,
                       fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
@@ -245,9 +393,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       ),
                     ),
                     onChanged: (val) {
-                      setState(() {
-                        _searchQuery = val;
-                      });
+                      _searchQuery = val;
                       ref.read(projectsProvider.notifier).fetchProjects(
                             status: _selectedStatus,
                             search: val,
@@ -373,6 +519,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                       .split(',')
                                       .map((c) => _getCategoryLabel(context, c))
                                       .join(', ');
+                                  final rowSummary = _buildProjectRowSummary(context, p);
+                                  final budgetText = p.totalBudgetUsd != null
+                                      ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
+                                      : l10n.projectBudgetNotSet;
+                                  final incotermText = p.incotermCode ?? l10n.projectIncotermFallback;
 
                                   return TableRow(
                                     decoration: BoxDecoration(
@@ -381,13 +532,15 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                     children: [
                                       // Code
                                       _cell(
+                                        value: p.projectCode,
+                                        rowSummary: rowSummary,
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
                                             color: AppTheme.cobalt.withOpacity(0.1),
                                             borderRadius: BorderRadius.circular(4),
                                           ),
-                                          child: Text(
+                                          child: CopyableText(
                                             p.projectCode,
                                             style: const TextStyle(
                                               fontWeight: FontWeight.bold,
@@ -400,10 +553,12 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
                                       // Project Name & Owner
                                       _cell(
+                                        value: '${p.projectName} (${p.projectOwner})',
+                                        rowSummary: rowSummary,
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text(
+                                            CopyableText(
                                               p.projectName,
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
@@ -425,6 +580,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
                                       // Import Company & Supplier
                                       _cell(
+                                        value: '${p.companyName ?? l10n.projectCompanyFallback(p.companyId)} - ${p.supplierName ?? '#${p.supplierId}'}',
+                                        rowSummary: rowSummary,
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
@@ -447,6 +604,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
                                       // Type & Category
                                       _cell(
+                                        value: '${_getImportTypeLabel(context, p.importType)} - $categoriesText ($incotermText)',
+                                        rowSummary: rowSummary,
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
@@ -456,7 +615,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
-                                              '$categoriesText (${p.incotermCode ?? "Incoterm"})',
+                                              '$categoriesText ($incotermText)',
                                               style: const TextStyle(fontSize: 11, color: Colors.grey),
                                             ),
                                           ],
@@ -465,16 +624,21 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
                                       // Budget USD
                                       _cell(
+                                        value: budgetText,
+                                        rowSummary: rowSummary,
                                         child: Text(
-                                          p.totalBudgetUsd != null
-                                              ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
-                                              : 'N/A',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                          budgetText,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: p.totalBudgetUsd != null ? AppTheme.emerald : Colors.grey,
+                                          ),
                                         ),
                                       ),
 
                                       // Capabilities Badges (Multi-Shipment / Multi-Company)
                                       _cell(
+                                        value: '${p.allowMultiShipment ? l10n.capMultiShipment : ""} ${p.allowMultiCompany ? l10n.capMultiCompany : ""}'.trim(),
+                                        rowSummary: rowSummary,
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
@@ -490,11 +654,15 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
                                       // Status
                                       _cell(
+                                        value: _getStatusLabel(context, p.status),
+                                        rowSummary: rowSummary,
                                         child: _statusBadge(context, p.status),
                                       ),
 
                                       // Actions
                                       _cell(
+                                        value: p.projectCode,
+                                        rowSummary: rowSummary,
                                         child: RowActionsPill(
                                           onView: () {
                                             if (p.projectId != null) {
@@ -508,38 +676,36 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                           },
                                           onEdit: () => _showProjectDialog(context, project: p),
                                           onPrint: () {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(
-                                                content: Text(l10n.projectPrintSnack(p.projectName, p.projectCode)),
-                                                backgroundColor: AppTheme.charcoal,
-                                                duration: const Duration(seconds: 2),
-                                              ),
-                                            );
+                                            final summary = _buildProjectSummary(context, p);
+                                            CopyHelper.copy(context, summary, customMessage: l10n.projectCopySummarySuccess);
                                           },
+                                          printTooltip: l10n.projectCopySummaryBtn,
                                           onDelete: () async {
                                             final confirm = await showDialog<bool>(
                                               context: context,
-                                              builder: (ctx) => AlertDialog(
-                                                title: Text(l10n.confirmActionTitle),
-                                                content: Text(isActive
-                                                    ? l10n.confirmDeactivateProject(p.projectName)
-                                                    : l10n.confirmActivateProject(p.projectName)),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () => Navigator.pop(ctx, false),
-                                                    child: Text(l10n.cancel),
-                                                  ),
-                                                  ElevatedButton(
-                                                    onPressed: () => Navigator.pop(ctx, true),
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald,
+                                              builder: (ctx) => SelectionArea(
+                                                child: AlertDialog(
+                                                  title: Text(l10n.confirmActionTitle),
+                                                  content: Text(isActive
+                                                      ? l10n.confirmDeactivateProject(p.projectName)
+                                                      : l10n.confirmActivateProject(p.projectName)),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.pop(ctx, false),
+                                                      child: Text(l10n.cancel),
                                                     ),
-                                                    child: Text(
-                                                      isActive ? l10n.deactivateBtn : l10n.activateBtn,
-                                                      style: const TextStyle(color: Colors.white),
+                                                    ElevatedButton(
+                                                      onPressed: () => Navigator.pop(ctx, true),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald,
+                                                      ),
+                                                      child: Text(
+                                                        isActive ? l10n.deactivateBtn : l10n.activateBtn,
+                                                        style: const TextStyle(color: Colors.white),
+                                                      ),
                                                     ),
-                                                  ),
-                                                ],
+                                                  ],
+                                                ),
                                               ),
                                             );
                                             if (confirm == true && p.projectId != null) {
@@ -565,8 +731,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _capBadge(String label, Color color) {
     return Container(
@@ -614,9 +781,21 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     );
   }
 
-  Widget _cell({required Widget child}) => Padding(
+  Widget _cell({
+    required Widget child,
+    required String value,
+    String? rowSummary,
+  }) =>
+      Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Align(alignment: Alignment.centerLeft, child: child),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: CopyableTableCell(
+            value: value,
+            rowSummary: rowSummary,
+            child: child,
+          ),
+        ),
       );
 
   void _showProjectDialog(BuildContext context, {ProjectModel? project}) {
@@ -627,14 +806,18 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final budgetCtrl = TextEditingController(text: project?.totalBudgetUsd?.toString() ?? '');
     final notesCtrl = TextEditingController(text: project?.notes ?? '');
 
-    final companies = ref.read(importCompaniesProvider).value ?? [];
-    final suppliers = ref.read(suppliersProvider).value ?? [];
-    final incoterms = ref.read(incotermsProvider).value ?? [];
+    final companies = ref.read(importCompaniesProvider).valueOrNull ?? [];
+    final suppliers = ref.read(suppliersProvider).valueOrNull ?? [];
+    final incoterms = ref.read(incotermsProvider).valueOrNull ?? [];
 
     if (companies.isEmpty || suppliers.isEmpty || incoterms.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.projectPrerequisitesMissing)),
       );
+      nameCtrl.dispose();
+      ownerCtrl.dispose();
+      budgetCtrl.dispose();
+      notesCtrl.dispose();
       return;
     }
 
@@ -642,13 +825,14 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         ? project.companyIds.toSet()
         : (companies.isNotEmpty && companies.first.companyId != null ? {companies.first.companyId!} : <int>{});
 
-    int selectedSupplierId = project?.supplierId ?? suppliers.first.supplierId!;
-    int selectedIncotermId = project?.incotermId ?? incoterms.first.incotermId;
+    int selectedSupplierId = project?.supplierId ?? (suppliers.isNotEmpty ? suppliers.first.supplierId! : 0);
+    int selectedIncotermId = project?.incotermId ?? (incoterms.isNotEmpty ? incoterms.first.incotermId : 0);
     String selectedImportType = project?.importType ?? 'Direct Commercial';
     String selectedPriority = project?.priority ?? 'Medium';
     String selectedStatus = project?.status ?? 'Open';
     bool allowMultiShipment = project?.allowMultiShipment ?? true;
     bool allowMultiCompany = project?.allowMultiCompany ?? true;
+    bool isSubmitting = false;
 
     final List<String> availableCategories = [
       'FCL Container',
@@ -667,32 +851,43 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(project == null ? l10n.createProjectDialogTitle : l10n.editProjectDialogTitle(project.projectCode)),
-          content: SizedBox(
-            width: 650,
-            child: Form(
-              key: formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextFormField(
-                      controller: nameCtrl,
-                      decoration: InputDecoration(
-                        labelText: l10n.projectNameLabel,
-                        hintText: l10n.projectNameHint,
+          content: SelectionArea(
+            child: SizedBox(
+              width: 650,
+              child: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        controller: nameCtrl,
+                        decoration: InputDecoration(
+                          labelText: l10n.projectNameLabel,
+                          hintText: l10n.projectNameHint,
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            tooltip: l10n.projectsCopyFieldTooltip,
+                            onPressed: () => CopyHelper.copy(context, nameCtrl.text),
+                          ),
+                        ),
+                        validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
                       ),
-                      validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: ownerCtrl,
-                      decoration: InputDecoration(
-                        labelText: l10n.projectOwnerLabelField,
-                        hintText: l10n.projectOwnerHint,
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: ownerCtrl,
+                        decoration: InputDecoration(
+                          labelText: l10n.projectOwnerLabelField,
+                          hintText: l10n.projectOwnerHint,
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            tooltip: l10n.projectsCopyFieldTooltip,
+                            onPressed: () => CopyHelper.copy(context, ownerCtrl.text),
+                          ),
+                        ),
+                        validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
                       ),
-                      validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
-                    ),
                     const SizedBox(height: 14),
 
                     // Multi-Select Importing Companies
@@ -880,6 +1075,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       decoration: InputDecoration(
                         labelText: l10n.estTotalBudgetUsdLabel,
                         hintText: l10n.estTotalBudgetUsdHint,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          tooltip: l10n.projectsCopyFieldTooltip,
+                          onPressed: () => CopyHelper.copy(context, budgetCtrl.text),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -904,13 +1104,21 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     TextFormField(
                       controller: notesCtrl,
                       maxLines: 2,
-                      decoration: InputDecoration(labelText: l10n.projectNotesLabel),
+                      decoration: InputDecoration(
+                        labelText: l10n.projectNotesLabel,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          tooltip: l10n.projectsCopyFieldTooltip,
+                          onPressed: () => CopyHelper.copy(context, notesCtrl.text),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
           ),
+        ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
@@ -918,73 +1126,87 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  if (selectedCompanyIds.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(l10n.selectAtLeastOneCompanyError)),
-                    );
-                    return;
-                  }
-                  if (selectedCategories.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(l10n.selectAtLeastOneCategoryError)),
-                    );
-                    return;
-                  }
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      if (formKey.currentState!.validate()) {
+                        if (selectedCompanyIds.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(l10n.selectAtLeastOneCompanyError)),
+                          );
+                          return;
+                        }
+                        if (selectedCategories.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(l10n.selectAtLeastOneCategoryError)),
+                          );
+                          return;
+                        }
 
-                  final budget = double.tryParse(budgetCtrl.text.trim());
-                  final categoryString = selectedCategories.join(', ');
-                  final companyIdsList = selectedCompanyIds.toList();
+                        setDialogState(() => isSubmitting = true);
+                        try {
+                          final budget = double.tryParse(budgetCtrl.text.trim());
+                          final categoryString = selectedCategories.join(', ');
+                          final companyIdsList = selectedCompanyIds.toList();
 
-                  if (project == null) {
-                    final newModel = ProjectModel(
-                      projectCode: '',
-                      projectName: nameCtrl.text.trim(),
-                      projectOwner: ownerCtrl.text.trim(),
-                      companyId: companyIdsList.first,
-                      companyIds: companyIdsList,
-                      supplierId: selectedSupplierId,
-                      incotermId: selectedIncotermId,
-                      importType: selectedImportType,
-                      priority: selectedPriority,
-                      shipmentCategory: categoryString,
-                      allowMultiShipment: allowMultiShipment,
-                      allowMultiCompany: allowMultiCompany,
-                      totalBudgetUsd: budget,
-                      notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-                    );
-                    final ok = await ref.read(projectsProvider.notifier).createProject(newModel);
-                    if (ok && context.mounted) Navigator.pop(dialogCtx);
-                  } else {
-                    final updateData = {
-                      'project_name': nameCtrl.text.trim(),
-                      'project_owner': ownerCtrl.text.trim(),
-                      'company_id': companyIdsList.first,
-                      'company_ids': companyIdsList,
-                      'supplier_id': selectedSupplierId,
-                      'incoterm_id': selectedIncotermId,
-                      'import_type': selectedImportType,
-                      'priority': selectedPriority,
-                      'shipment_category': categoryString,
-                      'allow_multi_shipment': allowMultiShipment,
-                      'allow_multi_company': allowMultiCompany,
-                      'total_budget_usd': budget,
-                      'status': selectedStatus,
-                      'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-                    };
-                    final ok = await ref
-                        .read(projectsProvider.notifier)
-                        .updateProject(project.projectId!, updateData);
-                    if (ok && context.mounted) Navigator.pop(dialogCtx);
-                  }
-                }
-              },
-              child: Text(project == null ? l10n.createProjectSubmitBtn : l10n.saveChangesSubmitBtn),
+                          if (project == null) {
+                            final newModel = ProjectModel(
+                              projectCode: '',
+                              projectName: nameCtrl.text.trim(),
+                              projectOwner: ownerCtrl.text.trim(),
+                              companyId: companyIdsList.first,
+                              companyIds: companyIdsList,
+                              supplierId: selectedSupplierId,
+                              incotermId: selectedIncotermId,
+                              importType: selectedImportType,
+                              priority: selectedPriority,
+                              shipmentCategory: categoryString,
+                              allowMultiShipment: allowMultiShipment,
+                              allowMultiCompany: allowMultiCompany,
+                              totalBudgetUsd: budget,
+                              notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                            );
+                            final ok = await ref.read(projectsProvider.notifier).createProject(newModel);
+                            if (ok && context.mounted) Navigator.pop(dialogCtx);
+                          } else {
+                            final updateData = {
+                              'project_name': nameCtrl.text.trim(),
+                              'project_owner': ownerCtrl.text.trim(),
+                              'company_id': companyIdsList.first,
+                              'company_ids': companyIdsList,
+                              'supplier_id': selectedSupplierId,
+                              'incoterm_id': selectedIncotermId,
+                              'import_type': selectedImportType,
+                              'priority': selectedPriority,
+                              'shipment_category': categoryString,
+                              'allow_multi_shipment': allowMultiShipment,
+                              'allow_multi_company': allowMultiCompany,
+                              'total_budget_usd': budget,
+                              'status': selectedStatus,
+                              'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                            };
+                            final ok = await ref
+                                .read(projectsProvider.notifier)
+                                .updateProject(project.projectId!, updateData);
+                            if (ok && context.mounted) Navigator.pop(dialogCtx);
+                          }
+                        } finally {
+                          setDialogState(() => isSubmitting = false);
+                        }
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(project == null ? l10n.createProjectSubmitBtn : l10n.saveChangesSubmitBtn),
             ),
           ],
         ),
       ),
-    );
+    ).then((_) {
+      nameCtrl.dispose();
+      ownerCtrl.dispose();
+      budgetCtrl.dispose();
+      notesCtrl.dispose();
+    });
   }
 }

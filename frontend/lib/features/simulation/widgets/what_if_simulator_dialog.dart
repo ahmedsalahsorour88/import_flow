@@ -1,10 +1,11 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 
@@ -38,7 +39,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
   String _shippingRoute = 'RED_SEA'; // RED_SEA or CAPE_OF_GOOD_HOPE
   int _portDelayDays = 0;
   int _containerCount = 1;
-  double _dutyRatePct = 5.0;
+  final double _dutyRatePct = 5.0;
 
   bool _isSimulating = false;
   Map<String, dynamic>? _simulationResult;
@@ -153,7 +154,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
     try {
       final invAmount = double.tryParse(_invoiceAmountCtrl.text.trim()) ?? 0.0;
       final payload = {
-        'scenario_name': 'سيناريو محاكاة ${_selectedCurrency} (+${_fxRateChangePct.toStringAsFixed(0)}%) - ${_shippingRoute == "CAPE_OF_GOOD_HOPE" ? "رأس الرجاء الصالح" : "البحر الأحمر"}',
+        'scenario_name': 'سيناريو محاكاة $_selectedCurrency (+${_fxRateChangePct.toStringAsFixed(0)}%) - ${_shippingRoute == "CAPE_OF_GOOD_HOPE" ? "رأس الرجاء الصالح" : "البحر الأحمر"}',
         'import_file_id': _selectedImportFileId,
         'simulation_request': {
           'invoice_amount': invAmount,
@@ -192,36 +193,63 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
     }
   }
 
+  void _copyScenarioSummary() {
+    if (_simulationResult == null) return;
+    final l10n = context.l10n;
+    final base = _simulationResult!['baseline_summary'] as Map<String, dynamic>;
+    final sim = _simulationResult!['simulated_summary'] as Map<String, dynamic>;
+    final varMap = _simulationResult!['variances'] as Map<String, dynamic>;
+    final dem = _simulationResult!['demurrage_and_storage'] as Map<String, dynamic>;
+    final riskLevel = _simulationResult!['risk_level'] as String? ?? 'LOW';
+
+    final buffer = StringBuffer();
+    buffer.writeln('${l10n.whatIfDialogTitle} - ${l10n.whatIfRiskLevel} $riskLevel');
+    buffer.writeln('--------------------------------------------------');
+    buffer.writeln('${l10n.whatIfInvoiceValue}: ${_invoiceAmountCtrl.text} $_selectedCurrency');
+    buffer.writeln('${l10n.whatIfBaseRate} ${_baseRate.toStringAsFixed(2)} ${l10n.egpCurrency}');
+    buffer.writeln('${l10n.whatIfSimulatedRate} ${(_baseRate * (1 + _fxRateChangePct / 100)).toStringAsFixed(2)} ${l10n.egpCurrency} (${_fxRateChangePct > 0 ? "+" : ""}${_fxRateChangePct.toStringAsFixed(0)}%)');
+    buffer.writeln('${l10n.whatIfBaselineLandedCost} ${(base['total_landed_cost_egp'] as num).toStringAsFixed(2)} ${l10n.egpCurrency}');
+    buffer.writeln('${l10n.whatIfSimulatedLandedCost} ${(sim['total_landed_cost_egp'] as num).toStringAsFixed(2)} ${l10n.egpCurrency} (+${(varMap['landed_cost_variance_pct'] as num).toStringAsFixed(1)}%)');
+    buffer.writeln('${l10n.whatIfCustomsTaxVariance} +${((varMap['customs_duty_variance_egp'] as num) + (varMap['vat_variance_egp'] as num)).toStringAsFixed(2)} ${l10n.egpCurrency}');
+    buffer.writeln('${l10n.whatIfShippingDemurrage} \$${(dem['demurrage_cost_usd'] as num).toStringAsFixed(0)}');
+    buffer.writeln('${l10n.whatIfPortStorage} ${(dem['port_storage_cost_egp'] as num).toStringAsFixed(0)} ${l10n.egpCurrency}');
+
+    CopyHelper.copy(context, buffer.toString(), customMessage: l10n.whatIfScenarioCopied);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 1160,
-        height: 780,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 16),
-            _buildTabBar(),
-            const SizedBox(height: 16),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildSimulatorTab(),
-                  _buildExposureRadarTab(),
-                ],
+      child: SelectionArea(
+        child: Container(
+          width: 1160,
+          height: 780,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 16),
+              _buildTabBar(),
+              const SizedBox(height: 16),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildSimulatorTab(),
+                    _buildExposureRadarTab(),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildHeader() {
+    final l10n = context.l10n;
     return Row(
       children: [
         Container(
@@ -236,15 +264,15 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
-                'محاكي مخاطر الشحن وتغيرات أسعار الصرف والأزمات (SIM-WHATIF-013)',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                l10n.whatIfDialogTitle,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
-                'دراسة السيناريوهات الطارئة لتغيرات سعر الدولار الجمركي، التفاف السفن حول إفريقيا، وتراكم غرامات الميناء',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                l10n.whatIfDialogSubtitle,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -253,13 +281,14 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
         IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
-          tooltip: 'إغلاق',
+          tooltip: l10n.close,
         ),
       ],
     );
   }
 
   Widget _buildTabBar() {
+    final l10n = context.l10n;
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
@@ -274,14 +303,14 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
           borderRadius: BorderRadius.circular(8),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
-        tabs: const [
+        tabs: [
           Tab(
-            icon: Icon(Icons.tune),
-            text: 'محاكي السيناريوهات الحية (Live What-If Simulator)',
+            icon: const Icon(Icons.tune),
+            text: l10n.whatIfSimulatorTab,
           ),
           Tab(
-            icon: Icon(Icons.radar),
-            text: 'رادار الانكشاف المالي بالعملات الأجنبية (FX Exposure)',
+            icon: const Icon(Icons.radar),
+            text: l10n.whatIfExposureTab,
           ),
         ],
       ),
@@ -289,6 +318,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
   }
 
   Widget _buildSimulatorTab() {
+    final l10n = context.l10n;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -307,7 +337,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('1. تحديد مدخلات الشحنة والعملة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(l10n.whatIfShipmentAndCurrencyInputs, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 12),
                     _buildImportFileSelector(),
                     const SizedBox(height: 12),
@@ -318,9 +348,9 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                           child: TextField(
                             controller: _invoiceAmountCtrl,
                             keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'قيمة الفاتورة (FOB)',
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: l10n.whatIfInvoiceValue,
+                              border: const OutlineInputBorder(),
                               isDense: true,
                             ),
                           ),
@@ -330,9 +360,9 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                           flex: 1,
                           child: DropdownButtonFormField<String>(
                             value: _selectedCurrency,
-                            decoration: const InputDecoration(
-                              labelText: 'العملة',
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: l10n.currency,
+                              border: const OutlineInputBorder(),
                               isDense: true,
                             ),
                             items: const [
@@ -361,7 +391,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                       controller: _freightCtrl,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: 'تكلفة النولون البحري/الجوي ($_selectedCurrency)',
+                        labelText: '${l10n.whatIfFreightCost} ($_selectedCurrency)',
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -369,7 +399,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                     const SizedBox(height: 16),
                     const Divider(),
                     const SizedBox(height: 8),
-                    const Text('2. محاكاة صدمة سعر الصرف (FX Shock):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(l10n.whatIfFxShockSimulation, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -377,7 +407,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                       alignment: WrapAlignment.spaceBetween,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Text('السعر الأساسي: ${_baseRate.toStringAsFixed(2)} ج.م', style: const TextStyle(fontSize: 12)),
+                        Text('${l10n.whatIfBaseRate} ${_baseRate.toStringAsFixed(2)} ${l10n.egpCurrency}', style: const TextStyle(fontSize: 12)),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
@@ -386,7 +416,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                             border: Border.all(color: _fxRateChangePct > 0 ? AppTheme.crimson : AppTheme.emerald),
                           ),
                           child: Text(
-                            'المحاكى: ${(_baseRate * (1 + _fxRateChangePct / 100)).toStringAsFixed(2)} ج.م (${_fxRateChangePct > 0 ? "+" : ""}${_fxRateChangePct.toStringAsFixed(0)}%)',
+                            '${l10n.whatIfSimulatedRate} ${(_baseRate * (1 + _fxRateChangePct / 100)).toStringAsFixed(2)} ${l10n.egpCurrency} (${_fxRateChangePct > 0 ? "+" : ""}${_fxRateChangePct.toStringAsFixed(0)}%)',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
@@ -408,7 +438,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                     const SizedBox(height: 8),
                     const Divider(),
                     const SizedBox(height: 8),
-                    const Text('3. مسار الشحن ومخاطر البحر الأحمر:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(l10n.whatIfShippingRouteRisk, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       value: _shippingRoute,
@@ -417,14 +447,14 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
                           value: 'RED_SEA',
-                          child: Text('مسار البحر الأحمر وقناة السويس (طبيعي)', overflow: TextOverflow.ellipsis),
+                          child: Text(l10n.whatIfRouteRedSea, overflow: TextOverflow.ellipsis),
                         ),
                         DropdownMenuItem(
                           value: 'CAPE_OF_GOOD_HOPE',
-                          child: Text('التفاف رأس الرجاء الصالح (+18 يوم / +25% نولون)', overflow: TextOverflow.ellipsis),
+                          child: Text(l10n.whatIfRouteCape, overflow: TextOverflow.ellipsis),
                         ),
                       ],
                       onChanged: (val) => setState(() => _shippingRoute = val ?? 'RED_SEA'),
@@ -436,13 +466,13 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('تأخير الميناء: $_portDelayDays يوم', style: const TextStyle(fontSize: 12)),
+                              Text('${l10n.whatIfPortDelay} $_portDelayDays ${l10n.whatIfDaysUnit}', style: const TextStyle(fontSize: 12)),
                               Slider(
                                 value: _portDelayDays.toDouble(),
                                 min: 0.0,
                                 max: 30.0,
                                 divisions: 30,
-                                label: '$_portDelayDays يوم',
+                                label: '$_portDelayDays ${l10n.whatIfDaysUnit}',
                                 onChanged: (val) => setState(() => _portDelayDays = val.toInt()),
                               ),
                             ],
@@ -452,12 +482,12 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                         Expanded(
                           child: DropdownButtonFormField<int>(
                             value: _containerCount,
-                            decoration: const InputDecoration(
-                              labelText: 'الحاويات',
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: l10n.whatIfContainersCount,
+                              border: const OutlineInputBorder(),
                               isDense: true,
                             ),
-                            items: [1, 2, 3, 4, 5, 10].map((c) => DropdownMenuItem(value: c, child: Text('$c حاوية'))).toList(),
+                            items: [1, 2, 3, 4, 5, 10].map((c) => DropdownMenuItem(value: c, child: Text('$c ${l10n.whatIfContainerUnit}'))).toList(),
                             onChanged: (val) => setState(() => _containerCount = val ?? 1),
                           ),
                         ),
@@ -471,7 +501,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                         icon: _isSimulating
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                             : const Icon(Icons.play_arrow),
-                        label: const Text('تشغيل المحاكاة الآن', style: TextStyle(fontWeight: FontWeight.bold)),
+                        label: Text(l10n.whatIfRunSimulationNow, style: const TextStyle(fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.cobalt,
                           foregroundColor: Colors.white,
@@ -499,16 +529,17 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
   }
 
   Widget _buildImportFileSelector() {
+    final l10n = context.l10n;
     final filesAsync = ref.watch(importFilesProvider);
     return filesAsync.when(
       data: (files) {
         return SearchableDropdownField<int>(
-          labelText: 'اختر الشحنة للمحاكاة (اختياري)',
-          hintText: 'ابحث برقم الملف أو الشركة...',
+          labelText: l10n.whatIfSelectShipmentPlaceholder,
+          hintText: l10n.whatIfSearchShipmentHint,
           items: files
               .map((f) => SearchableDropdownItem<int>(
                     value: f.importFileId,
-                    label: '${f.importFileCode} - ${f.companyName} (${f.estimatedCost} ${f.estimatedCostCurrency})',
+                    label: '${f.primaryNameWithCode} - ${f.companyName} (${f.estimatedCost} ${f.estimatedCostCurrency})',
                   ))
               .toList(),
           value: _selectedImportFileId,
@@ -521,6 +552,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
   }
 
   Widget _buildPlaceholderGuide() {
+    final l10n = context.l10n;
     return Center(
       child: Card(
         elevation: 0,
@@ -536,17 +568,17 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
             children: [
               Icon(Icons.query_stats, size: 56, color: AppTheme.cobalt.withOpacity(0.6)),
               const SizedBox(height: 16),
-              const Text(
-                'جاهز لمحاكاة صدمات أسعار الصرف والأزمات اللوجستية',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+              Text(
+                l10n.whatIfPlaceholderTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
               ),
               const SizedBox(height: 8),
-              const SizedBox(
+              SizedBox(
                 width: 480,
                 child: Text(
-                  'اضبط المتغيرات على الجانب الأيسر واضغط "تشغيل المحاكاة" لرؤية الأثر الفوري على الوعاء الضريبي، تكلفة الوصول (Landed Cost)، غرامات الأرضيات، ومخاطر انتهاء صلاحية الـ ACID.',
+                  l10n.whatIfPlaceholderDescription,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.black54, fontSize: 13),
+                  style: const TextStyle(color: Colors.black54, fontSize: 13),
                 ),
               ),
             ],
@@ -557,6 +589,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
   }
 
   Widget _buildSimulationOutput() {
+    final l10n = context.l10n;
     final res = _simulationResult!;
     final base = res['baseline_summary'] as Map<String, dynamic>;
     final sim = res['simulated_summary'] as Map<String, dynamic>;
@@ -575,7 +608,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Bar: Risk Level & Save
+          // Top Bar: Risk Level & Actions
           Row(
             children: [
               Container(
@@ -590,7 +623,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                     Icon(Icons.warning_amber, color: riskColor, size: 18),
                     const SizedBox(width: 6),
                     Text(
-                      'مستوى المخاطر المالي والتشغيلي: $riskLevel',
+                      '${l10n.whatIfRiskLevel} $riskLevel',
                       style: TextStyle(color: riskColor, fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ],
@@ -598,9 +631,15 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
               ),
               const Spacer(),
               OutlinedButton.icon(
+                onPressed: _copyScenarioSummary,
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                label: Text(l10n.whatIfCopyScenarioSummary),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
                 onPressed: _saveCurrentScenario,
                 icon: const Icon(Icons.bookmark_add_outlined),
-                label: const Text('حفظ السيناريو في سجل القرارات'),
+                label: Text(l10n.whatIfSaveScenario),
               ),
             ],
           ),
@@ -623,9 +662,12 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('تكلفة الوصول الشاملة الأصلية (Baseline):', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        Text('${(base['total_landed_cost_egp'] as num).toStringAsFixed(2)} ج.م',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                        Text(l10n.whatIfBaselineLandedCost, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        const SizedBox(height: 2),
+                        CopyableText(
+                          '${(base['total_landed_cost_egp'] as num).toStringAsFixed(2)} ${l10n.egpCurrency}',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                        ),
                       ],
                     ),
                   ),
@@ -635,9 +677,12 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('التكلفة بعد تطبيق المحاكاة (Simulated):', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        Text('${(sim['total_landed_cost_egp'] as num).toStringAsFixed(2)} ج.م',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: riskColor)),
+                        Text(l10n.whatIfSimulatedLandedCost, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        const SizedBox(height: 2),
+                        CopyableText(
+                          '${(sim['total_landed_cost_egp'] as num).toStringAsFixed(2)} ${l10n.egpCurrency}',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: riskColor),
+                        ),
                       ],
                     ),
                   ),
@@ -649,12 +694,12 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                     ),
                     child: Column(
                       children: [
-                        Text(
+                        CopyableText(
                           '+${(varMap['landed_cost_variance_pct'] as num).toStringAsFixed(1)}%',
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                         ),
-                        Text(
-                          '+${(varMap['landed_cost_variance_egp'] as num).toStringAsFixed(0)} ج.م',
+                        CopyableText(
+                          '+${(varMap['landed_cost_variance_egp'] as num).toStringAsFixed(0)} ${l10n.egpCurrency}',
                           style: const TextStyle(color: Colors.white70, fontSize: 11),
                         ),
                       ],
@@ -682,10 +727,10 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('فارق الجمارك والضرائب (EGP):', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text(l10n.whatIfCustomsTaxVariance, style: const TextStyle(fontSize: 11, color: Colors.grey)),
                         const SizedBox(height: 4),
-                        Text(
-                          '+${((varMap['customs_duty_variance_egp'] as num) + (varMap['vat_variance_egp'] as num)).toStringAsFixed(2)} ج.م',
+                        CopyableText(
+                          '+${((varMap['customs_duty_variance_egp'] as num) + (varMap['vat_variance_egp'] as num)).toStringAsFixed(2)} ${l10n.egpCurrency}',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                         ),
                       ],
@@ -706,10 +751,10 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('غرامات التوكيل (USD):', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text(l10n.whatIfShippingDemurrage, style: const TextStyle(fontSize: 11, color: Colors.grey)),
                         const SizedBox(height: 4),
-                        Text(
-                          '\$${(dem['demurrage_cost_usd'] as num).toStringAsFixed(0)} (${(dem['extra_demurrage_days'] as num)} يوم إضافي)',
+                        CopyableText(
+                          '\$${(dem['demurrage_cost_usd'] as num).toStringAsFixed(0)} (${(dem['extra_demurrage_days'] as num)} ${l10n.whatIfDaysUnit})',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.crimson),
                         ),
                       ],
@@ -730,10 +775,10 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('أرضيات الميناء (EGP):', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text(l10n.whatIfPortStorage, style: const TextStyle(fontSize: 11, color: Colors.grey)),
                         const SizedBox(height: 4),
-                        Text(
-                          '${(dem['port_storage_cost_egp'] as num).toStringAsFixed(0)} ج.م',
+                        CopyableText(
+                          '${(dem['port_storage_cost_egp'] as num).toStringAsFixed(0)} ${l10n.egpCurrency}',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.orange),
                         ),
                       ],
@@ -770,7 +815,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'فحص صلاحية القيد الجمركي المسبق ACID (180 يوماً):',
+                          l10n.whatIfAcidExpiryCheck,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
@@ -779,7 +824,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          acid['message_ar'] as String? ?? '',
+                          (Localizations.localeOf(context).languageCode == 'en' ? acid['message_en'] : acid['message_ar']) as String? ?? (acid['message_ar'] as String? ?? ''),
                           style: const TextStyle(fontSize: 12),
                         ),
                       ],
@@ -804,10 +849,10 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    children: const [
-                      Icon(Icons.shield_outlined, color: AppTheme.cobalt),
-                      SizedBox(width: 8),
-                      Text('التوصيات الاستراتيجية والتحوط المالي:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    children: [
+                      const Icon(Icons.shield_outlined, color: AppTheme.cobalt),
+                      const SizedBox(width: 8),
+                      Text(l10n.whatIfStrategicRecommendations, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -833,6 +878,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
   }
 
   Widget _buildExposureRadarTab() {
+    final l10n = context.l10n;
     if (_isLoadingExposure) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -842,7 +888,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
         child: ElevatedButton.icon(
           onPressed: _fetchExposure,
           icon: const Icon(Icons.refresh),
-          label: const Text('تحديث بيانات الانكشاف المالي'),
+          label: Text(l10n.whatIfRefreshExposure),
         ),
       );
     }
@@ -859,29 +905,29 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
           Row(
             children: [
               _buildMetricCard(
-                title: 'إجمالي الالتزامات بالدولار',
+                title: l10n.whatIfTotalUsdObligations,
                 value: '\$${(data['total_open_usd'] as num).toStringAsFixed(2)}',
                 color: AppTheme.cobalt,
                 icon: Icons.attach_money,
               ),
               const SizedBox(width: 12),
               _buildMetricCard(
-                title: 'إجمالي الالتزامات باليورو',
+                title: l10n.whatIfTotalEurObligations,
                 value: '€${(data['total_open_eur'] as num).toStringAsFixed(2)}',
                 color: AppTheme.orange,
                 icon: Icons.euro,
               ),
               const SizedBox(width: 12),
               _buildMetricCard(
-                title: 'القيمة الحالية بالجنيه',
-                value: '${(data['total_open_egp_baseline'] as num).toStringAsFixed(0)} ج.م',
+                title: l10n.whatIfCurrentEgpValue,
+                value: '${(data['total_open_egp_baseline'] as num).toStringAsFixed(0)} ${l10n.egpCurrency}',
                 color: AppTheme.charcoal,
                 icon: Icons.account_balance,
               ),
               const SizedBox(width: 12),
               _buildMetricCard(
-                title: 'خطر انخفاض 10% (VaR)',
-                value: '+${(data['var_at_risk_10_pct'] as num).toStringAsFixed(0)} ج.م',
+                title: l10n.whatIfValueAtRisk10,
+                value: '+${(data['var_at_risk_10_pct'] as num).toStringAsFixed(0)} ${l10n.egpCurrency}',
                 color: AppTheme.crimson,
                 icon: Icons.trending_up,
               ),
@@ -903,7 +949,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('ملاحظات وإرشادات إدارة الخزانة والتحوط:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(l10n.whatIfTreasuryGuidance, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
                   ...advice.map((adv) => Padding(
                         padding: const EdgeInsets.only(bottom: 4),
@@ -917,7 +963,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
           const SizedBox(height: 16),
 
           // Table of open files
-          const Text('تفاصيل الشحنات المفتوحة المعرضة لتقلبات الصرف:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          Text(l10n.whatIfOpenShipmentsExposed, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           const SizedBox(height: 8),
 
           Container(
@@ -927,29 +973,67 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
             ),
             child: DataTable(
               headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-              columns: const [
-                DataColumn(label: Text('رقم الشحنة')),
-                DataColumn(label: Text('المورد الأجنبي')),
-                DataColumn(label: Text('العملة')),
-                DataColumn(label: Text('المبلغ المعلق')),
-                DataColumn(label: Text('المعادل الحالي (EGP)')),
-                DataColumn(label: Text('في سيناريو +10%')),
-                DataColumn(label: Text('في سيناريو +25%')),
+              columns: [
+                DataColumn(label: Text(l10n.whatIfColShipmentCode)),
+                DataColumn(label: Text(l10n.whatIfColSupplier)),
+                DataColumn(label: Text(l10n.whatIfColCurrency)),
+                DataColumn(label: Text(l10n.whatIfColPendingAmount)),
+                DataColumn(label: Text(l10n.whatIfColCurrentEgp)),
+                DataColumn(label: Text(l10n.whatIfColScenarioPlus10)),
+                DataColumn(label: Text(l10n.whatIfColScenarioPlus25)),
               ],
               rows: items.map((item) {
+                final rowTsv = [
+                  item['import_file_code'] ?? '',
+                  item['supplier_name'] ?? '',
+                  item['currency'] ?? '',
+                  (item['open_exposure_fcy'] as num).toStringAsFixed(2),
+                  (item['open_exposure_egp'] as num).toStringAsFixed(0),
+                  (item['simulated_exposure_egp_at_plus_10_pct'] as num).toStringAsFixed(0),
+                  (item['simulated_exposure_egp_at_plus_25_pct'] as num).toStringAsFixed(0),
+                ].join('\t');
+
                 return DataRow(cells: [
-                  DataCell(Text(item['import_file_code'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold))),
-                  DataCell(Text(item['supplier_name'] ?? '')),
-                  DataCell(Text(item['currency'] ?? '')),
-                  DataCell(Text((item['open_exposure_fcy'] as num).toStringAsFixed(2))),
-                  DataCell(Text((item['open_exposure_egp'] as num).toStringAsFixed(0))),
-                  DataCell(Text(
-                    (item['simulated_exposure_egp_at_plus_10_pct'] as num).toStringAsFixed(0),
-                    style: const TextStyle(color: AppTheme.orange, fontWeight: FontWeight.w500),
+                  DataCell(CopyableTableCell(
+                    value: item['import_file_code'] ?? '',
+                    rowSummary: rowTsv,
+                    child: Text(item['import_file_code'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   )),
-                  DataCell(Text(
-                    (item['simulated_exposure_egp_at_plus_25_pct'] as num).toStringAsFixed(0),
-                    style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold),
+                  DataCell(CopyableTableCell(
+                    value: item['supplier_name'] ?? '',
+                    rowSummary: rowTsv,
+                    child: Text(item['supplier_name'] ?? '', style: const TextStyle(fontSize: 12)),
+                  )),
+                  DataCell(CopyableTableCell(
+                    value: item['currency'] ?? '',
+                    rowSummary: rowTsv,
+                    child: Text(item['currency'] ?? '', style: const TextStyle(fontSize: 12)),
+                  )),
+                  DataCell(CopyableTableCell(
+                    value: (item['open_exposure_fcy'] as num).toStringAsFixed(2),
+                    rowSummary: rowTsv,
+                    child: Text((item['open_exposure_fcy'] as num).toStringAsFixed(2), style: const TextStyle(fontSize: 12)),
+                  )),
+                  DataCell(CopyableTableCell(
+                    value: (item['open_exposure_egp'] as num).toStringAsFixed(0),
+                    rowSummary: rowTsv,
+                    child: Text((item['open_exposure_egp'] as num).toStringAsFixed(0), style: const TextStyle(fontSize: 12)),
+                  )),
+                  DataCell(CopyableTableCell(
+                    value: (item['simulated_exposure_egp_at_plus_10_pct'] as num).toStringAsFixed(0),
+                    rowSummary: rowTsv,
+                    child: Text(
+                      (item['simulated_exposure_egp_at_plus_10_pct'] as num).toStringAsFixed(0),
+                      style: const TextStyle(color: AppTheme.orange, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  )),
+                  DataCell(CopyableTableCell(
+                    value: (item['simulated_exposure_egp_at_plus_25_pct'] as num).toStringAsFixed(0),
+                    rowSummary: rowTsv,
+                    child: Text(
+                      (item['simulated_exposure_egp_at_plus_25_pct'] as num).toStringAsFixed(0),
+                      style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
                   )),
                 ]);
               }).toList(),
@@ -986,7 +1070,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                 ],
               ),
               const SizedBox(height: 8),
-              Text(
+              CopyableText(
                 value,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
               ),

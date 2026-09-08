@@ -407,6 +407,7 @@ class CustomsConsultationPdfService {
   static Future<String?> saveConsultationPdfToFile(BuildContext context, CustomsConsultationModel session) async {
     final pdfBytes = await generateConsultationPdf(session);
     final defaultFileName = 'Phase1_Customs_Consultation_${session.consultationCode}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    if (!context.mounted) return null;
     return FileSaveHelper.saveBytes(
       context: context,
       bytes: pdfBytes,

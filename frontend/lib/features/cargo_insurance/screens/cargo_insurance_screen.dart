@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/localization/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
@@ -59,14 +58,30 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
   }
 
   void _refreshData() {
-    ref.read(cargoInsuranceProvider.notifier).fetchCertificates();
-    ref.read(importFilesProvider.notifier).fetchImportFiles();
-    ref.read(partnersProvider.notifier).fetchPartners();
-    ref.read(importCompaniesProvider.notifier).fetchCompanies();
-    ref.read(currenciesProvider.notifier).fetchCurrencies();
-    ref.read(freightBookingProvider.notifier).fetchBookings();
-    ref.read(cargoShippingProvider.notifier).fetchRecords();
-    ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+    if (!ref.read(cargoInsuranceProvider).isLoading) {
+      ref.read(cargoInsuranceProvider.notifier).fetchCertificates();
+    }
+    if (!ref.read(importFilesProvider).isLoading) {
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    }
+    if (!ref.read(partnersProvider).isLoading) {
+      ref.read(partnersProvider.notifier).fetchPartners();
+    }
+    if (!ref.read(importCompaniesProvider).isLoading) {
+      ref.read(importCompaniesProvider.notifier).fetchCompanies();
+    }
+    if (!ref.read(currenciesProvider).isLoading) {
+      ref.read(currenciesProvider.notifier).fetchCurrencies();
+    }
+    if (!ref.read(freightBookingProvider).isLoading) {
+      ref.read(freightBookingProvider.notifier).fetchBookings();
+    }
+    if (!ref.read(cargoShippingProvider).isLoading) {
+      ref.read(cargoShippingProvider.notifier).fetchRecords();
+    }
+    if (!ref.read(purchaseOrdersProvider).isLoading) {
+      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+    }
   }
 
   @override
@@ -321,15 +336,20 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                       decoration: InputDecoration(
                         hintText: l.insuranceSearchHint,
                         prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() {});
-                                },
-                              )
-                            : null,
+                        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _searchController,
+                          builder: (context, value, _) {
+                            return value.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {});
+                                    },
+                                  )
+                                : const SizedBox.shrink();
+                          },
+                        ),
                         filled: true,
                         fillColor: Colors.grey.shade50,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -896,6 +916,36 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
     _runLiveCalculation();
   }
 
+  @override
+  void dispose() {
+    _insuredEntityCtrl.dispose();
+    _insuranceCompanyCtrl.dispose();
+    _policyNoCtrl.dispose();
+    _carrierCtrl.dispose();
+    _vesselFlightCtrl.dispose();
+    _voyageNoCtrl.dispose();
+    _trackingRefCtrl.dispose();
+    _polCtrl.dispose();
+    _podCtrl.dispose();
+    _finalDestCtrl.dispose();
+    _exchangeRateCtrl.dispose();
+    _invoiceValueCtrl.dispose();
+    _freightCostCtrl.dispose();
+    _otherCostsCtrl.dispose();
+    _markupCtrl.dispose();
+    _minPremiumCtrl.dispose();
+    _issuanceFeeCtrl.dispose();
+    _taxRateCtrl.dispose();
+    _goodsDescCtrl.dispose();
+    _packageCountCtrl.dispose();
+    _packageTypeCtrl.dispose();
+    _grossWeightCtrl.dispose();
+    _surveyAgentCtrl.dispose();
+    _claimsPayableAtCtrl.dispose();
+    _remarksCtrl.dispose();
+    super.dispose();
+  }
+
   void _autoFillFromImportFile(int fileId) {
     final files = ref.read(importFilesProvider).value ?? [];
     final file = files.where((f) => f.importFileId == fileId).firstOrNull;
@@ -1168,7 +1218,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
                               items: importFiles
                                   .map((f) => SearchableDropdownItem(
                                         value: f.importFileId,
-                                        label: '${f.importFileCode} - ${f.companyName} (${f.incotermCode} - ${f.shipmentMode})',
+                                        label: '${f.primaryNameWithCode} - ${f.companyName} (${f.incotermCode} - ${f.shipmentMode})',
                                       ))
                                   .toList(),
                               onChanged: (val) {

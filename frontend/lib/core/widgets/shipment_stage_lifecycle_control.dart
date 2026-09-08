@@ -66,12 +66,9 @@ class ShipmentStageLifecycleControl extends ConsumerWidget {
                   labelText: l.selectFileToHoldLabel,
                   hintText: l.searchFieldHint,
                   items: files.where((f) => f.status != 'Closed').map((f) {
-                    final title = f.customFileNumber != null && f.customFileNumber!.isNotEmpty
-                        ? '${f.customFileNumber} - ${f.companyName}'
-                        : '${f.importFileCode} - ${f.companyName}';
                     return SearchableDropdownItem<int>(
                       value: f.importFileId,
-                      label: title,
+                      label: '${f.primaryNameWithCode} - ${f.companyName}',
                     );
                   }).toList(),
                   value: selectedId,

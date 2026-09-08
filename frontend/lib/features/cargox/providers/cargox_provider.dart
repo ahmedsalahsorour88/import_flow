@@ -11,9 +11,16 @@ final cargoxEnvelopesProvider =
 
 class CargoXNotifier extends StateNotifier<AsyncValue<List<CargoXEnvelopeModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   CargoXNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchEnvelopes();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('CargoXNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchEnvelopes({
@@ -23,6 +30,8 @@ class CargoXNotifier extends StateNotifier<AsyncValue<List<CargoXEnvelopeModel>>
     int? supplierId,
     bool includeInactive = false,
   }) async {
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{
@@ -36,12 +45,16 @@ class CargoXNotifier extends StateNotifier<AsyncValue<List<CargoXEnvelopeModel>>
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/cargox/envelopes',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List data = response.data as List;
       final envelopes = data.map((json) => CargoXEnvelopeModel.fromJson(json as Map<String, dynamic>)).toList();
       state = AsyncValue.data(envelopes);
     } catch (err, stack) {
+      if (err is DioException && CancelToken.isCancel(err)) {
+        return;
+      }
       state = AsyncValue.error(err, stack);
     }
   }

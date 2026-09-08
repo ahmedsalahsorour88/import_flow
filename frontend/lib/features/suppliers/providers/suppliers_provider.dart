@@ -17,21 +17,34 @@ class SuppliersNotifier extends StateNotifier<AsyncValue<List<SupplierModel>>> {
   final Ref? ref;
   final Dio _dio;
   final bool showInactive;
+  CancelToken? _cancelToken;
 
   SuppliersNotifier({this.ref, required this.showInactive, required Dio dio}) : _dio = dio, super(const AsyncValue.loading()) {
     fetchSuppliers();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('SuppliersNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchSuppliers() async {
+    _cancelToken?.cancel('New fetchSuppliers request');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/suppliers',
         queryParameters: {'include_inactive': showInactive},
+        cancelToken: _cancelToken,
       );
       final List data = response.data;
       final list = data.map((json) => SupplierModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
+    } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) return;
+      state = AsyncValue.error(e, StackTrace.current);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }

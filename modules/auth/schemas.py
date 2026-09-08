@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 
@@ -7,7 +7,8 @@ class UserBase(BaseModel):
     username: str
     email: EmailStr
     full_name: str
-    role: str = "OPERATOR"  # ADMIN, MANAGER, OPERATOR
+    role: str = "OPERATOR"  # ADMIN, MANAGER, OPERATOR (kept for legacy/token compatibility)
+    role_id: Optional[int] = None
 
 
 class UserCreate(UserBase):
@@ -19,6 +20,7 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     role: Optional[str] = None
+    role_id: Optional[int] = None
     password: Optional[str] = None  # if provided, will be re-hashed
 
 
@@ -41,3 +43,56 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: UserResponse
 
+
+# ─── RBAC Schemas ─────────────────────────────────────────────────────────────
+
+class PermissionResponse(BaseModel):
+    permission_id: int
+    permission_code: str
+    module_name: str
+    action: str
+    name_en: str
+    name_ar: str
+    description: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PermissionModuleGroup(BaseModel):
+    module_name: str
+    module_name_ar: str
+    permissions: List[PermissionResponse]
+
+
+class RoleResponse(BaseModel):
+    role_id: int
+    role_code: str
+    name_en: str
+    name_ar: str
+    description: Optional[str] = None
+    is_system_role: bool
+    is_active: bool
+    permissions: List[str] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserPermissionItem(BaseModel):
+    permission_code: str
+    is_granted: bool = True
+
+
+class UserPermissionsUpdatePayload(BaseModel):
+    role_id: Optional[int] = None
+    permissions: List[UserPermissionItem] = []
+
+
+class UserEffectivePermissionsResponse(BaseModel):
+    user_id: int
+    username: str
+    role: str
+    role_id: Optional[int] = None
+    role_code: Optional[str] = None
+    effective_permissions: List[str] = []
+    custom_grants: List[str] = []
+    custom_revocations: List[str] = []

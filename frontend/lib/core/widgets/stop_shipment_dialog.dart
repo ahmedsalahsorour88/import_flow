@@ -64,7 +64,7 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('⛔ ${context.l10n.stopShipmentAtThisStageBtn} (${widget.importFile.importFileCode}) - Phase 10!'),
+            content: Text('⛔ ${context.l10n.stopShipmentAtThisStageBtn} (${widget.importFile.primaryNameWithCode}) - Phase 10!'),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -108,7 +108,7 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                '${l.stopShipmentAtThisStageBtn} (${widget.importFile.importFileCode})',
+                '${l.stopShipmentAtThisStageBtn} (${widget.importFile.primaryNameWithCode})',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,

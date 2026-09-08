@@ -124,8 +124,15 @@ def list_cargo_shippings_service(
     search: Optional[str] = None,
 ) -> List[CargoShippingRecord]:
     records = get_cargo_shipping_list(db, include_inactive, import_file_id, status, search)
-    for r in records:
-        _attach_import_file_metadata(db, r)
+    file_ids = {r.import_file_id for r in records if r.import_file_id}
+    if file_ids:
+        files = db.query(ImportFile).filter(ImportFile.import_file_id.in_(file_ids)).all()
+        file_map = {f.import_file_id: f for f in files}
+        for r in records:
+            if r.import_file_id and r.import_file_id in file_map:
+                imp_file = file_map[r.import_file_id]
+                setattr(r, "import_file_code", imp_file.custom_file_number or imp_file.import_file_code)
+                setattr(r, "company_name", imp_file.company_name)
     return records
 
 def update_container_loading_tracking_service(

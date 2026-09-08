@@ -6,6 +6,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/utils/import_file_po_linker.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
@@ -55,15 +56,30 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   List<ContainerLoadingModel> _containers = [];
   LclLoadingTrackingModel? _lclTracking;
 
+  // Lazy tab & step deferral sets
+  final Set<int> _visitedMainTabs = {0};
+  late final Set<int> _visitedFormSteps;
+
   @override
   void initState() {
     super.initState();
     _activeStepIndex = widget.initialSubTab.clamp(0, 1);
+    _visitedMainTabs.add(0);
+    _visitedFormSteps = {_activeStepIndex};
     _mainTabController = TabController(
       length: 2,
       vsync: this,
       initialIndex: 0,
     );
+    _mainTabController.addListener(() {
+      if (!_mainTabController.indexIsChanging) {
+        if (!_visitedMainTabs.contains(_mainTabController.index)) {
+          setState(() {
+            _visitedMainTabs.add(_mainTabController.index);
+          });
+        }
+      }
+    });
     _initDefaultContainer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshAllData();
@@ -76,7 +92,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     if (oldWidget.initialSubTab != widget.initialSubTab) {
       setState(() {
         _activeStepIndex = widget.initialSubTab.clamp(0, 1);
+        _visitedFormSteps.add(_activeStepIndex);
         _mainTabController.index = 0;
+        _visitedMainTabs.add(0);
       });
     }
   }
@@ -122,10 +140,18 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   }
 
   void _refreshAllData() {
-    ref.read(cargoShippingProvider.notifier).fetchRecords(includeInactive: true);
-    ref.read(importFilesProvider.notifier).fetchImportFiles();
-    ref.read(freightBookingProvider.notifier).fetchBookings();
-    ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+    if (!ref.read(cargoShippingProvider).isLoading) {
+      ref.read(cargoShippingProvider.notifier).fetchRecords(includeInactive: true);
+    }
+    if (!ref.read(importFilesProvider).isLoading) {
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    }
+    if (!ref.read(freightBookingProvider).isLoading) {
+      ref.read(freightBookingProvider.notifier).fetchBookings();
+    }
+    if (!ref.read(purchaseOrdersProvider).isLoading) {
+      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+    }
   }
 
   void _resetForm() {
@@ -137,6 +163,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       _isStackable = true;
       _cfsWarehouseCtrl.text = 'Shanghai International CFS Hub #3';
       _activeStepIndex = 0;
+      _visitedFormSteps.add(0);
       for (final c in _milestoneNoteControllers.values) {
         c.dispose();
       }
@@ -160,6 +187,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
       _lclTracking = rec.lclTrackingData;
       _activeStepIndex = 1; // Open container tracking step
+      _visitedFormSteps.add(1);
       for (final c in _milestoneNoteControllers.values) {
         c.dispose();
       }
@@ -167,6 +195,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       _selectedMilestoneForNote.clear();
     });
 
+    _visitedMainTabs.add(0);
     _mainTabController.animateTo(0);
     if (showSnack && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -184,10 +213,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       return;
     }
 
-    var existingRecords = ref.read(cargoShippingProvider).value ?? [];
+    var existingRecords = ref.read(cargoShippingProvider).valueOrNull ?? [];
     if (existingRecords.isEmpty) {
       await ref.read(cargoShippingProvider.notifier).fetchRecords(includeInactive: true);
-      existingRecords = ref.read(cargoShippingProvider).value ?? [];
+      existingRecords = ref.read(cargoShippingProvider).valueOrNull ?? [];
     }
 
     final existingRec = existingRecords.where((r) => r.importFileId == val && r.isActive).firstOrNull;
@@ -196,7 +225,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       // Automatically load the saved draft/record seamlessly!
       _loadRecordForEditing(existingRec, showSnack: true);
     } else {
-      final bookings = ref.read(freightBookingProvider).value ?? [];
+      final bookings = ref.read(freightBookingProvider).valueOrNull ?? [];
       final linkedBooking = bookings.where((b) => b.importFileId == val && b.isActive).firstOrNull;
 
       setState(() {
@@ -251,6 +280,87 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         }
       });
     }
+  }
+
+  String _getLocalizedContainerTypeLabel(String type) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    switch (type) {
+      case '20GP':
+        return '20GP - ${isArabic ? 'حاوية نمطية قياسية' : 'Standard Dry Container'}';
+      case '40GP':
+        return '40GP - ${isArabic ? 'حاوية نمطية قياسية' : 'Standard Dry Container'}';
+      case '40HC':
+        return '40HC - ${isArabic ? 'حاوية مرتفعة السعة' : 'High Cube Container'}';
+      case '45HC':
+        return '45HC - ${isArabic ? 'حاوية فائقة السعة' : 'High Cube Container'}';
+      case '20RF':
+        return '20RF - ${isArabic ? 'حاوية مبردة' : 'Reefer Container'}';
+      case '40RF':
+        return '40RF - ${isArabic ? 'حاوية مبردة' : 'Reefer Container'}';
+      default:
+        return type;
+    }
+  }
+
+  void _copyContainerAllocationsManifest() {
+    final buffer = StringBuffer();
+
+    final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final matchingFiles = importFiles.where((f) => f.importFileId == _selectedImportFileId).toList();
+    final curFile = matchingFiles.isNotEmpty ? matchingFiles.first : null;
+
+    final headerTitle = context.l10n.cargoShippingManifestHeader;
+    final filePrefix = context.l10n.cargoShippingLinkedFileBannerPrefix;
+    final supplierPrefix = context.l10n.cargoShippingSupplierLabel;
+    final acidPrefix = context.l10n.cargoShippingAcidPrefix;
+
+    buffer.writeln('# $headerTitle');
+    if (curFile != null) {
+      buffer.writeln(
+        '$filePrefix ${curFile.primaryNameWithCode} - ${curFile.companyName} | $supplierPrefix ${curFile.supplierName}${curFile.acidNumber != null ? " | $acidPrefix: ${curFile.acidNumber}" : ""}',
+      );
+    }
+    buffer.writeln('');
+
+    if (_shipmentType == 'FCL') {
+      final colNum = context.l10n.cargoShippingColUnitNumber;
+      final colCNo = context.l10n.cargoShippingColContainerNo;
+      final colType = context.l10n.cargoShippingColContainerType;
+      final colSeal = context.l10n.cargoShippingColSealNo;
+      final colGross = context.l10n.cargoShippingColGrossWeight;
+      final colVgmStatus = context.l10n.cargoShippingColVgmStatus;
+      final colVgmRef = context.l10n.cargoShippingColVgmRef;
+      final colStatus = context.l10n.cargoShippingColTrackingStatus;
+
+      buffer.writeln('$colNum\t$colCNo\t$colType\t$colSeal\t$colGross\t$colVgmStatus\t$colVgmRef\t$colStatus');
+
+      int unitCounter = 1;
+      for (final c in _containers) {
+        final statusLabel = c.getLocalizedStatus(context.l10n);
+        if (c.individualUnits.isNotEmpty) {
+          for (final u in c.individualUnits) {
+            final cNo = u['container_no'] ?? c.containerNo;
+            final sNo = u['seal_no'] ?? c.sealNo;
+            buffer.writeln('$unitCounter\t$cNo\t${c.containerType}\t$sNo\t${c.grossWeightKg.toStringAsFixed(0)}\t${c.vgmStatus}\t${c.vgmRefNo ?? ""}\t$statusLabel');
+            unitCounter++;
+          }
+        } else {
+          buffer.writeln('$unitCounter\t${c.containerNo}\t${c.containerType}\t${c.sealNo}\t${c.grossWeightKg.toStringAsFixed(0)}\t${c.vgmStatus}\t${c.vgmRefNo ?? ""}\t$statusLabel');
+          unitCounter++;
+        }
+      }
+    } else {
+      final warehouseLabel = context.l10n.cargoShippingCfsWarehouseLabel;
+      final statusLabel = _lclTracking?.getLocalizedStatus(context.l10n) ?? context.l10n.cargoShippingStatusAssigned;
+      buffer.writeln('${context.l10n.cargoShippingShipmentTypeLabel}\t$warehouseLabel\t${context.l10n.cargoShippingColTrackingStatus}');
+      buffer.writeln('LCL\t${_cfsWarehouseCtrl.text}\t$statusLabel');
+    }
+
+    CopyHelper.copy(
+      context,
+      buffer.toString(),
+      customMessage: context.l10n.cargoShippingManifestCopySuccess,
+    );
   }
 
   // ===========================================================================
@@ -340,7 +450,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     }
 
     if (_editingRecordId == null) {
-      final existingRecords = ref.read(cargoShippingProvider).value ?? [];
+      final existingRecords = ref.read(cargoShippingProvider).valueOrNull ?? [];
       final existingRec = existingRecords.where((r) => r.importFileId == _selectedImportFileId && r.isActive).firstOrNull;
       if (existingRec != null) {
         _editingRecordId = existingRec.cargoShippingId;
@@ -413,7 +523,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     }
 
     if (_editingRecordId == null) {
-      final existingRecords = ref.read(cargoShippingProvider).value ?? [];
+      final existingRecords = ref.read(cargoShippingProvider).valueOrNull ?? [];
       final existingRec = existingRecords.where((r) => r.importFileId == _selectedImportFileId && r.isActive).firstOrNull;
       if (existingRec != null) {
         _editingRecordId = existingRec.cargoShippingId;
@@ -528,7 +638,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     }
 
     // Check duplicate import file locally first
-    final existingRecords = ref.read(cargoShippingProvider).value ?? [];
+    final existingRecords = ref.read(cargoShippingProvider).valueOrNull ?? [];
     final dupRecord = existingRecords.where((r) => r.importFileId == _selectedImportFileId && r.isActive).toList();
     if (dupRecord.isNotEmpty && _editingRecordId == null) {
       _editingRecordId = dupRecord.first.cargoShippingId;
@@ -581,6 +691,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             ),
           );
           _resetForm();
+          _visitedMainTabs.add(1);
           _mainTabController.animateTo(1);
         }
       }
@@ -644,7 +755,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       headerColor: isTrackingTab ? AppTheme.cobalt : AppTheme.emerald,
       tabs: tabs,
       selectedIndex: _mainTabController.index,
-      onTabSelected: (index) => setState(() => _mainTabController.index = index),
+      onTabSelected: (index) => setState(() {
+        _mainTabController.index = index;
+        _visitedMainTabs.add(index);
+      }),
       selectedImportFileId: _selectedImportFileId,
       onShipmentStatusChanged: () {
         ref.read(importFilesProvider.notifier).fetchImportFiles();
@@ -657,7 +771,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           ),
           icon: const Icon(Icons.auto_awesome, size: 16),
-          label: const Text('محلل البوالص والفواتير (AI)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          label: Text(context.l10n.cargoShippingAiExtractorBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           onPressed: () {
             showDialog(
               context: context,
@@ -693,12 +807,14 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           onPressed: _refreshAllData,
         ),
       ],
-      body: IndexedStack(
-        index: _mainTabController.index,
-        children: [
-          _buildInteractiveShippingFormTab(),
-          _buildSavedShippingRegistryTab(),
-        ],
+      body: SelectionArea(
+        child: IndexedStack(
+          index: _mainTabController.index,
+          children: [
+            _visitedMainTabs.contains(0) ? _buildInteractiveShippingFormTab() : const SizedBox.shrink(),
+            _visitedMainTabs.contains(1) ? _buildSavedShippingRegistryTab() : const SizedBox.shrink(),
+          ],
+        ),
       ),
     );
   }
@@ -707,7 +823,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   // TAB 1: INTERACTIVE FORM & 2-STEP WORKSPACE
   // ===========================================================================
   Widget _buildInteractiveShippingFormTab() {
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final poState = ref.watch(purchaseOrdersProvider);
     final poList = poState.purchaseOrders;
 
@@ -758,9 +874,52 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     const Icon(Icons.folder_special, color: AppTheme.cobalt, size: 24),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        '${context.l10n.cargoShippingLinkedFileBannerPrefix} [${curFile.importFileCode}] ${curFile.companyName} | ${context.l10n.cargoShippingSupplierLabel} ${curFile.supplierName}${curFile.acidNumber != null ? " | ACID: ${curFile.acidNumber}" : ""}${_editingRecordCode != null ? " (${context.l10n.cargoShippingCodeLabel} $_editingRecordCode)" : ""}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 13),
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: [
+                          Text(
+                            '${context.l10n.cargoShippingLinkedFileBannerPrefix} ',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 13),
+                          ),
+                          CopyableText(
+                            curFile.primaryNameWithCode,
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13),
+                            tooltip: context.l10n.cargoShippingCopyFieldTooltip,
+                          ),
+                          Text(
+                            ' - ${curFile.companyName} | ${context.l10n.cargoShippingSupplierLabel} ',
+                            style: const TextStyle(color: AppTheme.charcoal, fontSize: 13),
+                          ),
+                          CopyableText(
+                            curFile.supplierName,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            tooltip: context.l10n.cargoShippingCopyFieldTooltip,
+                          ),
+                          if (curFile.acidNumber != null) ...[
+                            Text(
+                              ' | ${context.l10n.cargoShippingAcidPrefix}: ',
+                              style: const TextStyle(color: AppTheme.charcoal, fontSize: 13),
+                            ),
+                            CopyableText(
+                              curFile.acidNumber!,
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13),
+                              tooltip: context.l10n.cargoShippingCopyFieldTooltip,
+                            ),
+                          ],
+                          if (_editingRecordCode != null) ...[
+                            Text(
+                              ' | ${context.l10n.cargoShippingCodeLabel} ',
+                              style: const TextStyle(color: AppTheme.charcoal, fontSize: 13),
+                            ),
+                            CopyableText(
+                              _editingRecordCode!,
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.flatOrange, fontSize: 13),
+                              tooltip: context.l10n.cargoShippingCopyFieldTooltip,
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     if (_editingRecordId != null)
@@ -795,8 +954,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             IndexedStack(
               index: _activeStepIndex,
               children: [
-                _buildStep1ContainerAssignment(importFiles, totalCargoCbm, totalCargoWeightKg, activeContainerRec),
-                _buildStep2ContainerLoadingTracking(importFiles, curFile),
+                _visitedFormSteps.contains(0)
+                    ? _buildStep1ContainerAssignment(importFiles, totalCargoCbm, totalCargoWeightKg, activeContainerRec)
+                    : const SizedBox.shrink(),
+                _visitedFormSteps.contains(1)
+                    ? _buildStep2ContainerLoadingTracking(importFiles, curFile)
+                    : const SizedBox.shrink(),
               ],
             ),
             const SizedBox(height: 16),
@@ -813,7 +976,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     final isSelected = _activeStepIndex == index;
     return Expanded(
       child: InkWell(
-        onTap: () => setState(() => _activeStepIndex = index),
+        onTap: () => setState(() {
+          _activeStepIndex = index;
+          _visitedFormSteps.add(index);
+        }),
         borderRadius: BorderRadius.circular(8),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
@@ -851,7 +1017,8 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     double totalCargoWeightKg,
     ContainerRecommendationResult activeContainerRec,
   ) {
-    final existingRecords = ref.watch(cargoShippingProvider).value ?? [];
+    final existingRecords = ref.watch(cargoShippingProvider).valueOrNull ?? [];
+    final existingActiveFileIds = {for (final r in existingRecords) if (r.isActive) r.importFileId};
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -874,10 +1041,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   items: [
                     SearchableDropdownItem<int?>(value: null, label: context.l10n.cargoShippingImportFileDefault),
                     ...importFiles.map((f) {
-                      final hasExisting = existingRecords.any((r) => r.importFileId == f.importFileId && r.isActive);
+                      final hasExisting = existingActiveFileIds.contains(f.importFileId);
                       return SearchableDropdownItem<int?>(
                         value: f.importFileId,
-                        label: '[${f.importFileCode}] ${f.companyName} | ACID: ${f.acidNumber ?? "N/A"}${hasExisting ? " ${context.l10n.cargoShippingPreviouslyRegistered}" : ""}',
+                        label: '${f.primaryNameWithCode} - ${f.companyName} | ACID: ${f.acidNumber ?? "N/A"}${hasExisting ? " ${context.l10n.cargoShippingPreviouslyRegistered}" : ""}',
                         subtitle: f.supplierName,
                       );
                     }),
@@ -919,9 +1086,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   children: [
                     const Icon(Icons.inventory_2, color: Colors.purple, size: 20),
                     const SizedBox(width: 8),
-                    Text(
-                      context.l10n.cargoShippingAggregatedCargoMetrics(totalCargoCbm.toStringAsFixed(2), totalCargoWeightKg.toStringAsFixed(0)),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple),
+                    Expanded(
+                      child: CopyableText(
+                        context.l10n.cargoShippingAggregatedCargoMetrics(totalCargoCbm.toStringAsFixed(2), totalCargoWeightKg.toStringAsFixed(0)),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple),
+                        tooltip: context.l10n.cargoShippingCopyFieldTooltip,
+                      ),
                     ),
                   ],
                 ),
@@ -951,7 +1121,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: Colors.green.shade400),
                   ),
-                  child: Text(
+                  child: CopyableText(
                     context.l10n.cargoShippingAutoRecommendation(
                       activeContainerRec.requiredContainersCount,
                       activeContainerRec.recommendedContainerCode,
@@ -959,6 +1129,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       activeContainerRec.payloadUtilizationPercent.toStringAsFixed(1),
                     ),
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade900),
+                    tooltip: context.l10n.cargoShippingCopyFieldTooltip,
                   ),
                 ),
               ],
@@ -1033,6 +1204,11 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       labelText: context.l10n.cargoShippingCfsWarehouseLabel,
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.warehouse, color: AppTheme.cobalt),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.copy_rounded, size: 16),
+                        tooltip: context.l10n.cargoShippingCopyFieldTooltip,
+                        onPressed: () => CopyHelper.copy(context, _cfsWarehouseCtrl.text),
+                      ),
                     ),
                   ),
                 ],
@@ -1063,13 +1239,13 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                 child: SearchableDropdownField<String>(
                   value: item.containerType,
                   labelText: context.l10n.cargoShippingContainerType,
-                  items: const [
-                    SearchableDropdownItem(value: '20GP', label: '20GP Standard'),
-                    SearchableDropdownItem(value: '40GP', label: '40GP Standard'),
-                    SearchableDropdownItem(value: '40HC', label: '40HC High Cube'),
-                    SearchableDropdownItem(value: '45HC', label: '45HC High Cube'),
-                    SearchableDropdownItem(value: '20RF', label: '20RF Reefer'),
-                    SearchableDropdownItem(value: '40RF', label: '40RF Reefer'),
+                  items: [
+                    SearchableDropdownItem(value: '20GP', label: _getLocalizedContainerTypeLabel('20GP')),
+                    SearchableDropdownItem(value: '40GP', label: _getLocalizedContainerTypeLabel('40GP')),
+                    SearchableDropdownItem(value: '40HC', label: _getLocalizedContainerTypeLabel('40HC')),
+                    SearchableDropdownItem(value: '45HC', label: _getLocalizedContainerTypeLabel('45HC')),
+                    SearchableDropdownItem(value: '20RF', label: _getLocalizedContainerTypeLabel('20RF')),
+                    SearchableDropdownItem(value: '40RF', label: _getLocalizedContainerTypeLabel('40RF')),
                   ],
                   onChanged: (val) {
                     if (val != null) {
@@ -1146,7 +1322,15 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                 child: TextFormField(
                   initialValue: item.grossWeightKg.toStringAsFixed(0),
                   keyboardType: TextInputType.number,
-                  decoration: InputDecoration(labelText: context.l10n.cargoShippingVgmWeight, border: const OutlineInputBorder()),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.cargoShippingVgmWeight,
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 16),
+                      tooltip: context.l10n.cargoShippingCopyFieldTooltip,
+                      onPressed: () => CopyHelper.copy(context, item.grossWeightKg.toStringAsFixed(0)),
+                    ),
+                  ),
                   onChanged: (val) {
                     final w = double.tryParse(val) ?? 0.0;
                     setState(() {
@@ -1200,7 +1384,16 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   Expanded(
                     child: TextFormField(
                       initialValue: curCNo,
-                      decoration: InputDecoration(labelText: context.l10n.cargoShippingContainerNo, isDense: true, border: const OutlineInputBorder()),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.cargoShippingContainerNo,
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          tooltip: context.l10n.cargoShippingCopyFieldTooltip,
+                          onPressed: () => CopyHelper.copy(context, curCNo),
+                        ),
+                      ),
                       onChanged: (cVal) {
                         final updatedUnits = List<Map<String, String>>.from(item.individualUnits);
                         while (updatedUnits.length <= unitIdx) {
@@ -1233,7 +1426,16 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   Expanded(
                     child: TextFormField(
                       initialValue: curSNo,
-                      decoration: InputDecoration(labelText: context.l10n.cargoShippingSealNo, isDense: true, border: const OutlineInputBorder()),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.cargoShippingSealNo,
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          tooltip: context.l10n.cargoShippingCopyFieldTooltip,
+                          onPressed: () => CopyHelper.copy(context, curSNo),
+                        ),
+                      ),
                       onChanged: (sVal) {
                         final updatedUnits = List<Map<String, String>>.from(item.individualUnits);
                         while (updatedUnits.length <= unitIdx) {
@@ -1274,7 +1476,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
   // ================= STEP 2: CONTAINER LOADING FOLLOW-UP & 48H SLA TRACKING =================
   Widget _buildStep2ContainerLoadingTracking(List<dynamic> importFiles, dynamic curFile) {
-    final existingRecords = ref.watch(cargoShippingProvider).value ?? [];
+    final existingRecords = ref.watch(cargoShippingProvider).valueOrNull ?? [];
 
     // Calculate summary statistics
     int totalCount = _shipmentType == 'FCL' ? _containers.length : 1;
@@ -1323,7 +1525,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                           final hasExisting = existingRecords.any((r) => r.importFileId == f.importFileId && r.isActive);
                           return SearchableDropdownItem<int?>(
                             value: f.importFileId,
-                            label: '[${f.importFileCode}] ${f.companyName} | ACID: ${f.acidNumber ?? "N/A"}${hasExisting ? " ${context.l10n.cargoShippingPreviouslyRegistered}" : ""}',
+                            label: '${f.primaryNameWithCode} - ${f.companyName} | ACID: ${f.acidNumber ?? "N/A"}${hasExisting ? " ${context.l10n.cargoShippingPreviouslyRegistered}" : ""}',
                             subtitle: f.supplierName,
                           );
                         }),
@@ -1362,7 +1564,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '${context.l10n.cargoShippingLinkedFileBannerPrefix} [${curFile.importFileCode}] ${curFile.companyName} | ${context.l10n.cargoShippingSupplierLabel} ${curFile.supplierName} | ACID: ${curFile.acidNumber ?? "N/A"}',
+                          '${context.l10n.cargoShippingLinkedFileBannerPrefix} ${curFile.primaryNameWithCode} - ${curFile.companyName} | ${context.l10n.cargoShippingSupplierLabel} ${curFile.supplierName} | ACID: ${curFile.acidNumber ?? "N/A"}',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                         ),
                       ),
@@ -1426,12 +1628,24 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               child: Icon(icon, size: 18, color: color),
             ),
             const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
-                Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    value,
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1461,11 +1675,14 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             children: [
               const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 20),
               const SizedBox(width: 8),
-              Text(
-                context.l10n.cargoShippingContainerCardHeader(index + 1, c.containerNo, c.containerType, c.sealNo),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+              Expanded(
+                child: Text(
+                  context.l10n.cargoShippingContainerCardHeader(index + 1, c.containerNo, c.containerType, c.sealNo),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -2046,11 +2263,14 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             children: [
               const Icon(Icons.warehouse, color: AppTheme.cobalt, size: 20),
               const SizedBox(width: 8),
-              Text(
-                context.l10n.cargoShippingLclTrackingHeader(_cfsWarehouseCtrl.text),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+              Expanded(
+                child: Text(
+                  context.l10n.cargoShippingLclTrackingHeader(_cfsWarehouseCtrl.text),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -2429,6 +2649,17 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             const SizedBox(width: 8),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.cobalt,
+                side: const BorderSide(color: AppTheme.cobalt),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              ),
+              onPressed: _copyContainerAllocationsManifest,
+              icon: const Icon(Icons.table_chart_outlined, size: 18),
+              label: Text(context.l10n.cargoShippingExportManifestBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.charcoal,
                 side: BorderSide(color: Colors.grey.shade400),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -2518,6 +2749,20 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     decoration: InputDecoration(
                       hintText: context.l10n.cargoShippingRegistrySearchHint,
                       prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
+                      suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _searchController,
+                        builder: (context, value, _) {
+                          return value.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() {});
+                                  },
+                                )
+                              : const SizedBox.shrink();
+                        },
+                      ),
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
@@ -2625,6 +2870,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   );
                 }
 
+                final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+                final importFilesMap = {for (final f in importFiles) f.importFileId: f};
+
                 return Card(
                   elevation: 1,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -2633,7 +2881,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (ctx, idx) {
                       final rec = filtered[idx];
-                      return _buildRegistryRow(rec);
+                      return _buildRegistryRow(rec, importFilesMap);
                     },
                   ),
                 );
@@ -2645,20 +2893,19 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     );
   }
 
-  Widget _buildRegistryRow(CargoShippingModel rec) {
+  Widget _buildRegistryRow(CargoShippingModel rec, Map<int, dynamic> importFilesMap) {
     final hasBreach = rec.containersLoadingData.any((c) => c.isSlaBreached) || (rec.lclTrackingData?.isSlaBreached ?? false);
     final gatedCount = rec.containersLoadingData.where((c) => c.trackingStatus == 'GATED_IN_AT_PORT').length;
 
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
-    final matchingFile = importFiles.where((f) => f.importFileId == rec.importFileId).firstOrNull;
-    final fileCode = matchingFile?.customFileNumber ?? matchingFile?.importFileCode ?? rec.importFileCode ?? 'IMP-${rec.importFileId}';
+    final matchingFile = importFilesMap[rec.importFileId];
+    final fileCode = matchingFile?.primaryNameWithCode ?? rec.importFileCode ?? 'IMP-${rec.importFileId}';
     final companyName = (matchingFile?.companyName.isNotEmpty == true && matchingFile?.companyName != 'N/A')
         ? matchingFile!.companyName
         : (rec.companyName != null && rec.companyName!.isNotEmpty && rec.companyName != 'N/A' ? rec.companyName! : context.l10n.importCompanies);
     final supplierName = (matchingFile?.supplierName.isNotEmpty == true && matchingFile?.supplierName != 'N/A') ? matchingFile!.supplierName : '';
 
-    // The primary title is always formatted as [Import File Code] Company Name
-    final displayName = fileCode.isNotEmpty ? '[$fileCode] $companyName' : companyName;
+    // The primary title is always formatted as Primary Name (Code) - Company Name
+    final displayName = fileCode.isNotEmpty ? '$fileCode - $companyName' : companyName;
 
     return ListTile(
       onTap: () => _loadRecordForEditing(rec),

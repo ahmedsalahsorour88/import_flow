@@ -43,53 +43,134 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
     uncompleted = []
     completed = []
 
-    # 1. Decree 43
-    if assessment.decree_43_applicable:
-        if not assessment.white_list_verified:
-            uncompleted.append({
-                "type": "Decree43",
-                "title": f"[{file_code}] [ACID: {acid_str}] توثيق قيد المصنع/المورد الأجنبي بالهيئة العامة للرقابة على الصادرات والواردات (قرار 43)",
-                "desc": "السلعة تخضع للقرار الوزاري 43 لسنة 2016 ويلزم التحقق من قيد المصنع بالقائمة البيضاء لدى GOEIC قبل الشحن",
-                "priority": "Critical",
-            })
-        else:
-            completed.append("Decree43")
+    # Identify uncompleted / pending items per HS Code or globally
+    uncompleted = []
+    completed = []
 
-    # 2. Certificate of Origin
-    if assessment.coo_required:
-        if assessment.coo_status not in ["Verified", "Approved", "Received", "Obtained"]:
-            uncompleted.append({
-                "type": "COO",
-                "title": f"[{file_code}] [ACID: {acid_str}] استيفاء شهادة المنشأ ({assessment.coo_type or 'COO'}) وتوثيقها رسمياً",
-                "desc": f"يلزم استلام وتوثيق شهادة المنشأ الأصلية لتطبيق المعاملات التفضيلية والإفراج الجمركي - الحالة الحالية: {assessment.coo_status}",
-                "priority": "High",
-            })
-        else:
-            completed.append("COO")
+    hs_items = assessment.hs_code_items or []
+    if isinstance(hs_items, list) and len(hs_items) > 0:
+        for itm in hs_items:
+            hs = itm.get("hs_code") or "General"
+            
+            # 1. Decree 43 per HS Code
+            if itm.get("decree_43_applicable"):
+                if itm.get("white_list_verified"):
+                    completed.append(f"Decree43_{hs}")
+                elif itm.get("decree_43_action") == "justified" or (itm.get("decree_43_justification") and itm.get("decree_43_justification").strip()):
+                    completed.append(f"Decree43_{hs}")
+                else:
+                    uncompleted.append({
+                        "type": f"Decree43_{hs}",
+                        "title": f"[{file_code}] [{hs}] [ACID: {acid_str}] المورد يحتاج تسجيل مصنع بالقائمة البيضاء (قرار 43/2016)",
+                        "desc": f"بند التعريفة {hs} يخضع للقرار الوزاري 43 لسنة 2016 والمورد غير مقيد بالقائمة البيضاء لدى GOEIC ويلزم تسجيل المصنع أو استيفاء مبرر استثناء معتمد قبل الشحن",
+                        "priority": "Critical",
+                    })
 
-    # 3. Pre-Shipment Inspection
-    if assessment.inspection_required:
-        if assessment.inspection_status not in ["Verified", "Approved", "Received", "Completed", "Obtained"]:
-            uncompleted.append({
-                "type": "Inspection",
-                "title": f"[{file_code}] [ACID: {acid_str}] إصدار شهادة الفحص المسبق قبل الشحن ({assessment.inspection_body or 'SGS/CIQ'})",
-                "desc": f"الصنف يخضع للفحص الفني الإلزامي قبل الشحن من بلد المنشأ بواسطة {assessment.inspection_body or 'جهة الفحص المعين'}",
-                "priority": "Critical",
-            })
-        else:
-            completed.append("Inspection")
+            # 2. Certificate of Origin per HS Code
+            if itm.get("coo_required"):
+                c_status = itm.get("coo_status") or "Not Required"
+                if c_status in ["Verified", "Approved", "Received", "Obtained"]:
+                    completed.append(f"COO_{hs}")
+                else:
+                    c_type = itm.get("coo_type") or "COO"
+                    uncompleted.append({
+                        "type": f"COO_{hs}",
+                        "title": f"[{file_code}] [{hs}] [ACID: {acid_str}] استيفاء وتوثيق شهادة المنشأ ({c_type}) رسمياً",
+                        "desc": f"يلزم استلام وتوثيق شهادة المنشأ للبند {hs} لتطبيق الإعفاء/التخفيض الجمركي - الحالة: {c_status}",
+                        "priority": "High",
+                    })
 
-    # 4. Import Permit / Regulatory Approvals
-    if assessment.import_permit_required:
-        if assessment.permit_status not in ["Verified", "Approved", "Received", "Obtained"]:
-            uncompleted.append({
-                "type": "Permit",
-                "title": f"[{file_code}] [ACID: {acid_str}] استخراج موافقة الاستيراد المسبقة من ({assessment.permit_issuing_authority or 'جهة العرض والرقابة'})",
-                "desc": f"يلزم الحصول على تصريح/موافقة استيرادية رسمية من {assessment.permit_issuing_authority or 'جهة الرقابة'} قبل الشحن",
-                "priority": "Critical",
-            })
-        else:
-            completed.append("Permit")
+            # 3. Pre-Shipment Inspection per HS Code
+            if itm.get("inspection_required"):
+                i_status = itm.get("inspection_status") or "Not Required"
+                if i_status in ["Verified", "Approved", "Received", "Completed", "Obtained"]:
+                    completed.append(f"Inspection_{hs}")
+                else:
+                    i_body = itm.get("inspection_body") or "GOEIC"
+                    uncompleted.append({
+                        "type": f"Inspection_{hs}",
+                        "title": f"[{file_code}] [{hs}] [ACID: {acid_str}] إصدار شهادة الفحص المسبق قبل الشحن ({i_body})",
+                        "desc": f"البند {hs} يخضع للفحص الفني الإلزامي قبل الشحن بواسطة {i_body}",
+                        "priority": "Critical",
+                    })
+
+            # 4. Regulatory Permits per HS Code
+            if itm.get("permit_required"):
+                p_status = itm.get("permit_status") or "Not Required"
+                if p_status in ["Verified", "Approved", "Received", "Obtained"]:
+                    completed.append(f"Permit_{hs}")
+                else:
+                    p_auth = itm.get("regulatory_authority") or "الجهة الرقابية"
+                    uncompleted.append({
+                        "type": f"Permit_{hs}",
+                        "title": f"[{file_code}] [{hs}] [ACID: {acid_str}] استخراج موافقة الاستيراد المسبقة ({p_auth})",
+                        "desc": f"يلزم الحصول على تصريح استيرادي للبند {hs} من {p_auth} قبل الشحن",
+                        "priority": "Critical",
+                    })
+
+    # Global / Assessment-level fallback if hs_code_items is empty
+    if not uncompleted and not completed:
+        # 1. Decree 43
+        if assessment.decree_43_applicable:
+            if not assessment.white_list_verified:
+                uncompleted.append({
+                    "type": "Decree43",
+                    "title": f"[{file_code}] [ACID: {acid_str}] توثيق قيد المصنع/المورد الأجنبي بالهيئة العامة للرقابة على الصادرات والواردات (قرار 43)",
+                    "desc": "السلعة تخضع للقرار الوزاري 43 لسنة 2016 ويلزم التحقق من قيد المصنع بالقائمة البيضاء لدى GOEIC قبل الشحن",
+                    "priority": "Critical",
+                })
+            else:
+                completed.append("Decree43")
+
+        # 2. Certificate of Origin
+        if assessment.coo_required:
+            if assessment.coo_status not in ["Verified", "Approved", "Received", "Obtained"]:
+                raw_coo = (assessment.coo_type or "COO").strip()
+                clean_coo = raw_coo.replace("(", "").replace(")", "").replace("—", "-").strip()
+                if "شهادة المنشأ" in clean_coo or "COO" in clean_coo or "Certificate of Origin" in clean_coo:
+                    coo_title = f"[{file_code}] [ACID: {acid_str}] استيفاء وتوثيق شهادة المنشأ المعتمدة (COO) رسمياً"
+                else:
+                    coo_title = f"[{file_code}] [ACID: {acid_str}] استيفاء وتوثيق شهادة المنشأ ({clean_coo}) رسمياً"
+                uncompleted.append({
+                    "type": "COO",
+                    "title": coo_title,
+                    "desc": f"يلزم استلام وتوثيق شهادة المنشأ الأصلية لتطبيق المعاملات التفضيلية والإفراج الجمركي - الحالة الحالية: {assessment.coo_status}",
+                    "priority": "High",
+                })
+            else:
+                completed.append("COO")
+
+        # 3. Pre-Shipment Inspection
+        if assessment.inspection_required:
+            if assessment.inspection_status not in ["Verified", "Approved", "Received", "Completed", "Obtained"]:
+                raw_insp = (assessment.inspection_body or "GOEIC").strip()
+                clean_insp = raw_insp.replace("(", "").replace(")", "").strip()
+                if "GOEIC" in clean_insp or "الصادرات والواردات" in clean_insp:
+                    insp_display = "GOEIC - هيئة الرقابة على الصادرات والواردات"
+                else:
+                    insp_display = clean_insp or "جهة الفحص المعتمدة"
+                uncompleted.append({
+                    "type": "Inspection",
+                    "title": f"[{file_code}] [ACID: {acid_str}] إصدار شهادة الفحص المسبق قبل الشحن ({insp_display})",
+                    "desc": f"الصنف يخضع للفحص الفني الإلزامي قبل الشحن من بلد المنشأ بواسطة {insp_display}",
+                    "priority": "Critical",
+                })
+            else:
+                completed.append("Inspection")
+
+        # 4. Import Permit / Regulatory Approvals
+        if assessment.import_permit_required:
+            if assessment.permit_status not in ["Verified", "Approved", "Received", "Obtained"]:
+                raw_permit = (assessment.permit_issuing_authority or "جهة العرض والرقابة").strip()
+                clean_permit = raw_permit.replace("(", "").replace(")", "").strip()
+                uncompleted.append({
+                    "type": "Permit",
+                    "title": f"[{file_code}] [ACID: {acid_str}] استخراج موافقة الاستيراد المسبقة ({clean_permit})",
+                    "desc": f"يلزم الحصول على تصريح/موافقة استيرادية رسمية من {clean_permit} قبل الشحن",
+                    "priority": "Critical",
+                })
+            else:
+                completed.append("Permit")
 
     # 5. Technical Documents
     if assessment.msds_required:
@@ -426,6 +507,7 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
                 hs_code_items_dict[hs]["item_value"] += item_val
                 hs_code_items_dict[hs]["quantity"] += float(line.quantity or 0.0)
             else:
+                hs_decree43 = decree_43 or bool(tariff and (("43" in (tariff.regulatory_authority or "")) or ("مصانع" in (tariff.regulatory_authority or ""))))
                 hs_code_items_dict[hs] = {
                     "hs_code": hs,
                     "commodity_description": desc,
@@ -435,11 +517,25 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
                     "item_value": item_val,
                     "quantity": float(line.quantity or 1.0),
                     "unit_of_measure": line.unit_of_measure or "PCS",
-                    "decree_43_applicable": decree_43,
+                    "decree_43_applicable": hs_decree43,
+                    "white_list_verified": white_list_ver if hs_decree43 else False,
+                    "factory_registration_no": factory_reg_no,
+                    "decree_43_action": "verified" if (hs_decree43 and white_list_ver) else None,
                     "coo_required": bool(tariff.requires_coo) if tariff else coo_req,
+                    "coo_type": coo_type,
+                    "coo_status": coo_status if (tariff and tariff.requires_coo) else ("Not Required" if not coo_req else coo_status),
                     "inspection_required": bool(tariff.requires_inspection) if tariff else insp_req,
+                    "inspection_body": insp_body,
+                    "inspection_status": insp_status if (tariff and tariff.requires_inspection) else ("Not Required" if not insp_req else insp_status),
                     "permit_required": bool(tariff.regulatory_authority) if tariff else permit_req,
                     "regulatory_authority": tariff.regulatory_authority if (tariff and tariff.regulatory_authority) else (permit_auth if permit_req else None),
+                    "permit_status": permit_status if (tariff and tariff.regulatory_authority) else ("Not Required" if not permit_req else permit_status),
+                    "msds_required": msds_req,
+                    "msds_status": msds_status,
+                    "halal_cert_required": halal_req,
+                    "halal_cert_status": halal_status,
+                    "coa_required": coa_req,
+                    "coa_status": coa_status,
                 }
 
     # 2. Extract from Invoices Data if no PO line items found or additional items exist
@@ -456,6 +552,7 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
                         hs_code_items_dict[hs]["item_value"] = val
                 else:
                     tariff = db.query(CustomsTariff).filter(CustomsTariff.hs_code == hs).first()
+                    hs_decree43 = decree_43 or bool(tariff and (("43" in (tariff.regulatory_authority or "")) or ("مصانع" in (tariff.regulatory_authority or ""))))
                     hs_code_items_dict[hs] = {
                         "hs_code": hs,
                         "commodity_description": inv.get("description") or (tariff.hs_description if tariff else hs),
@@ -465,11 +562,25 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
                         "item_value": val,
                         "quantity": 1.0,
                         "unit_of_measure": "LOT",
-                        "decree_43_applicable": decree_43,
+                        "decree_43_applicable": hs_decree43,
+                        "white_list_verified": white_list_ver if hs_decree43 else False,
+                        "factory_registration_no": factory_reg_no,
+                        "decree_43_action": "verified" if (hs_decree43 and white_list_ver) else None,
                         "coo_required": bool(tariff.requires_coo) if tariff else coo_req,
+                        "coo_type": coo_type,
+                        "coo_status": coo_status if (tariff and tariff.requires_coo) else ("Not Required" if not coo_req else coo_status),
                         "inspection_required": bool(tariff.requires_inspection) if tariff else insp_req,
+                        "inspection_body": insp_body,
+                        "inspection_status": insp_status if (tariff and tariff.requires_inspection) else ("Not Required" if not insp_req else insp_status),
                         "permit_required": bool(tariff.regulatory_authority) if tariff else permit_req,
                         "regulatory_authority": tariff.regulatory_authority if (tariff and tariff.regulatory_authority) else (permit_auth if permit_req else None),
+                        "permit_status": permit_status if (tariff and tariff.regulatory_authority) else ("Not Required" if not permit_req else permit_status),
+                        "msds_required": msds_req,
+                        "msds_status": msds_status,
+                        "halal_cert_required": halal_req,
+                        "halal_cert_status": halal_status,
+                        "coa_required": coa_req,
+                        "coa_status": coa_status,
                     }
         if total_val == 0.0:
             total_val = inv_sum
@@ -483,6 +594,7 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
     if not hs_code_items_dict:
         fallback_hs = primary_hs_code or "8415820010"
         tariff = db.query(CustomsTariff).filter(CustomsTariff.hs_code == fallback_hs).first()
+        hs_decree43 = decree_43 or bool(tariff and (("43" in (tariff.regulatory_authority or "")) or ("مصانع" in (tariff.regulatory_authority or ""))))
         hs_code_items_dict[fallback_hs] = {
             "hs_code": fallback_hs,
             "commodity_description": primary_commodity_desc or (tariff.hs_description if tariff else "آلات وأجهزة تكييف ووحدات تبريد"),
@@ -492,11 +604,25 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
             "item_value": total_val,
             "quantity": 1.0,
             "unit_of_measure": "LOT",
-            "decree_43_applicable": decree_43,
+            "decree_43_applicable": hs_decree43,
+            "white_list_verified": white_list_ver if hs_decree43 else False,
+            "factory_registration_no": factory_reg_no,
+            "decree_43_action": "verified" if (hs_decree43 and white_list_ver) else None,
             "coo_required": bool(tariff.requires_coo) if tariff else coo_req,
+            "coo_type": coo_type,
+            "coo_status": coo_status if (tariff and tariff.requires_coo) else ("Not Required" if not coo_req else coo_status),
             "inspection_required": bool(tariff.requires_inspection) if tariff else insp_req,
+            "inspection_body": insp_body,
+            "inspection_status": insp_status if (tariff and tariff.requires_inspection) else ("Not Required" if not insp_req else insp_status),
             "permit_required": bool(tariff.regulatory_authority) if tariff else permit_req,
-            "regulatory_authority": tariff.regulatory_authority if (tariff and tariff.regulatory_authority) else permit_auth,
+            "regulatory_authority": tariff.regulatory_authority if (tariff and tariff.regulatory_authority) else (permit_auth if permit_req else None),
+            "permit_status": permit_status if (tariff and tariff.regulatory_authority) else ("Not Required" if not permit_req else permit_status),
+            "msds_required": msds_req,
+            "msds_status": msds_status,
+            "halal_cert_required": halal_req,
+            "halal_cert_status": halal_status,
+            "coa_required": coa_req,
+            "coa_status": coa_status,
         }
 
     hs_code_items_list = [

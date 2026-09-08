@@ -9,7 +9,8 @@ import '../models/goods_in_transit_model.dart';
 import '../providers/goods_in_transit_provider.dart';
 
 class GoodsInTransitScreen extends ConsumerStatefulWidget {
-  const GoodsInTransitScreen({super.key});
+  final bool isEmbedded;
+  const GoodsInTransitScreen({super.key, this.isEmbedded = false});
 
   @override
   ConsumerState<GoodsInTransitScreen> createState() => _GoodsInTransitScreenState();
@@ -38,16 +39,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
       ),
     ];
 
-    return VerticalStageScaffold(
-      stageCode: 'GIT-01',
-      titleEn: 'Goods In Transit (GIT) Inventory Ledger',
-      titleAr: 'رصيد ومطابقة البضاعة في الطريق',
-      headerIcon: Icons.local_shipping,
-      headerColor: AppTheme.emerald,
-      tabs: tabs,
-      selectedIndex: 0,
-      onTabSelected: (_) {},
-      body: gitAsync.when(
+    final bodyContent = gitAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
           child: Text(l.gitErrorFetchingData(err), style: const TextStyle(color: Colors.red)),
@@ -152,6 +144,20 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                               decoration: InputDecoration(
                                 hintText: l.gitSearchHint,
                                 prefixIcon: const Icon(Icons.search),
+                                suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                                  valueListenable: _searchCtrl,
+                                  builder: (context, value, _) {
+                                    return value.text.isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(Icons.clear, size: 18),
+                                            onPressed: () {
+                                              _searchCtrl.clear();
+                                              setState(() {});
+                                            },
+                                          )
+                                        : const SizedBox.shrink();
+                                  },
+                                ),
                                 isDense: true,
                                 border: const OutlineInputBorder(),
                               ),
@@ -278,7 +284,22 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
             ),
           );
         },
-      ),
+      );
+
+    if (widget.isEmbedded) {
+      return bodyContent;
+    }
+
+    return VerticalStageScaffold(
+      stageCode: 'GIT-01',
+      titleEn: 'Goods In Transit (GIT) Inventory Ledger',
+      titleAr: 'رصيد ومطابقة البضاعة في الطريق',
+      headerIcon: Icons.local_shipping,
+      headerColor: AppTheme.emerald,
+      tabs: tabs,
+      selectedIndex: 0,
+      onTabSelected: (_) {},
+      body: bodyContent,
     );
   }
 

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/app_localizations_ar.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/import_doc_stepper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
@@ -50,9 +51,13 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     super.initState();
     _selectedImportFileId = widget.initialImportFileId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await ref.read(importFilesProvider.notifier).fetchImportFiles();
-      await ref.read(cooReviewsProvider.notifier).fetchCOOReviews();
-      final files = ref.read(importFilesProvider).value ?? [];
+      if (!ref.read(importFilesProvider).isLoading) {
+        await ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
+      if (!ref.read(cooReviewsProvider).isLoading) {
+        await ref.read(cooReviewsProvider.notifier).fetchCOOReviews();
+      }
+      final files = ref.read(importFilesProvider).valueOrNull ?? [];
       if (_selectedImportFileId == null && files.isNotEmpty) {
         if (mounted) {
           setState(() {
@@ -89,6 +94,29 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     _rawTextCtrl.dispose();
     _overrideReasonCtrl.dispose();
     super.dispose();
+  }
+
+  String _getFieldLabel(String fieldKey, String? labelAr, AppLocalizations l10n) {
+    switch (fieldKey) {
+      case 'exporter_name':
+        return l10n.cooExporterNameLabel.replaceAll('*', '').trim();
+      case 'exporter_reg_id':
+        return l10n.cooExporterRegIdLabel;
+      case 'importer_name':
+        return l10n.cooImporterNameLabel.replaceAll('*', '').trim();
+      case 'country_of_origin':
+        return l10n.cooOriginCountryLabel;
+      case 'destination_country':
+        return l10n.cooDestinationCountryLabel;
+      case 'invoice_number':
+        return l10n.cooInvoiceNumberLabel;
+      case 'certificate_type':
+        return l10n.cooCertTypeLabel;
+      case 'certificate_number':
+        return l10n.cooDraftCertNumberLabel;
+      default:
+        return (l10n is AppLocalizationsAr && labelAr != null && labelAr.isNotEmpty) ? labelAr : fieldKey;
+    }
   }
 
   void _loadSnapshot(int fileId) {
@@ -422,7 +450,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
 
   @override
   Widget build(BuildContext context) {
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     if (_selectedImportFileId == null && importFiles.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -480,7 +508,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
   }
 
   Widget _buildStep1(List<dynamic> importFiles) {
-    final existingReviews = ref.watch(cooReviewsProvider).value ?? [];
+    final existingReviews = ref.watch(cooReviewsProvider).valueOrNull ?? [];
     final existingReview = existingReviews.where((r) => r.importFileId == _selectedImportFileId).firstOrNull;
 
     return Column(
@@ -562,7 +590,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: Colors.white24),
                         ),
-                        child: Text(
+                        child: CopyableText(
                           context.l10n.cooInvoiceOriginBadge(_activeDraftTemplate?['country_of_origin'] ?? _originCountryCtrl.text),
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                         ),
@@ -574,7 +602,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: _isManualChoiceRequired ? Colors.amber : Colors.greenAccent),
                       ),
-                      child: Text(
+                      child: CopyableText(
                         _isManualChoiceRequired ? context.l10n.cooManualChoiceRequiredBadge : context.l10n.cooApprovedCertBadge(_certType),
                         style: TextStyle(
                           color: _isManualChoiceRequired ? Colors.amberAccent : Colors.greenAccent,
@@ -648,7 +676,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                         items: importFiles
                             .map((f) => SearchableDropdownItem<int>(
                                   value: f.importFileId,
-                                  label: '${f.importFileCode} - ${f.companyName}',
+                                  label: '${f.primaryNameWithCode} - ${f.companyName}',
                                 ))
                             .toList(),
                         onChanged: (v) {
@@ -717,7 +745,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                             Icon(_isManualChoiceRequired ? Icons.warning_amber_rounded : Icons.verified, color: _isManualChoiceRequired ? Colors.amber.shade800 : Colors.green.shade800),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
+                              child: CopyableText(
                                 _recommendationAlert!,
                                 style: TextStyle(
                                   fontSize: 13,
@@ -828,7 +856,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                     items: importFiles
                         .map((f) => SearchableDropdownItem<int>(
                               value: f.importFileId,
-                              label: '${f.importFileCode} - ${f.companyName}',
+                              label: '${f.primaryNameWithCode} - ${f.companyName}',
                             ))
                         .toList(),
                     onChanged: (v) {
@@ -1142,10 +1170,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                             certificateType: _certType,
                             acidNumber: _activeAcidNumber ?? '7595528271020210010',
                           );
-                          Clipboard.setData(ClipboardData(text: csv));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(context.l10n.cooExcelCopiedSnackbar), backgroundColor: Colors.green),
-                          );
+                          CopyHelper.copy(context, csv, customMessage: context.l10n.cooExcelCopiedSnackbar);
                         }
                       },
                     ),
@@ -1172,17 +1197,43 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                   DataColumn(label: Text(context.l10n.cooMatrixColDetails)),
                 ],
                 rows: matrix.map((m) {
+                  final fieldKey = m['field']?.toString() ?? '';
+                  final fieldLabel = _getFieldLabel(fieldKey, m['field_label_ar']?.toString(), context.l10n);
+                  final sysVal = m['system_value']?.toString() ?? '—';
+                  final draftVal = m['draft_value']?.toString() ?? '—';
+                  final matchStatus = m['match_status']?.toString() ?? '';
+                  final details = m['details']?.toString() ?? '';
+                  final rowSummary = '$fieldLabel\t$sysVal\t$draftVal\t$matchStatus\t$details';
+
                   return DataRow(cells: [
-                    DataCell(Text(m['field_label_ar'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold))),
-                    DataCell(Text(m['system_value']?.toString() ?? '—')),
-                    DataCell(Text(m['draft_value']?.toString() ?? '—')),
-                    DataCell(
-                      Chip(
-                        label: Text(m['match_status'] ?? '', style: const TextStyle(fontSize: 11, color: Colors.white)),
+                    DataCell(CopyableTableCell(
+                      value: fieldLabel,
+                      rowSummary: rowSummary,
+                      child: Text(fieldLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    )),
+                    DataCell(CopyableTableCell(
+                      value: sysVal,
+                      rowSummary: rowSummary,
+                      child: Text(sysVal),
+                    )),
+                    DataCell(CopyableTableCell(
+                      value: draftVal,
+                      rowSummary: rowSummary,
+                      child: Text(draftVal),
+                    )),
+                    DataCell(CopyableTableCell(
+                      value: matchStatus,
+                      rowSummary: rowSummary,
+                      child: Chip(
+                        label: Text(matchStatus, style: const TextStyle(fontSize: 11, color: Colors.white)),
                         backgroundColor: m['severity'] == 'BLOCKING' ? Colors.red : (m['severity'] == 'WARNING' ? Colors.orange : Colors.green),
                       ),
-                    ),
-                    DataCell(Text(m['details'] ?? '')),
+                    )),
+                    DataCell(CopyableTableCell(
+                      value: details,
+                      rowSummary: rowSummary,
+                      child: Text(details),
+                    )),
                   ]);
                 }).toList(),
               ),
@@ -1316,18 +1367,43 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                         final rawTxt = r.rawText ?? r.draftInputData?['raw_text'] ?? '';
                         final overrideReason = r.notes ?? r.draftInputData?['override_reason'] ?? '';
 
+                        final dateStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
+                        final rowSummary = '${r.cooReviewCode}\t${r.certificateType}\t${r.certificateNumber}\t$expName\t${r.status}\t$dateStr';
+
                         return DataRow(cells: [
-                          DataCell(Text(r.cooReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                          DataCell(Text(r.certificateType)),
-                          DataCell(Text(r.certificateNumber)),
-                          DataCell(Text(expName)),
-                          DataCell(
-                            Chip(
+                          DataCell(CopyableTableCell(
+                            value: r.cooReviewCode,
+                            rowSummary: rowSummary,
+                            child: Text(r.cooReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                          )),
+                          DataCell(CopyableTableCell(
+                            value: r.certificateType,
+                            rowSummary: rowSummary,
+                            child: Text(r.certificateType),
+                          )),
+                          DataCell(CopyableTableCell(
+                            value: r.certificateNumber,
+                            rowSummary: rowSummary,
+                            child: Text(r.certificateNumber),
+                          )),
+                          DataCell(CopyableTableCell(
+                            value: expName,
+                            rowSummary: rowSummary,
+                            child: Text(expName),
+                          )),
+                          DataCell(CopyableTableCell(
+                            value: r.status,
+                            rowSummary: rowSummary,
+                            child: Chip(
                               label: Text(r.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
                               backgroundColor: r.status == 'Verified' ? Colors.green : Colors.orange,
                             ),
-                          ),
-                          DataCell(Text(r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt)),
+                          )),
+                          DataCell(CopyableTableCell(
+                            value: dateStr,
+                            rowSummary: rowSummary,
+                            child: Text(dateStr),
+                          )),
                           DataCell(
                             Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1437,23 +1513,23 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
               children: [
                 ListTile(
                   title: Text(context.l10n.cooDetailsCertTypeAndNumber),
-                  subtitle: Text('${r.certificateType} — #${r.certificateNumber}'),
+                  subtitle: CopyableText('${r.certificateType} — #${r.certificateNumber}'),
                   dense: true,
                 ),
                 ListTile(
                   title: Text(context.l10n.cooDetailsExporterAndImporter),
-                  subtitle: Text('${r.draftInputData?['exporter_name'] != null ? "Exporter" : "المصدر"}: $expName\n${r.draftInputData?['importer_name'] != null ? "Importer" : "المستورد"}: $impName'),
+                  subtitle: CopyableText('${context.l10n.cooDetailsExporterLabel}: $expName\n${context.l10n.cooDetailsImporterLabel}: $impName'),
                   dense: true,
                 ),
                 ListTile(
                   title: Text(context.l10n.cooDetailsOriginAndDestination),
-                  subtitle: Text('$originCountry ➔ $destCountry'),
+                  subtitle: CopyableText('$originCountry ➔ $destCountry'),
                   dense: true,
                 ),
                 if (overrideReason.isNotEmpty)
                   ListTile(
                     title: Text(context.l10n.cooDetailsOverrideReason),
-                    subtitle: Text(overrideReason, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                    subtitle: CopyableText(overrideReason, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                     dense: true,
                   ),
                 if (r.comparisonMatrix.isNotEmpty) ...[
@@ -1462,6 +1538,9 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                   const SizedBox(height: 8),
                   ...r.comparisonMatrix.map((m) {
                     final item = m is Map ? m : {};
+                    final fieldKey = item['field']?.toString() ?? '';
+                    final fieldLabel = _getFieldLabel(fieldKey, item['field_label_ar']?.toString(), context.l10n);
+                    final dText = '$fieldLabel: [${item['draft_value']}] vs [${item['system_value']}]';
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 3),
                       child: Row(
@@ -1470,8 +1549,8 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                               color: item['match_status'] == 'MATCH' ? Colors.green : Colors.orange, size: 16),
                           const SizedBox(width: 6),
                           Expanded(
-                            child: Text(
-                              '${item['field_label_ar'] ?? item['field']}: [${item['draft_value']}] vs [${item['system_value']}]',
+                            child: CopyableText(
+                              dText,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),

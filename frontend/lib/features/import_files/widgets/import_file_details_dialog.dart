@@ -91,6 +91,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                     child: Text(
                       l.visualLoadPlannerTitle,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Container(
@@ -426,8 +427,8 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('تحليل خيارات الحاويات وسيناريوهات التحميل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text('إجمالي الشحنة: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
+                      const Text('تحليل خيارات الحاويات وسيناريوهات التحميل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16), overflow: TextOverflow.ellipsis),
+                      Text('إجمالي الشحنة: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
@@ -618,12 +619,15 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${file.customFileNumber ?? file.importFileCode} (${file.companyName})',
+                  '${file.displayName} (${file.companyName})',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  '${l.importFileIdLabel}: ${file.importFileCode} | ${l.foreignSupplier}: ${file.supplierName} | ${l.status}: ${file.status}',
+                  '${l.importFileIdLabel}: ${file.importFileCode}${file.poNumber != null && file.poNumber!.isNotEmpty ? " | PO: ${file.poNumber!}" : ""}${file.piNumber != null && file.piNumber!.isNotEmpty ? " | PI: ${file.piNumber!}" : ""} | ${l.foreignSupplier}: ${file.supplierName} | ${l.status}: ${file.status}',
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
               ],
             ),
@@ -984,7 +988,17 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
 
                           return TableRow(
                             children: [
-                              Padding(padding: const EdgeInsets.all(8), child: Text(po.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(po.displayName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                    if (po.displayName != po.poNumber)
+                                      Text(po.poNumber, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                  ],
+                                ),
+                              ),
                               Padding(padding: const EdgeInsets.all(8), child: Text(po.proformaInvoiceNumber ?? '-')),
                               Padding(padding: const EdgeInsets.all(8), child: Text(po.supplierName ?? '-')),
                               Padding(
@@ -1020,17 +1034,25 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              '🚚 ${l.cargoStackingScenariosTitle}:',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                            ),
-                          ],
+                        Flexible(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 20),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  '🚚 ${l.cargoStackingScenariosTitle}:',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        Row(
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
@@ -1049,7 +1071,6 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 totalPackingListWeight,
                               ),
                             ),
-                            const SizedBox(width: 8),
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.emerald,
@@ -1409,10 +1430,14 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: badgeColor),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: badgeColor),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -1433,12 +1458,12 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
             style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
           ),
           const SizedBox(height: 6),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
             children: [
               _buildFileMetricPill(l.containerCountPill, l.containerCountUnit(containerCount), badgeColor),
-              const SizedBox(width: 8),
               _buildFileMetricPill(l.spaceAndVolumeUtilPill, '${spaceUtil.toStringAsFixed(1)}%', Colors.orange.shade900),
-              const SizedBox(width: 8),
               _buildFileMetricPill(l.weightUtilPill, '${payloadUtil.toStringAsFixed(1)}%', AppTheme.charcoal),
             ],
           ),

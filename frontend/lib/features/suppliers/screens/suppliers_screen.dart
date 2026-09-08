@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
@@ -36,6 +37,73 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
     Future.microtask(() {
       ref.read(suppliersProvider.notifier).fetchSuppliers();
     });
+  }
+
+  void _copySuppliersTsv(List<SupplierModel> suppliers) {
+    final l10n = context.l10n;
+    final headers = [
+      l10n.supplierTsvHeaderCode,
+      l10n.supplierTsvHeaderName,
+      l10n.supplierTsvHeaderType,
+      l10n.supplierTsvHeaderRegType,
+      l10n.supplierTsvHeaderForeignExporterId,
+      l10n.supplierTsvHeaderCargoxId,
+      l10n.supplierTsvHeaderCountry,
+      l10n.supplierTsvHeaderCountryCode,
+      l10n.supplierTsvHeaderAddress,
+      l10n.supplierTsvHeaderPhone,
+      l10n.supplierTsvHeaderEmail,
+      l10n.supplierTsvHeaderBankName,
+      l10n.supplierTsvHeaderSwiftCode,
+      l10n.supplierTsvHeaderIban,
+      l10n.supplierTsvHeaderStatus,
+      l10n.supplierTsvHeaderBrands,
+      l10n.supplierTsvHeaderNotes,
+    ];
+
+    final buffer = StringBuffer();
+    buffer.writeln(headers.join('\t'));
+
+    for (final s in suppliers) {
+      final row = [
+        s.supplierCode,
+        s.companyName,
+        _getSupplierTypeLabel(context, s.supplierType),
+        _getRegTypeLabel(context, s.registrationType),
+        s.foreignExporterId,
+        s.cargoxPlatformId ?? '',
+        s.foreignExporterCountry,
+        s.foreignExporterCountryCode,
+        s.address,
+        s.phone ?? '',
+        s.email ?? '',
+        s.bankName ?? '',
+        s.swiftCode ?? '',
+        s.iban ?? '',
+        s.isActive ? l10n.statusActive : l10n.statusInactive,
+        s.brands ?? '',
+        s.notes ?? '',
+      ];
+      buffer.writeln(row.map((cell) => cell.replaceAll('\t', ' ').replaceAll('\n', ' ')).join('\t'));
+    }
+
+    CopyHelper.copy(context, buffer.toString(), customMessage: l10n.suppliersExportTsvSuccess);
+  }
+
+  String _buildSupplierSummary(SupplierModel s) {
+    final l10n = context.l10n;
+    return '''
+[${s.supplierCode}] ${s.companyName}
+${l10n.supplierTsvHeaderType}: ${_getSupplierTypeLabel(context, s.supplierType)} | ${l10n.supplierTsvHeaderRegType}: ${_getRegTypeLabel(context, s.registrationType)}
+${l10n.supplierTsvHeaderForeignExporterId}: ${s.foreignExporterId} | ${l10n.supplierTsvHeaderCargoxId}: ${s.cargoxPlatformId ?? '-'}
+${l10n.supplierTsvHeaderCountry}: ${s.foreignExporterCountry} (${s.foreignExporterCountryCode})
+${l10n.supplierTsvHeaderAddress}: ${s.address}
+${l10n.supplierTsvHeaderPhone}: ${s.phone ?? '-'} | ${l10n.supplierTsvHeaderEmail}: ${s.email ?? '-'}
+${l10n.supplierTsvHeaderBankName}: ${s.bankName ?? '-'} | ${l10n.supplierTsvHeaderSwiftCode}: ${s.swiftCode ?? '-'}
+${l10n.supplierTsvHeaderIban}: ${s.iban ?? '-'}
+${l10n.supplierTsvHeaderStatus}: ${s.isActive ? l10n.statusActive : l10n.statusInactive}
+${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
+'''.trim();
   }
 
   String _getSupplierTypeLabel(BuildContext context, String type) {
@@ -82,7 +150,8 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.cloudWhite,
-      body: Padding(
+      body: SelectionArea(
+        child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,9 +184,23 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                   children: [
                     const BackToDashboardButton(),
                     const SizedBox(width: 10),
+                    if (suppliersAsync.valueOrNull != null && suppliersAsync.valueOrNull!.isNotEmpty) ...[
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.table_view_rounded, size: 18),
+                        label: Text(l10n.suppliersExportTsvBtn),
+                        onPressed: () => _copySuppliersTsv(suppliersAsync.valueOrNull!),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.charcoal,
+                          side: const BorderSide(color: AppTheme.charcoal),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
                     ElevatedButton.icon(
                       icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                      label: const Text('تكويد المورد بالذكاء الاصطناعي ✨'),
+                      label: Text(l10n.aiExtractorAndCodingBtn),
                       onPressed: () => UniversalEntityExtractorDialog.showSupplierExtractor(
                         context,
                         onSaved: () => ref.read(suppliersProvider.notifier).fetchSuppliers(),
@@ -235,33 +318,37 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
               child: suppliersAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
                 error: (err, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.wifi_off_rounded, size: 48, color: AppTheme.crimson),
-                      const SizedBox(height: 12),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: Text(
-                          l10n.suppliersFetchError(err.toString()),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.wifi_off_rounded, size: 48, color: AppTheme.crimson),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          child: Text(
+                            l10n.suppliersFetchError(err.toString()),
+                            textAlign: TextAlign.center,
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.cobalt,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: Text(l10n.retryConnectionBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            ref.read(suppliersProvider.notifier).fetchSuppliers();
+                          },
                         ),
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: Text(l10n.retryConnectionBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          ref.read(suppliersProvider.notifier).fetchSuppliers();
-                        },
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 data: (suppliers) {
@@ -309,8 +396,9 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildSupplierRow(SupplierModel supplier) {
     final l10n = context.l10n;
@@ -363,26 +451,51 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                   children: [
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.charcoal.withOpacity(0.1),
+                        Tooltip(
+                          message: l10n.supplierCodeBadgeLabel,
+                          child: InkWell(
                             borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            supplier.supplierCode,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                            onTap: () => CopyHelper.copy(context, supplier.supplierCode),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.charcoal.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    supplier.supplierCode,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.copy_rounded, size: 11, color: AppTheme.charcoal),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          supplier.companyName,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
-                            decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                        Flexible(
+                          child: Text(
+                            supplier.companyName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
+                              decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                            ),
                           ),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 14, color: Colors.grey),
+                          tooltip: l10n.suppliersCopyFieldTooltip,
+                          splashRadius: 16,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => CopyHelper.copy(context, supplier.companyName),
                         ),
                         const SizedBox(width: 8),
                         Container(
@@ -447,7 +560,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
               if (supplier.supplierId != null) ...[
                 IconButton(
                   icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 20),
-                  tooltip: 'بطاقة ذكاء المسار والمورد والتاريخ التفاوضي',
+                  tooltip: l10n.routeIntelligenceBtnTooltip,
                   onPressed: () => showRouteIntelligenceDialog(
                     context,
                     ref,
@@ -457,7 +570,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.verified_user_outlined, color: AppTheme.emerald, size: 20),
-                  tooltip: 'فحص الرقابة على الصادرات والواردات (القرار 43 وشهادة COI)',
+                  tooltip: l10n.goeicVerificationBtnTooltip,
                   onPressed: () => showGOEICVerificationDialog(
                     context,
                     ref,
@@ -467,6 +580,18 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                 ),
                 const SizedBox(width: 4),
               ],
+
+              // Quick Copy Supplier Summary Button
+              IconButton(
+                icon: const Icon(Icons.copy_all_rounded, color: AppTheme.cobalt, size: 20),
+                tooltip: l10n.supplierCopySummaryBtn,
+                onPressed: () => CopyHelper.copy(
+                  context,
+                  _buildSupplierSummary(supplier),
+                  customMessage: l10n.supplierCopySummarySuccess,
+                ),
+              ),
+              const SizedBox(width: 4),
 
               // Standard 4-Action Row Pill: View, Edit, Print, Delete
               RowActionsPill(
@@ -561,9 +686,25 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
       builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            Widget buildCopySuffix(TextEditingController ctrl) {
+              return ValueListenableBuilder<TextEditingValue>(
+                valueListenable: ctrl,
+                builder: (_, val, __) {
+                  if (val.text.trim().isEmpty) return const SizedBox.shrink();
+                  return IconButton(
+                    icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                    tooltip: l10n.suppliersCopyFieldTooltip,
+                    splashRadius: 16,
+                    onPressed: () => CopyHelper.copy(dialogCtx, val.text),
+                  );
+                },
+              );
+            }
+
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: SizedBox(
+              child: SelectionArea(
+                child: SizedBox(
                 width: 650,
                 height: MediaQuery.of(context).size.height * 0.9,
                 child: Column(
@@ -608,6 +749,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                             children: [
                               CustomTextField(
                                 controller: nameCtrl,
+                                suffixIcon: buildCopySuffix(nameCtrl),
                                 label: l10n.supplierCompanyNameLabel,
                                 icon: Icons.business,
                                 isRequired: true,
@@ -661,6 +803,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: expIdCtrl,
+                                      suffixIcon: buildCopySuffix(expIdCtrl),
                                       label: l10n.supplierForeignExporterIdLabel,
                                       icon: Icons.badge,
                                       isRequired: true,
@@ -671,6 +814,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: cargoxPlatformIdCtrl,
+                                      suffixIcon: buildCopySuffix(cargoxPlatformIdCtrl),
                                       label: l10n.cargoxIdLabel,
                                       icon: Icons.verified_user_outlined,
                                       hint: l10n.cargoxIdHint,
@@ -684,6 +828,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: countryCtrl,
+                                      suffixIcon: buildCopySuffix(countryCtrl),
                                       label: l10n.supplierCountryLabel,
                                       icon: Icons.flag,
                                       isRequired: true,
@@ -694,6 +839,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: countryCodeCtrl,
+                                      suffixIcon: buildCopySuffix(countryCodeCtrl),
                                       label: l10n.supplierCountryCodeLabel,
                                       icon: Icons.code,
                                       isRequired: true,
@@ -705,6 +851,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                               const SizedBox(height: 16),
                               CustomTextField(
                                 controller: addressCtrl,
+                                suffixIcon: buildCopySuffix(addressCtrl),
                                 label: l10n.supplierAddressLabel,
                                 icon: Icons.location_on,
                                 isRequired: true,
@@ -716,6 +863,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: emailCtrl,
+                                      suffixIcon: buildCopySuffix(emailCtrl),
                                       label: l10n.supplierEmailLabel,
                                       icon: Icons.email,
                                       hint: l10n.supplierEmailHint,
@@ -725,6 +873,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: secondaryEmailCtrl,
+                                      suffixIcon: buildCopySuffix(secondaryEmailCtrl),
                                       label: l10n.supplierSecondaryEmailLabel,
                                       icon: Icons.mark_email_read_outlined,
                                       hint: l10n.supplierSecondaryEmailHint,
@@ -738,6 +887,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: phoneCtrl,
+                                      suffixIcon: buildCopySuffix(phoneCtrl),
                                       label: l10n.supplierPhoneLabel,
                                       icon: Icons.phone,
                                       hint: l10n.supplierPhoneHint,
@@ -747,6 +897,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: mobileCtrl,
+                                      suffixIcon: buildCopySuffix(mobileCtrl),
                                       label: l10n.supplierMobileLabel,
                                       icon: Icons.smartphone,
                                       hint: l10n.supplierMobileHint,
@@ -756,6 +907,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: faxCtrl,
+                                      suffixIcon: buildCopySuffix(faxCtrl),
                                       label: l10n.supplierFaxLabel,
                                       icon: Icons.print,
                                       hint: l10n.supplierFaxHint,
@@ -766,6 +918,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                               const SizedBox(height: 16),
                               CustomTextField(
                                 controller: websiteCtrl,
+                                suffixIcon: buildCopySuffix(websiteCtrl),
                                 label: l10n.supplierWebsiteLabel,
                                 icon: Icons.language,
                                 hint: l10n.supplierWebsiteHint,
@@ -792,6 +945,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                     const SizedBox(height: 12),
                                     CustomTextField(
                                       controller: bankNameCtrl,
+                                      suffixIcon: buildCopySuffix(bankNameCtrl),
                                       label: l10n.beneficiaryBankNameLabel,
                                       icon: Icons.business,
                                       hint: l10n.beneficiaryBankNameHint,
@@ -802,6 +956,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                         Expanded(
                                           child: CustomTextField(
                                             controller: swiftCodeCtrl,
+                                            suffixIcon: buildCopySuffix(swiftCodeCtrl),
                                             label: l10n.beneficiarySwiftCodeLabel,
                                             icon: Icons.code,
                                             hint: l10n.beneficiarySwiftCodeHint,
@@ -811,6 +966,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                         Expanded(
                                           child: CustomTextField(
                                             controller: accountNumberCtrl,
+                                            suffixIcon: buildCopySuffix(accountNumberCtrl),
                                             label: l10n.beneficiaryAccountNumberLabel,
                                             icon: Icons.numbers,
                                             hint: l10n.beneficiaryAccountNumberHint,
@@ -821,6 +977,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                     const SizedBox(height: 12),
                                     CustomTextField(
                                       controller: ibanCtrl,
+                                      suffixIcon: buildCopySuffix(ibanCtrl),
                                       label: l10n.beneficiaryIbanLabel,
                                       icon: Icons.credit_card,
                                       hint: l10n.beneficiaryIbanHint,
@@ -872,6 +1029,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                               const SizedBox(height: 16),
                               CustomTextField(
                                 controller: brandsCtrl,
+                                suffixIcon: buildCopySuffix(brandsCtrl),
                                 label: l10n.brandsProductLinesLabel,
                                 icon: Icons.branding_watermark,
                                 hint: l10n.brandsProductLinesHint,
@@ -879,6 +1037,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                               const SizedBox(height: 16),
                               CustomTextField(
                                 controller: notesCtrl,
+                                suffixIcon: buildCopySuffix(notesCtrl),
                                 label: l10n.supplierNotesLabel,
                                 icon: Icons.notes,
                                 hint: l10n.supplierNotesHint,
@@ -1013,9 +1172,10 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                   ],
                 ),
               ),
-            );
-          },
-        );
+            ),
+          );
+        },
+      );
       },
     );
   }

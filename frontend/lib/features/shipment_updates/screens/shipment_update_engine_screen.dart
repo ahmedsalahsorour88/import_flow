@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
@@ -28,42 +29,65 @@ class ShipmentUpdateEngineScreen extends ConsumerStatefulWidget {
 class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngineScreen> {
   int? _selectedFileId;
   ImportFileModel? _selectedFile;
-  final TextEditingController _searchController = TextEditingController();
 
-  static const List<Map<String, String>> _allPhases = [
-    {'code': 'Phase 1', 'name': 'P1: التخطيط والجدوى'},
-    {'code': 'Phase 2', 'name': 'P2: الاعتماد المالي'},
-    {'code': 'Phase 3', 'name': 'P3: المستندات و ACID'},
-    {'code': 'Phase 4', 'name': 'P4: حجز الشحن والناقل'},
-    {'code': 'Phase 5', 'name': 'P5: الشحن وتتبع CargoX'},
-    {'code': 'Phase 6', 'name': 'P6: إقرار 46 والتعريفه'},
-    {'code': 'Phase 7', 'name': 'P7: التخليص وسداد الرسوم'},
-    {'code': 'Phase 8', 'name': 'P8: استلام المخازن GRN'},
-    {'code': 'Phase 9', 'name': 'P9: تسوية تكلفة الوصول'},
-    {'code': 'Phase 10', 'name': 'P10: إغلاق الملف والأرشفة'},
+  static const List<String> _phaseCodes = [
+    'Phase 1',
+    'Phase 2',
+    'Phase 3',
+    'Phase 4',
+    'Phase 5',
+    'Phase 6',
+    'Phase 7',
+    'Phase 8',
+    'Phase 9',
+    'Phase 10',
   ];
+
+  String _getPhaseName(AppLocalizations l, String phaseCode) {
+    switch (phaseCode) {
+      case 'Phase 1': return l.shipmentUpdatePhase1Name;
+      case 'Phase 2': return l.shipmentUpdatePhase2Name;
+      case 'Phase 3': return l.shipmentUpdatePhase3Name;
+      case 'Phase 4': return l.shipmentUpdatePhase4Name;
+      case 'Phase 5': return l.shipmentUpdatePhase5Name;
+      case 'Phase 6': return l.shipmentUpdatePhase6Name;
+      case 'Phase 7': return l.shipmentUpdatePhase7Name;
+      case 'Phase 8': return l.shipmentUpdatePhase8Name;
+      case 'Phase 9': return l.shipmentUpdatePhase9Name;
+      case 'Phase 10': return l.shipmentUpdatePhase10Name;
+      default: return phaseCode;
+    }
+  }
+
+  String _getStatusName(AppLocalizations l, String status) {
+    switch (status) {
+      case 'Completed': return l.shipmentUpdateStatusCompleted;
+      case 'Current': return l.shipmentUpdateStatusCurrent;
+      case 'Future': return l.shipmentUpdateStatusFuture;
+      default: return status;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(importFilesProvider.notifier).fetchImportFiles().then((_) {
-        final files = ref.read(importFilesProvider).value ?? [];
-        if (files.isNotEmpty && _selectedFileId == null) {
-          setState(() {
-            _selectedFileId = files.first.importFileId;
-            _selectedFile = files.first;
-          });
-          ref.read(shipmentUpdatesProvider.notifier).fetchLogs(importFileId: files.first.importFileId);
-        }
-      });
+      if (!ref.read(importFilesProvider).isLoading) {
+        ref.read(importFilesProvider.notifier).fetchImportFiles().then((_) {
+          if (!mounted) return;
+          final files = ref.read(importFilesProvider).value ?? [];
+          if (files.isNotEmpty && _selectedFileId == null) {
+            setState(() {
+              _selectedFileId = files.first.importFileId;
+              _selectedFile = files.first;
+            });
+            if (!ref.read(shipmentUpdatesProvider).isLoading) {
+              ref.read(shipmentUpdatesProvider.notifier).fetchLogs(importFileId: files.first.importFileId);
+            }
+          }
+        });
+      }
     });
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   void _onShipmentSelected(int? val, List<ImportFileModel> files) {
@@ -78,6 +102,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final importFilesState = ref.watch(importFilesProvider);
     final updatesState = ref.watch(shipmentUpdatesProvider);
 
@@ -85,17 +110,18 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         backgroundColor: AppTheme.charcoal,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.published_with_changes, color: AppTheme.cobalt),
-            SizedBox(width: 10),
-            Text('محرك تحديث الشحنات التشغيلي واليومي (Operational & Daily Update Engine)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            const Icon(Icons.published_with_changes, color: AppTheme.cobalt),
+            const SizedBox(width: 10),
+            Text(l.shipmentUpdateEngineTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
         actions: [
           const BackToDashboardButton(),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
+            tooltip: l.shipmentUpdateRefreshTooltip,
             onPressed: () {
               ref.read(importFilesProvider.notifier).fetchImportFiles();
               if (_selectedFileId != null) {
@@ -119,10 +145,10 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                 padding: const EdgeInsets.all(16),
                 child: importFilesState.when(
                   loading: () => const LinearProgressIndicator(),
-                  error: (err, _) => Text('خطأ في تحميل الشحنات: $err', style: const TextStyle(color: AppTheme.crimson)),
+                  error: (err, _) => Text(l.shipmentUpdateErrorLoadingShipments(err.toString()), style: const TextStyle(color: AppTheme.crimson)),
                   data: (files) {
                     if (files.isEmpty) {
-                      return const Text('لا توجد شحنات مسجلة بالنظام حتى الآن.');
+                      return Text(l.shipmentUpdateNoShipmentsRegistered);
                     }
 
                     return Row(
@@ -130,10 +156,14 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                         Expanded(
                           child: SearchableDropdownField<int>(
                             value: _selectedFileId,
-                            labelText: 'اختر الشحنة لتشغيل محرك التحديث والفحص المرحلي',
+                            labelText: l.shipmentUpdateSelectShipmentPrompt,
                             items: files.map((f) => SearchableDropdownItem<int>(
                               value: f.importFileId,
-                              label: '${f.customFileNumber ?? f.importFileCode} | المورد: ${f.supplierName} | المرحلة الحالية: ${f.currentModule}',
+                              label: l.shipmentUpdateDropdownLabel(
+                                f.customFileNumber ?? f.importFileCode,
+                                f.supplierName,
+                                f.currentModule,
+                              ),
                             )).toList(),
                             onChanged: (val) => _onShipmentSelected(val, files),
                           ),
@@ -153,7 +183,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                                   );
                                 },
                           icon: const Icon(Icons.today, color: Colors.white),
-                          label: const Text('تحديث يومي شامل عن الشحنة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          label: Text(l.shipmentUpdateComprehensiveDailyCheckinBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     );
@@ -177,13 +207,16 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                         children: [
                           const Icon(Icons.hub, color: AppTheme.cobalt, size: 22),
                           const SizedBox(width: 8),
-                          Text(
-                            'المخطط التفاعلي لمراحل الشحنة (${_selectedFile!.customFileNumber ?? _selectedFile!.importFileCode}) — اضغط على أي مرحلة للتحديث:',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                          Expanded(
+                            child: Text(
+                              l.shipmentUpdatePipelineTitle(_selectedFile!.customFileNumber ?? _selectedFile!.importFileCode),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          const Spacer(),
+                          const SizedBox(width: 8),
                           Text(
-                            'المرحلة الحالية: ${_selectedFile!.currentModule}',
+                            l.shipmentUpdateCurrentStage(_selectedFile!.currentModule),
                             style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12),
                           ),
                         ],
@@ -194,9 +227,8 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
-                          children: _allPhases.map((phaseMap) {
-                            final pCode = phaseMap['code']!;
-                            final pName = phaseMap['name']!;
+                          children: _phaseCodes.map((pCode) {
+                            final pName = _getPhaseName(l, pCode);
 
                             // Find inspection data
                             final insp = updatesState.inspectedPhases.firstWhere(
@@ -249,13 +281,13 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                                         children: [
                                           Icon(statusIcon, size: 16, color: borderCol),
                                           const SizedBox(width: 6),
-                                          Text(insp.status, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: borderCol)),
+                                          Text(_getStatusName(l, insp.status), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: borderCol)),
                                         ],
                                       ),
                                       const SizedBox(height: 6),
                                       Text(pName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textCol), maxLines: 2, overflow: TextOverflow.ellipsis),
                                       const SizedBox(height: 6),
-                                      Text('التحديثات: ${insp.updateCount} سجلات', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                      Text(l.shipmentUpdateCountBadge(insp.updateCount), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                                     ],
                                   ),
                                 ),
@@ -289,14 +321,18 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
               title: 'Shipment_Updates',
               onRefreshNeeded: () {
                 if (_selectedFileId != null) {
-                  ref.read(shipmentUpdatesProvider.notifier).fetchLogs(importFileId: _selectedFileId);
-                  ref.read(customsConsultationsProvider.notifier).fetchConsultations();
+                  if (!ref.read(shipmentUpdatesProvider).isLoading) {
+                    ref.read(shipmentUpdatesProvider.notifier).fetchLogs(importFileId: _selectedFileId);
+                  }
+                  if (!ref.read(customsConsultationsProvider).isLoading) {
+                    ref.read(customsConsultationsProvider.notifier).fetchConsultations();
+                  }
                 }
               },
             ),
             const SizedBox(height: 12),
 
-            // Live Update Logs Table (سجل التحديثات والتحديث اليومي)
+            // Live Update Logs Table
             Expanded(
               child: Card(
                 elevation: 2,
@@ -304,23 +340,23 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                 child: updatesState.isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : updatesState.error != null
-                        ? Center(child: Text('خطأ في جلب سجل التحديثات: ${updatesState.error}', style: const TextStyle(color: AppTheme.crimson)))
+                        ? Center(child: Text(l.shipmentUpdateLogsFetchError(updatesState.error.toString()), style: const TextStyle(color: AppTheme.crimson)))
                         : updatesState.logs.isEmpty
-                            ? const Center(child: Text('لا توجد تحديثات تشغيلية مسجلة لهذه الشحنة حتى الآن.'))
+                            ? Center(child: Text(l.shipmentUpdateLogsEmptyMessage))
                             : SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: SingleChildScrollView(
                                   child: DataTable(
                                     headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
-                                    columns: const [
-                                      DataColumn(label: Text('⚡ العمليات', style: TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('كود التحديث', style: TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('التاريخ', style: TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('نوع التحديث', style: TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('المرحلة المستهدفة', style: TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('ملاحظة وتفاصيل التحديث اليومي والتشغيلي', style: TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('تعديل التكلفة (Cost Adjustment)', style: TextStyle(fontWeight: FontWeight.bold))),
-                                      DataColumn(label: Text('المسئول', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    columns: [
+                                      DataColumn(label: Text(l.shipmentUpdateColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.shipmentUpdateColCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.shipmentUpdateColDate, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.shipmentUpdateColType, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.shipmentUpdateColTargetStage, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.shipmentUpdateColNotes, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.shipmentUpdateColCostAdjustment, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                      DataColumn(label: Text(l.shipmentUpdateColAssignedUser, style: const TextStyle(fontWeight: FontWeight.bold))),
                                     ],
                                     rows: updatesState.logs.map((log) {
                                       final isCostAdj = log.updateCategory == 'Phase Cost Adjustment';
@@ -334,19 +370,19 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                                                 showDialog(
                                                   context: context,
                                                   builder: (c) => AlertDialog(
-                                                    title: Text('تفاصيل التحديث: ${log.updateCode}'),
+                                                    title: Text(l.shipmentUpdateViewDialogTitle(log.updateCode)),
                                                     content: Column(
                                                       mainAxisSize: MainAxisSize.min,
                                                       crossAxisAlignment: CrossAxisAlignment.start,
                                                       children: [
-                                                        Text('المرحلة: ${log.targetPhase}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                                        Text('التاريخ: ${log.logDate}'),
-                                                        Text('المسئول: ${log.assignedUser}'),
+                                                        Text(l.shipmentUpdateViewStage(log.targetPhase), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                                        Text(l.shipmentUpdateViewDate(log.logDate)),
+                                                        Text(l.shipmentUpdateViewUser(log.assignedUser)),
                                                         const SizedBox(height: 8),
-                                                        Text('الملاحظات:\n${log.note}'),
+                                                        Text('${l.shipmentUpdateViewNotes}\n${log.note}'),
                                                       ],
                                                     ),
-                                                    actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('إغلاق'))],
+                                                    actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text(l.shipmentUpdateViewCloseBtn))],
                                                   ),
                                                 );
                                               },
@@ -361,7 +397,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                                               onPrint: () {
                                                 ScaffoldMessenger.of(context).showSnackBar(
                                                   SnackBar(
-                                                    content: Text('طباعة سجل التحديث التشغيلي: ${log.updateCode} (${log.targetPhase})'),
+                                                    content: Text(l.shipmentUpdatePrintSnackBar(log.updateCode, log.targetPhase)),
                                                     backgroundColor: AppTheme.charcoal,
                                                     duration: const Duration(seconds: 2),
                                                   ),
@@ -371,14 +407,14 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                                                 final confirm = await showDialog<bool>(
                                                   context: context,
                                                   builder: (c) => AlertDialog(
-                                                    title: const Text('تأكيد الحذف'),
-                                                    content: Text('هل أنت متأكد من حذف سجل التحديث ${log.updateCode}؟'),
+                                                    title: Text(l.shipmentUpdateDeleteConfirmTitle),
+                                                    content: Text(l.shipmentUpdateDeleteConfirmMsg(log.updateCode)),
                                                     actions: [
-                                                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+                                                      TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.shipmentUpdateDeleteCancelBtn)),
                                                       ElevatedButton(
                                                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
                                                         onPressed: () => Navigator.pop(c, true),
-                                                        child: const Text('تأكيد الحذف', style: TextStyle(color: Colors.white)),
+                                                        child: Text(l.shipmentUpdateDeleteConfirmBtn, style: const TextStyle(color: Colors.white)),
                                                       ),
                                                     ],
                                                   ),
@@ -387,17 +423,22 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                                                   ref.read(shipmentUpdatesProvider.notifier).deleteLog(log.updateId);
                                                 }
                                               },
-                                              viewTooltip: 'عرض تفاصيل التحديث',
-                                              editTooltip: 'تعديل التحديث',
-                                              printTooltip: 'طباعة سجل التحديث',
-                                              deleteTooltip: 'حذف سجل التحديث',
+                                              viewTooltip: l.shipmentUpdateActionViewTooltip,
+                                              editTooltip: l.shipmentUpdateActionEditTooltip,
+                                              printTooltip: l.shipmentUpdateActionPrintTooltip,
+                                              deleteTooltip: l.shipmentUpdateActionDeleteTooltip,
                                             ),
                                           ),
                                           DataCell(Text(log.updateCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
                                           DataCell(Text(log.logDate)),
                                           DataCell(
                                             Chip(
-                                              label: Text(isDaily ? 'تحديث يومي' : log.updateCategory, style: const TextStyle(fontSize: 10, color: Colors.white)),
+                                              label: Text(
+                                                isDaily
+                                                    ? l.shipmentUpdateBadgeDaily
+                                                    : (isCostAdj ? l.shipmentUpdateBadgeCostAdj : log.updateCategory),
+                                                style: const TextStyle(fontSize: 10, color: Colors.white),
+                                              ),
                                               backgroundColor: isDaily ? AppTheme.emerald : (isCostAdj ? AppTheme.orange : AppTheme.cobalt),
                                             ),
                                           ),
@@ -429,6 +470,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
   }
 
   Widget _buildCustomsConsultationSection(List<CustomsConsultationModel> consultations) {
+    final l = context.l10n;
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -444,9 +486,9 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
               children: [
                 const Icon(Icons.gavel_rounded, color: AppTheme.cobalt, size: 22),
                 const SizedBox(width: 8),
-                const Text(
-                  'سجل ونتائج دراسة الاستشارة الجمركية والفحص المستندي (Customs Consultation & Inspection Records)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                Text(
+                  l.shipmentUpdateCustomsSecTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                 ),
                 const Spacer(),
                 Container(
@@ -457,7 +499,9 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                     border: Border.all(color: consultations.isNotEmpty ? AppTheme.emerald.withOpacity(0.4) : Colors.grey.shade300),
                   ),
                   child: Text(
-                    consultations.isNotEmpty ? '${consultations.length} دراسة مسجلة ومحفوظة' : 'لا توجد دراسة مسجلة',
+                    consultations.isNotEmpty
+                        ? l.shipmentUpdateCustomsStudiesCount(consultations.length)
+                        : l.shipmentUpdateCustomsNoStudies,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -477,14 +521,14 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.blue.shade200),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: AppTheme.cobalt, size: 20),
-                    SizedBox(width: 10),
+                    const Icon(Icons.info_outline, color: AppTheme.cobalt, size: 20),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'لم يتم حفظ دراسة استشارة جمركية بعد لملف هذه الشحنة. يمكنك فتح "مركز الاستشارة الجمركية" لإنشاء ومزامنة بنود التعريفة وقائمة المستندات.',
-                        style: TextStyle(fontSize: 12, color: AppTheme.charcoal, fontWeight: FontWeight.w500),
+                        l.shipmentUpdateCustomsEmptyPrompt,
+                        style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, fontWeight: FontWeight.w500),
                       ),
                     ),
                   ],
@@ -534,7 +578,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                             children: [
                               const Icon(Icons.person_outline, size: 16, color: Colors.grey),
                               const SizedBox(width: 4),
-                              Text('المستخلص: ${c.brokerName}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              Text(l.shipmentUpdateBrokerPrefix(c.brokerName), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                             ],
                           ),
                           const SizedBox(width: 10),
@@ -550,18 +594,20 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           _buildMetricBadge(
-                            '💰 الرسوم التقديرية',
+                            l.shipmentUpdateMetricEstDuties,
                             '${c.estimatedDutiesEgp.toStringAsFixed(0)} EGP',
                             AppTheme.crimson,
                           ),
                           _buildMetricBadge(
-                            '📄 المستندات المعتمدة',
-                            '${c.approvedDocumentsCount} من ${c.totalDocumentsCount} مستند',
+                            l.shipmentUpdateMetricApprovedDocs,
+                            l.shipmentUpdateMetricDocsRatio(c.approvedDocumentsCount, c.totalDocumentsCount),
                             Colors.green.shade800,
                           ),
                           _buildMetricBadge(
-                            '🚫 عوائق التخليص (Blocking)',
-                            hasBlocking ? '${c.blockingIssuesCount} عائق معطل' : '0 عوائق (جاهز)',
+                            l.shipmentUpdateMetricBlockingIssues,
+                            hasBlocking
+                                ? l.shipmentUpdateMetricBlockingCount(c.blockingIssuesCount)
+                                : l.shipmentUpdateMetricZeroBlocking,
                             hasBlocking ? AppTheme.crimson : AppTheme.emerald,
                           ),
                           // Progress Bar
@@ -579,7 +625,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text('نسبة الجاهزية:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                                    Text(l.shipmentUpdateMetricReadinessRate, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
                                     Text(
                                       '${readinessPct.toStringAsFixed(0)}%',
                                       style: TextStyle(
@@ -629,7 +675,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                               );
                             },
                             icon: const Icon(Icons.print_rounded, size: 16),
-                            label: const Text('طباعة التقرير (PDF)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text(l.shipmentUpdateBtnPrintPdf, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           ),
                           OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
@@ -639,7 +685,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                             ),
                             onPressed: () => _showConsultationDetailsDialog(c, initialEditMode: false),
                             icon: const Icon(Icons.visibility_rounded, size: 16),
-                            label: const Text('استعراض قائمة الفحص', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text(l.shipmentUpdateBtnViewChecklist, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           ),
                           OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
@@ -649,7 +695,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                             ),
                             onPressed: () => _showConsultationDetailsDialog(c, initialEditMode: true),
                             icon: const Icon(Icons.edit_note_rounded, size: 16),
-                            label: const Text('تعديل ومراجعة المستندات', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text(l.shipmentUpdateBtnEditDocs, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           ),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
@@ -666,7 +712,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                               );
                             },
                             icon: const Icon(Icons.post_add_rounded, color: Colors.white, size: 16),
-                            label: const Text('تسجيل تحديث يومي', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text(l.shipmentUpdateBtnRecordDailyUpdate, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                           ),
                         ],
                       ),
@@ -681,6 +727,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
   }
 
   void _showConsultationDetailsDialog(CustomsConsultationModel session, {bool initialEditMode = false}) {
+    final l = context.l10n;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -718,14 +765,14 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                   Expanded(
                     child: Text(
                       isEditing
-                          ? '✏️ تعديل ومراجعة دراسة الاستشارة: ${session.consultationCode}'
-                          : 'تفاصيل دراسة الاستشارة الجمركية: ${session.consultationCode}',
+                          ? l.shipmentUpdateConsultDialogEditTitle(session.consultationCode)
+                          : l.shipmentUpdateConsultDialogViewTitle(session.consultationCode),
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.print_rounded, color: AppTheme.charcoal),
-                    tooltip: 'طباعة تقرير الاستشارة الجمركية (PDF)',
+                    tooltip: l.shipmentUpdateConsultPrintTooltip,
                     onPressed: () {
                       Printing.layoutPdf(
                         onLayout: (format) =>
@@ -737,7 +784,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                   IconButton(
                     icon: Icon(isEditing ? Icons.visibility_rounded : Icons.edit_rounded,
                         color: isEditing ? AppTheme.cobalt : AppTheme.orange),
-                    tooltip: isEditing ? 'التبديل إلى وضع العرض' : 'التبديل إلى وضع التعديل',
+                    tooltip: isEditing ? l.shipmentUpdateConsultSwitchViewTooltip : l.shipmentUpdateConsultSwitchEditTooltip,
                     onPressed: () => setDialogState(() => isEditing = !isEditing),
                   ),
                 ],
@@ -761,13 +808,13 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('المستخلص: ${session.brokerName}', style: const TextStyle(fontSize: 12)),
-                            Text('الرسوم التقديرية: ${session.estimatedDutiesEgp.toStringAsFixed(2)} EGP',
+                            Text(l.shipmentUpdateConsultBrokerPrefix(session.brokerName), style: const TextStyle(fontSize: 12)),
+                            Text(l.shipmentUpdateConsultEstDuties(session.estimatedDutiesEgp.toStringAsFixed(2)),
                                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 12)),
                             if (isEditing)
                               Row(
                                 children: [
-                                  const Text('الحالة العامة: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  Text(l.shipmentUpdateConsultOverallStatusLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                   DropdownButton<String>(
                                     value: selectedStatus,
                                     isDense: true,
@@ -787,7 +834,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                                 ],
                               )
                             else
-                              Text('الحالة: ${session.overallStatus}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              Text(l.shipmentUpdateConsultStatus(session.overallStatus), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                           ],
                         ),
                       ),
@@ -796,21 +843,21 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                       // Metrics Summary
                       Row(
                         children: [
-                          _buildMetricBadge('نسبة الجاهزية', '${readinessPct.toStringAsFixed(0)}%', readinessPct >= 80 ? Colors.green : Colors.blue),
+                          _buildMetricBadge(l.shipmentUpdateConsultReadinessRateLabel, '${readinessPct.toStringAsFixed(0)}%', readinessPct >= 80 ? Colors.green : Colors.blue),
                           const SizedBox(width: 8),
-                          _buildMetricBadge('إجمالي المستندات', '$totalCount', Colors.grey),
+                          _buildMetricBadge(l.shipmentUpdateConsultTotalDocsLabel, '$totalCount', Colors.grey),
                           const SizedBox(width: 8),
-                          _buildMetricBadge('المعتمد', '$approvedCount', Colors.green),
+                          _buildMetricBadge(l.shipmentUpdateConsultApprovedLabel, '$approvedCount', Colors.green),
                           const SizedBox(width: 8),
-                          _buildMetricBadge('عوائق التخليص (Blocking)', '$blockingCount', blockingCount > 0 ? Colors.red : Colors.green),
+                          _buildMetricBadge(l.shipmentUpdateConsultBlockingLabel, '$blockingCount', blockingCount > 0 ? Colors.red : Colors.green),
                         ],
                       ),
                       const SizedBox(height: 16),
 
                       Row(
                         children: [
-                          const Text('قائمة فحص المستندات والاشتراطات الجمركية المربوطة بالشحنة:',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          Text(l.shipmentUpdateConsultChecklistSectionTitle,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                           const Spacer(),
                           if (isEditing)
                             Container(
@@ -819,8 +866,8 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                                 color: Colors.orange.shade100,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text('⚡ وضع التعديل التفاعلي مفعل — اضغط لتحديث حالة أي مستند',
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),
+                              child: Text(l.shipmentUpdateConsultEditModeBanner,
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),
                             ),
                         ],
                       ),
@@ -838,11 +885,11 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                         children: [
                           TableRow(
                             decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                            children: const [
-                              Padding(padding: EdgeInsets.all(8), child: Text('نوع المستند والبنود', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              Padding(padding: EdgeInsets.all(8), child: Text('الجهة المسؤولة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              Padding(padding: EdgeInsets.all(8), child: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              Padding(padding: EdgeInsets.all(8), child: Text('ملاحظات والاشتراطات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            children: [
+                              Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColDocType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColResponsibleParty, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColStatus, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColRemarks, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                             ],
                           ),
                           ...editableItems.asMap().entries.map((entry) {
@@ -859,30 +906,52 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Row(
-                                        children: [
-                                          if (doc.isBlockingShipment)
-                                            const Tooltip(
-                                              message: 'عائق معطل للشحن/التخليص الجمركي',
-                                              child: Icon(Icons.block, color: Colors.red, size: 14),
-                                            ),
-                                          if (doc.isBlockingShipment) const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              doc.documentType,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 11.5,
-                                                color: doc.isBlockingShipment ? Colors.red.shade900 : AppTheme.charcoal,
+                                      Builder(
+                                        builder: (context) {
+                                          final statusLower = doc.status.toLowerCase();
+                                          final isApproved = statusLower == 'approved' ||
+                                              statusLower == 'verified' ||
+                                              statusLower == 'completed' ||
+                                              statusLower == 'received' ||
+                                              statusLower == 'obtained' ||
+                                              statusLower.contains('معتمد') ||
+                                              statusLower.contains('مستوفى');
+                                          final isRejected = statusLower == 'rejected' ||
+                                              statusLower.contains('مرفوض');
+                                          final isBlocking = doc.isBlockingShipment && !isApproved;
+
+                                          return Row(
+                                            children: [
+                                              if (isApproved)
+                                                const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 14)
+                                              else if (isRejected)
+                                                const Icon(Icons.cancel_rounded, color: AppTheme.crimson, size: 14)
+                                              else if (isBlocking)
+                                                Tooltip(
+                                                  message: l.shipmentUpdateConsultBlockingTooltip,
+                                                  child: const Icon(Icons.block, color: Colors.red, size: 14),
+                                                )
+                                              else
+                                                const Icon(Icons.hourglass_top_rounded, color: Colors.orange, size: 14),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  doc.documentType,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 11.5,
+                                                    color: isBlocking ? Colors.red.shade900 : AppTheme.charcoal,
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                          ),
-                                        ],
+                                            ],
+                                          );
+                                        },
                                       ),
                                       if (doc.hsCode != null && doc.hsCode!.isNotEmpty)
                                         Padding(
                                           padding: const EdgeInsets.only(top: 2),
-                                          child: Text('بنود: ${doc.hsCode}',
+                                          child: Text(l.shipmentUpdateConsultHsCodesPrefix(doc.hsCode!),
                                               style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
                                         ),
                                     ],
@@ -951,7 +1020,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                     );
                   },
                   icon: const Icon(Icons.print_rounded, size: 16),
-                  label: const Text('طباعة التقرير (PDF)'),
+                  label: Text(l.shipmentUpdateBtnPrintPdf),
                 ),
                 if (isEditing)
                   ElevatedButton.icon(
@@ -974,7 +1043,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('✅ تم حفظ وتحديث دراسة الاستشارة الجمركية ${session.consultationCode} بنجاح!'),
+                                    content: Text(l.shipmentUpdateConsultSaveSuccess(session.consultationCode)),
                                     backgroundColor: AppTheme.emerald,
                                   ),
                                 );
@@ -983,7 +1052,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                               setDialogState(() => isSaving = false);
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('خطأ في حفظ التعديلات: $e'), backgroundColor: AppTheme.crimson),
+                                  SnackBar(content: Text(l.shipmentUpdateConsultSaveError(e.toString())), backgroundColor: AppTheme.crimson),
                                 );
                               }
                             }
@@ -992,13 +1061,13 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Icon(Icons.save, color: Colors.white, size: 16),
                     label: Text(
-                      isSaving ? 'جاري الحفظ...' : '💾 حفظ التعديلات',
+                      isSaving ? l.shipmentUpdateConsultSavingBtn : l.shipmentUpdateConsultSaveBtn,
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ),
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('إغلاق'),
+                  child: Text(l.shipmentUpdateConsultCloseBtn),
                 ),
               ],
             );

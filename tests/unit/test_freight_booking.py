@@ -235,5 +235,91 @@ class TestFreightBookingBackend:
         assert exc_info.value.status_code == 400
         assert "يوجد بالفعل حجز شحن مسجل لهذا الملف الاستيرادي" in exc_info.value.detail
 
+    def test_cost_savings_calculation_40ft(self, db_session):
+        # 2x 40ft container: quoted at 8280.0, negotiated down to 7750.0
+        # Savings = (8280 - 7750) * 2 = 1060 USD
+        payload = ShipmentBookingCreate(
+            booking_confirmation_no="WHL-SAV-40FT",
+            shipping_line_name="Wan Hai Lines Ltd.",
+            shipment_type="Ocean FCL",
+            original_freight_cost_usd=16560.0,
+            quotation_details_data={
+                "original_quote_total_usd": 16560.0,
+                "original_container_40ft_price": 8280.0,
+                "container_40ft_app": True,
+                "container_40ft_price": 7750.0,
+                "container_40ft_qty": 2,
+            },
+            containers_data=[
+                ContainerAllocationItem(container_type="40HC", quantity=2)
+            ],
+            cost_charges_data=[
+                BookingChargeItem(charge_type="Sea Freight 40ft", unit="Per Container", quantity=2, rate=7750.0, total=15500.0)
+            ],
+        )
+        booking = create_booking_service(db_session, payload)
+        assert booking.original_freight_cost_usd == 16560.0
+        assert booking.total_freight_cost_usd == 15500.0
+        assert booking.cost_savings_usd == 1060.0
+        assert booking.cost_variance_usd == 1060.0
+        assert "Sea Freight 40ft" in booking.savings_notes
+        assert "1,060.00 USD" in booking.savings_notes
+        assert len(booking.quotation_details_data["savings_breakdown"]) == 1
+        assert booking.quotation_details_data["savings_breakdown"][0]["unit_diff"] == 530.0
+        assert booking.quotation_details_data["savings_breakdown"][0]["quantity"] == 2
+        assert booking.quotation_details_data["savings_breakdown"][0]["item_savings"] == 1060.0
+
+    def test_cost_savings_calculation_20ft_and_lcl(self, db_session):
+        # 3x 20ft container: quoted at 2500.0, negotiated to 2200.0 (savings = 300 * 3 = 900)
+        # Plus LCL: 10 CBM quoted at 80.0, negotiated to 70.0 (savings = 10 * 10 = 100)
+        # Total savings = 1000.0 USD
+        payload = ShipmentBookingCreate(
+            booking_confirmation_no="MSC-SAV-20FT-LCL",
+            shipping_line_name="MSC",
+            shipment_type="Ocean FCL",
+            quotation_details_data={
+                "original_quote_total_usd": 8300.0,
+                "original_container_20ft_price": 2500.0,
+                "original_lcl_cbm_price": 80.0,
+                "container_20ft_app": True,
+                "container_20ft_price": 2200.0,
+                "container_20ft_qty": 3,
+                "lcl_cbm_app": True,
+                "lcl_cbm_price": 70.0,
+                "lcl_cbm_qty": 10.0,
+            },
+            containers_data=[
+                ContainerAllocationItem(container_type="20GP", quantity=3)
+            ],
+            cost_charges_data=[
+                BookingChargeItem(charge_type="Sea Freight 20ft", unit="Per Container", quantity=3, rate=2200.0, total=6600.0),
+                BookingChargeItem(charge_type="LCL CBM Freight", unit="Per CBM", quantity=10, rate=70.0, total=700.0),
+            ],
+        )
+        booking = create_booking_service(db_session, payload)
+        assert booking.original_freight_cost_usd == 8300.0
+        assert booking.total_freight_cost_usd == 7300.0
+        assert booking.cost_savings_usd == 1000.0
+        assert len(booking.quotation_details_data["savings_breakdown"]) == 2
+
+    def test_cost_increase_scenario(self, db_session):
+        # Executed price higher than original quote
+        payload = ShipmentBookingCreate(
+            booking_confirmation_no="AIR-INC-01",
+            shipping_line_name="EgyptAir Cargo",
+            shipment_type="Air Freight",
+            original_freight_cost_usd=2000.0,
+            cost_charges_data=[
+                BookingChargeItem(charge_type="Air Freight", unit="Per Shipment", quantity=1, rate=2500.0, total=2500.0)
+            ],
+        )
+        booking = create_booking_service(db_session, payload)
+        assert booking.original_freight_cost_usd == 2000.0
+        assert booking.total_freight_cost_usd == 2500.0
+        assert booking.cost_savings_usd == 0.0
+        assert booking.cost_variance_usd == -500.0
+        assert "زيادة في تكلفة الشحن" in booking.savings_notes
+
+
 
 

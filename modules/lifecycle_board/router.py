@@ -14,6 +14,7 @@ from modules.lifecycle_board.schemas import (
     StepAdvancePayload,
     SkipStepPayload,
     MultiStageSetPayload,
+    LifecycleSyncRequest,
 )
 import modules.lifecycle_board.service as service
 
@@ -54,6 +55,27 @@ def get_shipment_stages(import_file_code: str, db: Session = Depends(get_db)):
 )
 def advance_step(payload: StepAdvancePayload, db: Session = Depends(get_db)):
     return service.advance_step_service(db, payload)
+
+
+@router.post(
+    "/stages/sync",
+    status_code=status.HTTP_200_OK,
+    summary="Generic centralized lifecycle synchronization engine for all 21 operational steps",
+)
+def sync_lifecycle_step(payload: LifecycleSyncRequest, db: Session = Depends(get_db)):
+    return service.advance_lifecycle_step_service(
+        db=db,
+        completed_step_code=payload.completed_step_code,
+        import_file_code=payload.import_file_code,
+        import_file_id=payload.import_file_id,
+        target_step_codes=payload.target_step_codes,
+        auto_complete_prior=payload.auto_complete_prior,
+        assigned_user=payload.assigned_user,
+        action_data=payload.action_data,
+        notes=payload.notes,
+        source_module=payload.source_module,
+    )
+
 
 
 @router.post(

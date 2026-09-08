@@ -17,12 +17,12 @@ void main() {
         message: 'جارٍ فحص ومزامنة جدول: cargo_insurance_certificates (55/73)',
       );
 
-      final diffSummary = SyncDiffSummary(
+      const diffSummary = SyncDiffSummary(
         exists: true,
         targetExists: true,
         totalNewRecords: 5,
         tablesWithDiff: 1,
-        tables: const [
+        tables: [
           SyncTableDiff(
             tableName: 'transport_locations',
             devCount: 261,
@@ -71,12 +71,12 @@ void main() {
     });
 
     testWidgets('allows searching for a specific table', (WidgetTester tester) async {
-      final diffSummary = SyncDiffSummary(
+      const diffSummary = SyncDiffSummary(
         exists: true,
         targetExists: true,
         totalNewRecords: 12,
         tablesWithDiff: 2,
-        tables: const [
+        tables: [
           SyncTableDiff(
             tableName: 'cargo_shipping_records',
             devCount: 14,

@@ -31,6 +31,7 @@ import '../../features/smart_tasks/providers/smart_tasks_provider.dart';
 import '../../features/suppliers/providers/suppliers_provider.dart';
 import '../../features/transport_locations/providers/transport_locations_provider.dart';
 import '../../features/warehouse_receiving/providers/warehouse_receiving_provider.dart';
+import '../../features/warehouse_receiving/providers/goods_in_transit_provider.dart';
 
 // ============================================================
 // Navigation Index Provider
@@ -113,9 +114,12 @@ _ScreenTabInfo _getScreenTabInfo(int index) {
     case 2: return const _ScreenTabInfo('أوامر الشراء', Icons.shopping_cart_outlined);
     case 3: return const _ScreenTabInfo('حاسبة الحجم CBM', Icons.calculate_outlined);
     case 4:
-    case 5: return const _ScreenTabInfo('دراسات الشحن', Icons.compare_arrows_outlined);
+    case 5: return const _ScreenTabInfo('دراسات النولون والجدول الزمني', Icons.analytics_outlined);
+    case 49: return const _ScreenTabInfo('طلب ومقارنة عروض النولون', Icons.request_quote_outlined);
     case 6:
-    case 7: return const _ScreenTabInfo('استشارات التعريفة', Icons.gavel_outlined);
+    case 7:
+    case 55:
+    case 56: return const _ScreenTabInfo('الدراسات الجمركية وعروض التخليص', Icons.gavel_outlined);
     case 8:
     case 9:
     case 10: return const _ScreenTabInfo('الموافقات المالية', Icons.monetization_on_outlined);
@@ -130,24 +134,45 @@ _ScreenTabInfo _getScreenTabInfo(int index) {
     case 19:
     case 20:
     case 21:
-    case 22: return const _ScreenTabInfo('مسودات المستندات', Icons.description_outlined);
+    case 22:
+    case 53: return const _ScreenTabInfo('مراجعة مسودات المستندات', Icons.assignment_turned_in_outlined);
     case 23:
     case 24: return const _ScreenTabInfo('شهادة الإجراء 46', Icons.verified_outlined);
     case 25: return const _ScreenTabInfo('حجز الشحن الملاحي', Icons.directions_boat_outlined);
-    case 26: return const _ScreenTabInfo('تخصيص الشحن', Icons.local_shipping_outlined);
-    case 27: return const _ScreenTabInfo('التخليص الجمركي', Icons.security_outlined);
-    case 28: return const _ScreenTabInfo('استلام المخازن', Icons.warehouse_outlined);
-    case 29: return const _ScreenTabInfo('التسوية المالية', Icons.receipt_long_outlined);
+    case 26:
+    case 52: return const _ScreenTabInfo('حركة وتتبع الشحن', Icons.directions_boat_outlined);
+    case 27:
+    case 60:
+    case 61:
+    case 62: return const _ScreenTabInfo('التخليص الجمركي والكشف', Icons.fact_check_outlined);
+    case 28:
+    case 63:
+    case 64: return const _ScreenTabInfo('مركز المخازن والاستلام', Icons.warehouse_outlined);
+    case 29:
+    case 50: return const _ScreenTabInfo('التسوية وتكلفة الوصول', Icons.price_check_outlined);
     case 30: return const _ScreenTabInfo('إغلاق الملف الاستيرادي', Icons.task_alt_outlined);
     case 31: return const _ScreenTabInfo('المشاريع', Icons.business_outlined);
     case 32: return const _ScreenTabInfo('الشركات المستوردة', Icons.domain_outlined);
     case 33: return const _ScreenTabInfo('الموردون الأجانب', Icons.apartment_outlined);
     case 34: return const _ScreenTabInfo('الشركاء والبنوك', Icons.handshake_outlined);
+    case 35: return const _ScreenTabInfo('الشروط التجارية الدولية', Icons.handshake_outlined);
+    case 36:
+    case 45: return const _ScreenTabInfo('جدول ومستكشف التعريفة', Icons.description_outlined);
+    case 37: return const _ScreenTabInfo('الموانئ والمنافذ الجمركية', Icons.location_on_outlined);
+    case 38: return const _ScreenTabInfo('العملات وأسعار الصرف', Icons.currency_exchange_outlined);
+    case 39: return const _ScreenTabInfo('سجل التدقيق والرقابة', Icons.history_edu_outlined);
     case 40: return const _ScreenTabInfo('المهام الذكية', Icons.checklist_outlined);
     case 41: return const _ScreenTabInfo('منشئ التقارير', Icons.bar_chart_outlined);
+    case 42: return const _ScreenTabInfo('محرك التحديث السريع', Icons.published_with_changes_outlined);
+    case 43: return const _ScreenTabInfo('اشتراطات الاستيراد', Icons.verified_outlined);
     case 44: return const _ScreenTabInfo('رادار الغرامات والأرضيات', Icons.timer_outlined);
+    case 46: return const _ScreenTabInfo('مطابقة سويفت والتحويلات', Icons.sync_alt_rounded);
+    case 47: return const _ScreenTabInfo('تقرير الشحنة الشامل', Icons.summarize_outlined);
     case 48: return const _ScreenTabInfo('مخطط دورة الحياة', Icons.view_kanban_outlined);
-    case 49: return const _ScreenTabInfo('مقارنة عروض النولون', Icons.request_quote_outlined);
+    case 51: return const _ScreenTabInfo('الأرشيف المركزي للمستندات', Icons.inventory_2_outlined);
+    case 54:
+    case 57:
+    case 58: return const _ScreenTabInfo('منظومة CargoX وأصول المستندات', Icons.cloud_upload_outlined);
     case 59: return const _ScreenTabInfo('Production Sync', Icons.sync_alt_rounded);
     case 65: return const _ScreenTabInfo('تأمين الشحن البحري', Icons.shield_outlined);
     case 66: return const _ScreenTabInfo('إدارة المستخدمين', Icons.manage_accounts_rounded);
@@ -248,7 +273,10 @@ void _liveRefreshScreenData(WidgetRef ref, int index) {
       ref.read(customsClearanceProvider.notifier).fetchRecords();
       break;
     case 28:
+    case 63:
+    case 64:
       ref.read(warehouseReceivingProvider.notifier).fetchRecords();
+      ref.read(goodsInTransitProvider.notifier).initLedger();
       break;
     case 29:
     case 50:

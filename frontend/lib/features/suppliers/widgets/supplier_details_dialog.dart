@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/master_data_export_service.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/supplier_model.dart';
 
 class SupplierDetailsDialog extends StatelessWidget {
@@ -36,7 +36,8 @@ class SupplierDetailsDialog extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       backgroundColor: Colors.transparent,
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: 760,
         constraints: const BoxConstraints(maxHeight: 780),
         decoration: BoxDecoration(
@@ -102,18 +103,9 @@ class SupplierDetailsDialog extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Tooltip(
-                              message: 'نسخ اسم المورد',
+                              message: l10n.suppliersCopyFieldTooltip,
                               child: InkWell(
-                                onTap: () {
-                                  Clipboard.setData(ClipboardData(text: supplier.companyName));
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(l10n.copiedToClipboard(supplier.companyName)),
-                                      duration: const Duration(seconds: 1),
-                                      backgroundColor: AppTheme.emerald,
-                                    ),
-                                  );
-                                },
+                                onTap: () => CopyHelper.copy(context, supplier.companyName),
                                 borderRadius: BorderRadius.circular(4),
                                 child: Container(
                                   padding: const EdgeInsets.all(5),
@@ -122,6 +114,36 @@ class SupplierDetailsDialog extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Icon(Icons.copy_rounded, size: 15, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Tooltip(
+                              message: l10n.supplierCopySummaryBtn,
+                              child: InkWell(
+                                onTap: () {
+                                  final summary = '''
+[${supplier.supplierCode}] ${supplier.companyName}
+${l10n.supplierTsvHeaderType}: ${supplier.supplierType} | ${l10n.supplierTsvHeaderRegType}: ${supplier.registrationType}
+${l10n.supplierTsvHeaderForeignExporterId}: ${supplier.foreignExporterId} | ${l10n.supplierTsvHeaderCargoxId}: ${supplier.cargoxPlatformId ?? '-'}
+${l10n.supplierTsvHeaderCountry}: ${supplier.foreignExporterCountry} (${supplier.foreignExporterCountryCode})
+${l10n.supplierTsvHeaderAddress}: ${supplier.address}
+${l10n.supplierTsvHeaderPhone}: ${supplier.phone ?? '-'} | ${l10n.supplierTsvHeaderEmail}: ${supplier.email ?? '-'}
+${l10n.supplierTsvHeaderBankName}: ${supplier.bankName ?? '-'} | ${l10n.supplierTsvHeaderSwiftCode}: ${supplier.swiftCode ?? '-'}
+${l10n.supplierTsvHeaderIban}: ${supplier.iban ?? '-'}
+${l10n.supplierTsvHeaderStatus}: ${supplier.isActive ? l10n.statusActive : l10n.statusInactive}
+${l10n.supplierTsvHeaderBrands}: ${supplier.brands ?? '-'}
+'''.trim();
+                                  CopyHelper.copy(context, summary, customMessage: l10n.supplierCopySummarySuccess);
+                                },
+                                borderRadius: BorderRadius.circular(4),
+                                child: Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(Icons.copy_all_rounded, size: 15, color: Colors.white),
                                 ),
                               ),
                             ),
@@ -501,8 +523,9 @@ class SupplierDetailsDialog extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildSectionHeader(IconData icon, String title) {
     return Row(
@@ -580,12 +603,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                   ),
                   if (value != '-' && value != l10n.notRegisteredCargoX)
                     InkWell(
-                      onTap: () {
-                        Clipboard.setData(ClipboardData(text: value));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(l10n.copiedToClipboard(value)), duration: const Duration(seconds: 1)),
-                        );
-                      },
+                      onTap: () => CopyHelper.copy(context, value),
                       child: const Icon(Icons.copy, size: 13, color: Colors.grey),
                     ),
                 ],
@@ -663,11 +681,8 @@ class SupplierDetailsDialog extends StatelessWidget {
             icon: const Icon(Icons.copy, color: Colors.white, size: 16),
             label: Text(l10n.copyWhatsappTextBtn, style: const TextStyle(color: Colors.white)),
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: text));
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(l10n.whatsappCopiedSuccess), backgroundColor: AppTheme.emerald),
-              );
+              CopyHelper.copy(context, text, customMessage: l10n.whatsappCopiedSuccess);
             },
           ),
         ],
@@ -720,11 +735,8 @@ class SupplierDetailsDialog extends StatelessWidget {
             icon: const Icon(Icons.copy, color: Colors.white, size: 16),
             label: Text(l10n.copyEmailTextBtn, style: const TextStyle(color: Colors.white)),
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: '${l10n.emailSubjectPrefix(subject)}\n\n$body'));
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(l10n.emailCopiedSuccess), backgroundColor: AppTheme.emerald),
-              );
+              CopyHelper.copy(context, '${l10n.emailSubjectPrefix(subject)}\n\n$body', customMessage: l10n.emailCopiedSuccess);
             },
           ),
         ],

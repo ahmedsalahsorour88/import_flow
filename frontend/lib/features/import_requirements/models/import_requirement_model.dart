@@ -7,11 +7,48 @@ class ImportRequirementHSCodeItemModel {
   final double itemValue;
   final double quantity;
   final String unitOfMeasure;
+
+  // Pillar 1: Decree 43 & Factory Registration
   final bool decree43Applicable;
+  final bool whiteListRequired;
+  final bool whiteListVerified;
+  final String? factoryRegistrationNo;
+  final String? decree43Action; // 'verified', 'justified', 'task_created', 'pending'
+  final String? decree43Justification; // سبب الاعتماد / مبرر الاستثناء
+  final String? decree43Notes;
+
+  // Pillar 2: COO & Trade Agreements
   final bool cooRequired;
+  final String? cooType;
+  final String cooStatus;
+  final String? cooNotes;
+
+  // Pillar 3: Pre-Shipment Inspection
   final bool inspectionRequired;
+  final String? inspectionBody;
+  final String inspectionStatus;
+  final String? inspectionReportNo;
+  final String? inspectionNotes;
+
+  // Pillar 4: Prior Regulatory Permits
   final bool permitRequired;
   final String? regulatoryAuthority;
+  final String? permitNumber;
+  final String permitStatus;
+  final String? permitNotes;
+
+  // Pillar 5: Technical Certificates
+  final bool msdsRequired;
+  final String msdsStatus;
+  final String? msdsNotes;
+  final bool halalCertRequired;
+  final String halalCertStatus;
+  final String? halalCertNotes;
+  final bool coaRequired;
+  final String coaStatus;
+  final String? coaNotes;
+  final String? specialNotes;
+  final String? technicalNotes;
 
   ImportRequirementHSCodeItemModel({
     required this.hsCode,
@@ -23,11 +60,153 @@ class ImportRequirementHSCodeItemModel {
     this.quantity = 1.0,
     this.unitOfMeasure = 'PCS',
     this.decree43Applicable = false,
+    this.whiteListRequired = false,
+    this.whiteListVerified = false,
+    this.factoryRegistrationNo,
+    this.decree43Action,
+    this.decree43Justification,
+    this.decree43Notes,
     this.cooRequired = false,
+    this.cooType = 'EUR.1',
+    this.cooStatus = 'Not Required',
+    this.cooNotes,
     this.inspectionRequired = false,
+    this.inspectionBody = 'SGS',
+    this.inspectionStatus = 'Not Required',
+    this.inspectionReportNo,
+    this.inspectionNotes,
     this.permitRequired = false,
     this.regulatoryAuthority,
+    this.permitNumber,
+    this.permitStatus = 'Not Required',
+    this.permitNotes,
+    this.msdsRequired = false,
+    this.msdsStatus = 'Not Required',
+    this.msdsNotes,
+    this.halalCertRequired = false,
+    this.halalCertStatus = 'Not Required',
+    this.halalCertNotes,
+    this.coaRequired = false,
+    this.coaStatus = 'Not Required',
+    this.coaNotes,
+    this.specialNotes,
+    this.technicalNotes,
   });
+
+  bool isPillarFulfilled(int pillarIndex) {
+    switch (pillarIndex) {
+      case 0:
+        return !decree43Applicable || whiteListVerified || (decree43Justification != null && decree43Justification!.trim().isNotEmpty);
+      case 1:
+        return !cooRequired || ['Obtained', 'Waived', 'Approved', 'Verified'].contains(cooStatus);
+      case 2:
+        return !inspectionRequired || ['Completed', 'Approved', 'Verified'].contains(inspectionStatus);
+      case 3:
+        return !permitRequired || ['Approved', 'Verified'].contains(permitStatus);
+      case 4:
+        return (!msdsRequired || ['Obtained', 'Approved', 'Verified'].contains(msdsStatus)) &&
+               (!halalCertRequired || ['Obtained', 'Approved', 'Verified'].contains(halalCertStatus)) &&
+               (!coaRequired || ['Obtained', 'Approved', 'Verified'].contains(coaStatus));
+      default:
+        return false;
+    }
+  }
+
+  int get fulfilledPillarsCount {
+    int count = 0;
+    for (int i = 0; i < 5; i++) {
+      if (isPillarFulfilled(i)) count++;
+    }
+    return count;
+  }
+
+  bool get isFullyCompliant => fulfilledPillarsCount == 5;
+
+  ImportRequirementHSCodeItemModel copyWith({
+    String? hsCode,
+    String? commodityDescription,
+    String? itemCode,
+    String? countryOfOrigin,
+    String? currency,
+    double? itemValue,
+    double? quantity,
+    String? unitOfMeasure,
+    bool? decree43Applicable,
+    bool? whiteListRequired,
+    bool? whiteListVerified,
+    String? factoryRegistrationNo,
+    String? decree43Action,
+    String? decree43Justification,
+    String? decree43Notes,
+    bool? cooRequired,
+    String? cooType,
+    String? cooStatus,
+    String? cooNotes,
+    bool? inspectionRequired,
+    String? inspectionBody,
+    String? inspectionStatus,
+    String? inspectionReportNo,
+    String? inspectionNotes,
+    bool? permitRequired,
+    String? regulatoryAuthority,
+    String? permitNumber,
+    String? permitStatus,
+    String? permitNotes,
+    bool? msdsRequired,
+    String? msdsStatus,
+    String? msdsNotes,
+    bool? halalCertRequired,
+    String? halalCertStatus,
+    String? halalCertNotes,
+    bool? coaRequired,
+    String? coaStatus,
+    String? coaNotes,
+    String? specialNotes,
+    String? technicalNotes,
+  }) {
+    return ImportRequirementHSCodeItemModel(
+      hsCode: hsCode ?? this.hsCode,
+      commodityDescription: commodityDescription ?? this.commodityDescription,
+      itemCode: itemCode ?? this.itemCode,
+      countryOfOrigin: countryOfOrigin ?? this.countryOfOrigin,
+      currency: currency ?? this.currency,
+      itemValue: itemValue ?? this.itemValue,
+      quantity: quantity ?? this.quantity,
+      unitOfMeasure: unitOfMeasure ?? this.unitOfMeasure,
+      decree43Applicable: decree43Applicable ?? this.decree43Applicable,
+      whiteListRequired: whiteListRequired ?? this.whiteListRequired,
+      whiteListVerified: whiteListVerified ?? this.whiteListVerified,
+      factoryRegistrationNo: factoryRegistrationNo ?? this.factoryRegistrationNo,
+      decree43Action: decree43Action ?? this.decree43Action,
+      decree43Justification: decree43Justification ?? this.decree43Justification,
+      decree43Notes: decree43Notes ?? this.decree43Notes,
+      cooRequired: cooRequired ?? this.cooRequired,
+      cooType: cooType ?? this.cooType,
+      cooStatus: cooStatus ?? this.cooStatus,
+      cooNotes: cooNotes ?? this.cooNotes,
+      inspectionRequired: inspectionRequired ?? this.inspectionRequired,
+      inspectionBody: inspectionBody ?? this.inspectionBody,
+      inspectionStatus: inspectionStatus ?? this.inspectionStatus,
+      inspectionReportNo: inspectionReportNo ?? this.inspectionReportNo,
+      inspectionNotes: inspectionNotes ?? this.inspectionNotes,
+      permitRequired: permitRequired ?? this.permitRequired,
+      regulatoryAuthority: regulatoryAuthority ?? this.regulatoryAuthority,
+      permitNumber: permitNumber ?? this.permitNumber,
+      permitStatus: permitStatus ?? this.permitStatus,
+      permitNotes: permitNotes ?? this.permitNotes,
+      msdsRequired: msdsRequired ?? this.msdsRequired,
+      msdsStatus: msdsStatus ?? this.msdsStatus,
+      msdsNotes: msdsNotes ?? this.msdsNotes,
+      halalCertRequired: halalCertRequired ?? this.halalCertRequired,
+      halalCertStatus: halalCertStatus ?? this.halalCertStatus,
+      halalCertNotes: halalCertNotes ?? this.halalCertNotes,
+      coaRequired: coaRequired ?? this.coaRequired,
+      coaStatus: coaStatus ?? this.coaStatus,
+      coaNotes: coaNotes ?? this.coaNotes,
+      specialNotes: specialNotes ?? this.specialNotes,
+      technicalNotes: technicalNotes ?? this.technicalNotes,
+    );
+  }
 
   factory ImportRequirementHSCodeItemModel.fromJson(Map<String, dynamic> json) {
     return ImportRequirementHSCodeItemModel(
@@ -40,10 +219,37 @@ class ImportRequirementHSCodeItemModel {
       quantity: (json['quantity'] as num?)?.toDouble() ?? 1.0,
       unitOfMeasure: json['unit_of_measure'] ?? 'PCS',
       decree43Applicable: json['decree_43_applicable'] ?? false,
+      whiteListRequired: json['white_list_required'] ?? false,
+      whiteListVerified: json['white_list_verified'] ?? false,
+      factoryRegistrationNo: json['factory_registration_no'],
+      decree43Action: json['decree_43_action'],
+      decree43Justification: json['decree_43_justification'],
+      decree43Notes: json['decree_43_notes'],
       cooRequired: json['coo_required'] ?? false,
+      cooType: json['coo_type'] ?? 'EUR.1',
+      cooStatus: json['coo_status'] ?? 'Not Required',
+      cooNotes: json['coo_notes'],
       inspectionRequired: json['inspection_required'] ?? false,
+      inspectionBody: json['inspection_body'] ?? 'SGS',
+      inspectionStatus: json['inspection_status'] ?? 'Not Required',
+      inspectionReportNo: json['inspection_report_no'],
+      inspectionNotes: json['inspection_notes'],
       permitRequired: json['permit_required'] ?? false,
       regulatoryAuthority: json['regulatory_authority'],
+      permitNumber: json['permit_number'],
+      permitStatus: json['permit_status'] ?? 'Not Required',
+      permitNotes: json['permit_notes'],
+      msdsRequired: json['msds_required'] ?? false,
+      msdsStatus: json['msds_status'] ?? 'Not Required',
+      msdsNotes: json['msds_notes'],
+      halalCertRequired: json['halal_cert_required'] ?? false,
+      halalCertStatus: json['halal_cert_status'] ?? 'Not Required',
+      halalCertNotes: json['halal_cert_notes'],
+      coaRequired: json['coa_required'] ?? false,
+      coaStatus: json['coa_status'] ?? 'Not Required',
+      coaNotes: json['coa_notes'],
+      specialNotes: json['special_notes'],
+      technicalNotes: json['technical_notes'],
     );
   }
 
@@ -58,10 +264,37 @@ class ImportRequirementHSCodeItemModel {
       'quantity': quantity,
       'unit_of_measure': unitOfMeasure,
       'decree_43_applicable': decree43Applicable,
+      'white_list_required': whiteListRequired,
+      'white_list_verified': whiteListVerified,
+      'factory_registration_no': factoryRegistrationNo,
+      'decree_43_action': decree43Action,
+      'decree_43_justification': decree43Justification,
+      'decree_43_notes': decree43Notes,
       'coo_required': cooRequired,
+      'coo_type': cooType,
+      'coo_status': cooStatus,
+      'coo_notes': cooNotes,
       'inspection_required': inspectionRequired,
+      'inspection_body': inspectionBody,
+      'inspection_status': inspectionStatus,
+      'inspection_report_no': inspectionReportNo,
+      'inspection_notes': inspectionNotes,
       'permit_required': permitRequired,
       'regulatory_authority': regulatoryAuthority,
+      'permit_number': permitNumber,
+      'permit_status': permitStatus,
+      'permit_notes': permitNotes,
+      'msds_required': msdsRequired,
+      'msds_status': msdsStatus,
+      'msds_notes': msdsNotes,
+      'halal_cert_required': halalCertRequired,
+      'halal_cert_status': halalCertStatus,
+      'halal_cert_notes': halalCertNotes,
+      'coa_required': coaRequired,
+      'coa_status': coaStatus,
+      'coa_notes': coaNotes,
+      'special_notes': specialNotes,
+      'technical_notes': technicalNotes,
     };
   }
 }
@@ -251,6 +484,8 @@ class ImportRequirementModel {
   final bool whiteListRequired;
   final bool whiteListVerified;
   final String? factoryRegistrationNo;
+  final String? decree43Action;
+  final String? decree43Justification;
 
   // Pillar 2: Certificate of Origin (COO) & Trade Reductions
   final bool cooRequired;
@@ -321,6 +556,8 @@ class ImportRequirementModel {
     required this.whiteListRequired,
     this.whiteListVerified = false,
     this.factoryRegistrationNo,
+    this.decree43Action,
+    this.decree43Justification,
     required this.cooRequired,
     this.cooType,
     required this.cooStatus,
@@ -390,6 +627,8 @@ class ImportRequirementModel {
       whiteListRequired: json['white_list_required'] ?? false,
       whiteListVerified: json['white_list_verified'] ?? false,
       factoryRegistrationNo: json['factory_registration_no'],
+      decree43Action: json['decree_43_action'],
+      decree43Justification: json['decree_43_justification'],
       cooRequired: json['coo_required'] ?? false,
       cooType: json['coo_type'],
       cooStatus: json['coo_status'] ?? 'Not Required',
@@ -451,6 +690,8 @@ class ImportRequirementModel {
       'white_list_required': whiteListRequired,
       'white_list_verified': whiteListVerified,
       'factory_registration_no': factoryRegistrationNo,
+      'decree_43_action': decree43Action,
+      'decree_43_justification': decree43Justification,
       'coo_required': cooRequired,
       'coo_type': cooType,
       'coo_status': cooStatus,

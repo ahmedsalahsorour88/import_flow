@@ -253,11 +253,15 @@ import '../providers/customs_tariff_provider.dart';
             children: [
               const Icon(Icons.receipt_long, color: AppTheme.cobalt),
               const SizedBox(width: 8),
-              Text(
-                tariff == null
-                    ? 'إضافة بند جمركي واشتراطات (Add HS Code)'
-                    : 'تعديل بند جمركي - ${tariff.hsCode}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              Expanded(
+                child: Text(
+                  tariff == null
+                      ? 'إضافة بند جمركي واشتراطات (Add HS Code)'
+                      : 'تعديل بند جمركي - ${tariff.hsCode}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
               ),
             ],
           ),
@@ -294,12 +298,16 @@ import '../providers/customs_tariff_provider.dart';
                                     size: 16,
                                     color: activeModeIndex == 0 ? AppTheme.cobalt : Colors.grey.shade700),
                                 const SizedBox(width: 6),
-                                Text(
-                                  '📄 الإدخال بالنص الكامل (Smart Text Input)',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: activeModeIndex == 0 ? FontWeight.bold : FontWeight.normal,
-                                    color: activeModeIndex == 0 ? AppTheme.cobalt : Colors.grey.shade800,
+                                Flexible(
+                                  child: Text(
+                                    '📄 الإدخال بالنص الكامل (Smart Text Input)',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: activeModeIndex == 0 ? FontWeight.bold : FontWeight.normal,
+                                      color: activeModeIndex == 0 ? AppTheme.cobalt : Colors.grey.shade800,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
                                   ),
                                 ),
                               ],
@@ -326,12 +334,16 @@ import '../providers/customs_tariff_provider.dart';
                                     size: 16,
                                     color: activeModeIndex == 1 ? AppTheme.cobalt : Colors.grey.shade700),
                                 const SizedBox(width: 6),
-                                Text(
-                                  '📝 الإدخال اليدوي المفصل (Manual Form)',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: activeModeIndex == 1 ? FontWeight.bold : FontWeight.normal,
-                                    color: activeModeIndex == 1 ? AppTheme.cobalt : Colors.grey.shade800,
+                                Flexible(
+                                  child: Text(
+                                    '📝 الإدخال اليدوي المفصل (Manual Form)',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: activeModeIndex == 1 ? FontWeight.bold : FontWeight.normal,
+                                      color: activeModeIndex == 1 ? AppTheme.cobalt : Colors.grey.shade800,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
                                   ),
                                 ),
                               ],
@@ -865,6 +877,8 @@ import '../providers/customs_tariff_provider.dart';
                         ? 'إضافة وحفظ البند والاتفاقيات بالكامل'
                         : (tariff == null ? 'إضافة البند' : 'حفظ التعديلات')),
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
               onPressed: isLoading
                   ? null
@@ -1042,5 +1056,18 @@ import '../providers/customs_tariff_provider.dart';
           ],
         ),
       ),
-    );
+    ).then((_) {
+      hsCtrl.dispose();
+      descCtrl.dispose();
+      catCtrl.dispose();
+      dutyCtrl.dispose();
+      vatCtrl.dispose();
+      schedCtrl.dispose();
+      devCtrl.dispose();
+      importFeeCtrl.dispose();
+      authCtrl.dispose();
+      priorApprovalCtrl.dispose();
+      notesCtrl.dispose();
+      rawTextCtrl.dispose();
+    });
   }

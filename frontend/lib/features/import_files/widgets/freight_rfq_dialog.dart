@@ -4,7 +4,10 @@ import 'package:dio/dio.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/services/freight_rfq_generator_service.dart';
 import '../../external_service_providers/models/partner_model.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -46,6 +49,7 @@ class FreightRfqDialog extends ConsumerStatefulWidget {
 class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _recipientController = TextEditingController();
+  CancelToken? _cancelToken;
   
   bool _isLoading = true;
   String? _errorMessage;
@@ -60,19 +64,24 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
 
   @override
   void dispose() {
+    _cancelToken?.cancel('FreightRfqDialog disposed');
     _tabController.dispose();
     _recipientController.dispose();
     super.dispose();
   }
 
   Future<void> _fetchRfqData([String? recipient]) async {
+    if (!mounted) return;
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final dio = Dio();
+      final dio = ref.read(dioProvider);
       final fileParam = widget.customFileNumber?.isNotEmpty == true 
           ? widget.customFileNumber! 
           : widget.importFileId.toString();
@@ -82,8 +91,10 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
         queryParameters: {
           if (recipient != null && recipient.trim().isNotEmpty) 'recipient_name': recipient.trim(),
         },
+        cancelToken: _cancelToken,
       );
 
+      if (!mounted) return;
       if (response.statusCode == 200 && response.data != null) {
         setState(() {
           _rfqData = FreightRfqDataModel.fromJson(response.data);
@@ -95,7 +106,15 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
           _isLoading = false;
         });
       }
+    } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) return;
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'حدث خطأ أثناء الاتصال: ${e.message}';
+        _isLoading = false;
+      });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'حدث خطأ أثناء الاتصال: $e';
         _isLoading = false;
@@ -113,20 +132,21 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-      child: Container(
-        width: 1000,
-        height: 750,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            // Header Bar
-            _buildDialogHeader(),
+      child: SelectionArea(
+        child: Container(
+          width: 1000,
+          height: 750,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              // Header Bar
+              _buildDialogHeader(),
 
-            // Recipient & Options Filter Bar
-            _buildRecipientBar(partnersList),
+              // Recipient & Options Filter Bar
+              _buildRecipientBar(partnersList),
 
             // Content Area / Loading
             Expanded(
@@ -173,8 +193,9 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildDialogHeader() {
     final l = context.l10n;
@@ -216,6 +237,7 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
   }
 
   Widget _buildRecipientBar(List<PartnerModel> partners) {
+    final l = context.l10n;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -226,7 +248,7 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
         children: [
           const Icon(Icons.person_pin_outlined, color: AppTheme.cobalt, size: 20),
           const SizedBox(width: 8),
-          const Text('المرسل إليه:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(l.freightRfqRecipient, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(width: 10),
           Expanded(
             child: Row(
@@ -235,17 +257,17 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
                 if (partners.isNotEmpty) ...[
                   Expanded(
                     flex: 2,
-                    child: DropdownButtonFormField<String>(
-                      isDense: true,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        hintText: 'اختر خط ملاحي / وكيل...',
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      ),
-                      items: partners.map((p) => DropdownMenuItem(value: p.partnerName, child: Text(p.partnerName, overflow: TextOverflow.ellipsis))).toList(),
+                    child: SearchableDropdownField<String?>(
+                      value: _recipientController.text.isNotEmpty ? _recipientController.text : null,
+                      labelText: l.freightRfqSelectLineHint,
+                      searchHintText: l.search,
+                      items: partners
+                          .map((p) => SearchableDropdownItem<String?>(
+                                value: p.partnerName,
+                                label: p.partnerName,
+                                subtitle: p.partnerType,
+                              ))
+                          .toList(),
                       onChanged: (val) {
                         if (val != null) {
                           _recipientController.text = val;
@@ -262,14 +284,14 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
                   child: TextField(
                     controller: _recipientController,
                     decoration: InputDecoration(
-                      hintText: 'أو اكتب اسم الشخص / الوكيل (مثال: Marian, Raafat, Asma)...',
+                      hintText: l.freightRfqTypePersonHint,
                       filled: true,
                       fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.send, size: 18, color: AppTheme.cobalt),
-                        tooltip: 'تحديث النص',
+                        tooltip: l.freightRfqUpdateTextTooltip,
                         onPressed: () => _fetchRfqData(_recipientController.text),
                       ),
                     ),
@@ -282,7 +304,7 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
           const SizedBox(width: 8),
           ElevatedButton.icon(
             icon: const Icon(Icons.refresh, size: 16),
-            label: const Text('تحديث'),
+            label: Text(l.freightRfqUpdateBtn),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.cobalt,
               foregroundColor: Colors.white,
@@ -335,6 +357,7 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
   }
 
   Widget _buildEmailTab(FreightRfqDataModel rfq) {
+    final l = context.l10n;
     return Container(
       padding: const EdgeInsets.all(16),
       color: const Color(0xFFF9FAFB),
@@ -360,8 +383,8 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
                 ),
                 IconButton(
                   icon: const Icon(Icons.copy, size: 18, color: AppTheme.cobalt),
-                  tooltip: 'نسخ عنوان الإيميل',
-                  onPressed: () => FreightRfqGeneratorService.copyToClipboard(context, rfq.emailSubject, 'عنوان الإيميل'),
+                  tooltip: l.freightRfqCopySubjectTooltip,
+                  onPressed: () => FreightRfqGeneratorService.copyToClipboard(context, rfq.emailSubject, 'Subject'),
                 ),
               ],
             ),
@@ -391,6 +414,7 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
   }
 
   Widget _buildWhatsAppTab(FreightRfqDataModel rfq) {
+    final l = context.l10n;
     return Container(
       padding: const EdgeInsets.all(16),
       color: const Color(0xFFF0FDF4),
@@ -435,30 +459,30 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 20),
-                          SizedBox(width: 8),
-                          Text('مميزات رسالة الواتساب:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 20),
+                          const SizedBox(width: 8),
+                          Text(l.freightRfqWhatsappFeatures, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      const Text('• منسقة بالرموز والمحاذاة التامة.', style: TextStyle(fontSize: 12)),
-                      const Text('• تشمل الحجم الإجمالي والأوزان وعنوان التحميل.', style: TextStyle(fontSize: 12)),
-                      const Text('• توضح فترة السماح المطلوبة (21 Days FT).', style: TextStyle(fontSize: 12)),
-                      const Text('• جاهزة للمشاركة الفورية مع مندوبي ووكلاء الشحن.', style: TextStyle(fontSize: 12)),
+                      Text('• ${l.freightRfqWhatsappFeature1}', style: const TextStyle(fontSize: 12)),
+                      Text('• ${l.freightRfqWhatsappFeature2}', style: const TextStyle(fontSize: 12)),
+                      Text('• ${l.freightRfqWhatsappFeature3}', style: const TextStyle(fontSize: 12)),
+                      Text('• ${l.freightRfqWhatsappFeature4}', style: const TextStyle(fontSize: 12)),
                       const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           icon: const Icon(Icons.copy, size: 18),
-                          label: const Text('نسخ رسالة الواتساب بالكامل'),
+                          label: Text(l.freightRfqCopyWhatsappBtn),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.emerald,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                          onPressed: () => FreightRfqGeneratorService.copyToClipboard(context, rfq.whatsappTextTemplate, 'رسالة الواتساب'),
+                          onPressed: () => FreightRfqGeneratorService.copyToClipboard(context, rfq.whatsappTextTemplate, 'WhatsApp'),
                         ),
                       ),
                     ],
@@ -513,15 +537,15 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.location_on, color: Color(0xFFD97706), size: 20),
-                        SizedBox(width: 8),
-                        Text('عنوان الاستلام والتحميل (Pickup Location for EXW):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF92400E))),
+                        const Icon(Icons.location_on, color: Color(0xFFD97706), size: 20),
+                        const SizedBox(width: 8),
+                        Text(l.freightRfqPickupLocation, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF92400E))),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text('المورد: ${rfq.supplierName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text('${l.freightRfqSupplierLabel} ${rfq.supplierName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                     Text(rfq.pickupAddress, style: const TextStyle(fontSize: 12)),
                   ],
                 ),
@@ -542,11 +566,11 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.format_list_bulleted, color: AppTheme.cobalt, size: 20),
-                        SizedBox(width: 8),
-                        Text('تفاصيل الطرود وأبعاد البالتات:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        const Icon(Icons.format_list_bulleted, color: AppTheme.cobalt, size: 20),
+                        const SizedBox(width: 8),
+                        Text(l.freightRfqPackagesBreakdownTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -562,31 +586,48 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
   }
 
   Widget _buildSpecCard(String label, String value, Color color) {
-    return Container(
-      width: 220,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+    return InkWell(
+      onTap: () => CopyHelper.copy(context, value),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 220,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Icon(Icons.copy, size: 12, color: Colors.grey.shade400),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildDialogFooter() {
+    final l = context.l10n;
     final rfq = _rfqData;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -595,12 +636,16 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
         border: Border(top: BorderSide(color: Colors.grey.shade300)),
         borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12)),
       ),
-      child: Row(
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 10,
+        runSpacing: 8,
         children: [
           if (rfq != null) ...[
             ElevatedButton.icon(
               icon: const Icon(Icons.picture_as_pdf, size: 18),
-              label: const Text('طباعة / حفظ مستند PDF الرسمي'),
+              label: Text(l.freightRfqPrintPdfBtn),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.charcoal,
                 foregroundColor: Colors.white,
@@ -620,14 +665,12 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
                 }
               },
             ),
-            const SizedBox(width: 10),
             OutlinedButton.icon(
               icon: const Icon(Icons.copy, size: 18),
-              label: const Text('نسخ نص الإيميل بالكامل'),
-              onPressed: () => FreightRfqGeneratorService.copyToClipboard(context, rfq.emailBodyTemplate, 'نص الإيميل'),
+              label: Text(l.freightRfqCopyEmailBtn),
+              onPressed: () => FreightRfqGeneratorService.copyToClipboard(context, rfq.emailBodyTemplate, 'Email'),
             ),
           ],
-          const Spacer(),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.crimson,
@@ -636,7 +679,7 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
             ),
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close, size: 16, color: AppTheme.crimson),
-            label: const Text('إغلاق وتراجع ✕', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(l.freightRfqCloseDismissBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

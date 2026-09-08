@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
@@ -24,6 +25,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
   bool _isLoading = true;
   String? _error;
   Map<String, dynamic>? _balanceData;
+  CancelToken? _cancelToken;
 
   @override
   void initState() {
@@ -31,17 +33,35 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
     _fetchBalance();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('Dialog disposed');
+    super.dispose();
+  }
+
   Future<void> _fetchBalance() async {
+    _cancelToken = CancelToken();
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get('/purchase-orders/${widget.poId}/balance');
+      final res = await dio.get(
+        '/purchase-orders/${widget.poId}/balance',
+        cancelToken: _cancelToken,
+      );
       if (mounted) {
         setState(() {
           _balanceData = res.data is Map<String, dynamic> ? res.data : null;
+          _isLoading = false;
+        });
+      }
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) return; // Dialog disposed — ignore
+      if (mounted) {
+        setState(() {
+          _error = e.message ?? e.toString();
           _isLoading = false;
         });
       }
@@ -121,13 +141,17 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'ميزان أمر الشراء والشحنات الجزئية (PO Balance & Partial Shipments Ledger)',
-                      style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                      style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
                     ),
                     Text(
                       'أمر الشراء: ${widget.poCode}  •  نسبة استيفاء التوريد: ${fulfillment.toStringAsFixed(1)}%',
                       style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ],
                 ),

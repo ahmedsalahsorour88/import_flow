@@ -162,6 +162,15 @@ void main() {
         ar.freightBookingPrintGrandTotal('3500.00'),
         ar.freightBookingPrintNowBtn,
         ar.freightBookingPrintSuccess,
+        ar.freightBookingOriginalQuotedPrice,
+        ar.freightBookingExecutedPrice,
+        ar.freightBookingCostSavingsTitle,
+        ar.freightBookingCostIncreaseTitle,
+        ar.freightBookingCostSavingsBadge,
+        ar.freightBookingCostIncreaseBadge,
+        ar.freightBookingPriceDiffLabel,
+        ar.freightBookingSavingsFormulaDetails('530', '1', '40HC', '530'),
+        ar.freightBookingNoPriceVariance,
       ];
 
       final List<String> enStrings = [
@@ -317,6 +326,15 @@ void main() {
         en.freightBookingPrintGrandTotal('3500.00'),
         en.freightBookingPrintNowBtn,
         en.freightBookingPrintSuccess,
+        en.freightBookingOriginalQuotedPrice,
+        en.freightBookingExecutedPrice,
+        en.freightBookingCostSavingsTitle,
+        en.freightBookingCostIncreaseTitle,
+        en.freightBookingCostSavingsBadge,
+        en.freightBookingCostIncreaseBadge,
+        en.freightBookingPriceDiffLabel,
+        en.freightBookingSavingsFormulaDetails('530', '1', '40HC', '530'),
+        en.freightBookingNoPriceVariance,
       ];
 
       for (final s in arStrings) {
@@ -472,6 +490,91 @@ void main() {
       expect(en.freightBookingViewTitle('BK-88'), contains('BK-88'));
       expect(ar.freightBookingPrintTitle('BK-88'), contains('BK-88'));
       expect(en.freightBookingPrintTitle('BK-88'), contains('BK-88'));
+    });
+
+    // ─── NEW KEYS (added during Screen 25 completion) ───────────────────────
+    test('New 15 Screen 25 keys: getters are non-empty in both languages', () {
+      final newArKeys = [
+        ar.freightBookingAiShippingLineBtn,
+        ar.freightBookingAiForwarderBtn,
+        ar.freightBookingDraftPendingLabel,
+        ar.freightBookingCostMatchBadge,
+        ar.freightBookingNetDifference,
+        ar.freightBookingBreakdownHeader,
+        ar.freightBookingPrintSystemHeader,
+      ];
+      final newEnKeys = [
+        en.freightBookingAiShippingLineBtn,
+        en.freightBookingAiForwarderBtn,
+        en.freightBookingDraftPendingLabel,
+        en.freightBookingCostMatchBadge,
+        en.freightBookingNetDifference,
+        en.freightBookingBreakdownHeader,
+        en.freightBookingPrintSystemHeader,
+      ];
+
+      for (final s in newArKeys) {
+        expect(s.isNotEmpty, isTrue, reason: 'Arabic key was empty: $s');
+      }
+      for (final s in newEnKeys) {
+        expect(s.isNotEmpty, isTrue, reason: 'English key was empty: $s');
+      }
+    });
+
+    test('New 15 Screen 25 keys: parameterized methods produce correct output', () {
+      // Forwarder prefix
+      expect(ar.freightBookingForwarderPrefixLabel('DHL'), contains('DHL'));
+      expect(en.freightBookingForwarderPrefixLabel('DHL'), contains('DHL'));
+
+      // ETD prefix
+      expect(ar.freightBookingEtdPrefixLabel('2026-08-01'), contains('2026-08-01'));
+      expect(en.freightBookingEtdPrefixLabel('2026-08-01'), contains('2026-08-01'));
+
+      // ATD prefix
+      expect(ar.freightBookingAtdPrefixLabel('2026-08-05'), contains('2026-08-05'));
+      expect(en.freightBookingAtdPrefixLabel('2026-08-05'), contains('2026-08-05'));
+
+      // ETA prefix
+      expect(ar.freightBookingEtaPrefixLabel('2026-09-01'), contains('2026-09-01'));
+      expect(en.freightBookingEtaPrefixLabel('2026-09-01'), contains('2026-09-01'));
+
+      // Based on quote
+      expect(ar.freightBookingBasedOnQuote('Maersk'), contains('Maersk'));
+      expect(en.freightBookingBasedOnQuote('Maersk'), contains('Maersk'));
+
+      // Cost savings badge amount
+      expect(ar.freightBookingCostSavingsBadgeAmount('500.00', '12.5'), contains('500.00'));
+      expect(en.freightBookingCostSavingsBadgeAmount('500.00', '12.5'), contains('12.5'));
+
+      // Cost increase badge amount
+      expect(ar.freightBookingCostIncreaseBadgeAmount('200.00'), contains('200.00'));
+      expect(en.freightBookingCostIncreaseBadgeAmount('200.00'), contains('200.00'));
+
+      // Breakdown savings unit
+      expect(
+        ar.freightBookingBreakdownSavingsUnit('Ocean Freight', '1200', '700', '500', '2', 'CNT', '1000.00'),
+        contains('Ocean Freight'),
+      );
+      expect(
+        en.freightBookingBreakdownSavingsUnit('Ocean Freight', '1200', '700', '500', '2', 'CNT', '1000.00'),
+        contains('1000.00'),
+      );
+    });
+
+    test('New keys: Arabic translations do NOT contain English-only phrases', () {
+      expect(ar.freightBookingAiShippingLineBtn.contains('Carrier'), isFalse);
+      expect(ar.freightBookingAiForwarderBtn.contains('Forwarder'), isFalse);
+      expect(ar.freightBookingDraftPendingLabel.contains('Draft'), isFalse);
+      expect(ar.freightBookingNetDifference.contains('Net'), isFalse);
+      expect(ar.freightBookingPrintSystemHeader.contains('IMPORTFLOW ERP'), isTrue); // system brand kept
+    });
+
+    test('New keys: English translations do NOT contain Arabic-only phrases', () {
+      expect(en.freightBookingAiShippingLineBtn.contains('تكويد'), isFalse);
+      expect(en.freightBookingAiForwarderBtn.contains('تكويد'), isFalse);
+      expect(en.freightBookingDraftPendingLabel.contains('مسودة'), isFalse);
+      expect(en.freightBookingCostMatchBadge.contains('مطابق'), isFalse);
+      expect(en.freightBookingNetDifference.contains('الفرق'), isFalse);
     });
   });
 }

@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../providers/customs_tariff_provider.dart';
 
+import 'tariff_form_dialog.dart';
+
 void showNafezaTariffSyncDialog(BuildContext context, WidgetRef ref) {
-  showDialog(
-    context: context,
-    builder: (ctx) => const NafezaTariffSyncDialog(),
-  );
+  showTariffDialog(context, ref, initialModeIndex: 0);
 }
 
 class NafezaTariffSyncDialog extends ConsumerStatefulWidget {
@@ -42,9 +42,10 @@ class _NafezaTariffSyncDialogState extends ConsumerState<NafezaTariffSyncDialog>
   }
 
   Future<void> _syncNafezaText() async {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
     if (_rawTextController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى لصق نص صفحة نافذة')),
+        SnackBar(content: Text(isArabic ? 'يرجى لصق نص صفحة نافذة' : 'Please paste Nafeza raw text')),
       );
       return;
     }
@@ -69,9 +70,11 @@ class _NafezaTariffSyncDialogState extends ConsumerState<NafezaTariffSyncDialog>
         ref.invalidate(customsTariffProvider);
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             backgroundColor: AppTheme.emerald,
-            content: Text('تم استخراج البيانات ومزامنة جدول التعريفة والاتفاقيات بنجاح ✅'),
+            content: Text(isArabic
+                ? 'تم استخراج البيانات ومزامنة جدول التعريفة والاتفاقيات بنجاح ✅'
+                : 'Data extracted and tariff schedule synced successfully ✅'),
           ),
         );
       }
@@ -87,96 +90,113 @@ class _NafezaTariffSyncDialogState extends ConsumerState<NafezaTariffSyncDialog>
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 820,
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Row(
-                children: [
+      child: SelectionArea(
+        child: Container(
+          width: 820,
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cobalt.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.sync_alt, color: AppTheme.cobalt, size: 28),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isArabic
+                                ? 'محلل ومزامن نصوص نافذة الذكي'
+                                : 'Smart Nafeza Tariff & FX Gateway',
+                            style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                          ),
+                          Text(
+                            isArabic
+                                ? 'الصق النص الخام المنسوخ من موقع نافذة لاستخراج بنود الضرائب والاتفاقيات التفضيلية آلياً'
+                                : 'Paste raw text copied from Nafeza portal to automatically extract tariff rates and agreements',
+                            style: const TextStyle(fontSize: 12.5, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+                  ],
+                ),
+                const SizedBox(height: 18),
+
+                // Text Area Input
+                TextFormField(
+                  controller: _rawTextController,
+                  maxLines: 7,
+                  decoration: InputDecoration(
+                    labelText: isArabic
+                        ? 'النص المنسوخ من نافذة (بند التعريفة، الضرائب، الاتفاقيات)'
+                        : 'Raw Nafeza Text (HS Code, Duties, Agreements)',
+                    border: const OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Action button
+                ElevatedButton.icon(
+                  onPressed: _isSyncing ? null : _syncNafezaText,
+                  icon: _isSyncing
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.auto_awesome, color: Colors.white),
+                  label: Text(
+                    isArabic
+                        ? 'تحليل النص ومزامنة جدول التعريفة والاتفاقيات التفضيلية'
+                        : 'Parse Text & Sync Tariff Schedule and Preferential Agreements',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.cobalt,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Results Card
+                if (_error != null)
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.crimson),
                     ),
-                    child: const Icon(Icons.sync_alt, color: AppTheme.cobalt, size: 28),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'محلل ومزامن نصوص نافذة الذكي (Smart Nafeza Tariff & FX Gateway)',
-                          style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                        ),
-                        Text(
-                          'الصق النص الخام المنسوخ من موقع نافذة لاستخراج بنود الضرائب والاتفاقيات التفضيلية آلياً',
-                          style: TextStyle(fontSize: 12.5, color: Colors.grey),
-                        ),
-                      ],
+                    child: Text(
+                      isArabic ? '❌ خطأ في المعالجة: $_error' : '❌ Processing Error: $_error',
+                      style: const TextStyle(color: AppTheme.crimson),
                     ),
-                  ),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
-                ],
-              ),
-              const SizedBox(height: 18),
-
-              // Text Area Input
-              TextFormField(
-                controller: _rawTextController,
-                maxLines: 7,
-                decoration: const InputDecoration(
-                  labelText: 'النص المنسوخ من نافذة (HS Code، الضرائب، الاتفاقيات)',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // Action button
-              ElevatedButton.icon(
-                onPressed: _isSyncing ? null : _syncNafezaText,
-                icon: _isSyncing
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.auto_awesome, color: Colors.white),
-                label: const Text('تحليل النص ومزامنة جدول التعريفة والاتفاقيات التفضيلية',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-              const SizedBox(height: 18),
-
-              // Results Card
-              if (_error != null)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.crimson),
-                  ),
-                  child: Text('❌ خطأ في المعالجة: $_error', style: const TextStyle(color: AppTheme.crimson)),
-                )
-              else if (_result != null)
-                _buildSyncResultCard(_result!),
-            ],
+                  )
+                else if (_result != null)
+                  _buildSyncResultCard(_result!, isArabic),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSyncResultCard(Map<String, dynamic> data) {
+  Widget _buildSyncResultCard(Map<String, dynamic> data, bool isArabic) {
     final hsCode = data['hs_code'] ?? '';
     final desc = data['description_ar'] ?? '';
     final duty = data['duty_rate_pct'] ?? 0;
@@ -200,9 +220,27 @@ class _NafezaTariffSyncDialogState extends ConsumerState<NafezaTariffSyncDialog>
             children: [
               const Icon(Icons.check_circle, color: AppTheme.emerald, size: 22),
               const SizedBox(width: 8),
-              Text(
-                'تمت المزامنة بنجاح: HS Code $hsCode',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.emerald),
+              Expanded(
+                child: Text(
+                  isArabic ? 'تمت المزامنة بنجاح: بند التعريفة $hsCode' : 'Successfully Synced: HS Code $hsCode',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.emerald),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
+                tooltip: isArabic ? 'نسخ نتائج المزامنة' : 'Copy Sync Results',
+                onPressed: () {
+                  final text = isArabic
+                      ? 'بند التعريفة: $hsCode\nالوصف: $desc\nضريبة الوارد: $duty%\nالقيمة المضافة: $vat%\nضريبة الجدول: $sched%\nرسم التنمية: $dev%\nالاتفاقيات: ${agreements.map((a) => "${a['agreement_name']}: ${a['duty_rate_pct']}%").join(", ")}'
+                      : 'HS Code: $hsCode\nDescription: $desc\nImport Duty: $duty%\nVAT: $vat%\nSchedule Tax: $sched%\nDev Fee: $dev%\nAgreements: ${agreements.map((a) => "${a['agreement_name']}: ${a['duty_rate_pct']}%").join(", ")}';
+                  CopyHelper.copy(
+                    context,
+                    text,
+                    customMessage: isArabic
+                        ? 'تم نسخ بيانات التعريفة الجمركية بنجاح!'
+                        : 'Tariff details copied successfully!',
+                  );
+                },
               ),
             ],
           ),
@@ -215,18 +253,20 @@ class _NafezaTariffSyncDialogState extends ConsumerState<NafezaTariffSyncDialog>
             spacing: 16,
             runSpacing: 8,
             children: [
-              _buildRateChip('ضريبة الوارد', '$duty%'),
-              _buildRateChip('القيمة المضافة', '$vat%'),
-              _buildRateChip('ضريبة الجدول', '$sched%'),
-              _buildRateChip('رسم التنمية', '$dev%'),
+              _buildRateChip(isArabic ? 'ضريبة الوارد' : 'Import Duty', '$duty%'),
+              _buildRateChip(isArabic ? 'القيمة المضافة' : 'VAT', '$vat%'),
+              _buildRateChip(isArabic ? 'ضريبة الجدول' : 'Schedule Tax', '$sched%'),
+              _buildRateChip(isArabic ? 'رسم التنمية' : 'Dev Fee', '$dev%'),
             ],
           ),
           const SizedBox(height: 12),
 
           // Agreements
           if (agreements.isNotEmpty) ...[
-            const Text('🌐 الاتفاقيات التفضيلية المستخرجة:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
+            Text(
+              isArabic ? '🌐 الاتفاقيات التفضيلية المستخرجة:' : '🌐 Extracted Preferential Agreements:',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+            ),
             const SizedBox(height: 4),
             ...agreements.map((a) => Text(
               '• ${a['agreement_name']}: ${a['duty_rate_pct']}%',
@@ -237,8 +277,10 @@ class _NafezaTariffSyncDialogState extends ConsumerState<NafezaTariffSyncDialog>
           // Prior Approvals
           if (approvals.isNotEmpty) ...[
             const SizedBox(height: 8),
-            const Text('🏛️ الجهات الرقابية والموافقات المسبقة المطلوبة:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
+            Text(
+              isArabic ? '🏛️ الجهات الرقابية والموافقات المسبقة المطلوبة:' : '🏛️ Regulatory Authorities & Prior Approvals:',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+            ),
             const SizedBox(height: 4),
             ...approvals.map((app) => Text('• $app', style: const TextStyle(fontSize: 12, color: AppTheme.crimson))),
           ],

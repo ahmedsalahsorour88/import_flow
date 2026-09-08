@@ -9,7 +9,8 @@ import '../models/warehouse_receiving_model.dart';
 import '../providers/warehouse_receiving_provider.dart';
 
 class WarehouseReceivedReportScreen extends ConsumerStatefulWidget {
-  const WarehouseReceivedReportScreen({super.key});
+  final bool isEmbedded;
+  const WarehouseReceivedReportScreen({super.key, this.isEmbedded = false});
 
   @override
   ConsumerState<WarehouseReceivedReportScreen> createState() => _WarehouseReceivedReportScreenState();
@@ -22,7 +23,9 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(warehouseReceivingProvider.notifier).fetchRecords();
+      if (!ref.read(warehouseReceivingProvider).isLoading) {
+        ref.read(warehouseReceivingProvider.notifier).fetchRecords();
+      }
     });
   }
 
@@ -45,16 +48,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
       ),
     ];
 
-    return VerticalStageScaffold(
-      stageCode: 'GRN-REP',
-      titleEn: 'Warehouse Received Shipments & Audit Report',
-      titleAr: 'تقرير الشحنات المستلمة بالمخزن تفصيلي ومطابقة الفروق',
-      headerIcon: Icons.inventory_2_outlined,
-      headerColor: AppTheme.cobalt,
-      tabs: tabs,
-      selectedIndex: 0,
-      onTabSelected: (_) {},
-      body: recordsAsync.when(
+    final bodyContent = recordsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
           child: Text(l.whReportErrorFetchingData(err), style: const TextStyle(color: Colors.red)),
@@ -174,6 +168,20 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
                       decoration: InputDecoration(
                         hintText: l.whReportSearchHint,
                         prefixIcon: const Icon(Icons.search),
+                        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _searchCtrl,
+                          builder: (context, value, _) {
+                            return value.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    onPressed: () {
+                                      _searchCtrl.clear();
+                                      setState(() {});
+                                    },
+                                  )
+                                : const SizedBox.shrink();
+                          },
+                        ),
                         isDense: true,
                         border: const OutlineInputBorder(),
                       ),
@@ -294,7 +302,22 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
             ),
           );
         },
-      ),
+      );
+
+    if (widget.isEmbedded) {
+      return bodyContent;
+    }
+
+    return VerticalStageScaffold(
+      stageCode: 'GRN-REP',
+      titleEn: 'Warehouse Received Shipments & Audit Report',
+      titleAr: 'تقرير الشحنات المستلمة بالمخزن تفصيلي ومطابقة الفروق',
+      headerIcon: Icons.inventory_2_outlined,
+      headerColor: AppTheme.cobalt,
+      tabs: tabs,
+      selectedIndex: 0,
+      onTabSelected: (_) {},
+      body: bodyContent,
     );
   }
 

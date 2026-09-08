@@ -44,9 +44,16 @@ final shipmentUpdatesProvider =
 
 class ShipmentUpdatesNotifier extends StateNotifier<ShipmentUpdatesState> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   ShipmentUpdatesNotifier(this._dio) : super(ShipmentUpdatesState()) {
     fetchLogs();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
   }
 
   Future<void> fetchLogs({
@@ -55,6 +62,9 @@ class ShipmentUpdatesNotifier extends StateNotifier<ShipmentUpdatesState> {
     String? targetPhase,
     String? search,
   }) async {
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
+
     state = state.copyWith(isLoading: true, error: null, selectedFileId: importFileId);
     try {
       final queryParams = <String, dynamic>{};
@@ -63,17 +73,20 @@ class ShipmentUpdatesNotifier extends StateNotifier<ShipmentUpdatesState> {
       if (targetPhase != null && targetPhase.isNotEmpty && targetPhase != 'All') queryParams['target_phase'] = targetPhase;
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
 
-      final res = await _dio.get('${ApiConstants.baseUrl}/shipment-updates', queryParameters: queryParams);
+      final res = await _dio.get('${ApiConstants.baseUrl}/shipment-updates', queryParameters: queryParams, cancelToken: _cancelToken);
       final list = (res.data as List).map((x) => ShipmentUpdateLogModel.fromJson(x)).toList();
 
       List<PhaseInspectionModel> inspections = state.inspectedPhases;
       if (importFileId != null) {
-        final resInsp = await _dio.get('${ApiConstants.baseUrl}/shipment-updates/inspect/$importFileId');
+        final resInsp = await _dio.get('${ApiConstants.baseUrl}/shipment-updates/inspect/$importFileId', cancelToken: _cancelToken);
         inspections = (resInsp.data as List).map((x) => PhaseInspectionModel.fromJson(x)).toList();
       }
 
       state = state.copyWith(isLoading: false, logs: list, inspectedPhases: inspections);
     } catch (e) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }

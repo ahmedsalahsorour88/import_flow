@@ -106,5 +106,108 @@ void main() {
       expect(createJson['service_category'], 'Inland Transport');
       expect(createJson['unit_price'], 6500.0);
     });
+
+    test('Extracted quotation and expenses catalog structure validation', () {
+      final extracted = {
+        'broker_name': 'شركة الأهرام للخدمات الجمركية',
+        'port_name': 'Alexandria Port',
+        'clearance_fee': 3500.0,
+        'inland_transport_fee': 19500.0,
+        'inspection_fee': 2800.0,
+        'port_expenses': 8000.0,
+        'total_estimated_clearance_cost': 35000.0,
+        'expenses_catalog': [
+          {
+            'item_name': 'رسوم كشف وكلارك وتعتيق',
+            'expense_name': 'رسوم كشف وكلارك وتعتيق',
+            'category': 'Other Fees',
+            'price': 1200.0,
+            'amount': 1200.0,
+            'currency': 'EGP',
+            'pricing_unit': 'Per Shipment',
+            'is_applicable': true,
+          },
+          {
+            'item_name': 'أتعاب تخليص حاوية 40 قدم (فاتورة)',
+            'expense_name': 'أتعاب تخليص حاوية 40 قدم (فاتورة)',
+            'category': 'Clearance Fees',
+            'price': 3500.0,
+            'amount': 3500.0,
+            'currency': 'EGP',
+            'pricing_unit': 'Per Invoice',
+            'is_applicable': true,
+          }
+        ],
+      };
+
+      expect(extracted['broker_name'], contains('الأهرام'));
+      expect(extracted['clearance_fee'], 3500.0);
+      expect(extracted['total_estimated_clearance_cost'], 35000.0);
+
+      final catalog = extracted['expenses_catalog'] as List<Map<String, dynamic>>;
+      expect(catalog.length, 2);
+      expect(catalog.first['expense_name'], contains('كشف وكلارك'));
+      expect(catalog.first['amount'], 1200.0);
+      expect(catalog.last['amount'], 3500.0);
+    });
+
+    test('LCL and FCL fee matching isolation and weight differentiation', () {
+      final sampleExtractedCatalog = [
+        {
+          'item_name': 'أتعاب تخليص LCL (لكل فاتورة)',
+          'price': 1250.0,
+          'category': 'Clearance Fees',
+        },
+        {
+          'item_name': 'أتعاب تخليص حاوية 20 قدم (فاتورة)',
+          'price': 2500.0,
+          'category': 'Clearance Fees',
+        },
+        {
+          'item_name': 'أتعاب تخليص حاوية 40 قدم (فاتورة)',
+          'price': 2500.0,
+          'category': 'Clearance Fees',
+        },
+        {
+          'item_name': 'نقل حاوية 20 قدم حتى 10 طن (إسكندرية - قاهرة)',
+          'price': 14800.0,
+          'category': 'Inland Transport',
+        },
+        {
+          'item_name': 'نقل حاوية 20 قدم أكثر من 10 طن (إسكندرية - قاهرة)',
+          'price': 16500.0,
+          'category': 'Inland Transport',
+        },
+        {
+          'item_name': 'عرض الواردات + اعتماد الإيباك',
+          'price': 2500.0,
+          'min_price': 2500.0,
+          'max_price': 3500.0,
+          'notes': 'نطاق سعر: 2500 - 3500 جنيه',
+        },
+      ];
+
+      expect(sampleExtractedCatalog.length, 6);
+      final lcl = sampleExtractedCatalog.firstWhere((e) => (e['item_name'] as String).contains('LCL'));
+      final fcl40 = sampleExtractedCatalog.firstWhere((e) => (e['item_name'] as String).contains('40'));
+      final under10t = sampleExtractedCatalog.firstWhere((e) => (e['item_name'] as String).contains('حتى 10 طن'));
+      final over10t = sampleExtractedCatalog.firstWhere((e) => (e['item_name'] as String).contains('أكثر من 10 طن'));
+
+      // Ensure LCL is strictly 1250 and FCL is 2500
+      expect(lcl['price'], 1250.0);
+      expect(fcl40['price'], 2500.0);
+      expect(lcl['price'], isNot(equals(fcl40['price'])));
+
+      // Ensure weight tiers are differentiated correctly
+      expect(under10t['price'], 14800.0);
+      expect(over10t['price'], 16500.0);
+      expect(over10t['price'], greaterThan(under10t['price'] as num));
+
+      // Ensure min/max ranges and notes are preserved
+      final rangeItem = sampleExtractedCatalog.firstWhere((e) => (e['item_name'] as String).contains('الواردات'));
+      expect(rangeItem['min_price'], 2500.0);
+      expect(rangeItem['max_price'], 3500.0);
+      expect(rangeItem['notes'], contains('2500 - 3500'));
+    });
   });
 }

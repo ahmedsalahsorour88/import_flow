@@ -1,21 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../models/original_documents_collection_model.dart';
 
 final originalDocsDioProvider = Provider<Dio>((ref) {
-  return Dio(
-    BaseOptions(
-      baseUrl: ApiConstants.baseUrl,
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    ),
-  );
+  return ref.watch(dioProvider);
 });
 
 final originalDocumentsSessionsProvider = StateNotifierProvider<
@@ -27,15 +17,24 @@ final originalDocumentsSessionsProvider = StateNotifierProvider<
 class OriginalDocumentsCollectionNotifier
     extends StateNotifier<AsyncValue<List<OriginalDocumentsCollectionSessionModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   OriginalDocumentsCollectionNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchSessions();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('OriginalDocumentsCollectionNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchSessions({
     String? status,
     String? search,
   }) async {
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{};
@@ -45,6 +44,7 @@ class OriginalDocumentsCollectionNotifier
       final response = await _dio.get(
         '/original-documents-collection/sessions',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List<dynamic> list = response.data;
@@ -54,6 +54,9 @@ class OriginalDocumentsCollectionNotifier
 
       state = AsyncValue.data(sessions);
     } catch (e, st) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, st);
     }
   }

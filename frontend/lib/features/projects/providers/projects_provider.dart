@@ -12,13 +12,25 @@ final projectsProvider =
 
 class ProjectsNotifier extends StateNotifier<AsyncValue<List<ProjectModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   ProjectsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchProjects();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('ProjectsNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchProjects({bool includeInactive = true, String? status, String? search}) async {
-    state = const AsyncValue.loading();
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
+
+    if (!state.hasValue) {
+      state = const AsyncValue.loading();
+    }
     try {
       final queryParams = <String, dynamic>{
         'include_inactive': includeInactive,
@@ -33,11 +45,15 @@ class ProjectsNotifier extends StateNotifier<AsyncValue<List<ProjectModel>>> {
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/projects',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
       final List data = response.data as List;
       final projects = data.map((json) => ProjectModel.fromJson(json)).toList();
       state = AsyncValue.data(projects);
     } catch (err, stack) {
+      if (err is DioException && CancelToken.isCancel(err)) {
+        return;
+      }
       state = AsyncValue.error(err, stack);
     }
   }

@@ -8,8 +8,8 @@ void main() {
     late AppLocalizationsEn en;
 
     setUp(() {
-      ar = AppLocalizationsAr();
-      en = AppLocalizationsEn();
+      ar = const AppLocalizationsAr();
+      en = const AppLocalizationsEn();
     });
 
     test('Header, Toolbar, and Button strings are localized and distinct', () {

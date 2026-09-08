@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -478,7 +475,7 @@ class CooExportService {
                       ),
                     ],
                   );
-                }).toList()
+                })
               else
                 pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -795,7 +792,7 @@ class CooExportService {
                       ),
                     ],
                   );
-                }).toList()
+                })
               else
                 pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -1026,6 +1023,7 @@ class CooExportService {
     final defaultName = 'Phase3_Draft_Certificate_of_Origin_${certClean.isNotEmpty ? certClean : DateTime.now().millisecondsSinceEpoch}.pdf';
     final bytes = await pdf.save();
 
+    if (context == null || !context.mounted) return null;
     return FileSaveHelper.saveBytes(
       context: context,
       bytes: bytes,

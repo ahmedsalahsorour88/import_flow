@@ -171,7 +171,7 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
                     ),
                   ),
                   Text(
-                    '${file.importFileCode} | ${file.companyName}',
+                    '${file.primaryNameWithCode} | ${file.companyName}',
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
                   ),
                 ],

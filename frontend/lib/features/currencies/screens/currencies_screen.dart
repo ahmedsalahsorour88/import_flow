@@ -21,7 +21,6 @@ class CurrenciesScreen extends ConsumerStatefulWidget {
 }
 
 class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
-  String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   int _currentPage = 1;
   int _pageSize = 25;
@@ -29,21 +28,34 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(currenciesProvider.notifier).fetchCurrencies();
-    });
+    if (!ref.read(currenciesProvider).isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(currenciesProvider.notifier).fetchCurrencies();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _syncOfficialCustomsExchangeRates(BuildContext context) async {
+    final l10n = context.l10n;
     try {
       final dio = ref.read(dioProvider);
       final res = await dio.post('/integrations/nafeza/exchange-rates/sync');
       ref.read(currenciesProvider.notifier).fetchCurrencies();
       if (context.mounted) {
+        final serverMsg = (Localizations.localeOf(context).languageCode == 'ar'
+                ? res.data['message_ar']
+                : res.data['message_en']) ??
+            l10n.syncRatesSuccess;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppTheme.emerald,
-            content: Text(res.data['message_ar'] ?? 'تم تحديث أسعار الصرف الجمركية الرسمية بنجاح ✅'),
+            content: Text(serverMsg),
           ),
         );
       }
@@ -52,7 +64,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppTheme.crimson,
-            content: Text('فشل مزامنة أسعار الصرف الجمركية: $e'),
+            content: Text(l10n.syncRatesFailed(e.toString())),
           ),
         );
       }
@@ -73,8 +85,11 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header Title & Actions
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 16,
+              runSpacing: 12,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,7 +139,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                     ElevatedButton.icon(
                       onPressed: () => _syncOfficialCustomsExchangeRates(context),
                       icon: const Icon(Icons.sync, size: 18),
-                      label: const Text('مزامنة أسعار الصرف الجمركية'),
+                      label: Text(l10n.syncOfficialCustomsRatesBtn),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.charcoal,
                         foregroundColor: Colors.white,
@@ -140,7 +155,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                         );
                       },
                       icon: const Icon(Icons.analytics_outlined, size: 18),
-                      label: const Text('محاكي صدمات الصرف والأزمات (What-If)'),
+                      label: Text(l10n.whatIfSimulatorBtn),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.crimson,
                         foregroundColor: Colors.white,
@@ -192,42 +207,50 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
               children: [
                 SizedBox(
                   width: 320,
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: l10n.searchCurrenciesHint,
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() {
-                                  _searchQuery = '';
-                                  _currentPage = 1;
-                                });
-                                ref.read(currenciesProvider.notifier).fetchCurrencies(search: '');
-                              },
-                            )
-                          : null,
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                    ),
-                    onChanged: (val) {
-                      setState(() {
-                        _searchQuery = val;
-                        _currentPage = 1;
-                      });
-                      ref.read(currenciesProvider.notifier).fetchCurrencies(search: val);
+                  child: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _searchController,
+                    builder: (context, val, _) {
+                      return TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: l10n.searchCurrenciesHint,
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          suffixIcon: val.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      _currentPage = 1;
+                                    });
+                                    ref
+                                        .read(currenciesProvider.notifier)
+                                        .fetchCurrencies(search: '');
+                                  },
+                                ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                              vertical: 10, horizontal: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                        ),
+                        onChanged: (v) {
+                          setState(() {
+                            _currentPage = 1;
+                          });
+                          ref
+                              .read(currenciesProvider.notifier)
+                              .fetchCurrencies(search: v);
+                        },
+                      );
                     },
                   ),
                 ),
@@ -599,83 +622,120 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
     final nameCtrl = TextEditingController(text: currency?.currencyName ?? '');
     final symbolCtrl = TextEditingController(text: currency?.currencySymbol ?? '');
 
+    bool isSubmitting = false;
+
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text(currency == null ? l10n.addCurrencyDialogTitle : l10n.editCurrencyDialogTitle(currency.currencyCode)),
-        content: SizedBox(
-          width: 400,
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: codeCtrl,
-                  enabled: currency == null,
-                  maxLength: 3,
-                  decoration: InputDecoration(
-                    labelText: l10n.isoCodeLabel,
-                    hintText: l10n.isoCodeHint,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(currency == null
+              ? l10n.addCurrencyDialogTitle
+              : l10n.editCurrencyDialogTitle(currency.currencyCode)),
+          content: SizedBox(
+            width: 400,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: codeCtrl,
+                    enabled: currency == null,
+                    maxLength: 3,
+                    decoration: InputDecoration(
+                      labelText: l10n.isoCodeLabel,
+                      hintText: l10n.isoCodeHint,
+                    ),
+                    validator: (v) => v == null || v.trim().length != 3
+                        ? l10n.isoCodeLengthError
+                        : null,
                   ),
-                  validator: (v) => v == null || v.trim().length != 3 ? l10n.isoCodeLengthError : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: nameCtrl,
-                  decoration: InputDecoration(
-                    labelText: l10n.currencyNameLabel,
-                    hintText: l10n.currencyNameHint,
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: InputDecoration(
+                      labelText: l10n.currencyNameLabel,
+                      hintText: l10n.currencyNameHint,
+                    ),
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? l10n.requiredField : null,
                   ),
-                  validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: symbolCtrl,
-                  decoration: InputDecoration(
-                    labelText: l10n.currencySymbolLabel,
-                    hintText: l10n.currencySymbolHint,
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: symbolCtrl,
+                    decoration: InputDecoration(
+                      labelText: l10n.currencySymbolLabel,
+                      hintText: l10n.currencySymbolHint,
+                    ),
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? l10n.requiredField : null,
                   ),
-                  validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
+              child: Text(l10n.cancel),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.cobalt,
+                  foregroundColor: Colors.white),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      if (formKey.currentState!.validate()) {
+                        setDialogState(() => isSubmitting = true);
+                        try {
+                          if (currency == null) {
+                            final newModel = CurrencyModel(
+                              currencyCode: codeCtrl.text.trim().toUpperCase(),
+                              currencyName: nameCtrl.text.trim(),
+                              currencySymbol: symbolCtrl.text.trim(),
+                            );
+                            final ok = await ref
+                                .read(currenciesProvider.notifier)
+                                .createCurrency(newModel);
+                            if (ok && context.mounted) Navigator.pop(dialogCtx);
+                          } else {
+                            final updateData = {
+                              'currency_name': nameCtrl.text.trim(),
+                              'currency_symbol': symbolCtrl.text.trim(),
+                            };
+                            final ok = await ref
+                                .read(currenciesProvider.notifier)
+                                .updateCurrency(
+                                    currency.currencyId!, updateData);
+                            if (ok && context.mounted) Navigator.pop(dialogCtx);
+                          }
+                        } finally {
+                          if (context.mounted) {
+                            setDialogState(() => isSubmitting = false);
+                          }
+                        }
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(currency == null
+                      ? l10n.createCurrencySubmitBtn
+                      : l10n.saveChangesSubmitBtn),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: Text(l10n.cancel),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-            onPressed: () async {
-              if (formKey.currentState!.validate()) {
-                if (currency == null) {
-                  final newModel = CurrencyModel(
-                    currencyCode: codeCtrl.text.trim().toUpperCase(),
-                    currencyName: nameCtrl.text.trim(),
-                    currencySymbol: symbolCtrl.text.trim(),
-                  );
-                  final ok = await ref.read(currenciesProvider.notifier).createCurrency(newModel);
-                  if (ok && context.mounted) Navigator.pop(dialogCtx);
-                } else {
-                  final updateData = {
-                    'currency_name': nameCtrl.text.trim(),
-                    'currency_symbol': symbolCtrl.text.trim(),
-                  };
-                  final ok = await ref
-                      .read(currenciesProvider.notifier)
-                      .updateCurrency(currency.currencyId!, updateData);
-                  if (ok && context.mounted) Navigator.pop(dialogCtx);
-                }
-              }
-            },
-            child: Text(currency == null ? l10n.createCurrencySubmitBtn : l10n.saveChangesSubmitBtn),
-          ),
-        ],
       ),
-    );
+    ).then((_) {
+      codeCtrl.dispose();
+      nameCtrl.dispose();
+      symbolCtrl.dispose();
+    });
   }
 
   Widget _historyStatCard({
@@ -1083,6 +1143,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
     final custCtrl = TextEditingController();
     DateTime selectedDate = DateTime.now();
 
+    bool isSubmitting = false;
+
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
@@ -1160,29 +1222,47 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
+              onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
               child: Text(l10n.cancel),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  final rateModel = ExchangeRateModel(
-                    currencyId: selectedCurrencyId,
-                    commercialRate: double.parse(commCtrl.text.trim()),
-                    customsRate: double.parse(custCtrl.text.trim()),
-                    effectiveDate: selectedDate.toIso8601String().split('T').first,
-                  );
-                  final ok = await ref.read(currenciesProvider.notifier).addExchangeRate(rateModel);
-                  if (ok && context.mounted) Navigator.pop(dialogCtx);
-                }
-              },
-              child: Text(l10n.saveRateSubmitBtn),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      if (formKey.currentState!.validate()) {
+                        setDialogState(() => isSubmitting = true);
+                        try {
+                          final rateModel = ExchangeRateModel(
+                            currencyId: selectedCurrencyId,
+                            commercialRate: double.parse(commCtrl.text.trim()),
+                            customsRate: double.parse(custCtrl.text.trim()),
+                            effectiveDate: selectedDate.toIso8601String().split('T').first,
+                          );
+                          final ok = await ref.read(currenciesProvider.notifier).addExchangeRate(rateModel);
+                          if (ok && context.mounted) Navigator.pop(dialogCtx);
+                        } finally {
+                          if (context.mounted) {
+                            setDialogState(() => isSubmitting = false);
+                          }
+                        }
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(l10n.saveRateSubmitBtn),
             ),
           ],
         ),
       ),
-    );
+    ).then((_) {
+      commCtrl.dispose();
+      custCtrl.dispose();
+    });
   }
 
   // ─── Multi-Currency Conversion Dialog ─────────────────────────────────────
@@ -1356,7 +1436,9 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
           ],
         ),
       ),
-    );
+    ).then((_) {
+      amountCtrl.dispose();
+    });
   }
 
   // ─── FX Gain / Loss Engine Dialog ─────────────────────────────────────────
@@ -1550,7 +1632,11 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
           ],
         ),
       ),
-    );
+    ).then((_) {
+      amountCtrl.dispose();
+      initialRateCtrl.dispose();
+      settlementRateCtrl.dispose();
+    });
   }
 }
 

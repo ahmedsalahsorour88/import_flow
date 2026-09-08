@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/ai_assistant_provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -69,6 +71,27 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
     _inputCtrl.clear();
     await ref.read(aiAssistantProvider.notifier).sendMessage(text);
     Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+  }
+
+  void _copyToClipboard(String text, String successMsg) {
+    Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
+              const SizedBox(width: 8),
+              Text(successMsg, style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppTheme.charcoal,
+        ),
+      );
+    }
   }
 
   // ─── Build ──────────────────────────────────────────────────────────────────
@@ -406,16 +429,18 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
       return _buildWelcomeScreen();
     }
 
-    return ListView.builder(
-      controller: _scrollCtrl,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      itemCount: state.messages.length + (state.isLoading ? 1 : 0),
-      itemBuilder: (context, i) {
-        if (i == state.messages.length) {
-          return _buildTypingIndicator();
-        }
-        return _buildMessageBubble(state.messages[i]);
-      },
+    return SelectionArea(
+      child: ListView.builder(
+        controller: _scrollCtrl,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        itemCount: state.messages.length + (state.isLoading ? 1 : 0),
+        itemBuilder: (context, i) {
+          if (i == state.messages.length) {
+            return _buildTypingIndicator();
+          }
+          return _buildMessageBubble(state.messages[i]);
+        },
+      ),
     );
   }
 
@@ -506,6 +531,13 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
                 ),
               ),
             ),
+            IconButton(
+              icon: const Icon(Icons.copy_rounded, size: 14, color: Colors.grey),
+              tooltip: 'نسخ الإشعار',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () => _copyToClipboard(msg.text, 'تم نسخ الإشعار ✅'),
+            ),
           ],
         ),
       );
@@ -517,18 +549,21 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
         margin: EdgeInsets.only(
           top: 4,
           bottom: 4,
-          left: isUser ? 40 : 0,
-          right: isUser ? 0 : 40,
+          left: isUser ? 36 : 0,
+          right: isUser ? 0 : 36,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isUser ? AppTheme.cobalt : Colors.grey.shade100,
+          color: isUser
+              ? AppTheme.cobalt
+              : (msg.isError ? AppTheme.crimson.withOpacity(0.06) : Colors.grey.shade100),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(14),
             topRight: const Radius.circular(14),
             bottomLeft: Radius.circular(isUser ? 14 : 4),
             bottomRight: Radius.circular(isUser ? 4 : 14),
           ),
+          border: msg.isError ? Border.all(color: AppTheme.crimson.withOpacity(0.35)) : null,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.06),
@@ -537,13 +572,92 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
             ),
           ],
         ),
-        child: Text(
-          msg.text,
-          style: TextStyle(
-            fontSize: 12.5,
-            color: isUser ? Colors.white : AppTheme.charcoal,
-            height: 1.45,
-          ),
+        child: Column(
+          crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              msg.text,
+              style: TextStyle(
+                fontSize: 12.5,
+                color: isUser
+                    ? Colors.white
+                    : (msg.isError ? AppTheme.crimson : AppTheme.charcoal),
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(4),
+                  onTap: () => _copyToClipboard(
+                    msg.text,
+                    isUser ? 'تم نسخ رسالتك ✅' : 'تم نسخ رد المساعد ✅',
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.copy_rounded,
+                          size: 11,
+                          color: isUser ? Colors.white70 : Colors.grey.shade600,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          'نسخ',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: isUser ? Colors.white70 : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (msg.isError) ...[
+                  const SizedBox(width: 8),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(4),
+                    onTap: () {
+                      final state = ref.read(aiAssistantProvider);
+                      final lastUserMsg = state.messages
+                          .lastWhere((m) => m.sender == MessageSender.user, orElse: () => msg);
+                      if (lastUserMsg.sender == MessageSender.user) {
+                        _sendMessage(lastUserMsg.text);
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.refresh_rounded,
+                            size: 12,
+                            color: AppTheme.crimson.withOpacity(0.8),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            'إعادة المحاولة',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.crimson.withOpacity(0.9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -610,12 +724,48 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
               maxLines: 3,
               minLines: 1,
               textDirection: TextDirection.rtl,
+              contextMenuBuilder: (context, editableTextState) {
+                return AdaptiveTextSelectionToolbar.editableText(
+                  editableTextState: editableTextState,
+                );
+              },
               decoration: InputDecoration(
                 hintText: 'اسألني عن الاستيراد، الجمارك، الشحن...',
                 hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
                 filled: true,
                 fillColor: Colors.grey.shade50,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.paste_rounded, size: 18, color: AppTheme.cobalt),
+                  tooltip: 'لصق من الحافظة',
+                  onPressed: state.isLoading
+                      ? null
+                      : () async {
+                          final data = await Clipboard.getData(Clipboard.kTextPlain);
+                          if (data?.text != null && data!.text!.isNotEmpty) {
+                            final currentText = _inputCtrl.text;
+                            final selection = _inputCtrl.selection;
+                            if (selection.isValid && selection.start >= 0 && selection.end >= 0) {
+                              final newText = currentText.replaceRange(
+                                selection.start,
+                                selection.end,
+                                data.text!,
+                              );
+                              _inputCtrl.value = TextEditingValue(
+                                text: newText,
+                                selection: TextSelection.collapsed(
+                                  offset: selection.start + data.text!.length,
+                                ),
+                              );
+                            } else {
+                              _inputCtrl.text = '$currentText${data.text}';
+                              _inputCtrl.selection = TextSelection.collapsed(
+                                offset: _inputCtrl.text.length,
+                              );
+                            }
+                          }
+                        },
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
                   borderSide: BorderSide(color: Colors.grey.shade200),
@@ -689,7 +839,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: () => _showApiKeyDialog(null),
+            onPressed: () => _showApiKeyDialog(AiAssistantNotifier.defaultApiKey),
             icon: const Icon(Icons.key_outlined, size: 16),
             label: const Text('إدخال API Key'),
             style: ElevatedButton.styleFrom(
@@ -700,13 +850,32 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
           ),
           const SizedBox(height: 10),
           TextButton.icon(
-            onPressed: () {
-              // Open Gemini AI Studio link in browser context
+            onPressed: () async {
+              const url = 'https://aistudio.google.com/app/apikey';
+              await Clipboard.setData(const ClipboardData(text: url));
+              try {
+                if (Platform.isWindows) {
+                  await Process.run('cmd', ['/c', 'start', '', url.replaceAll('&', '^&')], runInShell: true);
+                } else if (Platform.isMacOS) {
+                  await Process.run('open', [url]);
+                } else if (Platform.isLinux) {
+                  await Process.run('xdg-open', [url]);
+                }
+              } catch (_) {}
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('تم فتح صفحة Google AI Studio في المتصفح ونسخ الرابط للحافظة'),
+                    backgroundColor: AppTheme.cobalt,
+                    duration: Duration(seconds: 4),
+                  ),
+                );
+              }
             },
-            icon: Icon(Icons.open_in_new, size: 13, color: Colors.grey.shade500),
+            icon: Icon(Icons.open_in_new, size: 13, color: Colors.grey.shade600),
             label: Text(
-              'احصل على API Key من Google AI Studio',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              'احصل على API Key من Google AI Studio (اضغط للفتح)',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600, decoration: TextDecoration.underline),
             ),
           ),
         ],
@@ -717,7 +886,10 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
   // ─── API Key Dialog ─────────────────────────────────────────────────────────
 
   void _showApiKeyDialog(String? currentKey) {
-    final ctrl = TextEditingController(text: currentKey ?? '');
+    final effectiveKey = (currentKey != null && currentKey.isNotEmpty)
+        ? currentKey
+        : (ref.read(aiAssistantProvider).apiKey ?? AiAssistantNotifier.defaultApiKey);
+    final ctrl = TextEditingController(text: effectiveKey);
     bool obscure = true;
 
     showDialog(
@@ -737,14 +909,39 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'أدخل Gemini API Key من Google AI Studio (aistudio.google.com)',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'احصل على المفتاح مجاناً من Google AI Studio:',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () async {
+                        const url = 'https://aistudio.google.com/app/apikey';
+                        await Clipboard.setData(const ClipboardData(text: url));
+                        try {
+                          if (Platform.isWindows) {
+                            await Process.run('cmd', ['/c', 'start', '', url.replaceAll('&', '^&')], runInShell: true);
+                          }
+                        } catch (_) {}
+                      },
+                      icon: const Icon(Icons.open_in_new, size: 12),
+                      label: const Text('فتح الرابط', style: TextStyle(fontSize: 11)),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 TextField(
                   controller: ctrl,
                   obscureText: obscure,
+                  contextMenuBuilder: (context, editableTextState) {
+                    return AdaptiveTextSelectionToolbar.editableText(
+                      editableTextState: editableTextState,
+                    );
+                  },
                   decoration: InputDecoration(
                     labelText: 'API Key',
                     hintText: 'AIzaSy...',
@@ -758,14 +955,14 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
                     ),
                   ),
                 ),
-                if (currentKey != null) ...[
+                if (currentKey != null || ref.read(aiAssistantProvider).hasApiKey) ...[
                   const SizedBox(height: 12),
                   Row(
                     children: [
                       const Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 14),
                       const SizedBox(width: 6),
                       Text(
-                        'API Key محفوظ مسبقاً',
+                        'مفتاح API نشط ومثبت',
                         style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                       ),
                     ],
@@ -775,14 +972,14 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
             ),
           ),
           actions: [
-            if (currentKey != null)
+            if (currentKey != null || ref.read(aiAssistantProvider).hasApiKey)
               TextButton(
                 onPressed: () {
                   Navigator.pop(ctx);
                   ref.read(aiAssistantProvider.notifier).clearApiKey();
                 },
                 style: TextButton.styleFrom(foregroundColor: AppTheme.crimson),
-                child: const Text('حذف الـ Key'),
+                child: const Text('تعطيل المفتاح'),
               ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),

@@ -14,9 +14,16 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
     connectTimeout: const Duration(seconds: 30),
     receiveTimeout: const Duration(seconds: 30),
   ));
+  CancelToken? _cancelToken;
 
   PaymentRequestsNotifier() : super(const AsyncValue.loading()) {
     fetchPaymentRequests();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('Provider disposed');
+    super.dispose();
   }
 
   Future<void> fetchPaymentRequests({
@@ -26,6 +33,8 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
     int? supplierId,
     String? status,
   }) async {
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{
@@ -39,12 +48,14 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/financial-approval/payment-requests',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List<dynamic> data = response.data;
       final requests = data.map((json) => PaymentRequestModel.fromJson(json)).toList();
       state = AsyncValue.data(requests);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       state = AsyncValue.error(e, stack);
     }
   }
@@ -237,9 +248,16 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
     connectTimeout: const Duration(seconds: 30),
     receiveTimeout: const Duration(seconds: 30),
   ));
+  CancelToken? _cancelToken;
 
   ImportBudgetsNotifier() : super(const AsyncValue.loading()) {
     fetchImportBudgets();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('Provider disposed');
+    super.dispose();
   }
 
   Future<void> fetchImportBudgets({
@@ -248,6 +266,8 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
     int? poId,
     String? budgetStatus,
   }) async {
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{
@@ -262,12 +282,14 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/financial-approval/import-budgets',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List<dynamic> data = response.data;
       final budgets = data.map((json) => ImportBudgetModel.fromJson(json)).toList();
       state = AsyncValue.data(budgets);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       state = AsyncValue.error(e, stack);
     }
   }

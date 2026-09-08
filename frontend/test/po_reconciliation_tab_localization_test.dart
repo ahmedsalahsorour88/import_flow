@@ -161,6 +161,33 @@ void main() {
         ar.poRecQtyDiff,
         ar.poRecOk,
         ar.poRecUnassignedHsCode,
+        ar.poRecInvoicePrefix,
+        ar.poRecPackingPrefix,
+        ar.poRecGrossPrefix,
+        ar.poRecCheckFieldInvoiceNumber,
+        ar.poRecCheckFieldAcidNumber,
+        ar.poRecCheckFieldTotalAmount,
+        ar.poRecCheckMsgInvoiceMatched,
+        ar.poRecCheckMsgAcidMatched,
+        ar.poRecCheckMsgTotalAmountMatched,
+        ar.poRecCheckNotSpecified,
+        ar.poRecReportTitle,
+        ar.poRecReportSessionCode,
+        ar.poRecReportImportFile,
+        ar.poRecReportImporter,
+        ar.poRecReportShipper,
+        ar.poRecReportAcid,
+        ar.poRecReportInvoiceNo,
+        ar.poRecReportPackingNo,
+        ar.poRecReportTotalValue,
+        ar.poRecReportPackages,
+        ar.poRecReportGrossWeight,
+        ar.poRecReportNetWeight,
+        ar.poRecReportTotalCbm,
+        ar.poRecReportOverallStatus,
+        ar.poRecReportCertifiedBy,
+        ar.poRecReportCsvHeader,
+        ar.poRecReportPreviewTitle,
       ];
 
       final List<String> enStrings = [
@@ -315,6 +342,33 @@ void main() {
         en.poRecQtyDiff,
         en.poRecOk,
         en.poRecUnassignedHsCode,
+        en.poRecInvoicePrefix,
+        en.poRecPackingPrefix,
+        en.poRecGrossPrefix,
+        en.poRecCheckFieldInvoiceNumber,
+        en.poRecCheckFieldAcidNumber,
+        en.poRecCheckFieldTotalAmount,
+        en.poRecCheckMsgInvoiceMatched,
+        en.poRecCheckMsgAcidMatched,
+        en.poRecCheckMsgTotalAmountMatched,
+        en.poRecCheckNotSpecified,
+        en.poRecReportTitle,
+        en.poRecReportSessionCode,
+        en.poRecReportImportFile,
+        en.poRecReportImporter,
+        en.poRecReportShipper,
+        en.poRecReportAcid,
+        en.poRecReportInvoiceNo,
+        en.poRecReportPackingNo,
+        en.poRecReportTotalValue,
+        en.poRecReportPackages,
+        en.poRecReportGrossWeight,
+        en.poRecReportNetWeight,
+        en.poRecReportTotalCbm,
+        en.poRecReportOverallStatus,
+        en.poRecReportCertifiedBy,
+        en.poRecReportCsvHeader,
+        en.poRecReportPreviewTitle,
       ];
 
       expect(arStrings.length, enStrings.length);
@@ -338,11 +392,43 @@ void main() {
         en.poRecExtractorTitle,
         ar.poRecHistorySectionTitle,
         en.poRecHistorySectionTitle,
+        ar.poRecRecProvideInputs,
+        ar.poRecFinalInvoiceNoHint,
+        ar.poRecFinalPackingListNoHint,
+        ar.poRecKpiTotalCbm,
+        ar.poRecColHsCode,
+        ar.poRecUploadFile,
+        ar.poRecHistoryColImportFileImporter,
+        ar.poRecHistoryColCbm,
+        ar.poRecReportTitle,
+        ar.poRecReportPreviewTitle,
       ];
 
       for (final label in labels) {
         expect(label.contains(' / '), isFalse, reason: 'Labels should not contain dual stacked format " / ": $label');
       }
     });
+
+    test('Clean single-locale integrity: Arabic strings must not contain raw English acronyms or slashes', () {
+      expect(ar.poRecKpiTotalCbm.contains('(CBM)'), isFalse);
+      expect(ar.poRecColHsCode.contains('(HS)'), isFalse);
+      expect(ar.poRecUploadFile.contains('(PDF/Word/Excel)'), isFalse);
+      expect(ar.poRecHistoryColImportFileImporter.contains('/'), isFalse);
+      expect(ar.poRecHistoryColCbm.contains('(CBM)'), isFalse);
+    });
+
+    test('Task C Linked Output Report strings should be complete, valid, and localized', () {
+      expect(ar.poRecReportTitle, contains('نظام سرور للخدمات اللوجستية'));
+      expect(en.poRecReportTitle, contains('Sorour Logistics ERP'));
+      expect(ar.poRecReportCsvHeader, contains('كود الصنف'));
+      expect(en.poRecReportCsvHeader, contains('Item Code'));
+      expect(ar.poRecInvoicePrefix, isNotEmpty);
+      expect(en.poRecInvoicePrefix, isNotEmpty);
+      expect(ar.poRecPackingPrefix, isNotEmpty);
+      expect(en.poRecPackingPrefix, isNotEmpty);
+      expect(ar.poRecGrossPrefix, isNotEmpty);
+      expect(en.poRecGrossPrefix, isNotEmpty);
+    });
   });
 }
+

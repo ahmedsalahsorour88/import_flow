@@ -50,16 +50,21 @@ class PurchaseOrdersState {
 class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
   final Dio _dio;
   final Ref _ref;
+  CancelToken? _cancelToken;
 
   PurchaseOrdersNotifier(this._dio, this._ref) : super(PurchaseOrdersState()) {
     fetchPurchaseOrders();
   }
 
   Future<void> fetchPurchaseOrders() async {
+    _cancelToken?.cancel('New purchase orders fetch initiated');
+    _cancelToken = CancelToken();
+
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final response = await _dio.get(
         ApiConstants.purchaseOrders,
+        cancelToken: _cancelToken,
         queryParameters: {
           'include_inactive': state.showInactive,
           if (state.statusFilter != null && state.statusFilter!.isNotEmpty) 'status': state.statusFilter,
@@ -70,6 +75,14 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
       final List data = response.data;
       final list = data.map((json) => PurchaseOrderModel.fromJson(json)).toList();
       state = state.copyWith(purchaseOrders: list, isLoading: false);
+    } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) {
+        return;
+      }
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Failed to load purchase orders: ${e.toString()}',
+      );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -178,6 +191,12 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
       state = state.copyWith(errorMessage: 'Failed to restore purchase order: ${e.toString()}');
       return false;
     }
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('PurchaseOrdersNotifier disposed');
+    super.dispose();
   }
 }
 

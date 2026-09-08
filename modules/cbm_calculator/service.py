@@ -202,7 +202,42 @@ class CBMService:
             po_id=po_id,
             search=search,
         )
-        return [CBMService._to_response(db, r) for r in records]
+        if not records:
+            return []
+
+        # Batch preload Project, PurchaseOrder, and ImportFile to eliminate N+1 queries
+        project_ids = {r.project_id for r in records if r.project_id}
+        po_ids = {r.po_id for r in records if r.po_id}
+        import_file_ids = {r.import_file_id for r in records if r.import_file_id}
+
+        projects_map = {}
+        if project_ids:
+            prjs = db.query(Project).filter(Project.project_id.in_(project_ids)).all()
+            projects_map = {p.project_id: f"{p.project_code} - {p.project_name}" for p in prjs}
+
+        pos_map = {}
+        if po_ids:
+            pos = db.query(PurchaseOrder).filter(PurchaseOrder.po_id.in_(po_ids)).all()
+            pos_map = {p.po_id: p.po_number for p in pos}
+
+        import_files_map = {}
+        if import_file_ids:
+            from modules.import_files.model import ImportFile
+            imps = db.query(ImportFile).filter(ImportFile.import_file_id.in_(import_file_ids)).all()
+            import_files_map = {
+                i.import_file_id: (i.import_file_code or i.custom_file_number) for i in imps
+            }
+
+        return [
+            CBMService._to_response(
+                db,
+                r,
+                project_name=projects_map.get(r.project_id),
+                po_number=pos_map.get(r.po_id),
+                import_file_code=import_files_map.get(r.import_file_id),
+            )
+            for r in records
+        ]
 
     @staticmethod
     def update_calculation_service(
@@ -288,21 +323,24 @@ class CBMService:
         return CBMService._to_response(db, restored)
 
     @staticmethod
-    def _to_response(db: Session, calc: CBMCalculation) -> CBMCalculationResponse:
-        project_name = None
-        if calc.project_id:
+    def _to_response(
+        db: Session,
+        calc: CBMCalculation,
+        project_name: Optional[str] = None,
+        po_number: Optional[str] = None,
+        import_file_code: Optional[str] = None,
+    ) -> CBMCalculationResponse:
+        if calc.project_id and project_name is None:
             prj = db.query(Project).filter(Project.project_id == calc.project_id).first()
             if prj:
                 project_name = f"{prj.project_code} - {prj.project_name}"
 
-        po_number = None
-        if calc.po_id:
+        if calc.po_id and po_number is None:
             po = db.query(PurchaseOrder).filter(PurchaseOrder.po_id == calc.po_id).first()
             if po:
                 po_number = po.po_number
 
-        import_file_code = None
-        if calc.import_file_id:
+        if calc.import_file_id and import_file_code is None:
             from modules.import_files.model import ImportFile
             imp = db.query(ImportFile).filter(ImportFile.import_file_id == calc.import_file_id).first()
             if imp:

@@ -4,6 +4,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 import 'consultation_metric_badge.dart';
 import 'consultation_status_badges.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 class PostSaveStatusDialog extends StatelessWidget {
   final CustomsConsultationModel saved;
@@ -40,7 +41,7 @@ class PostSaveStatusDialog extends StatelessWidget {
                   l.customsDutyReviewTitle,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
-                Text(
+                CopyableText(
                   saved.consultationCode,
                   style: const TextStyle(
                       fontSize: 12,
@@ -112,7 +113,7 @@ class PostSaveStatusDialog extends StatelessWidget {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.start,
                                   children: [
-                                    Text(
+                                    CopyableText(
                                       item.documentType,
                                       style: const TextStyle(
                                           fontWeight: FontWeight.w600,
@@ -120,7 +121,7 @@ class PostSaveStatusDialog extends StatelessWidget {
                                     ),
                                     if (item.hsCode != null &&
                                         item.hsCode!.isNotEmpty)
-                                      Text(
+                                      CopyableText(
                                         item.hsCode!,
                                         style: const TextStyle(
                                             fontSize: 10,
@@ -172,7 +173,7 @@ class PostSaveStatusDialog extends StatelessWidget {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.start,
                                   children: [
-                                    Text(
+                                    CopyableText(
                                       item.documentType,
                                       style: const TextStyle(
                                           fontWeight: FontWeight.w600,
@@ -180,7 +181,7 @@ class PostSaveStatusDialog extends StatelessWidget {
                                     ),
                                     if (item.hsCode != null &&
                                         item.hsCode!.isNotEmpty)
-                                      Text(
+                                      CopyableText(
                                         item.hsCode!,
                                         style: const TextStyle(
                                             fontSize: 10, color: AppTheme.cobalt),

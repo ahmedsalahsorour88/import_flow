@@ -17,9 +17,16 @@ final discrepancyTicketsProvider =
 
 class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsDocumentApprovalModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   DocsCustomsApprovalNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchApprovals();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
   }
 
   Future<void> fetchApprovals({
@@ -27,6 +34,8 @@ class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsD
     String? overallStatus,
     String? search,
   }) async {
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{'include_inactive': false};
@@ -39,12 +48,16 @@ class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsD
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/docs-customs-approval',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List data = response.data;
       final list = data.map((json) => CustomsDocumentApprovalModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }
@@ -122,9 +135,16 @@ class DocsCustomsApprovalNotifier extends StateNotifier<AsyncValue<List<CustomsD
 
 class DiscrepancyTicketsNotifier extends StateNotifier<AsyncValue<List<DiscrepancyRectificationTicketModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   DiscrepancyTicketsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchTickets();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
   }
 
   Future<void> fetchTickets({
@@ -133,6 +153,8 @@ class DiscrepancyTicketsNotifier extends StateNotifier<AsyncValue<List<Discrepan
     String? severity,
     String? search,
   }) async {
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{'include_inactive': false};
@@ -148,12 +170,16 @@ class DiscrepancyTicketsNotifier extends StateNotifier<AsyncValue<List<Discrepan
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/docs-customs-approval/tickets/list',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List data = response.data;
       final list = data.map((json) => DiscrepancyRectificationTicketModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }

@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/widgets/extraction_progress_dialog.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 
@@ -370,14 +371,6 @@ Other (21days+USD200/ctnr)
     });
   }
 
-  void _toggleSelectAll(bool? value) {
-    final bool select = value ?? false;
-    setState(() {
-      for (final opt in _options) {
-        opt.isSelected = select;
-      }
-    });
-  }
 
   void _addSelectedAndClose() {
     final selected = _options.where((o) => o.isSelected).toList();
@@ -410,46 +403,76 @@ Other (21days+USD200/ctnr)
   // ─── Manual Custom Field Modal ─────────────────────────────────────────────
 
   void _showAddCustomFieldModal() {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
     String selectedPreset = 'free_time_extend';
-    final keyCtrl = TextEditingController(text: 'تمديد فترة السماح (Free Time Extension)');
+    final keyCtrl = TextEditingController(text: isArabic ? 'تمديد فترة السماح' : 'Free Time Extension');
     final valCtrl = TextEditingController();
 
-    final presets = {
-      'free_time_extend': '⏳ تمديد فترة السماح (Free Time Extension - USD/cntr)',
-      'thc_charge': '🏗️ رسوم المناولة وتداول الحاويات (THC)',
-      'doc_fee': '📄 رسوم بوليصة ومستندات (Doc Fee)',
-      'isps_fee': '🛡️ رسوم أمن الميناء (ISPS)',
-      'seal_fee': '🔒 رسوم الرصاصة الجمركية (Seal Fee)',
-      'vgm_fee': '⚖️ رسوم وزن الحاوية (VGM Fee)',
-      'chassis_fee': '🚛 رسوم الشاسيه (Chassis Fee)',
-      'forwarder_name': '🏢 وكيل الشحن / الناقل (Freight Forwarder)',
-      'carrier_name': '🚢 الخط الملاحي (Shipping Line / Carrier)',
-      'origin_port': '⚓ ميناء الشحن / السفر (Port of Loading - POL)',
-      'destination_port': '⚓ ميناء الوصول / التفريغ (Port of Discharge - POD)',
-      'vessel_name': '🚢 اسم الباخرة (Vessel Name)',
-      'voyage_number': '🔢 رقم الرحلة (Voyage Number)',
-      'etd_date': '📅 تاريخ الإبحار (ETD - YYYY-MM-DD)',
-      'eta_date': '📅 تاريخ الوصول (ETA - YYYY-MM-DD)',
-      'transit_days': '⏱ مدة الإبحار (Transit Days)',
-      'free_time_days': '⏳ فترة السماح (Free Time Days)',
-      'rate_20gp': '💵 نولون الحاوية 20 (Rate USD / 20GP)',
-      'rate_40hq': '💵 نولون الحاوية 40 (Rate USD / 40HQ)',
-      'local_charges': '💰 مصاريف ورسوم محلية (Local Charges USD)',
-      'exw_charges': '🏭 رسوم المصنع والنقل (EXW Charges USD)',
-      'notes': '📝 ملاحظات وشروط إضافية (Special Notes)',
-      'custom': '➕ بيان / مصروف مخصص آخر (Custom Expense)',
-    };
+    final presets = isArabic
+        ? {
+            'free_time_extend': '⏳ تمديد فترة السماح (USD/حاوية)',
+            'thc_charge': '🏗️ رسوم المناولة وتداول الحاويات (THC)',
+            'doc_fee': '📄 رسوم بوليصة ومستندات',
+            'isps_fee': '🛡️ رسوم أمن الميناء (ISPS)',
+            'seal_fee': '🔒 رسوم الرصاصة الجمركية',
+            'vgm_fee': '⚖️ رسوم وزن الحاوية (VGM)',
+            'chassis_fee': '🚛 رسوم الشاسيه',
+            'forwarder_name': '🏢 وكيل الشحن / الناقل',
+            'carrier_name': '🚢 الخط الملاحي',
+            'origin_port': '⚓ ميناء الشحن / السفر (POL)',
+            'destination_port': '⚓ ميناء الوصول / التفريغ (POD)',
+            'vessel_name': '🚢 اسم الباخرة',
+            'voyage_number': '🔢 رقم الرحلة',
+            'etd_date': '📅 تاريخ الإبحار (YYYY-MM-DD)',
+            'eta_date': '📅 تاريخ الوصول (YYYY-MM-DD)',
+            'transit_days': '⏱ مدة الإبحار (أيام)',
+            'free_time_days': '⏳ فترة السماح (أيام)',
+            'rate_20gp': '💵 نولون الحاوية 20',
+            'rate_40hq': '💵 نولون الحاوية 40',
+            'local_charges': '💰 مصاريف ورسوم محلية (USD)',
+            'exw_charges': '🏭 رسوم المصنع والنقل الداخلي (USD)',
+            'notes': '📝 ملاحظات وشروط إضافية',
+            'custom': '➕ بيان / مصروف مخصص آخر',
+          }
+        : {
+            'free_time_extend': '⏳ Free Time Extension (USD/cntr)',
+            'thc_charge': '🏗️ Terminal Handling Charges (THC)',
+            'doc_fee': '📄 Documentation Fee',
+            'isps_fee': '🛡️ Port Security Fee (ISPS)',
+            'seal_fee': '🔒 Container Seal Fee',
+            'vgm_fee': '⚖️ Verified Gross Mass Fee (VGM)',
+            'chassis_fee': '🚛 Chassis Fee',
+            'forwarder_name': '🏢 Freight Forwarder',
+            'carrier_name': '🚢 Shipping Line / Carrier',
+            'origin_port': '⚓ Port of Loading (POL)',
+            'destination_port': '⚓ Port of Discharge (POD)',
+            'vessel_name': '🚢 Vessel Name',
+            'voyage_number': '🔢 Voyage Number',
+            'etd_date': '📅 Departure Date (ETD - YYYY-MM-DD)',
+            'eta_date': '📅 Arrival Date (ETA - YYYY-MM-DD)',
+            'transit_days': '⏱ Transit Time (Days)',
+            'free_time_days': '⏳ Free Time (Days)',
+            'rate_20gp': '💵 Rate USD / 20GP',
+            'rate_40hq': '💵 Rate USD / 40HQ',
+            'local_charges': '💰 Local Charges (USD)',
+            'exw_charges': '🏭 EXW / Inland Charges (USD)',
+            'notes': '📝 Special Notes & Terms',
+            'custom': '➕ Other Custom Expense / Field',
+          };
 
     showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.add_box_rounded, color: AppTheme.emerald),
-              SizedBox(width: 8),
-              Text('إضافة بيان أو مصروف إضافي يدوياً', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const Icon(Icons.add_box_rounded, color: AppTheme.emerald),
+              const SizedBox(width: 8),
+              Text(
+                isArabic ? 'إضافة بيان أو مصروف إضافي يدوياً' : 'Add Custom Field / Expense',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           content: SizedBox(
@@ -458,13 +481,23 @@ Other (21days+USD200/ctnr)
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('اختر نوع المصروف/البيان أو أدخل بياناً مخصصاً لعروض الأسعار:', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
+                Text(
+                  isArabic
+                      ? 'اختر نوع المصروف/البيان أو أدخل بياناً مخصصاً لعروض الأسعار:'
+                      : 'Select expense/field type or enter custom details:',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: selectedPreset,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'نوع البيان / المصروف المطلوب إضافته', isDense: true),
-                  items: presets.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 12.5)))).toList(),
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'نوع البيان / المصروف المطلوب إضافته' : 'Expense / Field Type',
+                    isDense: true,
+                  ),
+                  items: presets.entries
+                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 12.5))))
+                      .toList(),
                   onChanged: (v) {
                     if (v != null) {
                       setModalState(() {
@@ -482,23 +515,32 @@ Other (21days+USD200/ctnr)
                   const SizedBox(height: 10),
                   TextField(
                     controller: keyCtrl,
-                    decoration: const InputDecoration(labelText: 'اسم المصروف / البيان الجديد *', hintText: 'مثلاً: Demurrage Tier 2 أو Surcharge'),
+                    decoration: InputDecoration(
+                      labelText: isArabic ? 'اسم المصروف / البيان الجديد *' : 'New Expense / Field Name *',
+                      hintText: isArabic ? 'مثلاً: غرامة إضافية أو تأخير' : 'e.g. Demurrage Tier 2 or Surcharge',
+                    ),
                   ),
                 ],
                 const SizedBox(height: 10),
                 TextField(
                   controller: valCtrl,
-                  decoration: const InputDecoration(labelText: 'القيمة / التفاصيل (Value) *', hintText: 'مثلاً: USD 200/ctnr أو 21 days'),
+                  decoration: InputDecoration(
+                    labelText: isArabic ? 'القيمة / التفاصيل *' : 'Value / Details *',
+                    hintText: isArabic ? 'مثلاً: USD 200/حاوية أو 21 يوم' : 'e.g. USD 200/cntr or 21 days',
+                  ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+            ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
               icon: const Icon(Icons.check, size: 16),
-              label: const Text('إضافة للبيانات'),
+              label: Text(isArabic ? 'إضافة للبيانات' : 'Add to Data'),
               onPressed: () {
                 final k = keyCtrl.text.trim();
                 final v = valCtrl.text.trim();
@@ -517,6 +559,7 @@ Other (21days+USD200/ctnr)
   }
 
   void _showEditCustomFieldModal(String key, String currentValue) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
     final valCtrl = TextEditingController(text: currentValue);
     showDialog<void>(
       context: context,
@@ -526,22 +569,33 @@ Other (21days+USD200/ctnr)
           children: [
             const Icon(Icons.edit_note_rounded, color: AppTheme.cobalt),
             const SizedBox(width: 8),
-            Expanded(child: Text('تعديل: $key', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold))),
+            Expanded(
+              child: Text(
+                isArabic ? 'تعديل: $key' : 'Edit: $key',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
         content: SizedBox(
           width: 440,
           child: TextField(
             controller: valCtrl,
-            decoration: const InputDecoration(labelText: 'القيمة المعدلة', isDense: true),
+            decoration: InputDecoration(
+              labelText: isArabic ? 'القيمة المعدلة' : 'Updated Value',
+              isDense: true,
+            ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+          ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
             icon: const Icon(Icons.save, size: 16),
-            label: const Text('حفظ التعديل'),
+            label: Text(isArabic ? 'حفظ التعديل' : 'Save Changes'),
             onPressed: () {
               final v = valCtrl.text.trim();
               if (v.isNotEmpty) {
@@ -555,115 +609,7 @@ Other (21days+USD200/ctnr)
     );
   }
 
-  // ─── Edit Option Modal ─────────────────────────────────────────────────────
 
-  void _showEditOptionModal(ExtractedQuotationOption opt) {
-    final carrierCtrl = TextEditingController(text: opt.carrierName);
-    final fwdCtrl = TextEditingController(text: opt.forwarderName ?? '');
-    final vesselCtrl = TextEditingController(text: opt.vesselName ?? '');
-    final voyageCtrl = TextEditingController(text: opt.voyageNumber ?? '');
-    final rateCtrl = TextEditingController(text: opt.oceanFreight.toStringAsFixed(0));
-    final localCtrl = TextEditingController(text: opt.localCharges?.toStringAsFixed(0) ?? '');
-    final transitCtrl = TextEditingController(text: opt.transitDays?.toString() ?? '');
-    final freeTimeCtrl = TextEditingController(text: opt.freeTimeDays?.toString() ?? '');
-    final etdCtrl = TextEditingController(text: opt.etdDate ?? '');
-    final etaCtrl = TextEditingController(text: opt.etaDate ?? '');
-    final notesCtrl = TextEditingController(text: opt.notes ?? '');
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Row(
-          children: [
-            const Icon(Icons.edit_note_rounded, color: AppTheme.cobalt),
-            const SizedBox(width: 8),
-            Text('تعديل عرض السعر (${opt.containerType})', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: SizedBox(
-          width: 480,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(child: TextField(controller: carrierCtrl, decoration: const InputDecoration(labelText: 'الخط الملاحي *', isDense: true))),
-                    const SizedBox(width: 10),
-                    Expanded(child: TextField(controller: fwdCtrl, decoration: const InputDecoration(labelText: 'وكيل الشحن', isDense: true))),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(child: TextField(controller: vesselCtrl, decoration: const InputDecoration(labelText: 'اسم الباخرة', isDense: true))),
-                    const SizedBox(width: 10),
-                    Expanded(child: TextField(controller: voyageCtrl, decoration: const InputDecoration(labelText: 'رقم الرحلة', isDense: true))),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(child: TextField(controller: rateCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'النولون البحري USD *', isDense: true))),
-                    const SizedBox(width: 10),
-                    Expanded(child: TextField(controller: localCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'رسوم محلية USD', isDense: true))),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(child: TextField(controller: transitCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'مدة الترانزيت (أيام)', isDense: true))),
-                    const SizedBox(width: 10),
-                    Expanded(child: TextField(controller: freeTimeCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'فترة السماح (أيام)', isDense: true))),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(child: TextField(controller: etdCtrl, decoration: const InputDecoration(labelText: 'تاريخ الإبحار ETD (YYYY-MM-DD)', isDense: true))),
-                    const SizedBox(width: 10),
-                    Expanded(child: TextField(controller: etaCtrl, decoration: const InputDecoration(labelText: 'تاريخ الوصول ETA (YYYY-MM-DD)', isDense: true))),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: notesCtrl,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'الملاحظات والمصروفات الإضافية', isDense: true),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-            icon: const Icon(Icons.save, size: 16),
-            label: const Text('حفظ التعديلات'),
-            onPressed: () {
-              setState(() {
-                opt.carrierName = carrierCtrl.text.trim();
-                opt.forwarderName = fwdCtrl.text.trim().isNotEmpty ? fwdCtrl.text.trim() : null;
-                opt.vesselName = vesselCtrl.text.trim().isNotEmpty ? vesselCtrl.text.trim() : null;
-                opt.voyageNumber = voyageCtrl.text.trim().isNotEmpty ? voyageCtrl.text.trim() : null;
-                opt.oceanFreight = double.tryParse(rateCtrl.text.trim()) ?? opt.oceanFreight;
-                opt.localCharges = double.tryParse(localCtrl.text.trim());
-                opt.totalEstimatedCost = opt.oceanFreight + (opt.localCharges ?? 0.0);
-                opt.transitDays = int.tryParse(transitCtrl.text.trim());
-                opt.freeTimeDays = int.tryParse(freeTimeCtrl.text.trim());
-                opt.etdDate = etdCtrl.text.trim().isNotEmpty ? etdCtrl.text.trim() : null;
-                opt.etaDate = etaCtrl.text.trim().isNotEmpty ? etaCtrl.text.trim() : null;
-                opt.notes = notesCtrl.text.trim().isNotEmpty ? notesCtrl.text.trim() : null;
-              });
-              Navigator.pop(ctx);
-            },
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -680,258 +626,277 @@ Other (21days+USD200/ctnr)
     final int confidencePercent = (_confidenceScore * 100).round();
     final bool hasUnmappedWarning = _primaryMetadata?['unmapped_expenses_warning'] != null || _customFields.isNotEmpty;
 
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 880,
-        constraints: const BoxConstraints(maxHeight: 840),
-        child: Column(
-          children: [
-            // ─── Header Matching Smart Invoice Review UI ─────────────────────
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: BoxDecoration(
-                color: AppTheme.emerald.withOpacity(0.08),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      child: SelectionArea(
+        child: Container(
+          width: 880,
+          constraints: const BoxConstraints(maxHeight: 840),
+          child: Column(
+            children: [
+              // ─── Header Matching Smart Invoice Review UI ─────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppTheme.emerald.withOpacity(0.08),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 26),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isArabic
+                                ? 'نتائج الاستخراج — استخراج كامل'
+                                : 'Extraction Results — Full Extraction',
+                            style: const TextStyle(
+                              color: AppTheme.emerald,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            isArabic
+                                ? 'عروض أسعار الشحن والنولون · معدل الثقة: $confidencePercent%'
+                                : 'Freight Quotations · Confidence: $confidencePercent%',
+                            style: TextStyle(fontSize: 12, color: AppTheme.charcoal.withOpacity(0.65)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Confidence Progress Indicator Badge
+                    SizedBox(
+                      width: 90,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('$confidencePercent%', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13)),
+                          const SizedBox(height: 3),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: _confidenceScore,
+                              color: AppTheme.emerald,
+                              backgroundColor: AppTheme.emerald.withOpacity(0.2),
+                              minHeight: 6,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.black54, size: 20),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 26),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'نتائج الاستخراج — استخراج كامل (Extraction Results — Full Extraction)',
-                          style: TextStyle(
-                            color: AppTheme.emerald,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          'عروض أسعار الشحن والنولون (Freight Quotations) · معدل الثقة: $confidencePercent%',
-                          style: TextStyle(fontSize: 12, color: AppTheme.charcoal.withOpacity(0.65)),
-                        ),
-                      ],
-                    ),
+
+              // Tab Bar
+              TabBar(
+                controller: _tabController,
+                labelColor: AppTheme.cobalt,
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: AppTheme.cobalt,
+                tabs: [
+                  Tab(
+                    icon: const Icon(Icons.text_snippet_outlined, size: 18),
+                    text: isArabic ? '📝 لصق نص / بريد إلكتروني' : '📝 Paste Text / Email',
                   ),
-                  // Confidence Progress Indicator Badge
-                  SizedBox(
-                    width: 90,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('$confidencePercent%', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13)),
-                        const SizedBox(height: 3),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: _confidenceScore,
-                            color: AppTheme.emerald,
-                            backgroundColor: AppTheme.emerald.withOpacity(0.2),
-                            minHeight: 6,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.black54, size: 20),
-                    onPressed: () => Navigator.of(context).pop(),
+                  Tab(
+                    icon: const Icon(Icons.document_scanner_outlined, size: 18),
+                    text: isArabic ? '📁 رفع ملف / مستند / صورة' : '📁 Upload File / Document (OCR)',
                   ),
                 ],
               ),
-            ),
 
-            // Tab Bar
-            TabBar(
-              controller: _tabController,
-              labelColor: AppTheme.cobalt,
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: AppTheme.cobalt,
-              tabs: const [
-                Tab(
-                  icon: Icon(Icons.text_snippet_outlined, size: 18),
-                  text: '📝 لصق نص / بريد إلكتروني',
-                ),
-                Tab(
-                  icon: Icon(Icons.document_scanner_outlined, size: 18),
-                  text: '📁 رفع ملف / مستند / صورة (OCR)',
-                ),
-              ],
-            ),
-
-            // Body Area
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Tab Content (Input)
-                    SizedBox(
-                      height: 220,
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildTextInputTab(),
-                          _buildFileOcrTab(),
-                        ],
-                      ),
-                    ),
-
-                    // Error Box
-                    if (_error != null) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.crimson.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.crimson.withOpacity(0.3)),
-                        ),
-                        child: Row(
+              // Body Area
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Tab Content (Input)
+                      SizedBox(
+                        height: 220,
+                        child: TabBarView(
+                          controller: _tabController,
                           children: [
-                            const Icon(Icons.error_outline, color: AppTheme.crimson, size: 20),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                _error!,
-                                style: const TextStyle(color: AppTheme.crimson, fontSize: 12),
-                              ),
-                            ),
+                            _buildTextInputTab(),
+                            _buildFileOcrTab(),
                           ],
                         ),
                       ),
-                    ],
 
-                    // Results Section
-                    if (hasResults) ...[
-                      const SizedBox(height: 16),
-                      const Divider(),
-                      const SizedBox(height: 10),
-
-                      // ── Top Header with Add Manual Field Button (Like Invoices) ────
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'الحقول المستخرجة (Extracted Fields: ${_calculateTotalFieldsCount()})',
-                            style: const TextStyle(
-                              color: AppTheme.charcoal,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.emerald,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                              elevation: 0,
-                            ),
-                            icon: const Icon(Icons.add, size: 16),
-                            label: const Text('➕ Add Manual Field', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            onPressed: _showAddCustomFieldModal,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      // ── Entity Verification Panel (Like Invoices) ────────────
-                      _buildPartiesVerificationPanel(partners, portsList),
-                      const SizedBox(height: 12),
-
-                      // ── ⚠️ Unmapped / Special Expenses Warning Alert ─────────
-                      if (hasUnmappedWarning) ...[
+                      // Error Box
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.amber.shade50,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.amber.shade400, width: 1.2),
+                            color: AppTheme.crimson.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.crimson.withOpacity(0.3)),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
                             children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 22),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      _primaryMetadata?['unmapped_expenses_warning']?.toString() ??
-                                          '⚠️ تنبيه: تم اكتشاف مصروفات إضافية في العرض (Free Time Extend: USD 200/ctnr) غير مكودة قياسياً في النولون — يرجى مراجعتها وتوجيهها لتضمينها في دراسة الشحن لعدم فقدان أي تكلفة.',
-                                      style: TextStyle(
-                                        color: Colors.amber.shade900,
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '💡 تم استخراج هذه البنود وتثبيتها أدناه (★) مع إمكانية تعديلها أو حذفها، وسيتم تضمينها تلقائياً في ملاحظات وتكاليف الشحنة.',
-                                style: TextStyle(fontSize: 11.5, color: Colors.amber.shade900.withOpacity(0.85)),
+                              const Icon(Icons.error_outline, color: AppTheme.crimson, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _error!,
+                                  style: const TextStyle(color: AppTheme.crimson, fontSize: 12),
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
                       ],
 
-                      // ── Standard & Custom Extracted Fields List (Like Invoices) ────
-                      _buildExtractedFieldsList(),
-                      const SizedBox(height: 12),
+                      // Results Section
+                      if (hasResults) ...[
+                        const SizedBox(height: 16),
+                        const Divider(),
+                        const SizedBox(height: 10),
 
-                      // ── Green Options Container & Cards (Exact User Design) ──
-                      _buildExtractedOptionsGreenContainer(),
+                        // ── Top Header with Add Manual Field Button (Like Invoices) ────
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              isArabic
+                                  ? 'الحقول المستخرجة (${_calculateTotalFieldsCount()})'
+                                  : 'Extracted Fields (${_calculateTotalFieldsCount()})',
+                              style: const TextStyle(
+                                color: AppTheme.charcoal,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.emerald,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                elevation: 0,
+                              ),
+                              icon: const Icon(Icons.add, size: 16),
+                              label: Text(
+                                isArabic ? '➕ إضافة بيان يدوي' : '➕ Add Manual Field',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: _showAddCustomFieldModal,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // ── Entity Verification Panel (Like Invoices) ────────────
+                        _buildPartiesVerificationPanel(partners, portsList),
+                        const SizedBox(height: 12),
+
+                        // ── ⚠️ Unmapped / Special Expenses Warning Alert ─────────
+                        if (hasUnmappedWarning) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.amber.shade400, width: 1.2),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 22),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        _primaryMetadata?['unmapped_expenses_warning']?.toString() ??
+                                            (isArabic
+                                                ? '⚠️ تنبيه: تم اكتشاف مصروفات إضافية في العرض غير مكودة قياسياً في النولون — يرجى مراجعتها وتوجيهها لتضمينها في دراسة الشحن لعدم فقدان أي تكلفة.'
+                                                : '⚠️ Warning: Additional unmapped expenses detected in quotation — please review to include in freight cost analysis.'),
+                                        style: TextStyle(
+                                          color: Colors.amber.shade900,
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  isArabic
+                                      ? '💡 تم استخراج هذه البنود وتثبيتها أدناه (★) مع إمكانية تعديلها أو حذفها، وسيتم تضمينها تلقائياً في ملاحظات وتكاليف الشحنة.'
+                                      : '💡 These items have been extracted below (★) with edit/delete support, and will be included in shipment notes and costs.',
+                                  style: TextStyle(fontSize: 11.5, color: Colors.amber.shade900.withOpacity(0.85)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+
+                        // ── Standard & Custom Extracted Fields List (Like Invoices) ────
+                        _buildExtractedFieldsList(),
+                        const SizedBox(height: 12),
+
+                        // ── Green Options Container & Cards (Exact User Design) ──
+                        _buildExtractedOptionsGreenContainer(),
+                      ],
                     ],
+                  ),
+                ),
+              ),
+
+              // Footer Actions
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                  border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                ),
+                child: Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(isArabic ? 'إلغاء' : 'Cancel', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    ),
+                    const Spacer(),
+                    if (hasResults)
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: selectedCount > 0 ? _addSelectedAndClose : null,
+                        icon: const Icon(Icons.check, color: Colors.white),
+                        label: Text(
+                          isArabic
+                              ? '➕ تعبئة وإضافة العروض المحددة ($selectedCount)'
+                              : '➕ Add Selected Quotes ($selectedCount)',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
                   ],
                 ),
               ),
-            ),
-
-            // Footer Actions
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                border: Border(top: BorderSide(color: Colors.grey.shade200)),
-              ),
-              child: Row(
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('إلغاء', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  ),
-                  const Spacer(),
-                  if (hasResults)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      onPressed: selectedCount > 0 ? _addSelectedAndClose : null,
-                      icon: const Icon(Icons.check, color: Colors.white),
-                      label: Text(
-                        '➕ تعبئة وإضافة العروض المحددة ($selectedCount)',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -940,6 +905,7 @@ Other (21days+USD200/ctnr)
   // ─── Verification Panel ────────────────────────────────────────────────────
 
   Widget _buildPartiesVerificationPanel(List partners, List portsList) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
     final rawForwarder = _primaryMetadata?['forwarder_name']?.toString() ??
         _options.firstOrNull?.forwarderName ??
         '';
@@ -982,13 +948,15 @@ Other (21days+USD200/ctnr)
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.verified_user_rounded, size: 16, color: AppTheme.charcoal),
-              SizedBox(width: 6),
+              const Icon(Icons.verified_user_rounded, size: 16, color: AppTheme.charcoal),
+              const SizedBox(width: 6),
               Text(
-                'التحقق من أطراف الشحن والموانئ في قاعدة البيانات (Verify Parties in DB)',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                isArabic
+                    ? 'التحقق من أطراف الشحن والموانئ في قاعدة البيانات'
+                    : 'Verify Shipping Parties & Ports in Database',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
               ),
             ],
           ),
@@ -998,7 +966,7 @@ Other (21days+USD200/ctnr)
           if (rawForwarder.isNotEmpty) ...[
             _buildPartyRow(
               icon: Icons.business_rounded,
-              title: 'وكيل الشحن / الناقل (Freight Forwarder)',
+              title: isArabic ? 'وكيل الشحن / الناقل' : 'Freight Forwarder / Carrier',
               name: rawForwarder,
               isVerified: matchedForwarder != null,
               code: matchedForwarder?.partnerCode ?? (matchedForwarder != null ? 'PRV-${matchedForwarder.providerId}' : null),
@@ -1015,7 +983,7 @@ Other (21days+USD200/ctnr)
           if (rawCarrier.isNotEmpty) ...[
             _buildPartyRow(
               icon: Icons.directions_boat_rounded,
-              title: 'الخط الملاحي (Shipping Line)',
+              title: isArabic ? 'الخط الملاحي' : 'Shipping Line',
               name: rawCarrier,
               isVerified: matchedCarrier != null,
               code: matchedCarrier?.partnerCode ?? (matchedCarrier != null ? 'PRV-${matchedCarrier.providerId}' : null),
@@ -1046,7 +1014,7 @@ Other (21days+USD200/ctnr)
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'POL: $rawPol',
+                            isArabic ? 'ميناء الشحن: $rawPol' : 'POL: $rawPol',
                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1071,7 +1039,7 @@ Other (21days+USD200/ctnr)
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'POD: $rawPod',
+                            isArabic ? 'ميناء الوصول: $rawPod' : 'POD: $rawPod',
                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1095,6 +1063,8 @@ Other (21days+USD200/ctnr)
     String? code,
     required VoidCallback onRegister,
   }) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -1128,7 +1098,9 @@ Other (21days+USD200/ctnr)
                   const Icon(Icons.check_circle, size: 12, color: AppTheme.emerald),
                   const SizedBox(width: 4),
                   Text(
-                    code != null ? 'مسجل ($code)' : 'مسجل في النظام',
+                    code != null
+                        ? (isArabic ? 'مسجل ($code)' : 'Verified ($code)')
+                        : (isArabic ? 'مسجل في النظام' : 'Verified in System'),
                     style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                   ),
                 ],
@@ -1141,12 +1113,15 @@ Other (21days+USD200/ctnr)
                 color: AppTheme.crimson.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.cancel_rounded, size: 12, color: AppTheme.crimson),
-                  SizedBox(width: 4),
-                  Text('غير مسجل (Unconfirmed)', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.crimson)),
+                  const Icon(Icons.cancel_rounded, size: 12, color: AppTheme.crimson),
+                  const SizedBox(width: 4),
+                  Text(
+                    isArabic ? 'غير مسجل' : 'Unconfirmed',
+                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.crimson),
+                  ),
                 ],
               ),
             ),
@@ -1159,7 +1134,10 @@ Other (21days+USD200/ctnr)
                 visualDensity: VisualDensity.compact,
               ),
               icon: const Icon(Icons.add, size: 14),
-              label: const Text('سجّل +', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              label: Text(
+                isArabic ? 'سجّل +' : 'Register +',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+              ),
               onPressed: onRegister,
             ),
           ],
@@ -1169,15 +1147,19 @@ Other (21days+USD200/ctnr)
   }
 
   Widget _buildTextInputTab() {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'الصق نص الإيميل أو عرض السعر الوارد من شركة الشحن:',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                isArabic
+                    ? 'الصق نص الإيميل أو عرض السعر الوارد من شركة الشحن:'
+                    : 'Paste email text or quotation received from shipping line:',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -1185,7 +1167,10 @@ Other (21days+USD200/ctnr)
             TextButton.icon(
               onPressed: _loadSampleText,
               icon: const Icon(Icons.content_paste_go, size: 14, color: AppTheme.cobalt),
-              label: const Text('📋 تحميل نص تجريبي', style: TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+              label: Text(
+                isArabic ? '📋 تحميل نص تجريبي' : '📋 Load Sample Text',
+                style: const TextStyle(fontSize: 11, color: AppTheme.cobalt),
+              ),
             ),
             if (_textController.text.isNotEmpty)
               TextButton.icon(
@@ -1196,7 +1181,10 @@ Other (21days+USD200/ctnr)
                   _error = null;
                 }),
                 icon: const Icon(Icons.clear_all, size: 14, color: Colors.grey),
-                label: const Text('مسح', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                label: Text(
+                  isArabic ? 'مسح' : 'Clear',
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
               ),
           ],
         ),
@@ -1208,7 +1196,9 @@ Other (21days+USD200/ctnr)
             expands: true,
             style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
             decoration: InputDecoration(
-              hintText: 'مثال:\nRoute: Shanghai - El Dekheila\nWHL: USD 6700/40HQ BY WHL\nTransit: 29 days direct | Free time: 21 days\nLocal: USD 880/40HQ',
+              hintText: isArabic
+                  ? 'مثال:\nRoute: Shanghai - El Dekheila\nWHL: USD 6700/40HQ BY WHL\nTransit: 29 days direct | Free time: 21 days\nLocal: USD 880/40HQ'
+                  : 'Example:\nRoute: Shanghai - El Dekheila\nWHL: USD 6700/40HQ BY WHL\nTransit: 29 days direct | Free time: 21 days\nLocal: USD 880/40HQ',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               contentPadding: const EdgeInsets.all(12),
             ),
@@ -1227,7 +1217,9 @@ Other (21days+USD200/ctnr)
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
               : const Icon(Icons.search, color: Colors.white),
           label: Text(
-            _isExtracting ? 'جاري التحليل والاستخراج...' : '🔍 استخراج عروض الأسعار من النص',
+            _isExtracting
+                ? (isArabic ? 'جاري التحليل والاستخراج...' : 'Analyzing & extracting...')
+                : (isArabic ? '🔍 استخراج عروض الأسعار من النص' : '🔍 Extract Quotations from Text'),
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
@@ -1236,6 +1228,8 @@ Other (21days+USD200/ctnr)
   }
 
   Widget _buildFileOcrTab() {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1256,13 +1250,17 @@ Other (21days+USD200/ctnr)
                         children: [
                           Icon(Icons.cloud_upload_outlined, size: 42, color: Colors.grey.shade400),
                           const SizedBox(height: 8),
-                          const Text(
-                            'اضغط هنا لاختيار ملف عرض السعر أو اسحب وأفلت الملف',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                          Text(
+                            isArabic
+                                ? 'اضغط هنا لاختيار ملف عرض السعر أو اسحب وأفلت الملف'
+                                : 'Click to select quotation file or drag & drop',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'يدعم PDF، صور (PNG, JPG, WEBP)، مستندات Word، وجداول Excel',
+                            isArabic
+                                ? 'يدعم PDF، صور (PNG, JPG, WEBP)، مستندات Word، وجداول Excel'
+                                : 'Supports PDF, images (PNG, JPG, WEBP), Word documents, and Excel',
                             style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                           ),
                         ],
@@ -1291,7 +1289,10 @@ Other (21days+USD200/ctnr)
                           OutlinedButton.icon(
                             onPressed: _pickFile,
                             icon: const Icon(Icons.refresh, size: 14),
-                            label: const Text('تغيير الملف', style: TextStyle(fontSize: 11)),
+                            label: Text(
+                              isArabic ? 'تغيير الملف' : 'Change File',
+                              style: const TextStyle(fontSize: 11),
+                            ),
                           ),
                         ],
                       ),
@@ -1311,7 +1312,9 @@ Other (21days+USD200/ctnr)
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
               : const Icon(Icons.document_scanner, color: Colors.white),
           label: Text(
-            _isExtracting ? 'جاري المسح الضوئي (OCR)...' : '🚀 قراءة واستخراج بالماسح الضوئي (OCR Scan)',
+            _isExtracting
+                ? (isArabic ? 'جاري المسح الضوئي (OCR)...' : 'Scanning document (OCR)...')
+                : (isArabic ? '🚀 قراءة واستخراج بالماسح الضوئي' : '🚀 Scan & Extract Document (OCR)'),
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
@@ -1329,76 +1332,8 @@ Other (21days+USD200/ctnr)
     return Icons.insert_drive_file;
   }
 
-  Widget _buildGlobalMetadataBanner() {
-    final origin = _primaryMetadata!['origin_port'] ?? 'غير محدد';
-    final dest = _primaryMetadata!['destination_port'] ?? 'غير محدد';
-    final inco = _primaryMetadata!['incoterm'] ?? 'FOB';
-    final curr = _primaryMetadata!['currency'] ?? 'USD';
-    final ref = _primaryMetadata!['quotation_ref'];
-    final forwarder = _primaryMetadata!['forwarder_name'];
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.charcoal.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.charcoal.withOpacity(0.12)),
-      ),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.route, size: 16, color: AppTheme.cobalt),
-              const SizedBox(width: 6),
-              Text(
-                '$origin ➜ $dest',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
-              ),
-            ],
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.local_shipping, size: 16, color: Colors.grey),
-              const SizedBox(width: 4),
-              Text('الشرط: $inco', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.attach_money, size: 16, color: Colors.grey),
-              Text('العملة: $curr', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
-          ),
-          if (forwarder != null && forwarder.toString().isNotEmpty)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.business, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text('الشركة/الوكيل: $forwarder', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              ],
-            ),
-          if (ref != null && ref.toString().isNotEmpty)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.tag, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text('المرجع: $ref', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildExtractedOptionsGreenContainer() {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
     final pol = _primaryMetadata?['origin_port']?.toString() ?? _options.firstOrNull?.originPort;
     final pod = _primaryMetadata?['destination_port']?.toString() ?? _options.firstOrNull?.destinationPort;
 
@@ -1420,10 +1355,18 @@ Other (21days+USD200/ctnr)
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'تم استخراج ${_options.length} عرض/عروض أسعار بنجاح! راجع العروض أدناه ثم أضفها لدراسة المفاضلة:',
+                  isArabic
+                      ? 'تم استخراج ${_options.length} عرض/عروض أسعار بنجاح! راجع العروض أدناه ثم أضفها لدراسة المفاضلة:'
+                      : 'Successfully extracted ${_options.length} quotation(s)! Review below and add to benchmark study:',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
                 ),
               ),
+              IconButton(
+                icon: const Icon(Icons.copy_all_rounded, color: AppTheme.cobalt, size: 20),
+                tooltip: isArabic ? 'نسخ كافة العروض (TSV / Excel)' : 'Copy All Quotes (TSV / Excel)',
+                onPressed: () => _copyAllQuotes(context, isArabic),
+              ),
+              const SizedBox(width: 6),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.emerald,
@@ -1434,7 +1377,9 @@ Other (21days+USD200/ctnr)
                 ),
                 icon: const Icon(Icons.add_task, size: 15, color: Colors.white),
                 label: Text(
-                  'إضافة كافة العروض (${_options.length}) 🚀 +',
+                  isArabic
+                      ? 'إضافة كافة العروض (${_options.length}) 🚀 +'
+                      : 'Add All Quotes (${_options.length}) 🚀 +',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
                 ),
                 onPressed: () {
@@ -1467,7 +1412,7 @@ Other (21days+USD200/ctnr)
                       const Icon(Icons.flight_takeoff, size: 15, color: AppTheme.cobalt),
                       const SizedBox(width: 6),
                       Text(
-                        'ميناء الشحن: $pol',
+                        isArabic ? 'ميناء الشحن: $pol' : 'POL: $pol',
                         style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                       ),
                     ],
@@ -1487,7 +1432,7 @@ Other (21days+USD200/ctnr)
                       const Icon(Icons.flight_land, size: 15, color: AppTheme.emerald),
                       const SizedBox(width: 6),
                       Text(
-                        'ميناء الوصول: $pod',
+                        isArabic ? 'ميناء الوصول: $pod' : 'POD: $pod',
                         style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                       ),
                     ],
@@ -1521,6 +1466,8 @@ Other (21days+USD200/ctnr)
   }
 
   Widget _buildQuotationCardMatched(ExtractedQuotationOption opt) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1553,23 +1500,38 @@ Other (21days+USD200/ctnr)
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: opt.isDirect ? const Color(0xFFF0FDF4) : Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: opt.isDirect ? const Color(0xFF86EFAC) : Colors.orange.shade200,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.copy_rounded, size: 15, color: AppTheme.cobalt),
+                    tooltip: isArabic ? 'نسخ بيانات هذا العرض' : 'Copy Quote Details',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _copySingleQuote(context, opt, isArabic),
                   ),
-                ),
-                child: Text(
-                  opt.isDirect ? 'مباشر (Direct)' : 'ترانزيت (Transit)',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.bold,
-                    color: opt.isDirect ? Colors.green.shade800 : Colors.orange.shade800,
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: opt.isDirect ? const Color(0xFFF0FDF4) : Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: opt.isDirect ? const Color(0xFF86EFAC) : Colors.orange.shade200,
+                      ),
+                    ),
+                    child: Text(
+                      opt.isDirect
+                          ? (isArabic ? 'مباشر' : 'Direct')
+                          : (isArabic ? 'ترانزيت' : 'Transit'),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: opt.isDirect ? Colors.green.shade800 : Colors.orange.shade800,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -1582,16 +1544,22 @@ Other (21days+USD200/ctnr)
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'نولون: \$${opt.oceanFreight.toStringAsFixed(0)}',
+                isArabic
+                    ? 'نولون: \$${opt.oceanFreight.toStringAsFixed(0)}'
+                    : 'Freight: \$${opt.oceanFreight.toStringAsFixed(0)}',
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
               ),
               if (opt.localCharges != null && opt.localCharges! > 0)
                 Text(
-                  'محلي: \$${opt.localCharges!.toStringAsFixed(0)}',
+                  isArabic
+                      ? 'محلي: \$${opt.localCharges!.toStringAsFixed(0)}'
+                      : 'Local: \$${opt.localCharges!.toStringAsFixed(0)}',
                   style: const TextStyle(fontSize: 11, color: Colors.black54),
                 ),
               Text(
-                'الإجمالي: \$${opt.totalEstimatedCost.toStringAsFixed(0)}',
+                isArabic
+                    ? 'الإجمالي: \$${opt.totalEstimatedCost.toStringAsFixed(0)}'
+                    : 'Total: \$${opt.totalEstimatedCost.toStringAsFixed(0)}',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -1607,11 +1575,15 @@ Other (21days+USD200/ctnr)
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '⏱️ ترانزيت: ${opt.transitDays ?? "-"} يوم',
+                isArabic
+                    ? '⏱️ ترانزيت: ${opt.transitDays ?? "-"} يوم'
+                    : '⏱️ Transit: ${opt.transitDays ?? "-"} days',
                 style: const TextStyle(fontSize: 11, color: Colors.black87),
               ),
               Text(
-                '⏳ سماح: ${opt.freeTimeDays ?? 14} يوم FT',
+                isArabic
+                    ? '⏳ سماح: ${opt.freeTimeDays ?? 14} يوم'
+                    : '⏳ Free Time: ${opt.freeTimeDays ?? 14} days',
                 style: const TextStyle(fontSize: 11, color: Colors.black87),
               ),
             ],
@@ -1649,9 +1621,9 @@ Other (21days+USD200/ctnr)
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
               ),
               icon: const Icon(Icons.add, size: 16),
-              label: const Text(
-                '+ إضافة هذا العرض للسيناريو',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              label: Text(
+                isArabic ? '+ إضافة هذا العرض للسيناريو' : '+ Add This Quote to Scenario',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               ),
               onPressed: () {
                 widget.onAddQuotations([opt]);
@@ -1661,6 +1633,53 @@ Other (21days+USD200/ctnr)
           ),
         ],
       ),
+    );
+  }
+
+  void _copyAllQuotes(BuildContext context, bool isArabic) {
+    if (_options.isEmpty) return;
+    final headers = isArabic
+        ? ['الخط الملاحي', 'نوع الحاوية', 'النولون', 'المصاريف المحلية', 'الإجمالي', 'العملة', 'الترانزيت (أيام)', 'فترة السماح (أيام)', 'مباشر/ترانزيت', 'ميناء الشحن', 'ميناء الوصول', 'ملاحظات']
+        : ['Carrier', 'Container Type', 'Ocean Freight', 'Local Charges', 'Total', 'Currency', 'Transit Days', 'Free Time Days', 'Direct/Transit', 'POL', 'POD', 'Notes'];
+
+    final pol = _primaryMetadata?['origin_port']?.toString() ?? _options.firstOrNull?.originPort ?? '';
+    final pod = _primaryMetadata?['destination_port']?.toString() ?? _options.firstOrNull?.destinationPort ?? '';
+
+    final rows = _options.map((opt) => [
+      opt.carrierName,
+      opt.containerType,
+      opt.oceanFreight.toStringAsFixed(2),
+      (opt.localCharges ?? 0).toStringAsFixed(2),
+      opt.totalEstimatedCost.toStringAsFixed(2),
+      opt.currency,
+      opt.transitDays?.toString() ?? '',
+      opt.freeTimeDays?.toString() ?? '',
+      opt.isDirect ? (isArabic ? 'مباشر' : 'Direct') : (isArabic ? 'ترانزيت' : 'Transit'),
+      opt.originPort ?? pol,
+      opt.destinationPort ?? pod,
+      opt.notes ?? '',
+    ].join('\t')).join('\n');
+
+    final tsv = '${headers.join('\t')}\n$rows';
+    CopyHelper.copy(
+      context,
+      tsv,
+      customMessage: isArabic
+          ? 'تم نسخ جميع عروض الأسعار بصيغة جدول (TSV / Excel) بنجاح!'
+          : 'All quotations copied to clipboard (TSV / Excel) successfully!',
+    );
+  }
+
+  void _copySingleQuote(BuildContext context, ExtractedQuotationOption opt, bool isArabic) {
+    final pol = opt.originPort ?? _primaryMetadata?['origin_port']?.toString() ?? '';
+    final pod = opt.destinationPort ?? _primaryMetadata?['destination_port']?.toString() ?? '';
+    final text = isArabic
+        ? '${opt.carrierName} | حاوية: ${opt.containerType} | نولون: \$${opt.oceanFreight.toStringAsFixed(0)} | إجمالي: \$${opt.totalEstimatedCost.toStringAsFixed(0)} | ترانزيت: ${opt.transitDays ?? "-"} يوم | سماح: ${opt.freeTimeDays ?? 14} يوم | من: $pol | إلى: $pod'
+        : '${opt.carrierName} | Container: ${opt.containerType} | Freight: \$${opt.oceanFreight.toStringAsFixed(0)} | Total: \$${opt.totalEstimatedCost.toStringAsFixed(0)} | Transit: ${opt.transitDays ?? "-"}d | Free Time: ${opt.freeTimeDays ?? 14}d | POL: $pol | POD: $pod';
+    CopyHelper.copy(
+      context,
+      text,
+      customMessage: isArabic ? 'تم نسخ بيانات العرض بنجاح!' : 'Quote details copied successfully!',
     );
   }
 
@@ -1681,6 +1700,7 @@ Other (21days+USD200/ctnr)
   }
 
   Widget _buildExtractedFieldsList() {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
     final pol = _primaryMetadata?['origin_port']?.toString() ?? _options.firstOrNull?.originPort;
     final pod = _primaryMetadata?['destination_port']?.toString() ?? _options.firstOrNull?.destinationPort;
     final carrier = _primaryMetadata?['carrier_name']?.toString() ?? _options.firstOrNull?.carrierName;
@@ -1693,19 +1713,27 @@ Other (21days+USD200/ctnr)
       children: [
         // Standard Fields
         if (pol != null && pol.isNotEmpty)
-          _buildFieldRow(label: 'POL (Port of Loading)', value: pol, isCustom: false),
+          _buildFieldRow(label: isArabic ? 'ميناء الشحن (POL)' : 'Port of Loading (POL)', value: pol, isCustom: false),
         if (pod != null && pod.isNotEmpty)
-          _buildFieldRow(label: 'POD (Port of Discharge)', value: pod, isCustom: false),
+          _buildFieldRow(label: isArabic ? 'ميناء الوصول (POD)' : 'Port of Discharge (POD)', value: pod, isCustom: false),
         if (carrier != null && carrier.isNotEmpty)
-          _buildFieldRow(label: 'Carrier (الخط الملاحي)', value: carrier, isCustom: false),
+          _buildFieldRow(label: isArabic ? 'الخط الملاحي' : 'Shipping Line / Carrier', value: carrier, isCustom: false),
         if (fwd != null && fwd.isNotEmpty)
-          _buildFieldRow(label: 'Freight Forwarder (وكيل الشحن)', value: fwd, isCustom: false),
+          _buildFieldRow(label: isArabic ? 'وكيل الشحن / الناقل' : 'Freight Forwarder', value: fwd, isCustom: false),
         if (etd != null && etd.isNotEmpty)
-          _buildFieldRow(label: 'ETD (تاريخ الإبحار)', value: etd, isCustom: false),
+          _buildFieldRow(label: isArabic ? 'تاريخ الإبحار (ETD)' : 'Departure Date (ETD)', value: etd, isCustom: false),
         if (transit != null && transit.isNotEmpty)
-          _buildFieldRow(label: 'Transit Time (مدة الإبحار)', value: '$transit days direct', isCustom: false),
+          _buildFieldRow(
+            label: isArabic ? 'مدة الإبحار' : 'Transit Time',
+            value: isArabic ? '$transit يوم مباشر' : '$transit days direct',
+            isCustom: false,
+          ),
         if (freeTime != null && freeTime.isNotEmpty)
-          _buildFieldRow(label: 'Free Time (فترة السماح)', value: '$freeTime days', isCustom: false),
+          _buildFieldRow(
+            label: isArabic ? 'فترة السماح' : 'Free Time',
+            value: isArabic ? '$freeTime يوم' : '$freeTime days',
+            isCustom: false,
+          ),
 
         // Custom & Unmapped Starred Fields
         ..._customFields.entries.map(
@@ -1728,6 +1756,8 @@ Other (21days+USD200/ctnr)
     VoidCallback? onEdit,
     VoidCallback? onDelete,
   }) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -1762,12 +1792,12 @@ Other (21days+USD200/ctnr)
           if (isCustom) ...[
             IconButton(
               icon: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.cobalt),
-              tooltip: 'تعديل هذا البند',
+              tooltip: isArabic ? 'تعديل هذا البند' : 'Edit item',
               onPressed: onEdit,
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline, size: 16, color: AppTheme.crimson),
-              tooltip: 'حذف هذا البند',
+              tooltip: isArabic ? 'حذف هذا البند' : 'Delete item',
               onPressed: onDelete,
             ),
           ] else

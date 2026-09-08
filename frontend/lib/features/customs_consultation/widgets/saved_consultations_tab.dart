@@ -6,6 +6,7 @@ import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
 import 'consultation_metric_badge.dart';
 import 'consultation_status_badges.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import 'package:printing/printing.dart';
@@ -27,9 +28,16 @@ class SavedConsultationsTab extends ConsumerStatefulWidget {
 }
 
 class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
+  final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _statusFilter = 'All';
   bool _showInactive = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,18 +45,18 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
     final consultationsState = ref.watch(customsConsultationsProvider);
     return // TAB 2: SAVED CONSULTATIONS HISTORY REGISTRY (Premium Design)
         consultationsState.when(
-      loading: () => const Center(
+      loading: () => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: AppTheme.cobalt),
-            SizedBox(height: 16),
-            Text('جارٍ التحميل...',
-                style: TextStyle(color: Colors.grey)),
+            const CircularProgressIndicator(color: AppTheme.cobalt),
+            const SizedBox(height: 16),
+            Text(l.loading,
+                style: const TextStyle(color: Colors.grey)),
           ],
         ),
       ),
-      error: (err, stack) => Center(child: Text('❌ Error: $err')),
+      error: (err, stack) => Center(child: Text('${l.error}: $err')),
       data: (allSessions) {
         final sessions = widget.isTaxReviewOnly
             ? allSessions.where((s) => s.estimatedDutiesEgp > 0).toList()
@@ -134,10 +142,25 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                             SizedBox(
                               width: 220,
                               child: TextField(
+                                controller: _searchController,
                                 decoration: InputDecoration(
                                   hintText: l.searchConsultationsHint,
                                   prefixIcon:
                                       const Icon(Icons.search, size: 18),
+                                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                                    valueListenable: _searchController,
+                                    builder: (context, val, _) {
+                                      return val.text.isNotEmpty
+                                          ? IconButton(
+                                              icon: const Icon(Icons.clear, size: 16),
+                                              onPressed: () {
+                                                _searchController.clear();
+                                                setState(() => _searchQuery = '');
+                                              },
+                                            )
+                                          : const SizedBox.shrink();
+                                    },
+                                  ),
                                   border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(8)),
                                   contentPadding: const EdgeInsets.symmetric(
@@ -299,6 +322,8 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                     final hasBlocking =
                                         session.hasBlockingIssues ||
                                             session.blockingIssuesCount > 0;
+                                    final fileCodeStr = session.importFileCode ?? (session.importFileId != null ? 'IMP-${session.importFileId}' : '—');
+                                    final rowSummary = '${session.consultationCode} | $fileCodeStr | ${session.title} | ${session.brokerName} | ${session.estimatedDutiesEgp.toStringAsFixed(0)} EGP | ${readinessPct.toStringAsFixed(0)}% | ${session.overallStatus}';
 
                                     return DataRow(
                                       color:
@@ -436,31 +461,23 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
 
                                         // 2. Consultation Code
                                         DataCell(
-                                          InkWell(
-                                            onTap: () =>
-                                              widget.onViewDetails(context, session),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: AppTheme.cobalt
-                                                    .withOpacity(0.08),
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                                border: Border.all(
-                                                    color: AppTheme.cobalt
-                                                        .withOpacity(0.25)),
-                                              ),
-                                              child: Text(
-                                                session.consultationCode,
-                                                style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: AppTheme.cobalt,
-                                                    fontSize: 12),
+                                          CopyableTableCell(
+                                            value: session.consultationCode,
+                                            rowSummary: rowSummary,
+                                            child: InkWell(
+                                              onTap: () => widget.onViewDetails(context, session),
+                                              borderRadius: BorderRadius.circular(6),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.cobalt.withOpacity(0.08),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                                                ),
+                                                child: Text(
+                                                  session.consultationCode,
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -468,187 +485,149 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
 
                                         // 3. Import File
                                         DataCell(
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.charcoal
-                                                  .withOpacity(0.07),
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              session.importFileCode ??
-                                                  (session.importFileId != null
-                                                      ? 'IMP-${session.importFileId}'
-                                                      : '—'),
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  color: AppTheme.charcoal,
-                                                  fontSize: 12),
+                                          CopyableTableCell(
+                                            value: fileCodeStr,
+                                            rowSummary: rowSummary,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.charcoal.withOpacity(0.07),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                fileCodeStr,
+                                                style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                              ),
                                             ),
                                           ),
                                         ),
 
                                         // 4. Title
                                         DataCell(
-                                          SizedBox(
-                                            width: 180,
-                                            child: Text(
-                                              session.title,
-                                              overflow: TextOverflow.ellipsis,
-                                              maxLines: 2,
-                                              style: const TextStyle(
-                                                  fontSize: 12),
+                                          CopyableTableCell(
+                                            value: session.title,
+                                            rowSummary: rowSummary,
+                                            child: SizedBox(
+                                              width: 180,
+                                              child: Text(
+                                                session.title,
+                                                overflow: TextOverflow.ellipsis,
+                                                maxLines: 2,
+                                                style: const TextStyle(fontSize: 12),
+                                              ),
                                             ),
                                           ),
                                         ),
 
                                         // 5. Broker
                                         DataCell(
-                                          Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                session.brokerName,
-                                                style: const TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 12),
-                                              ),
-                                              if (session.brokerContactPerson !=
-                                                  null)
+                                          CopyableTableCell(
+                                            value: '${session.brokerName}${session.brokerContactPerson != null ? " (${session.brokerContactPerson})" : ""}',
+                                            rowSummary: rowSummary,
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
                                                 Text(
-                                                  session.brokerContactPerson!,
-                                                  style: TextStyle(
-                                                      fontSize: 10,
-                                                      color:
-                                                          Colors.grey.shade600),
+                                                  session.brokerName,
+                                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                                                 ),
-                                            ],
+                                                if (session.brokerContactPerson != null)
+                                                  Text(
+                                                    session.brokerContactPerson!,
+                                                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                                                  ),
+                                              ],
+                                            ),
                                           ),
                                         ),
 
                                         // 6. Estimated Duties
                                         DataCell(
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 10, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.crimson
-                                                  .withOpacity(0.08),
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                            ),
-                                            child: Text(
-                                              '${session.estimatedDutiesEgp.toStringAsFixed(0)} EGP',
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppTheme.crimson,
-                                                  fontSize: 12),
+                                          CopyableTableCell(
+                                            value: '${session.estimatedDutiesEgp.toStringAsFixed(0)} EGP',
+                                            rowSummary: rowSummary,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.crimson.withOpacity(0.08),
+                                                borderRadius: BorderRadius.circular(20),
+                                              ),
+                                              child: Text(
+                                                '${session.estimatedDutiesEgp.toStringAsFixed(0)} EGP',
+                                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 12),
+                                              ),
                                             ),
                                           ),
                                         ),
 
                                         // 7. Readiness Progress Bar
                                         DataCell(
-                                          SizedBox(
-                                            width: 145,
-                                            child: Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  children: [
-                                                    Text(
-                                                      '${readinessPct.toStringAsFixed(0)}%',
-                                                      style: TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        fontSize: 11,
-                                                        color: readinessPct >=
-                                                                80
-                                                            ? AppTheme.emerald
-                                                            : (readinessPct >=
-                                                                    50
-                                                                ? Colors.orange
-                                                                : AppTheme
-                                                                    .crimson),
-                                                      ),
-                                                    ),
-                                                    if (hasBlocking)
-                                                      Container(
-                                                        padding: const EdgeInsets
-                                                            .symmetric(
-                                                            horizontal: 5,
-                                                            vertical: 1),
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: AppTheme.crimson
-                                                              .withOpacity(0.12),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(4),
-                                                        ),
-                                                        child: Text(
-                                                          l.blockingIssuesBadge(session.blockingIssuesCount),
-                                                          style: const TextStyle(
-                                                              color: AppTheme
-                                                                  .crimson,
-                                                              fontSize: 10,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold),
+                                          CopyableTableCell(
+                                            value: '${readinessPct.toStringAsFixed(0)}%',
+                                            rowSummary: rowSummary,
+                                            child: SizedBox(
+                                              width: 145,
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                    children: [
+                                                      Text(
+                                                        '${readinessPct.toStringAsFixed(0)}%',
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 11,
+                                                          color: readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? Colors.orange : AppTheme.crimson),
                                                         ),
                                                       ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 4),
-                                                ClipRRect(
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                  child: LinearProgressIndicator(
-                                                    value:
-                                                        (readinessPct / 100)
-                                                            .clamp(0.0, 1.0),
-                                                    minHeight: 6,
-                                                    backgroundColor:
-                                                        Colors.grey.shade200,
-                                                    valueColor:
-                                                        AlwaysStoppedAnimation<
-                                                            Color>(
-                                                      readinessPct >= 80
-                                                          ? AppTheme.emerald
-                                                          : (readinessPct >= 50
-                                                              ? Colors.orange
-                                                              : AppTheme
-                                                                  .crimson),
+                                                      if (hasBlocking)
+                                                        Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                          decoration: BoxDecoration(
+                                                            color: AppTheme.crimson.withOpacity(0.12),
+                                                            borderRadius: BorderRadius.circular(4),
+                                                          ),
+                                                          child: Text(
+                                                            l.blockingIssuesBadge(session.blockingIssuesCount),
+                                                            style: const TextStyle(color: AppTheme.crimson, fontSize: 10, fontWeight: FontWeight.bold),
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  ClipRRect(
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    child: LinearProgressIndicator(
+                                                      value: (readinessPct / 100).clamp(0.0, 1.0),
+                                                      minHeight: 6,
+                                                      backgroundColor: Colors.grey.shade200,
+                                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                                        readinessPct >= 80 ? AppTheme.emerald : (readinessPct >= 50 ? Colors.orange : AppTheme.crimson),
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-                                                const SizedBox(height: 3),
-                                                Text(
-                                                  l.approvedDocsCountBadge(session.approvedDocumentsCount, session.totalDocumentsCount),
-                                                  style: TextStyle(
-                                                      fontSize: 10,
-                                                      color:
-                                                          Colors.grey.shade600),
-                                                ),
-                                              ],
+                                                  const SizedBox(height: 3),
+                                                  Text(
+                                                    l.approvedDocsCountBadge(session.approvedDocumentsCount, session.totalDocumentsCount),
+                                                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                           ),
                                         ),
 
                                         // 8. Status Badge
                                         DataCell(
-                                            ConsultationStatusBadge(status: session.overallStatus)),
+                                          CopyableTableCell(
+                                            value: session.overallStatus,
+                                            rowSummary: rowSummary,
+                                            child: ConsultationStatusBadge(status: session.overallStatus),
+                                          ),
+                                        ),
                                       ],
                                     );
                                   }).toList(),

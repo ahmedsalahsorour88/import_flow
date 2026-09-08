@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/financial_approval_model.dart';
@@ -37,7 +37,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
   @override
   Widget build(BuildContext context) {
     final budgetsState = ref.watch(importBudgetsProvider);
-    final budgetsList = budgetsState.value ?? [];
+    final budgetsList = budgetsState.valueOrNull ?? [];
 
     return _buildHistoryRegistryTab(budgetsList);
   }
@@ -67,8 +67,6 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
       }
       return true;
     }).toList();
-
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -134,7 +132,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                   ),
                   icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
                   label: Text(
-                    isArabic ? 'اعتماد ميزانية جديدة' : 'New Budget Approval',
+                    l.approveNewBudgetAction,
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   onPressed: widget.onSwitchToForm,
@@ -162,12 +160,20 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                       hintText: l.searchBudgetsHint,
                       hintStyle: const TextStyle(fontSize: 12),
                       prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear_rounded, size: 16),
-                              onPressed: () => setState(() => _searchController.clear()),
-                            )
-                          : null,
+                      suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _searchController,
+                        builder: (context, value, _) {
+                          return value.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded, size: 16),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() {});
+                                  },
+                                )
+                              : const SizedBox.shrink();
+                        },
+                      ),
                       contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
                       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: AppTheme.cobalt)),
@@ -199,7 +205,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                   final path = await FinancialExportService.exportBudgetsListToExcel(context: context, list: filtered);
                   if (path != null && mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('✅ $path'), backgroundColor: Colors.green),
+                      SnackBar(content: Text(l.excelSavedSuccess(path)), backgroundColor: Colors.green),
                     );
                   }
                 },
@@ -254,12 +260,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
               children: [
                 // Code Container with Copy
                 InkWell(
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: budget.budgetCode));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('📋 تم نسخ كود الميزانية (${budget.budgetCode})'), backgroundColor: AppTheme.cobalt),
-                    );
-                  },
+                  onTap: () => CopyHelper.copy(context, budget.budgetCode, customMessage: context.l10n.budgetCodeCopied(budget.budgetCode)),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
@@ -271,7 +272,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                       children: [
                         const Icon(Icons.receipt_long, color: Colors.white, size: 14),
                         const SizedBox(width: 6),
-                        Text(budget.budgetCode, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                        CopyableText(budget.budgetCode, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12), showIcon: false),
                         const SizedBox(width: 4),
                         const Icon(Icons.copy, color: Colors.white70, size: 11),
                       ],
@@ -289,19 +290,21 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
                     ),
-                    child: Text(
+                    child: CopyableText(
                       budget.importFileCode ?? 'IMP-${budget.importFileId}',
                       style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 11),
+                      showIcon: false,
                     ),
                   ),
                 const SizedBox(width: 10),
 
                 // Title
                 Expanded(
-                  child: Text(
+                  child: CopyableText(
                     budget.title,
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                     overflow: TextOverflow.ellipsis,
+                    showIcon: false,
                   ),
                 ),
 
@@ -382,20 +385,21 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                           ),
                           const SizedBox(width: 12),
-                          Text(
+                          CopyableText(
                             '${budget.totalBudgetEgp.toStringAsFixed(2)} EGP',
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.emerald),
+                            showIcon: false,
                           ),
                         ],
                       ),
                       Row(
                         children: [
                           Text('${context.l10n.exchangeRateCol}: ', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
-                          Text('${budget.exchangeRate.toStringAsFixed(2)} EGP', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                          CopyableText('${budget.exchangeRate.toStringAsFixed(2)} EGP', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal), showIcon: false),
                           if (budget.approvedBy != null) ...[
                             const SizedBox(width: 16),
-                            Text('Approved by: ', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
-                            Text(budget.approvedBy!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                            Text('${context.l10n.approvedByLabel} ', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                            CopyableText(budget.approvedBy!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo), showIcon: false),
                           ],
                         ],
                       ),
@@ -423,14 +427,14 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                   icon: const Icon(Icons.visibility_outlined, size: 14),
-                  label: const Text('عرض التفاصيل', style: TextStyle(fontSize: 11)),
+                  label: Text(context.l10n.viewDetails, style: const TextStyle(fontSize: 11)),
                   onPressed: () => _showBudgetDetailsDialog(budget),
                 ),
                 // 2. Edit & Load to Form
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                   icon: const Icon(Icons.edit_outlined, size: 14, color: AppTheme.cobalt),
-                  label: const Text('تعديل بالنموذج', style: TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+                  label: Text(context.l10n.editInForm, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt)),
                   onPressed: () => widget.onEditBudget(budget),
                 ),
                 // 3. Print PDF
@@ -440,7 +444,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                     visualDensity: VisualDensity.compact,
                   ),
                   icon: const Icon(Icons.print_outlined, color: Colors.white, size: 14),
-                  label: const Text('طباعة PDF', style: TextStyle(color: Colors.white, fontSize: 11)),
+                  label: Text(context.l10n.printSavePdfBtn, style: const TextStyle(color: Colors.white, fontSize: 11)),
                   onPressed: () => FinancialExportService.printOrSaveBudgetPdf(budget: budget),
                 ),
                 // 4. Export Excel
@@ -450,12 +454,12 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                     visualDensity: VisualDensity.compact,
                   ),
                   icon: const Icon(Icons.table_chart, color: Colors.white, size: 14),
-                  label: const Text('تصدير EXCEL', style: TextStyle(color: Colors.white, fontSize: 11)),
+                  label: Text(context.l10n.downloadExcelBtn, style: const TextStyle(color: Colors.white, fontSize: 11)),
                   onPressed: () async {
                     final path = await FinancialExportService.exportBudgetToExcel(context: context, budget: budget);
                     if (path != null && mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('✅ تم تصدير الميزانية إلى Excel بنجاح: $path'), backgroundColor: Colors.green),
+                        SnackBar(content: Text(context.l10n.excelSavedSuccess(path)), backgroundColor: Colors.green),
                       );
                     }
                   },
@@ -467,7 +471,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                     visualDensity: VisualDensity.compact,
                   ),
                   icon: const Icon(Icons.chat, color: Colors.white, size: 16),
-                  label: const Text('واتساب', style: TextStyle(color: Colors.white, fontSize: 11)),
+                  label: Text(context.l10n.whatsappShareBtn, style: const TextStyle(color: Colors.white, fontSize: 11)),
                   onPressed: () => _showWhatsAppShareDialog(budget),
                 ),
                 // 6. Email
@@ -477,20 +481,17 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                     visualDensity: VisualDensity.compact,
                   ),
                   icon: const Icon(Icons.email_outlined, color: Colors.white, size: 14),
-                  label: const Text('إيميل', style: TextStyle(color: Colors.white, fontSize: 11)),
+                  label: Text(context.l10n.emailShareBtn, style: const TextStyle(color: Colors.white, fontSize: 11)),
                   onPressed: () => _showEmailShareDialog(budget),
                 ),
                 // 7. Copy Summary
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                   icon: const Icon(Icons.copy, size: 14),
-                  label: const Text('نسخ الملخص', style: TextStyle(fontSize: 11)),
+                  label: Text(context.l10n.copySummaryBtn, style: const TextStyle(fontSize: 11)),
                   onPressed: () {
                     final text = FinancialExportService.generateBudgetWhatsAppText(budget);
-                    Clipboard.setData(ClipboardData(text: text));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('📋 تم نسخ ملخص اعتماد الميزانية إلى الحافظة بنجاح'), backgroundColor: AppTheme.cobalt),
-                    );
+                    CopyHelper.copy(context, text, customMessage: context.l10n.budgetSummaryCopied);
                   },
                 ),
               ],
@@ -536,14 +537,16 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
               ],
             ),
             const SizedBox(height: 6),
-            Text(
+            CopyableText(
               foreignVal,
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+              showIcon: false,
             ),
             const SizedBox(height: 2),
-            Text(
+            CopyableText(
               egpVal,
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+              showIcon: false,
             ),
           ],
         ),
@@ -552,14 +555,14 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
   }
 
   void _showBudgetDetailsDialog(ImportBudgetModel budget) {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l = context.l10n;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('تفاصيل اعتماد الميزانية الاستيرادية: ${budget.budgetCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            CopyableText(l.budgetDetailsTitle(budget.budgetCode), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), showIcon: false),
             _buildStatusBadge(budget.budgetStatus),
           ],
         ),
@@ -569,11 +572,11 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(budget.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal)),
+                CopyableText(budget.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal), showIcon: false),
                 const SizedBox(height: 6),
-                Text('ملف الشحنة: ${budget.importFileCode ?? (budget.importFileId != null ? "IMP-${budget.importFileId}" : "غير محدد")}'),
-                if (budget.approvedBy != null) Text('المعتمد من: ${budget.approvedBy}'),
-                Text('تاريخ التسجيل: ${budget.createdAt.split('T').first}'),
+                CopyableText('${l.importFile}: ${budget.importFileCode ?? (budget.importFileId != null ? "IMP-${budget.importFileId}" : l.notLinked)}', showIcon: false),
+                if (budget.approvedBy != null) CopyableText('${l.approvedByLabel} ${budget.approvedBy}', showIcon: false),
+                CopyableText('${l.requestDateLabel}: ${budget.createdAt.split('T').first}', showIcon: false),
                 const Divider(),
                 const SizedBox(height: 8),
 
@@ -589,59 +592,59 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                   children: [
                     TableRow(
                       decoration: BoxDecoration(color: Colors.grey.shade100),
-                      children: const [
-                        Padding(padding: EdgeInsets.all(6), child: Text('بند التكلفة الاستيرادية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('القيمة بالعملة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('العملة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('المعادل EGP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      children: [
+                        Padding(padding: const EdgeInsets.all(6), child: Text(l.importCostItemCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text(l.amountInCurrencyCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text(l.currencyCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text(l.equivalentEgpCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                       ],
                     ),
                     TableRow(
                       children: [
-                        const Padding(padding: EdgeInsets.all(6), child: Text('فاتورة البضاعة (Commercial Invoice)', style: TextStyle(fontSize: 12))),
-                        Padding(padding: const EdgeInsets.all(6), child: Text(budget.invoiceAmountForeign.toStringAsFixed(2), style: const TextStyle(fontSize: 12))),
-                        Padding(padding: const EdgeInsets.all(6), child: Text(budget.invoiceCurrency, style: const TextStyle(fontSize: 12))),
-                        Padding(padding: const EdgeInsets.all(6), child: Text('${budget.invoiceAmountEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text(l.commercialInvoiceItem, style: const TextStyle(fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: CopyableText(budget.invoiceAmountForeign.toStringAsFixed(2), style: const TextStyle(fontSize: 12), showIcon: false)),
+                        Padding(padding: const EdgeInsets.all(6), child: CopyableText(budget.invoiceCurrency, style: const TextStyle(fontSize: 12), showIcon: false)),
+                        Padding(padding: const EdgeInsets.all(6), child: CopyableText('${budget.invoiceAmountEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), showIcon: false)),
                       ],
                     ),
                     TableRow(
                       children: [
-                        const Padding(padding: EdgeInsets.all(6), child: Text('النولون والشحن (Freight)', style: TextStyle(fontSize: 12))),
-                        Padding(padding: const EdgeInsets.all(6), child: Text(budget.freightCostForeign.toStringAsFixed(2), style: const TextStyle(fontSize: 12))),
-                        Padding(padding: const EdgeInsets.all(6), child: Text(budget.freightCurrency, style: const TextStyle(fontSize: 12))),
-                        Padding(padding: const EdgeInsets.all(6), child: Text('${budget.freightCostEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text(l.freightItem, style: const TextStyle(fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: CopyableText(budget.freightCostForeign.toStringAsFixed(2), style: const TextStyle(fontSize: 12), showIcon: false)),
+                        Padding(padding: const EdgeInsets.all(6), child: CopyableText(budget.freightCurrency, style: const TextStyle(fontSize: 12), showIcon: false)),
+                        Padding(padding: const EdgeInsets.all(6), child: CopyableText('${budget.freightCostEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), showIcon: false)),
                       ],
                     ),
                     TableRow(
                       children: [
-                        const Padding(padding: EdgeInsets.all(6), child: Text('الضرائب والجمارك والـ VAT', style: TextStyle(fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text(l.customsAndVatItem, style: const TextStyle(fontSize: 12))),
                         const Padding(padding: EdgeInsets.all(6), child: Text('-', style: TextStyle(fontSize: 12))),
                         const Padding(padding: EdgeInsets.all(6), child: Text('EGP', style: TextStyle(fontSize: 12))),
-                        Padding(padding: const EdgeInsets.all(6), child: Text('${budget.customsDutiesEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple, fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: CopyableText('${budget.customsDutiesEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple, fontSize: 12), showIcon: false)),
                       ],
                     ),
                     TableRow(
                       children: [
-                        const Padding(padding: EdgeInsets.all(6), child: Text('أتعاب التخليص والنقل الداخلي', style: TextStyle(fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text(l.clearanceAndInlandTransportItem, style: const TextStyle(fontSize: 12))),
                         const Padding(padding: EdgeInsets.all(6), child: Text('-', style: TextStyle(fontSize: 12))),
                         const Padding(padding: EdgeInsets.all(6), child: Text('EGP', style: TextStyle(fontSize: 12))),
-                        Padding(padding: const EdgeInsets.all(6), child: Text('${budget.clearanceInlandEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal, fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: CopyableText('${budget.clearanceInlandEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal, fontSize: 12), showIcon: false)),
                       ],
                     ),
                     TableRow(
                       decoration: BoxDecoration(color: Colors.green.shade50),
                       children: [
-                        const Padding(padding: EdgeInsets.all(6), child: Text('إجمالي الميزانية المعتمدة الكلية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.emerald))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text(l.totalApprovedBudgetItem, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.emerald))),
                         const Padding(padding: EdgeInsets.all(6), child: Text('-', style: TextStyle(fontSize: 12))),
                         const Padding(padding: EdgeInsets.all(6), child: Text('EGP', style: TextStyle(fontSize: 12))),
-                        Padding(padding: const EdgeInsets.all(6), child: Text('${budget.totalBudgetEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13))),
+                        Padding(padding: const EdgeInsets.all(6), child: CopyableText('${budget.totalBudgetEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13), showIcon: false)),
                       ],
                     ),
                   ],
                 ),
                 if (budget.notes != null && budget.notes!.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Text('ملاحظات وتوجيهات: ${budget.notes}', style: TextStyle(fontSize: 12, color: Colors.grey.shade800, fontStyle: FontStyle.italic)),
+                  CopyableText('${l.notesAndInstructionsLabel} ${budget.notes}', style: TextStyle(fontSize: 12, color: Colors.grey.shade800, fontStyle: FontStyle.italic), showIcon: false),
                 ],
               ],
             ),
@@ -650,13 +653,13 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(isArabic ? 'إغلاق' : 'Close'),
+            child: Text(l.close),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal),
             icon: const Icon(Icons.print, color: Colors.white, size: 16),
             label: Text(
-              isArabic ? 'طباعة المستند الرسمي PDF' : 'Print Official PDF',
+              l.printOfficialPdf,
               style: const TextStyle(color: Colors.white),
             ),
             onPressed: () {
@@ -670,7 +673,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
   }
 
   void _showWhatsAppShareDialog(ImportBudgetModel budget) {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l = context.l10n;
     final phoneCtrl = TextEditingController();
     showDialog(
       context: context,
@@ -680,7 +683,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
             const Icon(Icons.chat, color: Color(0xFF25D366)),
             const SizedBox(width: 8),
             Text(
-              isArabic ? 'مشاركة اعتماد الميزانية عبر WhatsApp' : 'Share Budget Approval via WhatsApp',
+              l.sendBudgetWhatsAppTitle,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ],
@@ -694,10 +697,8 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                 controller: phoneCtrl,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  labelText: isArabic
-                      ? 'رقم هاتف المستلم (مع كود الدولة مثل 2010...)'
-                      : 'Recipient phone number (with country code, e.g. 2010...)',
-                  hintText: '201012345678',
+                  labelText: l.whatsAppNumberLabel,
+                  hintText: l.whatsAppNumberHint,
                   border: const OutlineInputBorder(),
                 ),
               ),
@@ -707,12 +708,12 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+            child: Text(l.cancel),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
             icon: const Icon(Icons.send, color: Colors.white, size: 16),
-            label: Text(isArabic ? 'إرسال الآن' : 'Send Now', style: const TextStyle(color: Colors.white)),
+            label: Text(l.sendNow, style: const TextStyle(color: Colors.white)),
             onPressed: () {
               final phone = phoneCtrl.text.trim().replaceAll('+', '').replaceAll(' ', '');
               final text = FinancialExportService.generateBudgetWhatsAppText(budget);
@@ -727,7 +728,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
   }
 
   void _showEmailShareDialog(ImportBudgetModel budget) {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l = context.l10n;
     final emailCtrl = TextEditingController();
     showDialog(
       context: context,
@@ -737,7 +738,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
             const Icon(Icons.email, color: AppTheme.orange),
             const SizedBox(width: 8),
             Text(
-              isArabic ? 'إرسال اعتماد الميزانية عبر البريد الإلكتروني' : 'Send Budget Approval via Email',
+              l.sendBudgetEmailTitle,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ],
@@ -751,7 +752,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                 controller: emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'البريد الإلكتروني للمستلم' : 'Recipient Email Address',
+                  labelText: l.recipientEmailLabel,
                   hintText: 'finance@company.com',
                   border: const OutlineInputBorder(),
                 ),
@@ -762,17 +763,15 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+            child: Text(l.cancel),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
             icon: const Icon(Icons.send, color: Colors.white, size: 16),
-            label: Text(isArabic ? 'فتح تطبيق البريد' : 'Open Mail Client', style: const TextStyle(color: Colors.white)),
+            label: Text(l.openMailClient, style: const TextStyle(color: Colors.white)),
             onPressed: () {
               final email = emailCtrl.text.trim();
-              final subject = isArabic
-                  ? 'اعتماد ميزانية استيرادية: ${budget.budgetCode} - ${budget.title}'
-                  : 'Import Budget Approval: ${budget.budgetCode} - ${budget.title}';
+              final subject = '${l.budgetDetailsTitle(budget.budgetCode)} - ${budget.title}';
               final body = FinancialExportService.generateBudgetWhatsAppText(budget);
               final url = 'mailto:$email?subject=${Uri.encodeComponent(subject)}&body=${Uri.encodeComponent(body)}';
               FinancialExportService.launchUrlNative(url);
@@ -785,7 +784,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
   }
 
   Future<void> _confirmDeleteBudget(ImportBudgetModel budget) async {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l = context.l10n;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -794,25 +793,21 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
             const Icon(Icons.warning_amber_rounded, color: Colors.red),
             const SizedBox(width: 8),
             Text(
-              isArabic ? 'تأكيد حذف اعتماد الميزانية' : 'Confirm Budget Deletion',
+              l.confirmDeleteBudgetTitle,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ],
         ),
-        content: Text(
-          isArabic
-              ? 'هل أنت متأكد من رغبتك في حذف اعتماد الميزانية (${budget.budgetCode} - ${budget.title})؟'
-              : 'Are you sure you want to delete budget approval (${budget.budgetCode} - ${budget.title})?',
-        ),
+        content: Text(l.confirmDeleteBudgetMessage(budget.budgetCode, budget.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+            child: Text(l.cancel),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             icon: const Icon(Icons.delete, color: Colors.white, size: 16),
-            label: Text(isArabic ? 'تأكيد الحذف' : 'Confirm Delete', style: const TextStyle(color: Colors.white)),
+            label: Text(l.confirmDelete, style: const TextStyle(color: Colors.white)),
             onPressed: () => Navigator.pop(ctx, true),
           ),
         ],
@@ -825,11 +820,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                isArabic
-                    ? '🗑️ تم حذف اعتماد الميزانية (${budget.budgetCode}) بنجاح'
-                    : '🗑️ Budget approval (${budget.budgetCode}) deleted successfully',
-              ),
+              content: Text(l.budgetDeletedSuccess(budget.budgetCode)),
               backgroundColor: AppTheme.emerald,
             ),
           );
@@ -838,7 +829,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(isArabic ? '❌ خطأ أثناء الحذف: $e' : '❌ Error during deletion: $e'),
+              content: Text(l.deleteErrorMsg(e.toString())),
               backgroundColor: AppTheme.crimson,
             ),
           );
@@ -848,19 +839,19 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
   }
 
   Widget _buildStatusBadge(String status) {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l = context.l10n;
     Color color = Colors.grey;
     String displayStatus = status;
 
     if (status.toLowerCase().contains('approved')) {
       color = AppTheme.emerald;
-      displayStatus = isArabic ? 'معتمد' : 'Approved';
+      displayStatus = l.statusApproved;
     } else if (status.toLowerCase().contains('pending')) {
       color = Colors.orange;
-      displayStatus = isArabic ? 'قيد المراجعة' : 'Pending Review';
+      displayStatus = l.statusPendingReview;
     } else if (status.toLowerCase().contains('draft')) {
       color = Colors.blueGrey;
-      displayStatus = isArabic ? 'مسودة' : 'Draft';
+      displayStatus = l.statusDraft;
     }
 
     return Container(
@@ -910,7 +901,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10)),
-              Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+              CopyableText(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14), showIcon: false),
             ],
           ),
         ],
@@ -920,7 +911,6 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
 
   Widget _buildEmptyState() {
     final l = context.l10n;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -933,9 +923,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
           ),
           const SizedBox(height: 6),
           Text(
-            isArabic
-                ? 'قم بإنشاء ميزانية استيرادية جديدة أو تغيير فلاتر البحث'
-                : 'Create a new import budget or adjust search filters',
+            l.noBudgetsPlaceholderMessage,
             style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
           const SizedBox(height: 16),
@@ -943,7 +931,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
             icon: const Icon(Icons.add, color: Colors.white, size: 16),
             label: Text(
-              isArabic ? 'اعتماد ميزانية جديدة الآن ➕' : 'Approve New Budget Now ➕',
+              l.approveNewBudgetNow,
               style: const TextStyle(color: Colors.white),
             ),
             onPressed: widget.onSwitchToForm,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 
 void showGOEICVerificationDialog(BuildContext context, WidgetRef ref, {
   required int supplierId,
@@ -88,9 +89,11 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: 780,
         padding: const EdgeInsets.all(24),
         child: SingleChildScrollView(
@@ -114,12 +117,12 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'بوابة فحص الرقابة على الصادرات والواردات (GOEIC Compliance Hub)',
-                          style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                        Text(
+                          l10n.goeicHubDialogTitle,
+                          style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                         ),
                         Text(
-                          'المصنع / المورد: ${widget.supplierName}',
+                          '${l10n.supplierCompanyNameLabel}: ${widget.supplierName}',
                           style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                         ),
                       ],
@@ -149,9 +152,9 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
                           flex: 2,
                           child: TextFormField(
                             controller: _hsCodeController,
-                            decoration: const InputDecoration(
-                              labelText: 'بند التعريفة الجمركية (HS Code)',
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: l10n.goeicHsCodeFieldLabel,
+                              border: const OutlineInputBorder(),
                               isDense: true,
                             ),
                           ),
@@ -163,7 +166,7 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
                               value: _hasCoi,
                               onChanged: (val) => setState(() => _hasCoi = val ?? false),
                             ),
-                            const Text('شهادة فحص مسبق (COI)', style: TextStyle(fontSize: 13)),
+                            Text(l10n.goeicCoiCertificateCheckbox, style: const TextStyle(fontSize: 13)),
                           ],
                         ),
                         const SizedBox(width: 12),
@@ -172,7 +175,7 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
                           icon: _isChecking
                               ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                               : const Icon(Icons.search, size: 18),
-                          label: const Text('فحص المطابقة'),
+                          label: Text(l10n.goeicCheckComplianceBtn),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.cobalt,
                             foregroundColor: Colors.white,
@@ -188,9 +191,9 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
                           Expanded(
                             child: TextFormField(
                               controller: _coiAgencyController,
-                              decoration: const InputDecoration(
-                                labelText: 'شركة التفتيش (SGS, Bureau Veritas, TUV, Cotecna)',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: l10n.goeicInspectionAgencyFieldLabel,
+                                border: const OutlineInputBorder(),
                                 isDense: true,
                               ),
                             ),
@@ -199,9 +202,9 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
                           Expanded(
                             child: TextFormField(
                               controller: _coiNumberController,
-                              decoration: const InputDecoration(
-                                labelText: 'رقم شهادة الفحص (COI Number)',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: l10n.goeicCoiNumberFieldLabel,
+                                border: const OutlineInputBorder(),
                                 isDense: true,
                               ),
                             ),
@@ -228,19 +231,21 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
                   child: Text('خطأ في الفحص: $_error', style: const TextStyle(color: AppTheme.crimson)),
                 )
               else if (_result != null)
-                _buildVerdictCard(_result!),
+                _buildVerdictCard(context, _result!),
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildVerdictCard(Map<String, dynamic> res) {
+  Widget _buildVerdictCard(BuildContext context, Map<String, dynamic> res) {
+    final l10n = context.l10n;
     final verdict = res['overall_compliance_verdict'] ?? '';
     final isDecree43 = res['is_decree_43_mandated'] == true;
     final isRegistered = res['is_factory_registered'] == true;
-    final regNo = res['factory_registration_number'] ?? 'غير متوفر';
+    final regNo = res['factory_registration_number'] ?? l10n.goeicFactoryNotAvailable;
     final warning = res['warning_message_ar'] as String?;
     final action = res['recommended_action_ar'] ?? '';
 
@@ -251,15 +256,15 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
     if (verdict == 'BLOCKED_DECREE_43_VIOLATION') {
       verdictColor = AppTheme.crimson;
       verdictIcon = Icons.gpp_bad_outlined;
-      verdictTitle = '⛔ محظور: انتهاك القرار 43 لسنة 2016 (المصنع غير مقيد بالقائمة البيضاء)';
+      verdictTitle = '⛔ ${l10n.goeicVerdictBlocked}';
     } else if (verdict == 'PENDING_COI_CERTIFICATE') {
       verdictColor = AppTheme.orange;
       verdictIcon = Icons.pending_actions_outlined;
-      verdictTitle = '⚠️ معلق: المصنع مقيد ولكن يشترط إرفاق شهادة فحص ما قبل الشحن (COI)';
+      verdictTitle = '⚠️ ${l10n.goeicVerdictPending}';
     } else {
       verdictColor = AppTheme.emerald;
       verdictIcon = Icons.verified_outlined;
-      verdictTitle = '✅ مصرح بالشحن: الشحنة والمصنع مستوفيان لكافة اشتراطات الرقابة (GOEIC)';
+      verdictTitle = '✅ ${l10n.goeicVerdictApproved}';
     }
 
     return Container(
@@ -288,11 +293,11 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
           Row(
             children: [
               Expanded(
-                child: Text('خضوع الصنف للقرار 43: ${isDecree43 ? 'نعم (إلزامي)' : 'لا'}',
+                child: Text('${l10n.goeicSubjectToDecree43} ${isDecree43 ? l10n.goeicDecree43MandatoryYes : l10n.goeicDecree43MandatoryNo}',
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
               ),
               Expanded(
-                child: Text('قيد المصنع بالهيئة: ${isRegistered ? 'مسجل ✅ ($regNo)' : 'غير مسجل ❌'}',
+                child: Text('${l10n.goeicFactoryRegistrationStatus} ${isRegistered ? "${l10n.goeicFactoryRegisteredYes} ($regNo)" : l10n.goeicFactoryRegisteredNo}',
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
               ),
             ],
@@ -310,7 +315,7 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
             ),
           ],
           const SizedBox(height: 12),
-          Text('الإجراء الموصى به: $action',
+          Text('\${l10n.goeicRecommendedActionLabel} $action',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade900)),
         ],
       ),

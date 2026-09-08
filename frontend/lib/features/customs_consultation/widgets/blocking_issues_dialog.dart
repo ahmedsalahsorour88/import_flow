@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemModel> checklist, Function(List<CustomsChecklistItemModel>) onUpdate) {
   final l = context.l10n;
@@ -122,7 +123,7 @@ void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemMod
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
-                                    child: Text(
+                                    child: CopyableText(
                                       item.documentType,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,

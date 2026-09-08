@@ -182,7 +182,15 @@ def create_import_budget_service(
                 detail="يوجد بالفعل اعتماد ميزانية محفوظ لهذا الملف. يرجى الذهاب لتعديل الميزانية الحالية بدلاً من إنشاء اعتماد جديد.",
             )
 
-    return repo.create_import_budget(db, schema)
+    created = repo.create_import_budget(db, schema)
+    if schema.import_file_id:
+        try:
+            from modules.lifecycle_board.service import sync_budget_lifecycle_stage
+            is_approved = (created.budget_status == "Budget Approved")
+            sync_budget_lifecycle_stage(db, schema.import_file_id, is_approved=is_approved, approved_by=created.approved_by)
+        except Exception:
+            pass
+    return created
 
 
 def approve_import_budget_service(
@@ -200,6 +208,14 @@ def approve_import_budget_service(
     db_item.approved_date = date.today()
     db.commit()
     db.refresh(db_item)
+
+    if db_item.import_file_id:
+        try:
+            from modules.lifecycle_board.service import sync_budget_lifecycle_stage
+            sync_budget_lifecycle_stage(db, db_item.import_file_id, is_approved=True, approved_by=approved_by)
+        except Exception:
+            pass
+
     return db_item
 
 
@@ -246,23 +262,31 @@ def get_budget_prefill_service(
 
     from modules.currencies.model import Currency
 
+    # Batch preload linked projects and currencies to eliminate N+1 queries
+    project_ids = [po.project_id for po in pos if po.project_id]
+    prj_map = (
+        {p.project_id: p.project_name for p in db.query(Project).filter(Project.project_id.in_(project_ids)).all()}
+        if project_ids
+        else {}
+    )
+
+    currency_ids = [po.currency_id for po in pos if po.currency_id]
+    curr_map = (
+        {c.currency_id: c.currency_code for c in db.query(Currency).filter(Currency.currency_id.in_(currency_ids)).all()}
+        if currency_ids
+        else {}
+    )
+
     for po in pos:
-        prj_name = None
-        if po.project_id:
-            prj = db.query(Project).filter(Project.project_id == po.project_id).first()
-            if prj:
-                prj_name = prj.project_name
+        prj_name = prj_map.get(po.project_id)
 
         p_term = po.payment_terms or "Standard Payment"
         payment_terms_set.add(p_term)
         terms_list_str.append(f"{po.po_number} ({p_term})")
         
-        curr_code = "USD"
-        if po.currency_id:
-            curr_obj = db.query(Currency).filter(Currency.currency_id == po.currency_id).first()
-            if curr_obj:
-                curr_code = curr_obj.currency_code
-                invoice_curr = curr_code
+        curr_code = curr_map.get(po.currency_id, "USD")
+        if po.currency_id and po.currency_id in curr_map:
+            invoice_curr = curr_code
 
         po_amt = float(po.total_amount_fob or 0.0)
         if po_amt == 0.0 and po.items:
@@ -458,7 +482,15 @@ def update_import_budget_service(db: Session, budget_id: int, schema: ImportBudg
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Import Budget ID {budget_id} not found.",
         )
-    return repo.update_import_budget(db, db_item, schema)
+    updated = repo.update_import_budget(db, db_item, schema)
+    if updated.import_file_id:
+        try:
+            from modules.lifecycle_board.service import sync_budget_lifecycle_stage
+            is_approved = (updated.budget_status == "Budget Approved")
+            sync_budget_lifecycle_stage(db, updated.import_file_id, is_approved=is_approved, approved_by=updated.approved_by)
+        except Exception:
+            pass
+    return updated
 
 def soft_delete_import_budget_service(db: Session, budget_id: int) -> bool:
     return repo.soft_delete_import_budget(db, budget_id)

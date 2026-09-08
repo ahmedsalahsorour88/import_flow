@@ -46,12 +46,23 @@ class ShippingScenariosState {
 
 class ShippingScenariosNotifier extends StateNotifier<ShippingScenariosState> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   ShippingScenariosNotifier(this._dio) : super(ShippingScenariosState()) {
     fetchSessions();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('ShippingScenariosNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchSessions() async {
+    _cancelToken?.cancel('New fetch requested');
+    final cancelToken = CancelToken();
+    _cancelToken = cancelToken;
+
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final response = await _dio.get(
@@ -62,11 +73,14 @@ class ShippingScenariosNotifier extends StateNotifier<ShippingScenariosState> {
           if (state.poFilter != null) 'po_id': state.poFilter,
           if (state.searchQuery.isNotEmpty) 'search': state.searchQuery,
         },
+        cancelToken: cancelToken,
       );
+      if (cancelToken.isCancelled) return;
       final List data = response.data;
       final list = data.map((json) => ShippingEvaluationModel.fromJson(json)).toList();
       state = state.copyWith(sessions: list, isLoading: false);
     } catch (e) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to load shipping evaluation studies: ${e.toString()}',

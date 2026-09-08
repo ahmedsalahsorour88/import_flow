@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
 import '../widgets/add_agreement_dialog.dart';
@@ -11,52 +12,67 @@ import '../widgets/verify_tariff_dialog.dart';
   void showNafezaDetailsDialog(
       BuildContext context, WidgetRef ref, CustomsTariffModel tariff) {
     final l10n = context.l10n;
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 680, maxHeight: 750),
-          padding: const EdgeInsets.all(24),
-          child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: ref
-                .read(customsTariffProvider.notifier)
-                .fetchAgreements(tariff.hsCode),
-            builder: (context, snapshot) {
-              final agreements = snapshot.data ?? [];
-              final isLoadingAgreements =
-                  snapshot.connectionState == ConnectionState.waiting;
+        child: SelectionArea(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 680, maxHeight: 750),
+            padding: const EdgeInsets.all(24),
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: ref
+                  .read(customsTariffProvider.notifier)
+                  .fetchAgreements(tariff.hsCode),
+              builder: (context, snapshot) {
+                final agreements = snapshot.data ?? [];
+                final isLoadingAgreements =
+                    snapshot.connectionState == ConnectionState.waiting;
 
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Modal Header matching Screenshot
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.article_outlined,
-                              color: AppTheme.charcoal, size: 26),
-                          const SizedBox(width: 8),
-                          Text(
-                            l10n.nafezaDetailsModalTitle,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.charcoal,
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Modal Header matching Screenshot
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.article_outlined,
+                                color: AppTheme.charcoal, size: 26),
+                            const SizedBox(width: 8),
+                            Text(
+                              l10n.nafezaDetailsModalTitle,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.charcoal,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.grey),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 20, thickness: 1),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.copy_rounded,
+                                  color: AppTheme.cobalt, size: 20),
+                              tooltip: isArabic
+                                  ? 'نسخ تفاصيل التعريفة الجمركية'
+                                  : 'Copy Tariff Details',
+                              onPressed: () => _copyTariffSummary(
+                                  context, tariff, agreements, isArabic),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.grey),
+                              onPressed: () => Navigator.pop(ctx),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 20, thickness: 1),
 
                   Expanded(
                     child: SingleChildScrollView(
@@ -230,6 +246,68 @@ import '../widgets/verify_tariff_dialog.dart';
           ),
         ),
       ),
+    ),
+  );
+}
+
+  void _copyTariffSummary(BuildContext context, CustomsTariffModel tariff,
+      List<Map<String, dynamic>> agreements, bool isArabic) {
+    final buffer = StringBuffer();
+    if (isArabic) {
+      buffer.writeln('بيانات التعريفة الجمركية - منصة نافذة');
+      buffer.writeln('بند التعريفة (HS Code): ${tariff.hsCode}');
+      buffer.writeln('الوصف: ${tariff.hsDescription}');
+      buffer.writeln('ضريبة الوارد: ${tariff.customsDutyRate.toStringAsFixed(3)}%');
+      buffer.writeln('ضريبة الجدول: ${tariff.scheduleTaxRate.toStringAsFixed(3)}%');
+      buffer.writeln('ضريبة القيمة المضافة: ${tariff.vatRate.toStringAsFixed(3)}%');
+      if (tariff.developmentFeeRate > 0) {
+        buffer.writeln('رسم التنمية: ${tariff.developmentFeeRate.toStringAsFixed(3)}%');
+      }
+      if (tariff.importFeeRate > 0) {
+        buffer.writeln('رسم الوارد: ${tariff.importFeeRate.toStringAsFixed(3)}%');
+      }
+      if (agreements.isNotEmpty) {
+        buffer.writeln('الاتفاقيات التفضيلية:');
+        for (final ag in agreements) {
+          final name = ag['agreement_name'] ?? 'اتفاقية';
+          final red = _numToDouble(ag['reduction_percentage'], 1.0);
+          buffer.writeln('- $name: تخفيض ${(red * 100).toStringAsFixed(0)}%');
+        }
+      }
+      if (tariff.priorApprovalNote != null && tariff.priorApprovalNote!.isNotEmpty) {
+        buffer.writeln('الموافقات المسبقة: ${tariff.priorApprovalNote}');
+      }
+    } else {
+      buffer.writeln('Customs Tariff Details - Nafeza Portal');
+      buffer.writeln('HS Code: ${tariff.hsCode}');
+      buffer.writeln('Description: ${tariff.hsDescription}');
+      buffer.writeln('Import Duty: ${tariff.customsDutyRate.toStringAsFixed(3)}%');
+      buffer.writeln('Schedule Tax: ${tariff.scheduleTaxRate.toStringAsFixed(3)}%');
+      buffer.writeln('VAT: ${tariff.vatRate.toStringAsFixed(3)}%');
+      if (tariff.developmentFeeRate > 0) {
+        buffer.writeln('Development Fee: ${tariff.developmentFeeRate.toStringAsFixed(3)}%');
+      }
+      if (tariff.importFeeRate > 0) {
+        buffer.writeln('Import Fee: ${tariff.importFeeRate.toStringAsFixed(3)}%');
+      }
+      if (agreements.isNotEmpty) {
+        buffer.writeln('Preferential Agreements:');
+        for (final ag in agreements) {
+          final name = ag['agreement_name'] ?? 'Agreement';
+          final red = _numToDouble(ag['reduction_percentage'], 1.0);
+          buffer.writeln('- $name: Reduction ${(red * 100).toStringAsFixed(0)}%');
+        }
+      }
+      if (tariff.priorApprovalNote != null && tariff.priorApprovalNote!.isNotEmpty) {
+        buffer.writeln('Prior Approval: ${tariff.priorApprovalNote}');
+      }
+    }
+    CopyHelper.copy(
+      context,
+      buffer.toString(),
+      customMessage: isArabic
+          ? 'تم نسخ تفاصيل التعريفة الجمركية بنجاح'
+          : 'Tariff details copied to clipboard',
     );
   }
 
@@ -310,8 +388,8 @@ Widget _buildNafezaRulesList(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: const BoxDecoration(
             color: Color(0xFFF8F9FA),
-            border: Border(
-              right: BorderSide(color: Color(0xFF1B65A8), width: 3.5),
+            border: BorderDirectional(
+              start: BorderSide(color: Color(0xFF1B65A8), width: 3.5),
             ),
           ),
           child: Align(

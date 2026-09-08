@@ -48,12 +48,16 @@ final operationalDashboardProvider =
 class OperationalDashboardNotifier extends StateNotifier<OperationalDashboardState> {
   final Dio _dio;
   Timer? _debounceTimer;
+  CancelToken? _cancelToken;
 
   OperationalDashboardNotifier(this._dio) : super(OperationalDashboardState()) {
     fetchDashboard();
   }
 
   Future<void> fetchDashboard() async {
+    _cancelToken?.cancel('new_request_started');
+    _cancelToken = CancelToken();
+
     state = state.copyWith(data: const AsyncValue.loading());
     try {
       final queryParams = <String, dynamic>{};
@@ -73,11 +77,15 @@ class OperationalDashboardNotifier extends StateNotifier<OperationalDashboardSta
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/import-files/operational-dashboard',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final parsed = OperationalDashboardData.fromJson(response.data);
       state = state.copyWith(data: AsyncValue.data(parsed));
     } on DioException catch (e, stack) {
+      if (CancelToken.isCancel(e)) {
+        return;
+      }
       // Graceful Connection Error Fallback
       if (e.type == DioExceptionType.connectionError ||
           e.type == DioExceptionType.connectionTimeout ||
@@ -142,6 +150,7 @@ class OperationalDashboardNotifier extends StateNotifier<OperationalDashboardSta
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _cancelToken?.cancel('notifier_disposed');
     super.dispose();
   }
 }

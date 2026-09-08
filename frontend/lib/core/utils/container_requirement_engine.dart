@@ -415,34 +415,34 @@ class ContainerRequirementEngine {
 
     for (final rawItem in sortedItems) {
       final itemPref = forceOrientation ?? rawItem.orientationPreference;
-      final L0 = rawItem.length;
-      final W0 = rawItem.width;
-      final H0 = rawItem.height;
+      final l0 = rawItem.length;
+      final w0 = rawItem.width;
+      final h0 = rawItem.height;
 
       final candidateOrientations = <List<dynamic>>[];
       if (itemPref == CargoOrientationPreference.flatOnly || !rawItem.isStackable) {
-        candidateOrientations.add([L0, W0, H0, 'flat']);
-        if (rawItem.rotate && (L0 - W0).abs() > 0.1) {
-          candidateOrientations.add([W0, L0, H0, 'flat_rotated']);
+        candidateOrientations.add([l0, w0, h0, 'flat']);
+        if (rawItem.rotate && (l0 - w0).abs() > 0.1) {
+          candidateOrientations.add([w0, l0, h0, 'flat_rotated']);
         }
       } else if (itemPref == CargoOrientationPreference.onEdgeOnly) {
-        candidateOrientations.add([L0, H0, W0, 'on_edge_long']);
-        if (rawItem.rotate && (L0 - W0).abs() > 0.1) {
-          candidateOrientations.add([W0, H0, L0, 'on_edge_short']);
+        candidateOrientations.add([l0, h0, w0, 'on_edge_long']);
+        if (rawItem.rotate && (l0 - w0).abs() > 0.1) {
+          candidateOrientations.add([w0, h0, l0, 'on_edge_short']);
         }
       } else { // smartHybrid (stackable cargo)
         // 1. Flat orientations
-        candidateOrientations.add([L0, W0, H0, 'flat']);
-        if (rawItem.rotate && (L0 - W0).abs() > 0.1) {
-          candidateOrientations.add([W0, L0, H0, 'flat_rotated']);
+        candidateOrientations.add([l0, w0, h0, 'flat']);
+        if (rawItem.rotate && (l0 - w0).abs() > 0.1) {
+          candidateOrientations.add([w0, l0, h0, 'flat_rotated']);
         }
         // 2. On-edge vertical standing orientations (fills residual width/height channels)
-        candidateOrientations.add([L0, H0, W0, 'on_edge_long']);
-        if (rawItem.rotate && (L0 - W0).abs() > 0.1) {
-          candidateOrientations.add([W0, H0, L0, 'on_edge_short']);
-          candidateOrientations.add([H0, L0, W0, 'on_edge_rotated']);
+        candidateOrientations.add([l0, h0, w0, 'on_edge_long']);
+        if (rawItem.rotate && (l0 - w0).abs() > 0.1) {
+          candidateOrientations.add([w0, h0, l0, 'on_edge_short']);
+          candidateOrientations.add([h0, l0, w0, 'on_edge_rotated']);
         }
-        candidateOrientations.add([H0, W0, L0, 'upright']);
+        candidateOrientations.add([h0, w0, l0, 'upright']);
       }
 
       // Filter orientations that fit within container internal dimensions

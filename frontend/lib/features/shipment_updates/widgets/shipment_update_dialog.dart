@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -59,18 +60,45 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
   final String _assignedUser = 'Kamal';
   bool _isSubmitting = false;
 
-  static const List<Map<String, String>> _allPhases = [
-    {'code': 'Phase 1', 'name': 'P1: التخطيط والجدوى'},
-    {'code': 'Phase 2', 'name': 'P2: الموافقة والاعتماد المالي'},
-    {'code': 'Phase 3', 'name': 'P3: المستندات والـ ACID'},
-    {'code': 'Phase 4', 'name': 'P4: حجز الشحن والناقل'},
-    {'code': 'Phase 5', 'name': 'P5: الشحن وتتبع CargoX'},
-    {'code': 'Phase 6', 'name': 'P6: إقرار 46 والتعريفه'},
-    {'code': 'Phase 7', 'name': 'P7: التخليص وسداد الرسوم'},
-    {'code': 'Phase 8', 'name': 'P8: استلام المخازن GRN'},
-    {'code': 'Phase 9', 'name': 'P9: تسوية تكلفة الوصول'},
-    {'code': 'Phase 10', 'name': 'P10: إغلاق الملف والأرشفة'},
+  static const List<String> _phaseCodes = [
+    'Phase 1',
+    'Phase 2',
+    'Phase 3',
+    'Phase 4',
+    'Phase 5',
+    'Phase 6',
+    'Phase 7',
+    'Phase 8',
+    'Phase 9',
+    'Phase 10',
   ];
+
+  String _getPhaseName(AppLocalizations l, String code) {
+    switch (code) {
+      case 'Phase 1':
+        return l.shipmentUpdatePhase1Name;
+      case 'Phase 2':
+        return l.shipmentUpdatePhase2Name;
+      case 'Phase 3':
+        return l.shipmentUpdatePhase3Name;
+      case 'Phase 4':
+        return l.shipmentUpdatePhase4Name;
+      case 'Phase 5':
+        return l.shipmentUpdatePhase5Name;
+      case 'Phase 6':
+        return l.shipmentUpdatePhase6Name;
+      case 'Phase 7':
+        return l.shipmentUpdatePhase7Name;
+      case 'Phase 8':
+        return l.shipmentUpdatePhase8Name;
+      case 'Phase 9':
+        return l.shipmentUpdatePhase9Name;
+      case 'Phase 10':
+        return l.shipmentUpdatePhase10Name;
+      default:
+        return code;
+    }
+  }
 
   @override
   void initState() {
@@ -98,10 +126,11 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
   }
 
   Future<void> _submit() async {
+    final l = context.l10n;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedFileId == null || _selectedFileCode == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار الشحنة المراد تسجيل التحديث عليها'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(l.shipmentUpdateFieldShipmentRequired), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -128,13 +157,13 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم تسجيل التحديث التشغيلي / التحديث اليومي بنجاح'), backgroundColor: AppTheme.emerald),
+          SnackBar(content: Text(l.shipmentUpdateSuccessSaved), backgroundColor: AppTheme.emerald),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء حفظ التحديث: $e'), backgroundColor: AppTheme.crimson),
+          SnackBar(content: Text(l.shipmentUpdateErrorSaving(e.toString())), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -144,6 +173,7 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final importFilesState = ref.watch(importFilesProvider);
 
     return Dialog(
@@ -162,8 +192,14 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
                 children: [
                   const Icon(Icons.published_with_changes, color: AppTheme.cobalt, size: 28),
                   const SizedBox(width: 10),
-                  const Text('محرك تحديث الشحنات التشغيلي واليومي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal)),
-                  const Spacer(),
+                  Expanded(
+                    child: Text(
+                      l.shipmentUpdateDialogTitle,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
                 ],
               ),
@@ -182,17 +218,17 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
                         data: (files) {
                           return SearchableDropdownField<int>(
                             value: _selectedFileId,
-                            labelText: 'اختر الشحنة المراد تحديثها *',
+                            labelText: l.shipmentUpdateFieldShipmentLabel,
                             items: files.map((f) => SearchableDropdownItem<int>(
                               value: f.importFileId,
-                              label: '${f.customFileNumber ?? f.importFileCode} - ${f.supplierName} (${f.currentModule})',
+                              label: '${f.primaryNameWithCode} - ${f.supplierName} (${f.currentModule})',
                             )).toList(),
                             onChanged: (val) {
                               setState(() {
                                 _selectedFileId = val;
                                 if (val != null) {
                                   final sel = files.firstWhere((f) => f.importFileId == val);
-                                  _selectedFileCode = sel.customFileNumber ?? sel.importFileCode;
+                                  _selectedFileCode = sel.importFileCode;
                                 }
                               });
                             },
@@ -207,12 +243,13 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
                           Expanded(
                             child: DropdownButtonFormField<String>(
                               value: _updateCategory,
-                              decoration: const InputDecoration(labelText: 'نوع التحديث *', border: OutlineInputBorder()),
-                              items: const [
-                                DropdownMenuItem(value: 'Follow-up & Notes', child: Text('1. متابعة وملاحظات مرحلية')),
-                                DropdownMenuItem(value: 'Phase Cost Adjustment', child: Text('2. تعديل بيانات / تكلفة مرحلة')),
-                                DropdownMenuItem(value: 'Future Phase Alert', child: Text('3. فتح/تنبيه لمرحلة قادمة')),
-                                DropdownMenuItem(value: 'Daily Check-in', child: Text('4. تحديث يومي عن الشحنة')),
+                              isExpanded: true,
+                              decoration: InputDecoration(labelText: l.shipmentUpdateFieldCategoryLabel, border: const OutlineInputBorder()),
+                              items: [
+                                DropdownMenuItem(value: 'Follow-up & Notes', child: Text(l.shipmentUpdateCatOptFollowUp, overflow: TextOverflow.ellipsis)),
+                                DropdownMenuItem(value: 'Phase Cost Adjustment', child: Text(l.shipmentUpdateCatOptCostAdjustment, overflow: TextOverflow.ellipsis)),
+                                DropdownMenuItem(value: 'Future Phase Alert', child: Text(l.shipmentUpdateCatOptFutureAlert, overflow: TextOverflow.ellipsis)),
+                                DropdownMenuItem(value: 'Daily Check-in', child: Text(l.shipmentUpdateCatOptDailyCheckin, overflow: TextOverflow.ellipsis)),
                               ],
                               onChanged: (v) => setState(() => _updateCategory = v!),
                             ),
@@ -221,8 +258,9 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
                           Expanded(
                             child: DropdownButtonFormField<String>(
                               value: _selectedPhase,
-                              decoration: const InputDecoration(labelText: 'المرحلة المستهدفة *', border: OutlineInputBorder()),
-                              items: _allPhases.map((p) => DropdownMenuItem(value: p['code']!, child: Text(p['name']!))).toList(),
+                              isExpanded: true,
+                              decoration: InputDecoration(labelText: l.shipmentUpdateFieldTargetStageLabel, border: const OutlineInputBorder()),
+                              items: _phaseCodes.map((code) => DropdownMenuItem(value: code, child: Text(_getPhaseName(l, code), overflow: TextOverflow.ellipsis))).toList(),
                               onChanged: (v) => setState(() => _selectedPhase = v!),
                             ),
                           ),
@@ -237,7 +275,7 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
                             Expanded(
                               child: TextFormField(
                                 controller: _costItemController,
-                                decoration: const InputDecoration(labelText: 'بند التكلفة / البيان المعدل', border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: l.shipmentUpdateFieldCostItemLabel, border: const OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -245,7 +283,7 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
                               child: TextFormField(
                                 controller: _prevCostController,
                                 keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(labelText: 'التكلفة السابقة', border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: l.shipmentUpdateFieldPrevCostLabel, border: const OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -253,7 +291,7 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
                               child: TextFormField(
                                 controller: _newCostController,
                                 keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(labelText: 'التكلفة الجديدة المعدلة', border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: l.shipmentUpdateFieldNewCostLabel, border: const OutlineInputBorder()),
                               ),
                             ),
                           ],
@@ -265,11 +303,13 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
                       if (_updateCategory == 'Future Phase Alert') ...[
                         DropdownButtonFormField<String>(
                           value: _alertPriority,
-                          decoration: const InputDecoration(labelText: 'درجة أولوية التنبيه للمرحلة القادمة', border: OutlineInputBorder()),
-                          items: const [
-                            DropdownMenuItem(value: 'Normal', child: Text('عادي (Normal)')),
-                            DropdownMenuItem(value: 'High', child: Text('عالي (High Priority)')),
-                            DropdownMenuItem(value: 'Critical', child: Text('حرج (Critical Alert)')),
+                          isExpanded: true,
+                          decoration: InputDecoration(labelText: l.shipmentUpdateFieldAlertPriorityLabel, border: const OutlineInputBorder()),
+                          items: [
+                            DropdownMenuItem(value: 'Low', child: Text(l.shipmentUpdatePriorityLow)),
+                            DropdownMenuItem(value: 'Normal', child: Text(l.shipmentUpdatePriorityNormal)),
+                            DropdownMenuItem(value: 'High', child: Text(l.shipmentUpdatePriorityHigh)),
+                            DropdownMenuItem(value: 'Critical', child: Text(l.shipmentUpdatePriorityCritical)),
                           ],
                           onChanged: (v) => setState(() => _alertPriority = v!),
                         ),
@@ -279,10 +319,10 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
                       // Log Date
                       TextFormField(
                         controller: _dateController,
-                        decoration: const InputDecoration(
-                          labelText: 'تاريخ التحديث اليومي / المتابعة',
-                          prefixIcon: Icon(Icons.event),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.shipmentUpdateFieldDateLabel,
+                          prefixIcon: const Icon(Icons.event),
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -291,12 +331,12 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
                       TextFormField(
                         controller: _noteController,
                         maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'نص التحديث اليومي / الملاحظة التشغيلية التفصيلية *',
-                          hintText: 'اكتب تفاصيل المتابعة، موقف الشحنة بالميناء، توجيهات المخلص...',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.shipmentUpdateFieldNotesLabel,
+                          hintText: l.shipmentUpdateFieldNotesHint,
+                          border: const OutlineInputBorder(),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'ملاحظات التحديث مطلوبة' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? l.shipmentUpdateFieldNotesRequired : null,
                       ),
                     ],
                   ),
@@ -308,7 +348,7 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+                  OutlinedButton(onPressed: () => Navigator.pop(context), child: Text(l.shipmentUpdateBtnCancel)),
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
@@ -316,7 +356,7 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
                     icon: _isSubmitting
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Icon(Icons.check, color: Colors.white),
-                    label: const Text('حفظ التحديث التشغيلي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    label: Text(l.shipmentUpdateBtnSaveUpdate, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),

@@ -19,9 +19,11 @@ from datetime import date, datetime, timezone
 from modules.users.model import User
 from modules.auth.security import hash_password
 from modules.incoterms.model import Incoterm, CostItem, IncotermResponsibility
+from modules.incoterms.incoterms_matrix import IncotermsMatrix, Party
 from modules.customs_tariff.model import CustomsTariff, FeeCode, PreferentialAgreement
 from modules.currencies.model import Currency, ExchangeRate
 from modules.customs_consultation.model import ClearanceExpenseType
+from modules.auth.seed_rbac import seed_rbac
 
 
 class MasterDataSyncService:
@@ -72,96 +74,111 @@ class MasterDataSyncService:
         return added
 
     def sync_incoterms(self) -> Dict[str, int]:
-        """Incremental upsert for Incoterms 2020 rules, Cost Items, and Matrix."""
+        """Incremental upsert for Incoterms 2020 rules, Cost Items, and Matrix from IncotermsMatrix Single Source of Truth."""
         added_incoterms = 0
         added_cost_items = 0
         added_resp = 0
+        updated_resp = 0
 
-        # 1. Incoterms 2020
-        incoterms_data = [
-            ("EXW", "Ex Works (تسليم المصنع)", "Incoterms 2020", "الحد الأدنى من الالتزامات للبائع؛ حيث تقع المسؤولية والتكلفة على المشتري لاستلام البضائع من مستودع البائع."),
-            ("CFR", "Cost and Freight (التكلفة والشحن)", "Incoterms 2020", "يدفع البائع تكاليف الشحن لميناء الوجهة، ولكن المخاطر تنتقل للمشتري بمجرد تحميل البضائع على السفينة."),
-            ("CIF", "Cost, Insurance and Freight (التكلفة والتأمين والشحن)", "Incoterms 2020", "نفس قواعد CFR، ولكن يُطلب من البائع أيضاً توفير الحد الأدنى من التأمين على البضائع للمشتري."),
-            ("CIP", "Carriage and Insurance Paid To (الرسوم والتأمين المدفوعان إلى)", "Incoterms 2020", "يشبه CPT، ولكن يُلزم البائع أيضاً بدفع ثمن التأمين على البضائع."),
-            ("CPT", "Carriage Paid To (أجور النقل المدفوعة إلى)", "Incoterms 2020", "يدفع البائع تكاليف نقل البضائع إلى الوجهة المتفق عليها."),
-            ("DAP", "Delivered at Place (تسليم في المكان)", "Incoterms 2020", "يُسلم البائع البضائع ويتحمل المخاطر حتى وصولها إلى المكان المتفق عليه (دون تفريغها)."),
-            ("DDP", "Delivered Duty Paid (التسليم مدفوع الرسوم)", "Incoterms 2020", "الحد الأقصى من الالتزامات للبائع؛ حيث يدفع جميع التكاليف والرسوم الجمركية ورسوم الاستيراد."),
-            ("DPU", "Delivered at Place Unloaded (تسليم في المكان المفرغ)", "Incoterms 2020", "يُسلم البائع البضائع ويتحمل المخاطر حتى يتم تفريغها في الوجهة المحددة."),
-            ("FAS", "Free Alongside Ship (التسليم بجانب السفينة)", "Incoterms 2020", "يضع البائع البضائع بجانب السفينة في ميناء الشحن المحدد، وتنتقل المسؤولية بعدها للمشتري."),
-            ("FCA", "Free Carrier (الناقل الحر)", "Incoterms 2020", "يُسلم البائع البضائع للناقل المعين من المشتري في مكان محدد."),
-            ("FOB", "Free On Board (التسليم على ظهر السفينة)", "Incoterms 2020", "يتحمل البائع التكاليف والمخاطر حتى صعود البضائع على متن السفينة بميناء المغادرة."),
-        ]
+        # Load verified Incoterms 2020 matrix
+        matrix = IncotermsMatrix.from_json_file("incoterms_data.json")
 
-        for code, name, version, desc in incoterms_data:
-            existing = self.db.query(Incoterm).filter(Incoterm.incoterm_code == code).first()
-            if not existing:
-                item = Incoterm(incoterm_code=code, incoterm_name=name, version=version, description=desc)
-                self.db.add(item)
-                added_incoterms += 1
-        self.db.commit()
-
-        # 2. Cost Items
-        cost_items_data = [
-            ("Packaging", "التعبئة والتغليف", "تكلفة تغليف وتجهيز البضاعة للتصدير", "Freight"),
-            ("Loading at Origin", "التحميل في المنشأ", "تحميل البضاعة على وسيلة النقل الأولى في المصنع", "Port"),
-            ("Pre-Carriage", "النقل الداخلي في المنشأ", "نقل البضاعة من المصنع إلى ميناء/مطار المغادرة", "Freight"),
-            ("Export Customs Clearance", "التخليص الجمركي للتصدير", "مصاريف ووثائق وتصاريح التصدير في دولة المصنع", "Customs"),
-            ("Terminal Handling (Origin) - THC", "رسوم المناولة في ميناء المغادرة", "رسوم المناولة الأرضية والتعتيق في ميناء الشحن", "Port"),
-            ("Main Carriage / Freight", "النولون / الشحن الدولي الرئيسي", "تكلفة الشحن البحري أو الجوي بين الموانئ", "Freight"),
-            ("Cargo Insurance", "التأمين البحري / الجوي", "بوليصة التأمين على البضائع أثناء النقل الدولي", "Other"),
-            ("Terminal Handling (Destination) - THC", "رسوم المناولة في ميناء الوصول", "رسوم محطة الحاويات والمناولة في ميناء التفريغ", "Port"),
-            ("Import Customs Clearance", "التخليص الجمركي للوارد", "أتعاب المخلص الجمركي واستخراج إذن التسليم", "Customs"),
-            ("Customs Duties & Taxes", "الضرائب والرسوم الجمركية للوارد", "ضريبة الوارد، القيمة المضافة، الأرباح التجارية والصناعية", "Customs"),
-            ("On-Carriage", "النقل الداخلي في الوجهة", "نقل البضاعة من ميناء الوصول لمستودع المستورد", "Freight"),
-            ("Unloading at Destination", "التفريغ في مستودع العميل", "تنزيل وتفريغ البضاعة داخل مستودع المشتري النهائي", "Port"),
-        ]
-
-        for code, name, desc, cat in cost_items_data:
-            existing = self.db.query(CostItem).filter(CostItem.cost_item_code == code).first()
-            if not existing:
-                ci = CostItem(cost_item_code=code, cost_item_name=name, description=desc, cost_category=cat)
-                self.db.add(ci)
-                added_cost_items += 1
-        self.db.commit()
-
-        # 3. Standard Responsibility Matrix
-        incoterms_map = {i.incoterm_code: i.incoterm_id for i in self.db.query(Incoterm).all()}
-        cost_items_map = {c.cost_item_code: c.cost_item_id for c in self.db.query(CostItem).all()}
-
-        buyer_seller_rules = {
-            "EXW": {"Packaging": "Exporter"},
-            "FOB": {"Packaging": "Exporter", "Loading at Origin": "Exporter", "Pre-Carriage": "Exporter", "Export Customs Clearance": "Exporter", "Terminal Handling (Origin) - THC": "Exporter"},
-            "CFR": {"Packaging": "Exporter", "Loading at Origin": "Exporter", "Pre-Carriage": "Exporter", "Export Customs Clearance": "Exporter", "Terminal Handling (Origin) - THC": "Exporter", "Main Carriage / Freight": "Exporter"},
-            "CIF": {"Packaging": "Exporter", "Loading at Origin": "Exporter", "Pre-Carriage": "Exporter", "Export Customs Clearance": "Exporter", "Terminal Handling (Origin) - THC": "Exporter", "Main Carriage / Freight": "Exporter", "Cargo Insurance": "Exporter"},
-            "DDP": {k: "Exporter" for k, _, _, _ in cost_items_data if k != "Unloading at Destination"},
+        category_meta = {
+            "trucking_origin": ("OTRK", "Trucking Origin fees", "Freight", "Trucking origin transport"),
+            "export_clearance": ("XCLR", "Export Clearance fees", "Customs", "Export customs clearance and licenses"),
+            "othc": ("OTHC", "OTHC fees", "Port", "Origin terminal handling charges"),
+            "insurance": ("INS", "Insurance fees", "Freight", "Marine and air cargo insurance"),
+            "origin_inspection": ("XINSP", "Origin Inspection", "Other", "Pre-shipment inspection and quality check"),
+            "ocean_freight": ("OFR", "O/F fees", "Freight", "International ocean / air freight charges"),
+            "trucking_destination": ("DTRK", "Trucking Destination fees", "Freight", "Destination inland transport to warehouse"),
+            "dthc": ("DTHC", "DTHC fees", "Port", "Destination terminal handling charges"),
+            "documentation": ("DOC", "Documentation fees", "Other", "Documentation and courier charges"),
+            "disclaim_letter": ("DISC", "Disclaim letter", "Other", "Disclaimer letter charges (Contractual)"),
+            "import_clearance": ("ICLR", "Import Clearance fees", "Customs", "Import customs brokerage and clearance"),
+            "port_congestion": ("PCONG", "Port Congestion", "Port", "Port congestion surcharge (Contractual)"),
+            "demurrage_detention": ("DMRG", "Demurrage & Detention", "Port", "Demurrage and detention fees (Contractual)"),
+            "compliance_fees": ("XCMP", "Compliance Fees", "Other", "Regulatory compliance fees (Contractual)"),
+            "form_4_lc": ("FORM4", "L/C Or Form 4 fees", "Bank", "L/C or Form 4 bank charges (Contractual)"),
+            "customs_duty_tax": ("DUTY", "Tax & Customs Duties", "Customs", "Customs duty, VAT, and taxes"),
+            "storage_warehousing": ("STG", "Storage/Warehousing", "Port", "Warehouse storage and holding fees (Contractual)"),
         }
 
-        for term_code, rules in buyer_seller_rules.items():
-            inc_id = incoterms_map.get(term_code)
-            if not inc_id:
-                continue
-            for ci_code, ci_id in cost_items_map.items():
-                expected_resp = rules.get(ci_code, "Importer")
+        # 1. Incoterms 2020 Master
+        incoterms_map = {}
+        for term_code in matrix.list_terms():
+            term = matrix.get_term(term_code)
+            existing = self.db.query(Incoterm).filter(Incoterm.incoterm_code == term_code).first()
+            if not existing:
+                existing = Incoterm(
+                    incoterm_code=term_code,
+                    incoterm_name=term.label_ar,
+                    version="Incoterms 2020",
+                    description=f"Incoterms 2020 Rule ({term.mode.value})"
+                )
+                self.db.add(existing)
+                self.db.flush()
+                added_incoterms += 1
+            incoterms_map[term_code] = existing.incoterm_id
+        self.db.commit()
+
+        # 2. Cost Items Master (17 Canonical Categories)
+        cost_items_map = {}
+        for cat in matrix.list_categories():
+            code, name, category, desc = category_meta[cat.key]
+            existing = self.db.query(CostItem).filter(CostItem.cost_item_code == code).first()
+            if not existing:
+                existing = CostItem(
+                    cost_item_code=code,
+                    cost_item_name=name,
+                    description=desc,
+                    cost_category=category
+                )
+                self.db.add(existing)
+                self.db.flush()
+                added_cost_items += 1
+            cost_items_map[cat.key] = existing.cost_item_id
+        self.db.commit()
+
+        # 3. Synchronize Responsibility Matrix (11 terms x 17 categories = 187 combinations)
+        for term_code in matrix.list_terms():
+            inc_id = incoterms_map[term_code]
+            for cat in matrix.list_categories():
+                ci_id = cost_items_map[cat.key]
+                party = matrix.who_pays(term_code, cat.key)
+                expected_resp = "Importer" if party == Party.BUYER else "Exporter"
+                included = (party == Party.SELLER)
+                note = "بند تعاقدي (Contractual)" if not cat.is_icc_defined else None
+
                 existing = self.db.query(IncotermResponsibility).filter(
                     IncotermResponsibility.incoterm_id == inc_id,
                     IncotermResponsibility.cost_item_id == ci_id,
                 ).first()
+
                 if not existing:
                     resp = IncotermResponsibility(
                         incoterm_id=inc_id,
                         cost_item_id=ci_id,
                         responsible_party=expected_resp,
-                        included_in_incoterm=(expected_resp == "Exporter"),
+                        included_in_incoterm=included,
+                        notes=note
                     )
                     self.db.add(resp)
                     added_resp += 1
+                else:
+                    if existing.responsible_party != expected_resp or existing.included_in_incoterm != included or existing.notes != note:
+                        existing.responsible_party = expected_resp
+                        existing.included_in_incoterm = included
+                        existing.notes = note
+                        updated_resp += 1
         self.db.commit()
 
         return {
             "incoterms_added": added_incoterms,
             "cost_items_added": added_cost_items,
             "responsibilities_added": added_resp,
+            "responsibilities_updated": updated_resp,
         }
+
 
     def sync_currencies(self) -> Dict[str, int]:
         """Incremental upsert for Currencies and official Customs Exchange Rates."""
@@ -437,6 +454,7 @@ class MasterDataSyncService:
         customs_res = self.sync_customs_tariff_and_fees()
         clearance_added = self.sync_clearance_expenses()
         shipping_lines_added = self.sync_shipping_lines()
+        rbac_res = seed_rbac(self.db)
 
         return {
             "status": "synchronized_cleanly",
@@ -446,5 +464,6 @@ class MasterDataSyncService:
             "customs": customs_res,
             "clearance_expenses_added": clearance_added,
             "shipping_lines_added": shipping_lines_added,
+            "rbac": rbac_res,
         }
 

@@ -44,6 +44,7 @@ class _CloseShipmentDialogState extends ConsumerState<CloseShipmentDialog> {
             child: Text(
               '${l.closeShipmentTitle} (${widget.importFileCode})',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -69,11 +70,13 @@ class _CloseShipmentDialogState extends ConsumerState<CloseShipmentDialog> {
                     Text(
                       '${l.currentPhaseStage}: ${widget.currentPhaseName}',
                       style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       widget.importFileCode,
                       style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -124,6 +127,7 @@ class _CloseShipmentDialogState extends ConsumerState<CloseShipmentDialog> {
                             _reasonController.text.trim(),
                             widget.currentPhaseName,
                           );
+                      if (!mounted) return;
                       messenger.showSnackBar(
                         const SnackBar(
                           content: Text('Closed'),
@@ -132,6 +136,7 @@ class _CloseShipmentDialogState extends ConsumerState<CloseShipmentDialog> {
                       );
                       nav.pop(true);
                     } catch (e) {
+                      if (!mounted) return;
                       messenger.showSnackBar(
                         SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.crimson),
                       );

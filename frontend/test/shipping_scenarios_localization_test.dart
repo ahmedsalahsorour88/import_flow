@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
 
@@ -125,6 +125,60 @@ void main() {
         expect(item.isNotEmpty, isTrue);
         expect(RegExp(r'[\u0600-\u06FF]').hasMatch(item), isFalse);
       }
+    });
+
+    test('All 4 additional clearance cost items (items 18-21) are localized and distinct', () {
+      const lAr = AppLocalizationsAr();
+      const lEn = AppLocalizationsEn();
+
+      expect(lAr.clearanceBrokerFeeItem, equals('أتعاب التخليص الجمركي'));
+      expect(lEn.clearanceBrokerFeeItem, equals('Customs Broker Fee'));
+
+      expect(lAr.inspectionFeeItem, equals('مصاريف الفحص والعرض الجمركي'));
+      expect(lEn.inspectionFeeItem, equals('Inspection & Regulatory Approvals'));
+
+      expect(lAr.inlandTransportFeeItem, equals('النقل والتعتيق الداخلي للمصنع'));
+      expect(lEn.inlandTransportFeeItem, equals('Inland Transport to Factory'));
+
+      expect(lAr.portClearanceExpensesItem, equals('مصاريف الموانئ والأرضيات والتخليص'));
+      expect(lEn.portClearanceExpensesItem, equals('Port, Demurrage & Clearance Expenses'));
+    });
+
+    test('Load planner, container matrix, and report keys are clean and non-stacked', () {
+      const lAr = AppLocalizationsAr();
+      const lEn = AppLocalizationsEn();
+
+      expect(lAr.visualLoadPlanTitle, contains('محاكاة'));
+      expect(lEn.visualLoadPlanTitle, equals('Interactive Container Load Planner & Simulation'));
+
+      expect(lAr.saveSuccessReportTitle, contains('تقرير'));
+      expect(lEn.saveSuccessReportTitle, equals('🏆 Freight Study & Saved Quotes Results Report'));
+
+      expect(lAr.allStackableOption, contains('تقبل الرص'));
+      expect(lEn.allStackableOption, equals('All Stackable'));
+
+      expect(lAr.allNonStackableOption, contains('لا تقبل الرص'));
+      expect(lEn.allNonStackableOption, equals('All Non-Stackable'));
+
+      expect(lAr.mixedStackingOption, contains('مزيج'));
+      expect(lEn.mixedStackingOption, equals('Mixed Stacking'));
+
+      // Parameterized strings
+      expect(lAr.avgDaysFromReadiness(15), equals('خلال 15 يوم من الجاهزية'));
+      expect(lEn.avgDaysFromReadiness(15), equals('Within 15 days of readiness'));
+
+      expect(lAr.totalContainersCount(3, 2, 1), equals('إجمالي عدد الحاويات المطبقة = 3 (40ft: 2 | 20ft: 1)'));
+      expect(lEn.totalContainersCount(3, 2, 1), equals('Total Applied Containers = 3 (40ft: 2 | 20ft: 1)'));
+
+      // Check pure English for English strings
+      final arabicRegex = RegExp(r'[\u0600-\u06FF]');
+      expect(arabicRegex.hasMatch(lEn.visualLoadPlanTitle), isFalse);
+      expect(arabicRegex.hasMatch(lEn.saveSuccessReportTitle), isFalse);
+      expect(arabicRegex.hasMatch(lEn.allStackableOption), isFalse);
+      expect(arabicRegex.hasMatch(lEn.allNonStackableOption), isFalse);
+      expect(arabicRegex.hasMatch(lEn.mixedStackingOption), isFalse);
+      expect(arabicRegex.hasMatch(lEn.avgDaysFromReadiness(10)), isFalse);
+      expect(arabicRegex.hasMatch(lEn.totalContainersCount(3, 2, 1)), isFalse);
     });
   });
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -15,7 +16,8 @@ import '../providers/goods_in_transit_provider.dart';
 import '../providers/warehouse_receiving_provider.dart';
 
 class WarehouseReceivingScreen extends ConsumerStatefulWidget {
-  const WarehouseReceivingScreen({super.key});
+  final bool isEmbedded;
+  const WarehouseReceivingScreen({super.key, this.isEmbedded = false});
 
   @override
   ConsumerState<WarehouseReceivingScreen> createState() => _WarehouseReceivingScreenState();
@@ -29,10 +31,18 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(warehouseReceivingProvider.notifier).fetchRecords();
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
-      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
-      ref.read(customsClearanceProvider.notifier).fetchRecords();
+      if (!ref.read(warehouseReceivingProvider).isLoading) {
+        ref.read(warehouseReceivingProvider.notifier).fetchRecords();
+      }
+      if (!ref.read(importFilesProvider).isLoading) {
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
+      if (!ref.read(purchaseOrdersProvider).isLoading) {
+        ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      }
+      if (!ref.read(customsClearanceProvider).isLoading) {
+        ref.read(customsClearanceProvider.notifier).fetchRecords();
+      }
     });
   }
 
@@ -55,6 +65,63 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
       context: context,
       barrierDismissible: false,
       builder: (context) => _DiscrepancyReportDialog(record: record),
+    );
+  }
+
+  void _copyGrnRecordsTsv(List<WarehouseReceivingModel> records, AppLocalizations l10n) {
+    if (records.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.warehouseReceivingEmptyRecords), backgroundColor: AppTheme.orange),
+      );
+      return;
+    }
+
+    final headers = [
+      l10n.warehouseReceivingColGrnCode,
+      l10n.warehouseReceivingColWarehouse,
+      l10n.warehouseReceivingColStatus,
+      l10n.warehouseReceivingColQuarantine,
+      l10n.warehouseReceivingColTruckDriver,
+      l10n.warehouseReceivingColArrivalDate,
+      l10n.warehouseReceivingColInspector,
+      l10n.warehouseReceivingColDiscrepancy,
+      l10n.warehouseReceivingColInvoicedQty,
+      l10n.warehouseReceivingColAcceptedQty,
+      l10n.warehouseReceivingColShortageQty,
+      l10n.warehouseReceivingColDamagedQty,
+    ];
+
+    final buffer = StringBuffer();
+    buffer.writeln(headers.join('\t'));
+
+    for (final r in records) {
+      final quarantineText = r.quarantineZoneAssigned
+          ? l10n.warehouseReceivingQuarantineStatusBlocked
+          : '-';
+      final driverTruck = '${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})';
+      final arrival = r.arrivalDatetime.replaceFirst('T', ' ').split('.').first;
+
+      final row = [
+        r.grnCode,
+        r.warehouseName,
+        r.status,
+        quarantineText,
+        driverTruck,
+        arrival,
+        r.inspectorName,
+        r.discrepancyType,
+        r.totalInvoicedQty.toString(),
+        r.totalAcceptedQty.toString(),
+        r.totalShortageQty.toString(),
+        r.totalDamagedQty.toString(),
+      ];
+      buffer.writeln(row.join('\t'));
+    }
+
+    CopyHelper.copy(
+      context,
+      buffer.toString(),
+      customMessage: l10n.warehouseReceivingExportTsvSuccess,
     );
   }
 
@@ -130,27 +197,8 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
       ),
     ];
 
-    return VerticalStageScaffold(
-      stageCode: 'GRN-01',
-      titleEn: 'Warehouse Receiving & Inspection (GRN)',
-      titleAr: 'استلام البضائع بالمخازن وفحص الجودة',
-      headerIcon: Icons.inventory,
-      headerColor: AppTheme.cobalt,
-      tabs: tabs,
-      selectedIndex: 0,
-      onTabSelected: (index) {
-        if (index == 1) {
-          _showAddEditDialog();
-        }
-      },
-      headerActions: [
-        IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: context.l10n.warehouseReceivingRefreshTooltip,
-          onPressed: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
-        ),
-      ],
-      body: Padding(
+    final bodyContent = SelectionArea(
+      child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,6 +235,23 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                           decoration: InputDecoration(
                             hintText: context.l10n.warehouseReceivingSearchHint,
                             prefixIcon: const Icon(Icons.search),
+                            suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _searchController,
+                              builder: (context, value, _) {
+                                return value.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, size: 18),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          ref.read(warehouseReceivingProvider.notifier).fetchRecords(
+                                                search: '',
+                                                status: _selectedStatusFilter,
+                                              );
+                                        },
+                                      )
+                                    : const SizedBox.shrink();
+                              },
+                            ),
                             isDense: true,
                             border: const OutlineInputBorder(),
                           ),
@@ -213,6 +278,22 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                             }
                           },
                         ),
+                      ),
+                      const SizedBox(width: 12),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          side: BorderSide(color: Colors.grey.shade400),
+                        ),
+                        icon: const Icon(Icons.table_chart_outlined, size: 18, color: AppTheme.cobalt),
+                        label: Text(
+                          context.l10n.warehouseReceivingExportTsvBtn,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt),
+                        ),
+                        onPressed: () {
+                          final records = recordsState.valueOrNull ?? [];
+                          _copyGrnRecordsTsv(records, context.l10n);
+                        },
                       ),
                     ],
                   ),
@@ -253,9 +334,9 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                                    child: Text(r.grnCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                    child: CopyableText(r.grnCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                   ),
-                                  Text(r.warehouseName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                  CopyableText(r.warehouseName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                   _buildSealBadge(r.sealIntact, r.sealNumber),
                                   _buildStatusBadge(r.status),
                                   if (r.quarantineZoneAssigned)
@@ -266,14 +347,14 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                         borderRadius: BorderRadius.circular(6),
                                         border: Border.all(color: AppTheme.crimson),
                                       ),
-                                      child: const Row(
+                                      child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.lock, size: 13, color: AppTheme.crimson),
-                                          SizedBox(width: 4),
+                                          const Icon(Icons.lock, size: 13, color: AppTheme.crimson),
+                                          const SizedBox(width: 4),
                                           Text(
-                                            'محظور الصرف: تحت التحفظ الجمركي (Quarantine Lock)',
-                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson),
+                                            context.l10n.warehouseReceivingQuarantineLockBadge,
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson),
                                           ),
                                         ],
                                       ),
@@ -289,9 +370,21 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text('${context.l10n.warehouseReceivingTruckAndDriver}: ${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                        Wrap(
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          children: [
+                                            Text('${context.l10n.warehouseReceivingTruckAndDriver}: ', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                            CopyableText('${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                          ],
+                                        ),
                                         const SizedBox(height: 4),
-                                        Text('${context.l10n.warehouseReceivingArrivalDatetime}: ${r.arrivalDatetime.replaceFirst("T", " ").split(".")[0]}', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                                        Wrap(
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          children: [
+                                            Text('${context.l10n.warehouseReceivingArrivalDatetime}: ', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                                            CopyableText(r.arrivalDatetime.replaceFirst("T", " ").split(".")[0], style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                                          ],
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -299,7 +392,13 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text('${context.l10n.warehouseReceivingInspector}: ${r.inspectorName}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                        Wrap(
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          children: [
+                                            Text('${context.l10n.warehouseReceivingInspector}: ', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                            CopyableText(r.inspectorName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                          ],
+                                        ),
                                         const SizedBox(height: 4),
                                         Text('${context.l10n.warehouseReceivingDiscrepancyStatus}: ${r.discrepancyType}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: r.discrepancyType != "None" ? AppTheme.crimson : AppTheme.emerald)),
                                       ],
@@ -356,22 +455,24 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                       ),
                                       icon: Icon(r.quarantineZoneAssigned ? Icons.lock : Icons.verified_user_outlined, size: 15),
                                       label: Text(
-                                        r.quarantineZoneAssigned ? 'محظور الصرف (تحت التحفظ)' : 'فحص صلاحية الصرف',
+                                        r.quarantineZoneAssigned
+                                            ? context.l10n.warehouseReceivingQuarantineStatusBlocked
+                                            : context.l10n.warehouseReceivingQuarantineStatusCheck,
                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                                       ),
                                       onPressed: () {
                                         if (r.quarantineZoneAssigned) {
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                               backgroundColor: AppTheme.crimson,
-                                              content: Text('⛔ محظور الصرف: البضاعة تحت التحفظ الجمركي المعملي لحين صدور نتيجة الفحص الإيجابية.'),
+                                              content: Text(context.l10n.warehouseReceivingQuarantineAlertBlocked),
                                             ),
                                           );
                                         } else {
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                               backgroundColor: AppTheme.emerald,
-                                              content: Text('✅ البضاعة مفرج عنها نهائياً ومصرح بصرفها وتشغيلها بالمصنع.'),
+                                              content: Text(context.l10n.warehouseReceivingQuarantineAlertCleared),
                                             ),
                                           );
                                         }
@@ -381,12 +482,22 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                       onView: () => _showAddEditDialog(r),
                                       onEdit: () => _showAddEditDialog(r),
                                       onPrint: () {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(context.l10n.warehouseReceivingPrintGrnSnack(r.grnCode, r.warehouseName)),
-                                            backgroundColor: AppTheme.charcoal,
-                                            duration: const Duration(seconds: 2),
-                                          ),
+                                        final buffer = StringBuffer();
+                                        buffer.writeln('${context.l10n.warehouseReceivingColGrnCode}: ${r.grnCode}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingColWarehouse}: ${r.warehouseName}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingColStatus}: ${r.status}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingTruckAndDriver}: ${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})');
+                                        buffer.writeln('${context.l10n.warehouseReceivingArrivalDatetime}: ${r.arrivalDatetime.replaceFirst("T", " ").split(".")[0]}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingInspector}: ${r.inspectorName}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingDiscrepancyStatus}: ${r.discrepancyType}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingMetricInvoiced}: ${r.totalInvoicedQty}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingMetricAccepted}: ${r.totalAcceptedQty}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingMetricShortage}: ${r.totalShortageQty}');
+                                        buffer.writeln('${context.l10n.warehouseReceivingMetricDamaged}: ${r.totalDamagedQty}');
+                                        CopyHelper.copy(
+                                          context,
+                                          buffer.toString(),
+                                          customMessage: context.l10n.warehouseReceivingPrintReceiptSuccess(r.grnCode),
                                         );
                                       },
                                       onDelete: () async {
@@ -426,12 +537,39 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
         ),
       ),
     );
+
+    if (widget.isEmbedded) {
+      return bodyContent;
+    }
+
+    return VerticalStageScaffold(
+      stageCode: 'GRN-01',
+      titleEn: 'Warehouse Receiving & Inspection (GRN)',
+      titleAr: 'استلام البضائع بالمخازن وفحص الجودة',
+      headerIcon: Icons.inventory,
+      headerColor: AppTheme.cobalt,
+      tabs: tabs,
+      selectedIndex: 0,
+      onTabSelected: (index) {
+        if (index == 1) {
+          _showAddEditDialog();
+        }
+      },
+      headerActions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white70),
+          tooltip: context.l10n.warehouseReceivingRefreshTooltip,
+          onPressed: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
+        ),
+      ],
+      body: bodyContent,
+    );
   }
 
   Widget _buildQtyMetric(String label, String val, Color color) {
     return Column(
       children: [
-        Text(val, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
+        CopyableText(val, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
         Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
       ],
     );
@@ -555,11 +693,11 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
       _selectedImportFileId = fileId;
     });
 
-    final files = ref.read(importFilesProvider).value ?? [];
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
     final selectedFile = files.firstWhere((f) => f.importFileId == fileId, orElse: () => files.first);
 
     // Auto-detect shortage & damage from clearance records
-    final clearanceRecords = ref.read(customsClearanceProvider).value ?? [];
+    final clearanceRecords = ref.read(customsClearanceProvider).valueOrNull ?? [];
     final matchingClearance = clearanceRecords.where((c) => c.importFileId == fileId).toList();
     final hasDiscrepancy = matchingClearance.any((c) => c.status == 'Discrepancy Reported' || (c.dutyVarianceReason != null && c.dutyVarianceReason!.isNotEmpty));
 
@@ -676,7 +814,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
 
   @override
   Widget build(BuildContext context) {
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     return AlertDialog(
       title: Row(
@@ -686,133 +824,166 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
           Text(widget.recordToEdit == null ? context.l10n.warehouseReceivingNewDialogTitle : context.l10n.warehouseReceivingEditDialogTitle),
         ],
       ),
-      content: SizedBox(
-        width: 850,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Smart Notice Banner for Warehouse Documents
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber.shade400),
+      content: SelectionArea(
+        child: SizedBox(
+          width: 850,
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Smart Notice Banner for Warehouse Documents
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade400),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.mark_email_unread_outlined, color: Colors.orange, size: 24),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.l10n.warehouseReceivingDispatchAlertTitle,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                context.l10n.warehouseReceivingDispatchAlertDesc,
+                                style: const TextStyle(fontSize: 11.5, color: Colors.black87),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _alertSentToWarehouse ? AppTheme.emerald : AppTheme.orange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          ),
+                          icon: Icon(_alertSentToWarehouse ? Icons.check : Icons.send, size: 14),
+                          label: Text(
+                            _alertSentToWarehouse ? context.l10n.warehouseReceivingDispatchSentBtn : context.l10n.warehouseReceivingDispatchSendBtn,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: () {
+                            setState(() => _alertSentToWarehouse = true);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(context.l10n.warehouseReceivingDispatchSuccessSnack),
+                                backgroundColor: AppTheme.emerald,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Row(
+                  const SizedBox(height: 14),
+
+                  // Shipment Selection & Location
+                  Row(
                     children: [
-                      const Icon(Icons.mark_email_unread_outlined, color: Colors.orange, size: 24),
-                      const SizedBox(width: 10),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              context.l10n.warehouseReceivingDispatchAlertTitle,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              context.l10n.warehouseReceivingDispatchAlertDesc,
-                              style: const TextStyle(fontSize: 11.5, color: Colors.black87),
-                            ),
-                          ],
+                        flex: 2,
+                        child: SearchableDropdownField<int?>(
+                          value: _selectedImportFileId,
+                          labelText: context.l10n.warehouseReceivingImportFileLabel,
+                          items: importFiles
+                              .map((f) => SearchableDropdownItem<int?>(
+                                    value: f.importFileId,
+                                    label: '${f.primaryNameWithCode}${f.poNumber != null && f.poNumber!.isNotEmpty ? " - PO: ${f.poNumber!}" : ""}',
+                                  ))
+                              .toList(),
+                          onChanged: _onImportFileSelected,
+                          validator: (v) => v == null ? context.l10n.warehouseReceivingSelectFileValidator : null,
                         ),
                       ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _alertSentToWarehouse ? AppTheme.emerald : AppTheme.orange,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        ),
-                        icon: Icon(_alertSentToWarehouse ? Icons.check : Icons.send, size: 14),
-                        label: Text(
-                          _alertSentToWarehouse ? context.l10n.warehouseReceivingDispatchSentBtn : context.l10n.warehouseReceivingDispatchSendBtn,
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                        onPressed: () {
-                          setState(() => _alertSentToWarehouse = true);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(context.l10n.warehouseReceivingDispatchSuccessSnack),
-                              backgroundColor: AppTheme.emerald,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          controller: _whCtrl,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.warehouseReceivingWarehouseNameLabel,
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.copy, size: 16),
+                              tooltip: context.l10n.warehouseReceivingCopyFieldTooltip,
+                              onPressed: () => CopyHelper.copy(context, _whCtrl.text),
                             ),
-                          );
-                        },
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty) ? context.l10n.warehouseReceivingWarehouseNameValidator : null,
+                        ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 14),
+                  const SizedBox(height: 12),
 
-                // Shipment Selection & Location
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: SearchableDropdownField<int?>(
-                        value: _selectedImportFileId,
-                        labelText: context.l10n.warehouseReceivingImportFileLabel,
-                        items: importFiles
-                            .map((f) => SearchableDropdownItem<int?>(
-                                  value: f.importFileId,
-                                  label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
-                                ))
-                            .toList(),
-                        onChanged: _onImportFileSelected,
-                        validator: (v) => v == null ? context.l10n.warehouseReceivingSelectFileValidator : null,
+                  // Driver & Truck Plate & Seal Info
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _plateCtrl,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.warehouseReceivingTruckPlateLabel,
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.copy, size: 16),
+                              tooltip: context.l10n.warehouseReceivingCopyFieldTooltip,
+                              onPressed: () => CopyHelper.copy(context, _plateCtrl.text),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        controller: _whCtrl,
-                        decoration: InputDecoration(labelText: context.l10n.warehouseReceivingWarehouseNameLabel, border: const OutlineInputBorder()),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? context.l10n.warehouseReceivingWarehouseNameValidator : null,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _driverCtrl,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.warehouseReceivingDriverNameLabel,
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.copy, size: 16),
+                              tooltip: context.l10n.warehouseReceivingCopyFieldTooltip,
+                              onPressed: () => CopyHelper.copy(context, _driverCtrl.text),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Driver & Truck Plate & Seal Info
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _plateCtrl,
-                        decoration: InputDecoration(labelText: context.l10n.warehouseReceivingTruckPlateLabel, border: const OutlineInputBorder()),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _sealCtrl,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.warehouseReceivingSealNumberLabel,
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.copy, size: 16),
+                              tooltip: context.l10n.warehouseReceivingCopyFieldTooltip,
+                              onPressed: () => CopyHelper.copy(context, _sealCtrl.text),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _driverCtrl,
-                        decoration: InputDecoration(labelText: context.l10n.warehouseReceivingDriverNameLabel, border: const OutlineInputBorder()),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SwitchListTile(
+                          title: Text(context.l10n.warehouseReceivingSealIntactSwitch, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          value: _sealIntact,
+                          onChanged: (val) => setState(() => _sealIntact = val),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _sealCtrl,
-                        decoration: InputDecoration(labelText: context.l10n.warehouseReceivingSealNumberLabel, border: const OutlineInputBorder()),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: SwitchListTile(
-                        title: Text(context.l10n.warehouseReceivingSealIntactSwitch, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                        value: _sealIntact,
-                        onChanged: (val) => setState(() => _sealIntact = val),
-                      ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 const SizedBox(height: 16),
 
                 // Multi-PO Line Items Table Header
@@ -946,6 +1117,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
           ),
         ),
       ),
+      ),
       actions: [
         TextButton(onPressed: _isLoading ? null : () => Navigator.pop(context), child: Text(context.l10n.cancel)),
         OutlinedButton.icon(
@@ -1010,52 +1182,62 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
           Text(context.l10n.warehouseReceivingDiscrepancyDialogTitle(widget.record.grnCode)),
         ],
       ),
-      content: SizedBox(
-        width: 500,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SearchableDropdownField<String>(
-                value: _selectedDiscrepancyType,
-                labelText: context.l10n.warehouseReceivingDiscrepancyTypeLabel,
-                items: [
-                  SearchableDropdownItem(value: 'Shortage and Damage', label: context.l10n.warehouseReceivingDiscrepancyTypeShortageAndDamage),
-                  SearchableDropdownItem(value: 'Shortage Only', label: context.l10n.warehouseReceivingDiscrepancyTypeShortageOnly),
-                  SearchableDropdownItem(value: 'Damage Only', label: context.l10n.warehouseReceivingDiscrepancyTypeDamageOnly),
-                  SearchableDropdownItem(value: 'Broken Seal Discrepancy', label: context.l10n.warehouseReceivingDiscrepancyTypeBrokenSeal),
-                ],
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedDiscrepancyType = val);
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _notesCtrl,
-                maxLines: 3,
-                decoration: InputDecoration(labelText: context.l10n.warehouseReceivingDiscrepancyNotesLabel, border: const OutlineInputBorder()),
-                validator: (v) => (v == null || v.trim().isEmpty) ? context.l10n.warehouseReceivingDiscrepancyNotesValidator : null,
-              ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                title: Text(context.l10n.warehouseReceivingQuarantineSwitch, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                value: _quarantineAssigned,
-                onChanged: (val) => setState(() => _quarantineAssigned = val),
-              ),
-              SwitchListTile(
-                title: Text(context.l10n.warehouseReceivingInsuranceClaimSwitch, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                value: _fileClaim,
-                onChanged: (val) => setState(() => _fileClaim = val),
-              ),
-              if (_fileClaim) ...[
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _claimRefCtrl,
-                  decoration: InputDecoration(labelText: context.l10n.warehouseReceivingClaimRefLabel, border: const OutlineInputBorder()),
+      content: SelectionArea(
+        child: SizedBox(
+          width: 500,
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SearchableDropdownField<String>(
+                  value: _selectedDiscrepancyType,
+                  labelText: context.l10n.warehouseReceivingDiscrepancyTypeLabel,
+                  items: [
+                    SearchableDropdownItem(value: 'Shortage and Damage', label: context.l10n.warehouseReceivingDiscrepancyTypeShortageAndDamage),
+                    SearchableDropdownItem(value: 'Shortage Only', label: context.l10n.warehouseReceivingDiscrepancyTypeShortageOnly),
+                    SearchableDropdownItem(value: 'Damage Only', label: context.l10n.warehouseReceivingDiscrepancyTypeDamageOnly),
+                    SearchableDropdownItem(value: 'Broken Seal Discrepancy', label: context.l10n.warehouseReceivingDiscrepancyTypeBrokenSeal),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setState(() => _selectedDiscrepancyType = val);
+                  },
                 ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _notesCtrl,
+                  maxLines: 3,
+                  decoration: InputDecoration(labelText: context.l10n.warehouseReceivingDiscrepancyNotesLabel, border: const OutlineInputBorder()),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? context.l10n.warehouseReceivingDiscrepancyNotesValidator : null,
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  title: Text(context.l10n.warehouseReceivingQuarantineSwitch, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  value: _quarantineAssigned,
+                  onChanged: (val) => setState(() => _quarantineAssigned = val),
+                ),
+                SwitchListTile(
+                  title: Text(context.l10n.warehouseReceivingInsuranceClaimSwitch, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  value: _fileClaim,
+                  onChanged: (val) => setState(() => _fileClaim = val),
+                ),
+                if (_fileClaim) ...[
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _claimRefCtrl,
+                    decoration: InputDecoration(
+                      labelText: context.l10n.warehouseReceivingClaimRefLabel,
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.copy, size: 16),
+                        tooltip: context.l10n.warehouseReceivingCopyFieldTooltip,
+                        onPressed: () => CopyHelper.copy(context, _claimRefCtrl.text),
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

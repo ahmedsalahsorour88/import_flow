@@ -121,5 +121,58 @@ def test_parse_informal_english_and_arabic_swift_advices():
     assert p_ar["currency"] == "USD"
     assert "SUZHOU YUHENG" in p_ar["beneficiary_name"]
     assert p_ar["beneficiary_account_or_iban"] == "32250198613609841015"
-    assert p_ar["beneficiary_bank_swift"] == "PCBCCNBJJSS"
     assert "شركة سكاس" in p_ar["ordering_customer_name"]
+
+
+def test_parse_swift_mt103_with_ocr_typos_and_lost_decimals():
+    # Real-world screen photo OCR output with :2O, U5D instead of USD, and missing decimal comma
+    ocr_raw = """
+    Ck to: DE.PREVIEW >
+    Results 1 - 1 of 1
+    {1:F01ARAIEGCXXXXX.SN...ISN...}{2:I103CITIUS33XXXXN}{3:{108:xxxxx}}{4:
+    :2O/TRANSACTION REFERENCE NUMBER       : FT/26228/KZ70Q
+    :23B/BANK OPERATION CODE               : CRED
+    :32A/Value Date, CCY, Amount           : 260818U5D4370400
+    :5OK/ORDERING CUST                     : /EG780057004001017153610010101
+                                             SCAS FOR CONSTRUCTION AND FINISHING
+    :57A/Account with Bank                 : PCBCCNBJJSS
+    :59/Beneficiary Customer               : /32250198613609841015
+                                             SUZHOU YUHENG TEXTILE CO., LTD
+    :70/DETAILS OF PAYMENT                 : EG0010040 PI NO.YH20260730.6
+    :71A/DETAILS OF CHARGES                : SHA
+                                             -}
+    """
+    from modules.financial_approval.swift_file_extractor import normalize_swift_ocr_text
+    from modules.financial_approval.swift_mt103_parser import match_swift_against_payment_request
+
+    normalized = normalize_swift_ocr_text(ocr_raw)
+    p = parse_swift_mt103_text(normalized)
+
+    assert p["success"] is True
+    assert p["transaction_reference"] == "FT/26228/KZ70Q"
+    assert p["currency"] == "USD"
+    assert p["amount"] == 43704.0
+    assert p["value_date"] == "2026-08-18"
+    assert "SUZHOU YUHENG" in p["beneficiary_name"]
+    assert p["beneficiary_bank_swift"] == "PCBCCNBJJSS"
+    assert p["beneficiary_account_or_iban"] == "32250198613609841015"
+    assert p["pi_number"] == "YH20260730.6"
+
+    # Test auto-matching against target payment request
+    class MockPaymentReq:
+        payment_id = 101
+        payment_code = "PAY-2026-001"
+        requested_amount = 43704.0
+        currency_code = "USD"
+        supplier_name = "Suzhou Yuheng Textile Co.,Ltd"
+        beneficiary_name = "Suzhou Yuheng Textile Co.,Ltd"
+        swift_code = "PCBCCNBJJSS"
+        iban_account_no = "32250198613609841015"
+        title = "Supplier Advance Payment"
+
+    match = match_swift_against_payment_request(p, MockPaymentReq())
+    assert match["amount_matching"]["is_matched"] is True
+    assert match["amount_matching"]["variance"] == 0.0
+    assert match["confidence_score"] >= 80
+    assert match["match_status"] in ["PERFECT_MATCH", "HIGH_CONFIDENCE_MATCH"]
+

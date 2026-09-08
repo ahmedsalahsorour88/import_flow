@@ -1,6 +1,7 @@
 class LinkedPOItemModel {
   final int poId;
   final String poNumber;
+  final String? poReference;
   final String? piNumber;
   final int? projectId;
   final String? projectName;
@@ -9,9 +10,12 @@ class LinkedPOItemModel {
   final double totalAmount;
   final String status;
 
+  String get displayName => (poReference != null && poReference!.trim().isNotEmpty) ? poReference!.trim() : poNumber;
+
   LinkedPOItemModel({
     required this.poId,
     required this.poNumber,
+    this.poReference,
     this.piNumber,
     this.projectId,
     this.projectName,
@@ -25,6 +29,7 @@ class LinkedPOItemModel {
     return LinkedPOItemModel(
       poId: json['po_id'] ?? 0,
       poNumber: json['po_number'] ?? '',
+      poReference: json['po_reference'],
       piNumber: json['pi_number'],
       projectId: json['project_id'],
       projectName: json['project_name'],
@@ -39,6 +44,7 @@ class LinkedPOItemModel {
     return {
       'po_id': poId,
       'po_number': poNumber,
+      'po_reference': poReference,
       'pi_number': piNumber,
       'project_id': projectId,
       'project_name': projectName,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
@@ -55,15 +56,150 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   }
 
   void _refreshData() {
-    ref.read(customsClearanceProvider.notifier).fetchRecords();
-    ref.read(importFilesProvider.notifier).fetchImportFiles();
-    ref.read(partnersProvider.notifier).fetchPartners();
+    if (!ref.read(customsClearanceProvider).isLoading) {
+      ref.read(customsClearanceProvider.notifier).fetchRecords();
+    }
+    if (!ref.read(importFilesProvider).isLoading) {
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    }
+    if (!ref.read(partnersProvider).isLoading) {
+      ref.read(partnersProvider.notifier).fetchPartners();
+    }
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _copyClearanceRecordsTsv(List<CustomsClearanceModel> records, AppLocalizations l) {
+    if (records.isEmpty) return;
+    final buffer = StringBuffer();
+    buffer.writeln([
+      l.customsClearanceColClearanceCode,
+      l.customsClearanceColDecl46,
+      l.customsClearanceOfficeLabel,
+      l.customsClearanceChannelLabel,
+      l.customsClearanceDeliveryOrderLabel,
+      l.customsClearanceColActualDuty,
+      l.customsClearanceColEstimatedDuty,
+      l.customsClearanceColDutyVariance,
+      l.customsClearanceColPaymentStatus,
+      l.status,
+    ].join('\t'));
+
+    for (final r in records) {
+      final actual = (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2);
+      final est = r.estimatedDutyTotal.toStringAsFixed(2);
+      final variance = '${r.dutyVarianceAmount >= 0 ? "+" : ""}${r.dutyVarianceAmount.toStringAsFixed(2)}';
+      buffer.writeln([
+        r.clearanceCode,
+        r.declaration46No ?? '-',
+        r.customsOfficeName,
+        r.channelType,
+        r.deliveryOrderNumber ?? '-',
+        actual,
+        est,
+        variance,
+        r.paymentStatus,
+        r.status,
+      ].join('\t'));
+    }
+
+    CopyHelper.copy(context, buffer.toString(), customMessage: l.customsClearanceExportTsvSuccess);
+  }
+
+  void _copySamplesTsv(AppLocalizations l) {
+    if (_drawnSamples.isEmpty) return;
+    final buffer = StringBuffer();
+    buffer.writeln([
+      l.customsClearanceColSampleCode,
+      l.customsClearanceColAuthority,
+      l.customsClearanceColDrawingDate,
+      l.customsClearanceColReceiptNo,
+      l.customsClearanceColTestType,
+      l.customsClearanceColTestResult,
+      l.customsClearanceColNotes,
+    ].join('\t'));
+
+    for (final s in _drawnSamples) {
+      buffer.writeln([
+        s['sample_id'] ?? '-',
+        s['authority'] ?? '-',
+        s['drawing_date'] ?? '-',
+        s['receipt_no'] ?? '-',
+        s['test_type'] ?? '-',
+        s['status'] ?? '-',
+        s['notes'] ?? '-',
+      ].join('\t'));
+    }
+
+    CopyHelper.copy(context, buffer.toString(), customMessage: l.customsClearanceExportTsvSuccess);
+  }
+
+  void _copyDiscrepanciesTsv(AppLocalizations l) {
+    if (_discrepancyProtocols.isEmpty) return;
+    final buffer = StringBuffer();
+    buffer.writeln([
+      l.customsClearanceColProtocolNo,
+      l.customsClearanceColDeclarationNo,
+      l.customsClearanceColContainerNo,
+      l.customsClearanceColDamageType,
+      l.customsClearanceColDamagedQty,
+      l.customsClearanceColEstimatedLoss,
+      l.customsClearanceColResponsibleParty,
+      l.customsClearanceColClaimStatus,
+      l.customsClearanceColDate,
+    ].join('\t'));
+
+    for (final p in _discrepancyProtocols) {
+      final loss = (p['estimated_loss_egp'] as num?)?.toStringAsFixed(2) ?? '0.00';
+      buffer.writeln([
+        p['protocol_no'] ?? '-',
+        p['declaration_no'] ?? '-',
+        p['container_no'] ?? '-',
+        p['damage_type'] ?? '-',
+        p['damaged_qty'] ?? '-',
+        loss,
+        p['responsible_party'] ?? '-',
+        p['insurance_claim_status'] ?? '-',
+        p['date'] ?? '-',
+      ].join('\t'));
+    }
+
+    CopyHelper.copy(context, buffer.toString(), customMessage: l.customsClearanceExportTsvSuccess);
+  }
+
+  void _copyDutyLedgerTsv(List<CustomsClearanceModel> records, AppLocalizations l) {
+    if (records.isEmpty) return;
+    final buffer = StringBuffer();
+    buffer.writeln([
+      l.customsClearanceColClearanceCode,
+      l.customsClearanceColDecl46,
+      l.customsClearanceColCustomsOffice,
+      l.customsClearanceColActualDuty,
+      l.customsClearanceColEstimatedDuty,
+      l.customsClearanceColDutyVariance,
+      l.customsClearanceColPaymentStatus,
+    ].join('\t'));
+
+    for (final r in records) {
+      final actual = (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2);
+      final est = r.estimatedDutyTotal.toStringAsFixed(2);
+      final variance = '${r.dutyVarianceAmount >= 0 ? "+" : ""}${r.dutyVarianceAmount.toStringAsFixed(2)}';
+      buffer.writeln([
+        r.clearanceCode,
+        r.declaration46No ?? '-',
+        r.customsOfficeName,
+        actual,
+        est,
+        variance,
+        r.paymentStatus,
+      ].join('\t'));
+    }
+
+    CopyHelper.copy(context, buffer.toString(), customMessage: l.customsClearanceExportTsvSuccess);
   }
 
   void _showAddEditDialog([CustomsClearanceModel? recordToEdit]) {
@@ -107,35 +243,45 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             Text(l.customsClearanceAddSampleDialogTitle),
           ],
         ),
-        content: SizedBox(
-          width: 500,
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: authCtrl,
-                  decoration: InputDecoration(labelText: l.customsClearanceSampleAuthLabel, border: const OutlineInputBorder()),
-                  validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: receiptCtrl,
-                  decoration: InputDecoration(labelText: l.customsClearanceSampleReceiptLabel, border: const OutlineInputBorder()),
-                  validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: testTypeCtrl,
-                  decoration: InputDecoration(labelText: l.customsClearanceSampleTestTypeLabel, border: const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: notesCtrl,
-                  decoration: InputDecoration(labelText: l.customsClearanceSampleNotesLabel, border: const OutlineInputBorder()),
-                ),
-              ],
+        content: SelectionArea(
+          child: SizedBox(
+            width: 500,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: authCtrl,
+                    decoration: InputDecoration(labelText: l.customsClearanceSampleAuthLabel, border: const OutlineInputBorder()),
+                    validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: receiptCtrl,
+                    decoration: InputDecoration(
+                      labelText: l.customsClearanceSampleReceiptLabel,
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.copy, size: 16),
+                        tooltip: l.customsClearanceCopyFieldTooltip,
+                        onPressed: () => CopyHelper.copy(context, receiptCtrl.text),
+                      ),
+                    ),
+                    validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: testTypeCtrl,
+                    decoration: InputDecoration(labelText: l.customsClearanceSampleTestTypeLabel, border: const OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: notesCtrl,
+                    decoration: InputDecoration(labelText: l.customsClearanceSampleNotesLabel, border: const OutlineInputBorder()),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -166,7 +312,12 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
           ),
         ],
       ),
-    );
+    ).then((_) {
+      authCtrl.dispose();
+      receiptCtrl.dispose();
+      testTypeCtrl.dispose();
+      notesCtrl.dispose();
+    });
   }
 
   void _showAddDamageDialog(AppLocalizations l) {
@@ -189,32 +340,49 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             Text(l.customsClearanceAddDamageDialogTitle),
           ],
         ),
-        content: SizedBox(
-          width: 500,
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: declCtrl,
-                        decoration: InputDecoration(labelText: l.customsClearanceDamageDeclLabel, border: const OutlineInputBorder()),
-                        validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
+        content: SelectionArea(
+          child: SizedBox(
+            width: 500,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: declCtrl,
+                          decoration: InputDecoration(
+                            labelText: l.customsClearanceDamageDeclLabel,
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.copy, size: 16),
+                              tooltip: l.customsClearanceCopyFieldTooltip,
+                              onPressed: () => CopyHelper.copy(context, declCtrl.text),
+                            ),
+                          ),
+                          validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: containerCtrl,
-                        decoration: InputDecoration(labelText: l.customsClearanceDamageContainerLabel, border: const OutlineInputBorder()),
-                        validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          controller: containerCtrl,
+                          decoration: InputDecoration(
+                            labelText: l.customsClearanceDamageContainerLabel,
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.copy, size: 16),
+                              tooltip: l.customsClearanceCopyFieldTooltip,
+                              onPressed: () => CopyHelper.copy(context, containerCtrl.text),
+                            ),
+                          ),
+                          validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -261,7 +429,8 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             ),
           ),
         ),
-        actions: [
+      ),
+      actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
@@ -291,7 +460,15 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
           ),
         ],
       ),
-    );
+    ).then((_) {
+      declCtrl.dispose();
+      containerCtrl.dispose();
+      damageTypeCtrl.dispose();
+      damagedQtyCtrl.dispose();
+      lossCtrl.dispose();
+      partyCtrl.dispose();
+      notesCtrl.dispose();
+    });
   }
 
   @override
@@ -308,7 +485,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       headerActions: [
         ElevatedButton.icon(
           icon: const Icon(Icons.auto_awesome_rounded, size: 16),
-          label: const Text('تكويد مستخلص جمركي بالذكاء الاصطناعي ✨'),
+          label: Text(l.customsClearanceAiBrokerExtractorBtn),
           onPressed: () => UniversalEntityExtractorDialog.showCustomsBrokerExtractor(
             context,
             onSaved: () => ref.read(partnersProvider.notifier).fetchPartners(),
@@ -345,25 +522,27 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
           titleEn: 'Final Customs Duty Payment & Release',
         ),
       ],
-      body: clearanceAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(
-          child: Text(l.customsClearanceErrorFetch(err.toString()), style: const TextStyle(color: Colors.red)),
+      body: SelectionArea(
+        child: clearanceAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => Center(
+            child: Text(l.customsClearanceErrorFetch(err.toString()), style: const TextStyle(color: Colors.red)),
+          ),
+          data: (records) {
+            switch (_selectedTab) {
+              case 0:
+                return _buildClearanceFollowUpView(records, l);
+              case 1:
+                return _buildDrawingSamplesAndShortageView(records, l);
+              case 2:
+                return _buildDiscrepancyAndDamageView(records, l);
+              case 3:
+                return _buildFinalDutyPaymentView(records, l);
+              default:
+                return _buildClearanceFollowUpView(records, l);
+            }
+          },
         ),
-        data: (records) {
-          switch (_selectedTab) {
-            case 0:
-              return _buildClearanceFollowUpView(records, l);
-            case 1:
-              return _buildDrawingSamplesAndShortageView(records, l);
-            case 2:
-              return _buildDiscrepancyAndDamageView(records, l);
-            case 3:
-              return _buildFinalDutyPaymentView(records, l);
-            default:
-              return _buildClearanceFollowUpView(records, l);
-          }
-        },
       ),
     );
   }
@@ -399,6 +578,20 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                     decoration: InputDecoration(
                       hintText: l.customsClearanceSearchHint,
                       prefixIcon: const Icon(Icons.search),
+                      suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _searchController,
+                        builder: (context, value, _) {
+                          return value.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() {});
+                                  },
+                                )
+                              : const SizedBox.shrink();
+                        },
+                      ),
                       border: const OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -429,6 +622,16 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                   icon: const Icon(Icons.add, size: 16),
                   label: Text(l.customsClearanceNewRecordButton),
                   onPressed: () => _showAddEditDialog(),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal.shade700,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.copy_all_outlined, size: 16),
+                  label: Text(l.customsClearanceExportTsvBtn),
+                  onPressed: () => _copyClearanceRecordsTsv(filtered, l),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
@@ -527,6 +730,17 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (_drawnSamples.isNotEmpty)
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          ),
+                          icon: const Icon(Icons.copy_all, size: 14),
+                          label: Text(l.customsClearanceExportTsvBtn, style: const TextStyle(fontSize: 11)),
+                          onPressed: () => _copySamplesTsv(l),
+                        ),
                     ],
                   ),
                   const Divider(height: 20),
@@ -556,27 +770,33 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                       ],
                       rows: _drawnSamples.map((s) {
                         final isPassed = s['status'] == 'PASSED';
+                        final statusStr = isPassed ? l.customsClearanceSamplePassed : l.customsClearanceSamplePending;
+                        final rowSummary = "${s['sample_id']}\t${s['authority']}\t${s['drawing_date']}\t${s['receipt_no']}\t${s['test_type']}\t$statusStr\t${s['notes'] ?? '-'}";
                         return DataRow(cells: [
-                          DataCell(Text(s['sample_id'], style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                          DataCell(Text(s['authority'], style: const TextStyle(fontWeight: FontWeight.w600))),
-                          DataCell(Text(s['drawing_date'])),
-                          DataCell(Text(s['receipt_no'], style: const TextStyle(fontFamily: 'monospace'))),
-                          DataCell(Text(s['test_type'])),
+                          DataCell(CopyableTableCell(value: s['sample_id'] ?? '', rowSummary: rowSummary, child: Text(s['sample_id'], style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
+                          DataCell(CopyableTableCell(value: s['authority'] ?? '', rowSummary: rowSummary, child: Text(s['authority'], style: const TextStyle(fontWeight: FontWeight.w600)))),
+                          DataCell(CopyableTableCell(value: s['drawing_date'] ?? '', rowSummary: rowSummary, child: Text(s['drawing_date']))),
+                          DataCell(CopyableTableCell(value: s['receipt_no'] ?? '', rowSummary: rowSummary, child: Text(s['receipt_no'], style: const TextStyle(fontFamily: 'monospace')))),
+                          DataCell(CopyableTableCell(value: s['test_type'] ?? '', rowSummary: rowSummary, child: Text(s['test_type']))),
                           DataCell(
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: (isPassed ? Colors.green : Colors.orange).shade50,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: (isPassed ? Colors.green : Colors.orange).shade300),
-                              ),
-                              child: Text(
-                                isPassed ? '✅ ${l.customsClearanceSamplePassed}' : '⏳ ${l.customsClearanceSamplePending}',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isPassed ? Colors.green.shade900 : Colors.orange.shade900),
+                            CopyableTableCell(
+                              value: statusStr,
+                              rowSummary: rowSummary,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: (isPassed ? Colors.green : Colors.orange).shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: (isPassed ? Colors.green : Colors.orange).shade300),
+                                ),
+                                child: Text(
+                                  isPassed ? '✅ ${l.customsClearanceSamplePassed}' : '⏳ ${l.customsClearanceSamplePending}',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isPassed ? Colors.green.shade900 : Colors.orange.shade900),
+                                ),
                               ),
                             ),
                           ),
-                          DataCell(Text(s['notes'] ?? '-')),
+                          DataCell(CopyableTableCell(value: s['notes'] ?? '-', rowSummary: rowSummary, child: Text(s['notes'] ?? '-'))),
                         ]);
                       }).toList(),
                     ),
@@ -658,6 +878,17 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (_discrepancyProtocols.isNotEmpty)
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          ),
+                          icon: const Icon(Icons.copy_all, size: 14),
+                          label: Text(l.customsClearanceExportTsvBtn, style: const TextStyle(fontSize: 11)),
+                          onPressed: () => _copyDiscrepanciesTsv(l),
+                        ),
                     ],
                   ),
                   const Divider(height: 20),
@@ -688,29 +919,37 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                         DataColumn(label: Text(l.customsClearanceColDate, style: const TextStyle(fontWeight: FontWeight.bold))),
                       ],
                       rows: _discrepancyProtocols.map((p) {
+                        final isApproved = p['insurance_claim_status'] == 'APPROVED';
+                        final claimStr = isApproved ? l.customsClearanceClaimApproved : l.customsClearanceClaimSubmitted;
+                        final loss = (p['estimated_loss_egp'] as num).toStringAsFixed(2);
+                        final rowSummary = "${p['protocol_no']}\t${p['declaration_no']}\t${p['container_no']}\t${p['damage_type']}\t${p['damaged_qty']}\t$loss EGP\t${p['responsible_party']}\t$claimStr\t${p['date']}";
                         return DataRow(cells: [
-                          DataCell(Text(p['protocol_no'], style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson))),
-                          DataCell(Text(p['declaration_no'])),
-                          DataCell(Text(p['container_no'], style: const TextStyle(fontFamily: 'monospace'))),
-                          DataCell(Text(p['damage_type'], style: const TextStyle(fontWeight: FontWeight.w600))),
-                          DataCell(Text(p['damaged_qty'])),
-                          DataCell(Text('${(p['estimated_loss_egp'] as num).toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson))),
-                          DataCell(Text(p['responsible_party'])),
+                          DataCell(CopyableTableCell(value: p['protocol_no'] ?? '', rowSummary: rowSummary, child: Text(p['protocol_no'], style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)))),
+                          DataCell(CopyableTableCell(value: p['declaration_no'] ?? '', rowSummary: rowSummary, child: Text(p['declaration_no']))),
+                          DataCell(CopyableTableCell(value: p['container_no'] ?? '', rowSummary: rowSummary, child: Text(p['container_no'], style: const TextStyle(fontFamily: 'monospace')))),
+                          DataCell(CopyableTableCell(value: p['damage_type'] ?? '', rowSummary: rowSummary, child: Text(p['damage_type'], style: const TextStyle(fontWeight: FontWeight.w600)))),
+                          DataCell(CopyableTableCell(value: p['damaged_qty']?.toString() ?? '', rowSummary: rowSummary, child: Text(p['damaged_qty'].toString()))),
+                          DataCell(CopyableTableCell(value: '$loss EGP', rowSummary: rowSummary, child: Text('$loss EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)))),
+                          DataCell(CopyableTableCell(value: p['responsible_party'] ?? '', rowSummary: rowSummary, child: Text(p['responsible_party']))),
                           DataCell(
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: Colors.blue.shade300),
-                              ),
-                              child: Text(
-                                p['insurance_claim_status'] == 'APPROVED' ? '✅ ${l.customsClearanceClaimApproved}' : '📋 ${l.customsClearanceClaimSubmitted}',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                            CopyableTableCell(
+                              value: claimStr,
+                              rowSummary: rowSummary,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.blue.shade300),
+                                ),
+                                child: Text(
+                                  isApproved ? '✅ ${l.customsClearanceClaimApproved}' : '📋 ${l.customsClearanceClaimSubmitted}',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                                ),
                               ),
                             ),
                           ),
-                          DataCell(Text(p['date'])),
+                          DataCell(CopyableTableCell(value: p['date'] ?? '', rowSummary: rowSummary, child: Text(p['date']))),
                         ]);
                       }).toList(),
                     ),
@@ -785,6 +1024,17 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (records.isNotEmpty)
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          ),
+                          icon: const Icon(Icons.copy_all, size: 14),
+                          label: Text(l.customsClearanceExportTsvBtn, style: const TextStyle(fontSize: 11)),
+                          onPressed: () => _copyDutyLedgerTsv(records, l),
+                        ),
                     ],
                   ),
                   const Divider(height: 20),
@@ -810,24 +1060,34 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                         ],
                         rows: records.map((r) {
                           final isPaid = r.paymentStatus == 'Paid & Verified';
+                          final actualDutyStr = '${(r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2)} EGP';
+                          final estDutyStr = '${r.estimatedDutyTotal.toStringAsFixed(2)} EGP';
+                          final varianceStr = '${r.dutyVarianceAmount >= 0 ? "+" : ""}${r.dutyVarianceAmount.toStringAsFixed(2)} EGP (${r.dutyVariancePercentage}%)';
+                          final paymentStatusStr = isPaid ? l.customsClearanceStatusPaid : l.customsClearanceStatusPendingPayment;
+                          final rowSummary = "${r.clearanceCode}\t${r.declaration46No ?? '-'}\t${r.customsOfficeName}\t$actualDutyStr\t$estDutyStr\t$varianceStr\t$paymentStatusStr";
+
                           return DataRow(cells: [
-                            DataCell(Text(r.clearanceCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                            DataCell(Text(r.declaration46No ?? '-')),
-                            DataCell(Text(r.customsOfficeName)),
-                            DataCell(Text('${(r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
-                            DataCell(Text('${r.estimatedDutyTotal.toStringAsFixed(2)} EGP')),
-                            DataCell(Text('${r.dutyVarianceAmount >= 0 ? "+" : ""}${r.dutyVarianceAmount.toStringAsFixed(2)} EGP (${r.dutyVariancePercentage}%)', style: TextStyle(fontWeight: FontWeight.bold, color: r.dutyVarianceAmount.abs() > 500 ? AppTheme.orange : Colors.grey.shade700))),
+                            DataCell(CopyableTableCell(value: r.clearanceCode, rowSummary: rowSummary, child: Text(r.clearanceCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
+                            DataCell(CopyableTableCell(value: r.declaration46No ?? '-', rowSummary: rowSummary, child: Text(r.declaration46No ?? '-'))),
+                            DataCell(CopyableTableCell(value: r.customsOfficeName, rowSummary: rowSummary, child: Text(r.customsOfficeName))),
+                            DataCell(CopyableTableCell(value: actualDutyStr, rowSummary: rowSummary, child: Text(actualDutyStr, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)))),
+                            DataCell(CopyableTableCell(value: estDutyStr, rowSummary: rowSummary, child: Text(estDutyStr))),
+                            DataCell(CopyableTableCell(value: varianceStr, rowSummary: rowSummary, child: Text(varianceStr, style: TextStyle(fontWeight: FontWeight.bold, color: r.dutyVarianceAmount.abs() > 500 ? AppTheme.orange : Colors.grey.shade700)))),
                             DataCell(
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: (isPaid ? Colors.green : Colors.orange).shade50,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: (isPaid ? Colors.green : Colors.orange).shade300),
-                                ),
-                                child: Text(
-                                  isPaid ? '✅ ${l.customsClearanceStatusPaid}' : '⚠️ ${l.customsClearanceStatusPendingPayment}',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isPaid ? Colors.green.shade900 : Colors.orange.shade900),
+                              CopyableTableCell(
+                                value: paymentStatusStr,
+                                rowSummary: rowSummary,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: (isPaid ? Colors.green : Colors.orange).shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: (isPaid ? Colors.green : Colors.orange).shade300),
+                                  ),
+                                  child: Text(
+                                    isPaid ? '✅ ${l.customsClearanceStatusPaid}' : '⚠️ ${l.customsClearanceStatusPendingPayment}',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isPaid ? Colors.green.shade900 : Colors.orange.shade900),
+                                  ),
                                 ),
                               ),
                             ),
@@ -921,7 +1181,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                           color: AppTheme.charcoal.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Text(
+                        child: CopyableText(
                           record.clearanceCode,
                           style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 13),
                         ),
@@ -946,9 +1206,9 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                         ),
                       ),
                       if (record.declaration46No != null && record.declaration46No!.isNotEmpty)
-                        Text('${l.customsClearanceDeclaration46Label}: ${record.declaration46No}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
+                        CopyableText('${l.customsClearanceDeclaration46Label}: ${record.declaration46No}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
                       if (record.deliveryOrderNumber != null && record.deliveryOrderNumber!.isNotEmpty)
-                        Text('${l.customsClearanceDeliveryOrderLabel}: ${record.deliveryOrderNumber}', style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
+                        CopyableText('${l.customsClearanceDeliveryOrderLabel}: ${record.deliveryOrderNumber}', style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
                     ],
                   ),
                 ),
@@ -969,9 +1229,9 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('🏢 ${l.customsClearanceOfficeLabel}: ${record.customsOfficeName}', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+                      CopyableText('🏢 ${l.customsClearanceOfficeLabel}: ${record.customsOfficeName}', style: const TextStyle(fontSize: 12, color: Colors.black87)),
                       const SizedBox(height: 4),
-                      Text('${l.customsClearanceFileRefLabel}: IMP-${record.importFileId}', style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
+                      CopyableText('${l.customsClearanceFileRefLabel}: IMP-${record.importFileId}', style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
                       if (record.freeDaysAllowed > 0)
                         Text('⏱️ ${l.customsClearanceFreeDaysLabel(record.freeDaysAllowed)}', style: const TextStyle(fontSize: 11.5, color: Colors.indigo, fontWeight: FontWeight.bold)),
                     ],
@@ -981,10 +1241,10 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('💰 ${l.customsClearanceTotalDutiesCard}: ${(record.actualDutyTotal > 0 ? record.actualDutyTotal : record.totalDutyPayable).toStringAsFixed(2)} EGP', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                      CopyableText('💰 ${l.customsClearanceTotalDutiesCard}: ${(record.actualDutyTotal > 0 ? record.actualDutyTotal : record.totalDutyPayable).toStringAsFixed(2)} EGP', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                       const SizedBox(height: 4),
                       if (record.estimatedDutyTotal > 0)
-                        Text(
+                        CopyableText(
                           '⚖️ ${l.customsClearanceEstimatedDutiesCard(record.estimatedDutyTotal.toStringAsFixed(2), "${record.dutyVarianceAmount >= 0 ? '+' : ''}${record.dutyVarianceAmount.toStringAsFixed(2)}", record.dutyVariancePercentage.toString())}',
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: record.dutyVarianceAmount.abs() > 500 ? AppTheme.orange : Colors.black54),
                         ),
@@ -1002,7 +1262,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                     ),
                     IconButton(
                       icon: const Icon(Icons.lock_clock_outlined, color: AppTheme.orange, size: 20),
-                      tooltip: 'مسار السحب على عهدة وفك التحفظ المعملي (Under-Bond Release)',
+                      tooltip: l.customsClearanceUnderBondTooltip,
                       onPressed: () => showUnderBondReleaseDialog(
                         context,
                         ref,
@@ -1112,9 +1372,24 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
   }
 
   @override
+  void dispose() {
+    _decl46Ctrl.dispose();
+    _officeCtrl.dispose();
+    _doNumberCtrl.dispose();
+    _freeDaysCtrl.dispose();
+    _dutyCtrl.dispose();
+    _vatCtrl.dispose();
+    _scheduleTaxCtrl.dispose();
+    _whtCtrl.dispose();
+    _labFeesCtrl.dispose();
+    _estimatedDutyCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     return AlertDialog(
       title: Row(
@@ -1129,54 +1404,71 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
           ),
         ],
       ),
-      content: SizedBox(
-        width: 600,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SearchableDropdownField<int>(
-                  value: _selectedImportFileId,
-                  labelText: l.customsClearanceImportFileLabel,
-                  searchHintText: l.customsClearanceImportFileSearchHint,
-                  items: importFiles
-                      .map((f) => SearchableDropdownItem<int>(
-                            value: f.importFileId,
-                            label: '${f.importFileCode} - ${f.companyName}',
-                            subtitle: 'PO: ${f.poNumber ?? "N/A"} | ACID: ${f.acidNumber ?? "N/A"}',
-                          ))
-                      .toList(),
-                  onChanged: (val) => setState(() => _selectedImportFileId = val),
-                  validator: (val) => val == null ? l.customsClearanceSelectFileValidator : null,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _decl46Ctrl,
-                        decoration: InputDecoration(labelText: l.customsClearanceDecl46Label, border: const OutlineInputBorder()),
+      content: SelectionArea(
+        child: SizedBox(
+          width: 600,
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SearchableDropdownField<int>(
+                    value: _selectedImportFileId,
+                    labelText: l.customsClearanceImportFileLabel,
+                    searchHintText: l.customsClearanceImportFileSearchHint,
+                    items: importFiles
+                        .map((f) => SearchableDropdownItem<int>(
+                              value: f.importFileId,
+                              label: '${f.primaryNameWithCode} - ${f.companyName}',
+                              subtitle: 'PO: ${f.poNumber ?? "N/A"} | ACID: ${f.acidNumber ?? "N/A"}',
+                            ))
+                        .toList(),
+                    onChanged: (val) => setState(() => _selectedImportFileId = val),
+                    validator: (val) => val == null ? l.customsClearanceSelectFileValidator : null,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _decl46Ctrl,
+                          decoration: InputDecoration(
+                            labelText: l.customsClearanceDecl46Label,
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.copy, size: 16),
+                              tooltip: l.customsClearanceCopyFieldTooltip,
+                              onPressed: () => CopyHelper.copy(context, _decl46Ctrl.text),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _doNumberCtrl,
-                        decoration: InputDecoration(labelText: l.customsClearanceDoNumberLabel, border: const OutlineInputBorder()),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _doNumberCtrl,
+                          decoration: InputDecoration(
+                            labelText: l.customsClearanceDoNumberLabel,
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.copy, size: 16),
+                              tooltip: l.customsClearanceCopyFieldTooltip,
+                              onPressed: () => CopyHelper.copy(context, _doNumberCtrl.text),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _freeDaysCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(labelText: l.customsClearanceFreeDaysInputLabel, border: const OutlineInputBorder()),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _freeDaysCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(labelText: l.customsClearanceFreeDaysInputLabel, border: const OutlineInputBorder()),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -1270,7 +1562,8 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
           ),
         ),
       ),
-      actions: [
+    ),
+    actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
@@ -1349,6 +1642,14 @@ class _DutyPaymentDialogState extends ConsumerState<_DutyPaymentDialog> {
     _varianceReasonCtrl.text = widget.record.dutyVarianceReason ?? '';
   }
 
+  @override
+  void dispose() {
+    _receiptCtrl.dispose();
+    _actualPaidCtrl.dispose();
+    _varianceReasonCtrl.dispose();
+    super.dispose();
+  }
+
   void _applyExtractedPayment(Map<String, dynamic> ext) {
     setState(() {
       if (ext['receipt_number'] != null) _receiptCtrl.text = ext['receipt_number'].toString();
@@ -1377,68 +1678,78 @@ class _DutyPaymentDialogState extends ConsumerState<_DutyPaymentDialog> {
           ),
         ],
       ),
-      content: SizedBox(
-        width: 520,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Variance Comparison Box
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: (diff.abs() > 500 ? AppTheme.orange : AppTheme.emerald).withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: diff.abs() > 500 ? AppTheme.orange : AppTheme.emerald),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(l.customsClearanceEstimatorDutyBoxLabel(est.toStringAsFixed(2)), style: const TextStyle(fontWeight: FontWeight.w600)),
-                        Text(l.customsClearanceNafezaDutyBoxLabel(act.toStringAsFixed(2)), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
-                      ],
-                    ),
-                    const Divider(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(l.customsClearanceVarianceBoxLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text(
-                          '${diff >= 0 ? "+" : ""}${diff.toStringAsFixed(2)} EGP ($diffPercent%)',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: diff.abs() > 500 ? AppTheme.crimson : AppTheme.emerald,
+      content: SelectionArea(
+        child: SizedBox(
+          width: 520,
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Variance Comparison Box
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: (diff.abs() > 500 ? AppTheme.orange : AppTheme.emerald).withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: diff.abs() > 500 ? AppTheme.orange : AppTheme.emerald),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(l.customsClearanceEstimatorDutyBoxLabel(est.toStringAsFixed(2)), style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text(l.customsClearanceNafezaDutyBoxLabel(act.toStringAsFixed(2)), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                        ],
+                      ),
+                      const Divider(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(l.customsClearanceVarianceBoxLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text(
+                            '${diff >= 0 ? "+" : ""}${diff.toStringAsFixed(2)} EGP ($diffPercent%)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: diff.abs() > 500 ? AppTheme.crimson : AppTheme.emerald,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _actualPaidCtrl,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: l.customsClearanceActualPaidInput, border: const OutlineInputBorder()),
-                validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _receiptCtrl,
-                decoration: InputDecoration(labelText: l.customsClearanceBankReceiptInput, border: const OutlineInputBorder()),
-                validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _varianceReasonCtrl,
-                maxLines: 2,
-                decoration: InputDecoration(labelText: l.customsClearanceVarianceReasonInput, border: const OutlineInputBorder()),
-              ),
-            ],
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _actualPaidCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(labelText: l.customsClearanceActualPaidInput, border: const OutlineInputBorder()),
+                  validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _receiptCtrl,
+                  decoration: InputDecoration(
+                    labelText: l.customsClearanceBankReceiptInput,
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: l.customsClearanceCopyFieldTooltip,
+                      onPressed: () => CopyHelper.copy(context, _receiptCtrl.text),
+                    ),
+                  ),
+                  validator: (v) => v == null || v.isEmpty ? l.poRecRequired : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _varianceReasonCtrl,
+                  maxLines: 2,
+                  decoration: InputDecoration(labelText: l.customsClearanceVarianceReasonInput, border: const OutlineInputBorder()),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1500,6 +1811,12 @@ class _FinalReleaseDialogState extends ConsumerState<_FinalReleaseDialog> {
   }
 
   @override
+  void dispose() {
+    _releaseNoCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = context.l10n;
 
@@ -1511,19 +1828,29 @@ class _FinalReleaseDialogState extends ConsumerState<_FinalReleaseDialog> {
           Text(l.customsClearanceFinalReleaseDialogTitle),
         ],
       ),
-      content: SizedBox(
-        width: 450,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l.customsClearanceFinalReleaseDialogDesc),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _releaseNoCtrl,
-              decoration: InputDecoration(labelText: l.customsClearanceReleasePermitInput, border: const OutlineInputBorder()),
-            ),
-          ],
+      content: SelectionArea(
+        child: SizedBox(
+          width: 450,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l.customsClearanceFinalReleaseDialogDesc),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _releaseNoCtrl,
+                decoration: InputDecoration(
+                  labelText: l.customsClearanceReleasePermitInput,
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.copy, size: 16),
+                    tooltip: l.customsClearanceCopyFieldTooltip,
+                    onPressed: () => CopyHelper.copy(context, _releaseNoCtrl.text),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [

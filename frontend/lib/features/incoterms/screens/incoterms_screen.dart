@@ -26,12 +26,19 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    // Live reload on mount
-    Future.microtask(() {
-      ref.read(incotermsProvider.notifier).fetchIncoterms();
-      ref.read(costItemsProvider.notifier).fetchCostItems();
-      ref.read(responsibilityMatrixProvider.notifier).fetchAll();
-    });
+    // Live reload on mount — guard against duplicate fetches
+    if (!ref.read(incotermsProvider).isLoading) {
+      Future.microtask(
+          () => ref.read(incotermsProvider.notifier).fetchIncoterms());
+    }
+    if (!ref.read(costItemsProvider).isLoading) {
+      Future.microtask(
+          () => ref.read(costItemsProvider.notifier).fetchCostItems());
+    }
+    if (!ref.read(responsibilityMatrixProvider).isLoading) {
+      Future.microtask(
+          () => ref.read(responsibilityMatrixProvider.notifier).fetchAll());
+    }
   }
 
   @override
@@ -123,22 +130,29 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
                 if (_tabController.index == 2) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (val) =>
-                        setState(() => _searchQuery = val.toLowerCase()),
-                    decoration: InputDecoration(
-                      hintText: l10n.searchIncotermsHint,
-                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.grey),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _searchQuery = '');
-                              })
-                          : null,
-                    ),
+                  child: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _searchController,
+                    builder: (context, val, _) {
+                      return TextField(
+                        controller: _searchController,
+                        onChanged: (v) =>
+                            setState(() => _searchQuery = v.toLowerCase()),
+                        decoration: InputDecoration(
+                          hintText: l10n.searchIncotermsHint,
+                          prefixIcon:
+                              const Icon(Icons.search, color: Colors.grey),
+                          suffixIcon: val.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  icon: const Icon(Icons.clear,
+                                      color: Colors.grey),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  }),
+                        ),
+                      );
+                    },
                   ),
                 );
               },

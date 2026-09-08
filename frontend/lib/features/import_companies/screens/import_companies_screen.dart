@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
@@ -14,6 +13,7 @@ import '../models/import_company_model.dart';
 import '../providers/import_companies_provider.dart';
 import '../widgets/import_company_details_dialog.dart';
 import '../../../core/services/master_data_export_service.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 
 class ImportCompaniesScreen extends ConsumerStatefulWidget {
@@ -31,8 +31,82 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(importCompaniesProvider.notifier).fetchCompanies();
+      final companiesState = ref.read(importCompaniesProvider);
+      if (!companiesState.isLoading) {
+        ref.read(importCompaniesProvider.notifier).fetchCompanies();
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _copyCompaniesTsv(List<ImportCompanyModel> companies) {
+    final l10n = context.l10n;
+    final headers = [
+      l10n.importCompaniesTsvHeaderCode,
+      l10n.importCompaniesTsvHeaderName,
+      l10n.importCompaniesTsvHeaderImporterCard,
+      l10n.importCompaniesTsvHeaderImporterCardExpiry,
+      l10n.importCompaniesTsvHeaderVatId,
+      l10n.importCompaniesTsvHeaderVatExpiry,
+      l10n.importCompaniesTsvHeaderComReg,
+      l10n.importCompaniesTsvHeaderComRegExpiry,
+      l10n.importCompaniesTsvHeaderCountry,
+      l10n.importCompaniesTsvHeaderAddress,
+      l10n.importCompaniesTsvHeaderPhone,
+      l10n.importCompaniesTsvHeaderStatus,
+      l10n.importCompaniesTsvHeaderNotes,
+    ];
+
+    final rows = companies.map((c) {
+      final codeText = c.companyId?.toString() ?? '-';
+      final statusText = c.isActive ? l10n.statusActive : l10n.statusInactive;
+      final countryText = c.country.isNotEmpty ? c.country : l10n.egyptCountryFallback;
+      final phoneText = c.phone ?? '-';
+      final notesText = (c.notes != null && c.notes!.trim().isNotEmpty) ? c.notes!.trim() : '-';
+
+      return [
+        codeText,
+        c.importerName,
+        c.importerId,
+        c.importerIdExpiry.toIso8601String().split('T')[0],
+        c.vatId,
+        c.vatIdExpiry.toIso8601String().split('T')[0],
+        c.registrationNumber,
+        c.registrationExpiry.toIso8601String().split('T')[0],
+        countryText,
+        c.address,
+        phoneText,
+        statusText,
+        notesText,
+      ].join('\t');
+    }).join('\n');
+
+    final tsv = '${headers.join('\t')}\n$rows';
+    CopyHelper.copy(context, tsv, customMessage: l10n.importCompaniesExportTsvSuccess);
+  }
+
+  String _buildCompanySummary(ImportCompanyModel c) {
+    final l10n = context.l10n;
+    final statusText = c.isActive ? l10n.statusActive : l10n.statusInactive;
+    final countryText = c.country.isNotEmpty ? c.country : l10n.egyptCountryFallback;
+    return [
+      '${l10n.companyNameLabel.replaceAll('*', '').trim()}: ${c.importerName}',
+      if (c.companyId != null) '${l10n.importCompaniesTsvHeaderCode}: ${c.companyId}',
+      '${l10n.statusCol}: $statusText',
+      '${l10n.importerCardIdRowLabel}: ${c.importerId} (${l10n.expiryDateLabel(c.importerIdExpiry.toIso8601String().split('T')[0])})',
+      '${l10n.vatTaxIdRowLabel}: ${c.vatId} (${l10n.expiryDateLabel(c.vatIdExpiry.toIso8601String().split('T')[0])})',
+      '${l10n.commercialRegRowLabel}: ${c.registrationNumber} (${l10n.expiryDateLabel(c.registrationExpiry.toIso8601String().split('T')[0])})',
+      '${l10n.countryRowLabel}: $countryText',
+      '${l10n.addressRowLabel}: ${c.address}',
+      if (c.phone != null && c.phone!.isNotEmpty) '${l10n.phoneRowLabel}: ${c.phone}',
+      if (c.email != null && c.email!.isNotEmpty) '${l10n.emailRowLabel}: ${c.email}',
+      if (c.notes != null && c.notes!.isNotEmpty) '${l10n.administrativeNotesHeader}: ${c.notes}',
+    ].join('\n');
   }
 
   @override
@@ -43,78 +117,92 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.cloudWhite,
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Bar Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.importCompaniesScreenTitle,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.charcoal,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.importCompaniesScreenSubtitle,
-                        style: const TextStyle(color: Colors.grey, fontSize: 14),
-                      ),
-                    ],
-                  ),
-                ),
-                Row(
-                  children: [
-                    const BackToDashboardButton(),
-                    const SizedBox(width: 12),
-                    // Show Deactivated Filter Switch
-                    Row(
+      body: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Bar Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(l10n.includeDeactivatedLabel, style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal)),
-                        const SizedBox(width: 8),
-                        Switch(
-                          value: showInactive,
-                          activeColor: AppTheme.cobalt,
-                          onChanged: (val) {
-                            ref.read(showInactiveCompaniesProvider.notifier).state = val;
-                          },
+                        Text(
+                          l10n.importCompaniesScreenTitle,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.charcoal,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          l10n.importCompaniesScreenSubtitle,
+                          style: const TextStyle(color: Colors.grey, fontSize: 14),
                         ),
                       ],
                     ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                      label: const Text('تكويد الشركة بالذكاء الاصطناعي ✨'),
-                      onPressed: () => UniversalEntityExtractorDialog.showImporterExtractor(
-                        context,
-                        onSaved: () => ref.read(importCompaniesProvider.notifier).fetchCompanies(),
+                  ),
+                  Row(
+                    children: [
+                      const BackToDashboardButton(),
+                      const SizedBox(width: 12),
+                      // Show Deactivated Filter Switch
+                      Row(
+                        children: [
+                          Text(l10n.includeDeactivatedLabel, style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal)),
+                          const SizedBox(width: 8),
+                          Switch(
+                            value: showInactive,
+                            activeColor: AppTheme.cobalt,
+                            onChanged: (val) {
+                              ref.read(showInactiveCompaniesProvider.notifier).state = val;
+                            },
+                          ),
+                        ],
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      if (companiesAsync.valueOrNull != null && companiesAsync.valueOrNull!.isNotEmpty) ...[
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.table_chart_rounded, size: 18),
+                          label: Text(l10n.importCompaniesExportTsvBtn),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.cobalt,
+                            side: const BorderSide(color: AppTheme.cobalt),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () => _copyCompaniesTsv(companiesAsync.valueOrNull!),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                        label: Text(l10n.aiCodeCompanyBtn),
+                        onPressed: () => UniversalEntityExtractorDialog.showImporterExtractor(
+                          context,
+                          onSaved: () => ref.read(importCompaniesProvider.notifier).fetchCompanies(),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.emerald,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.add_business, size: 18),
-                      label: Text(l10n.addImporterCompanyBtn),
-                      onPressed: () => _showCompanyDialog(context),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.add_business, size: 18),
+                        label: Text(l10n.addImporterCompanyBtn),
+                        onPressed: () => _showCompanyDialog(context),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             const SizedBox(height: 16),
 
             // Master Data Toolbar (Excel Template, Upload, Export Excel, Export PDF)
@@ -144,6 +232,21 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                 style: const TextStyle(fontSize: 14),
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
+                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _searchController,
+                    builder: (context, value, child) {
+                      if (value.text.isEmpty) return const SizedBox.shrink();
+                      return IconButton(
+                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                        },
+                      );
+                    },
+                  ),
                   hintText: l10n.searchImporterHint,
                   filled: false,
                   border: InputBorder.none,
@@ -167,33 +270,37 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
               child: companiesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
                 error: (err, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.wifi_off_rounded, size: 48, color: AppTheme.crimson),
-                      const SizedBox(height: 12),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: Text(
-                          l10n.importersFetchError(err.toString()),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.wifi_off_rounded, size: 48, color: AppTheme.crimson),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          child: Text(
+                            l10n.importersFetchError(err.toString()),
+                            textAlign: TextAlign.center,
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.cobalt,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: Text(l10n.retryConnectionBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            ref.read(importCompaniesProvider.notifier).fetchCompanies();
+                          },
                         ),
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: Text(l10n.retryConnectionBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          ref.read(importCompaniesProvider.notifier).fetchCompanies();
-                        },
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 data: (companies) {
@@ -237,8 +344,9 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildCompanyRow(ImportCompanyModel company) {
     final l10n = context.l10n;
@@ -304,18 +412,9 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                         ),
                         const SizedBox(width: 6),
                         Tooltip(
-                          message: 'نسخ اسم الشركة',
+                          message: l10n.importCompaniesCopyFieldTooltip,
                           child: InkWell(
-                            onTap: () {
-                              Clipboard.setData(ClipboardData(text: company.importerName));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l10n.copiedToClipboard(company.importerName)),
-                                  duration: const Duration(seconds: 1),
-                                  backgroundColor: AppTheme.emerald,
-                                ),
-                              );
-                            },
+                            onTap: () => CopyHelper.copy(context, company.importerName),
                             borderRadius: BorderRadius.circular(4),
                             child: const Padding(
                               padding: EdgeInsets.all(2.0),
@@ -342,10 +441,31 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    SelectableText(
-                      l10n.importerRowMeta(company.importerId, company.vatId, company.registrationNumber),
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _buildCopyableIdBadge(
+                          context: context,
+                          label: l10n.importerCardIdLabelShort,
+                          value: company.importerId,
+                          icon: Icons.badge_outlined,
+                        ),
+                        _buildCopyableIdBadge(
+                          context: context,
+                          label: l10n.vatTaxIdLabelShort,
+                          value: company.vatId,
+                          icon: Icons.receipt_long_outlined,
+                        ),
+                        _buildCopyableIdBadge(
+                          context: context,
+                          label: l10n.commercialRegLabelShort,
+                          value: company.registrationNumber,
+                          icon: Icons.app_registration_outlined,
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -365,6 +485,19 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                   ],
                 ),
               ),
+
+              // Quick Copy Summary Button
+              Tooltip(
+                message: l10n.importCompanyCopySummaryBtn,
+                child: IconButton(
+                  icon: const Icon(Icons.copy_all_rounded, size: 18, color: AppTheme.cobalt),
+                  onPressed: () {
+                    final summary = _buildCompanySummary(company);
+                    CopyHelper.copy(context, summary, customMessage: l10n.importCompanyCopySummarySuccess);
+                  },
+                ),
+              ),
+              const SizedBox(width: 4),
 
               // Standard 4-Action Row Pill: View, Edit, Print, Delete
               RowActionsPill(
@@ -436,6 +569,49 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
     );
   }
 
+  Widget _buildCopyableIdBadge({
+    required BuildContext context,
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    final l10n = context.l10n;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppTheme.cobalt),
+          const SizedBox(width: 4),
+          Text('$label: ', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+          SelectableText(
+            value.isEmpty ? '-' : value,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+          ),
+          if (value.isNotEmpty && value != '-') ...[
+            const SizedBox(width: 4),
+            Tooltip(
+              message: '${l10n.importCompaniesCopyFieldTooltip}: $label',
+              child: InkWell(
+                onTap: () => CopyHelper.copy(context, value),
+                borderRadius: BorderRadius.circular(4),
+                child: const Padding(
+                  padding: EdgeInsets.all(2.0),
+                  child: Icon(Icons.copy_rounded, size: 12, color: Colors.grey),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   void _showCompanyDialog(BuildContext context, [ImportCompanyModel? companyToEdit]) {
     final l10n = context.l10n;
     final isEditing = companyToEdit != null;
@@ -448,6 +624,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
     final vatIdCtrl = TextEditingController(text: companyToEdit?.vatId ?? '');
     final regNumCtrl = TextEditingController(text: companyToEdit?.registrationNumber ?? '');
     final phoneCtrl = TextEditingController(text: companyToEdit?.phone ?? '');
+    final isSubmitting = ValueNotifier<bool>(false);
 
     DateTime impExpiry = companyToEdit?.importerIdExpiry ?? DateTime.now().add(const Duration(days: 365));
     DateTime vatExpiry = companyToEdit?.vatIdExpiry ?? DateTime.now().add(const Duration(days: 365));
@@ -458,79 +635,95 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
       builder: (dialogCtx) {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: SizedBox(
-            width: 580,
-            height: MediaQuery.of(context).size.height * 0.85,
-            child: Column(
-              children: [
-                // Dialog Header Banner
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                  decoration: const BoxDecoration(
-                    color: AppTheme.charcoal,
-                    borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+          child: SelectionArea(
+            child: SizedBox(
+              width: 580,
+              height: MediaQuery.of(context).size.height * 0.85,
+              child: Column(
+                children: [
+                  // Dialog Header Banner
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                    decoration: const BoxDecoration(
+                      color: AppTheme.charcoal,
+                      borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(isEditing ? Icons.edit : Icons.add_business, color: Colors.white, size: 22),
+                            const SizedBox(width: 12),
+                            Text(
+                              isEditing ? l10n.editImporterCompanyTitle : l10n.addImporterCompanyTitle,
+                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white70),
+                          tooltip: l10n.closeDialogTooltip,
+                          onPressed: () => Navigator.pop(dialogCtx),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(isEditing ? Icons.edit : Icons.add_business, color: Colors.white, size: 22),
-                          const SizedBox(width: 12),
-                          Text(
-                            isEditing ? l10n.editImporterCompanyTitle : l10n.addImporterCompanyTitle,
-                            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white70),
-                        tooltip: l10n.closeDialogTooltip,
-                        onPressed: () => Navigator.pop(dialogCtx),
-                      ),
-                    ],
-                  ),
-                ),
 
-                // Dialog Form Body
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Form(
-                      key: formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CustomTextField(
-                            controller: nameCtrl,
-                            label: l10n.companyNameLabel,
-                            icon: Icons.business,
-                            isRequired: true,
-                            hint: l10n.companyNameHint,
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: CustomTextField(
-                                  controller: addressCtrl,
-                                  label: l10n.addressLabel,
-                                  icon: Icons.location_on,
-                                  isRequired: true,
-                                  hint: l10n.addressHint,
-                                ),
+                  // Dialog Form Body
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Form(
+                        key: formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CustomTextField(
+                              controller: nameCtrl,
+                              label: l10n.companyNameLabel,
+                              icon: Icons.business,
+                              isRequired: true,
+                              hint: l10n.companyNameHint,
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                tooltip: l10n.importCompaniesCopyFieldTooltip,
+                                onPressed: () => CopyHelper.copy(context, nameCtrl.text),
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: CustomTextField(
-                                  controller: countryCtrl,
-                                  label: l10n.countryLabel,
-                                  icon: Icons.flag,
-                                  isRequired: true,
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: CustomTextField(
+                                    controller: addressCtrl,
+                                    label: l10n.addressLabel,
+                                    icon: Icons.location_on,
+                                    isRequired: true,
+                                    hint: l10n.addressHint,
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                      tooltip: l10n.importCompaniesCopyFieldTooltip,
+                                      onPressed: () => CopyHelper.copy(context, addressCtrl.text),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: CustomTextField(
+                                    controller: countryCtrl,
+                                    label: l10n.countryLabel,
+                                    icon: Icons.flag,
+                                    isRequired: true,
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                      tooltip: l10n.importCompaniesCopyFieldTooltip,
+                                      onPressed: () => CopyHelper.copy(context, countryCtrl.text),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           const SizedBox(height: 16),
                           StatefulBuilder(
                             builder: (context, setDialogState) {
@@ -567,6 +760,11 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                           icon: Icons.badge,
                                           isRequired: true,
                                           hint: l10n.importerCardIdHint,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                            tooltip: l10n.importCompaniesCopyFieldTooltip,
+                                            onPressed: () => CopyHelper.copy(context, impIdCtrl.text),
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 16),
@@ -612,6 +810,11 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                           icon: Icons.receipt_long,
                                           isRequired: true,
                                           hint: l10n.vatRegIdHint,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                            tooltip: l10n.importCompaniesCopyFieldTooltip,
+                                            onPressed: () => CopyHelper.copy(context, vatIdCtrl.text),
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 16),
@@ -657,6 +860,11 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                           icon: Icons.app_registration,
                                           isRequired: true,
                                           hint: l10n.commercialRegNumHint,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                            tooltip: l10n.importCompaniesCopyFieldTooltip,
+                                            onPressed: () => CopyHelper.copy(context, regNumCtrl.text),
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 16),
@@ -698,6 +906,11 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                     label: l10n.phoneNumberLabel,
                                     icon: Icons.phone,
                                     hint: l10n.phoneNumberHint,
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                      tooltip: l10n.importCompaniesCopyFieldTooltip,
+                                      onPressed: () => CopyHelper.copy(context, phoneCtrl.text),
+                                    ),
                                   ),
                                 ],
                               );
@@ -729,84 +942,102 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                         label: Text(l10n.cancelAndCloseBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.check, size: 18),
-                        label: Text(isEditing ? l10n.updateCompanyBtn : l10n.saveCompanyBtn),
-                        onPressed: () async {
-                          if (!formKey.currentState!.validate()) {
-                            return;
-                          }
+                      ValueListenableBuilder<bool>(
+                        valueListenable: isSubmitting,
+                        builder: (context, submitting, child) {
+                          return ElevatedButton.icon(
+                            icon: submitting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.check, size: 18),
+                            label: Text(isEditing ? l10n.updateCompanyBtn : l10n.saveCompanyBtn),
+                            onPressed: submitting
+                                ? null
+                                : () async {
+                                    if (!formKey.currentState!.validate()) {
+                                      return;
+                                    }
 
-                          final company = ImportCompanyModel(
-                            companyId: companyToEdit?.companyId,
-                            importerName: nameCtrl.text.trim(),
-                            address: addressCtrl.text.trim(),
-                            country: countryCtrl.text.trim(),
-                            importerId: impIdCtrl.text.trim(),
-                            importerIdExpiry: impExpiry,
-                            vatId: vatIdCtrl.text.trim(),
-                            vatIdExpiry: vatExpiry,
-                            registrationNumber: regNumCtrl.text.trim(),
-                            registrationExpiry: regExpiry,
-                            phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
-                            isActive: companyToEdit?.isActive ?? true,
+                                    isSubmitting.value = true;
+                                    try {
+                                      final company = ImportCompanyModel(
+                                        companyId: companyToEdit?.companyId,
+                                        importerName: nameCtrl.text.trim(),
+                                        address: addressCtrl.text.trim(),
+                                        country: countryCtrl.text.trim(),
+                                        importerId: impIdCtrl.text.trim(),
+                                        importerIdExpiry: impExpiry,
+                                        vatId: vatIdCtrl.text.trim(),
+                                        vatIdExpiry: vatExpiry,
+                                        registrationNumber: regNumCtrl.text.trim(),
+                                        registrationExpiry: regExpiry,
+                                        phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
+                                        isActive: companyToEdit?.isActive ?? true,
+                                      );
+
+                                      String? errorMessage;
+                                      if (isEditing && companyToEdit.companyId != null) {
+                                        final List<FieldChangeItem> changes = [];
+                                        if (FieldChangeItem.isDifferent(companyToEdit.importerName, company.importerName)) {
+                                          changes.add(FieldChangeItem(fieldName: l10n.diffCompanyName, oldValue: companyToEdit.importerName, newValue: company.importerName));
+                                        }
+                                        if (FieldChangeItem.isDifferent(companyToEdit.importerId, company.importerId)) {
+                                          changes.add(FieldChangeItem(fieldName: l10n.diffImporterCardId, oldValue: companyToEdit.importerId, newValue: company.importerId));
+                                        }
+                                        if (FieldChangeItem.isDifferent(companyToEdit.importerIdExpiry.toString().substring(0, 10), company.importerIdExpiry.toString().substring(0, 10))) {
+                                          changes.add(FieldChangeItem(fieldName: l10n.diffImporterCardExpiry, oldValue: companyToEdit.importerIdExpiry.toString().substring(0, 10), newValue: company.importerIdExpiry.toString().substring(0, 10)));
+                                        }
+                                        if (FieldChangeItem.isDifferent(companyToEdit.vatId, company.vatId)) {
+                                          changes.add(FieldChangeItem(fieldName: l10n.diffVatId, oldValue: companyToEdit.vatId, newValue: company.vatId));
+                                        }
+                                        if (FieldChangeItem.isDifferent(companyToEdit.registrationNumber, company.registrationNumber)) {
+                                          changes.add(FieldChangeItem(fieldName: l10n.diffCommercialReg, oldValue: companyToEdit.registrationNumber, newValue: company.registrationNumber));
+                                        }
+                                        if (FieldChangeItem.isDifferent(companyToEdit.address, company.address)) {
+                                          changes.add(FieldChangeItem(fieldName: l10n.diffAddress, oldValue: companyToEdit.address, newValue: company.address));
+                                        }
+                                        if (FieldChangeItem.isDifferent(companyToEdit.phone, company.phone)) {
+                                          changes.add(FieldChangeItem(fieldName: l10n.diffPhone, oldValue: companyToEdit.phone, newValue: company.phone));
+                                        }
+
+                                        if (changes.isNotEmpty) {
+                                          final confirmed = await showChangeDiffConfirmationDialog(
+                                            context,
+                                            title: l10n.diffConfirmCompanyTitle,
+                                            itemReference: companyToEdit.importerName,
+                                            changes: changes,
+                                          );
+                                          if (!confirmed) return;
+                                        }
+
+                                        errorMessage = await ref.read(importCompaniesProvider.notifier).updateCompany(companyToEdit.companyId!, company);
+                                      } else {
+                                        errorMessage = await ref.read(importCompaniesProvider.notifier).createCompany(company);
+                                      }
+
+                                      if (errorMessage == null) {
+                                        if (context.mounted) {
+                                          Navigator.pop(dialogCtx);
+                                        }
+                                      } else {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(errorMessage, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                              backgroundColor: AppTheme.crimson,
+                                              behavior: SnackBarBehavior.floating,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    } finally {
+                                      isSubmitting.value = false;
+                                    }
+                                  },
                           );
-
-                          String? errorMessage;
-                          if (isEditing && companyToEdit.companyId != null) {
-                            final List<FieldChangeItem> changes = [];
-                            if (FieldChangeItem.isDifferent(companyToEdit.importerName, company.importerName)) {
-                              changes.add(FieldChangeItem(fieldName: l10n.diffCompanyName, oldValue: companyToEdit.importerName, newValue: company.importerName));
-                            }
-                            if (FieldChangeItem.isDifferent(companyToEdit.importerId, company.importerId)) {
-                              changes.add(FieldChangeItem(fieldName: l10n.diffImporterCardId, oldValue: companyToEdit.importerId, newValue: company.importerId));
-                            }
-                            if (FieldChangeItem.isDifferent(companyToEdit.importerIdExpiry.toString().substring(0, 10), company.importerIdExpiry.toString().substring(0, 10))) {
-                              changes.add(FieldChangeItem(fieldName: l10n.diffImporterCardExpiry, oldValue: companyToEdit.importerIdExpiry.toString().substring(0, 10), newValue: company.importerIdExpiry.toString().substring(0, 10)));
-                            }
-                            if (FieldChangeItem.isDifferent(companyToEdit.vatId, company.vatId)) {
-                              changes.add(FieldChangeItem(fieldName: l10n.diffVatId, oldValue: companyToEdit.vatId, newValue: company.vatId));
-                            }
-                            if (FieldChangeItem.isDifferent(companyToEdit.registrationNumber, company.registrationNumber)) {
-                              changes.add(FieldChangeItem(fieldName: l10n.diffCommercialReg, oldValue: companyToEdit.registrationNumber, newValue: company.registrationNumber));
-                            }
-                            if (FieldChangeItem.isDifferent(companyToEdit.address, company.address)) {
-                              changes.add(FieldChangeItem(fieldName: l10n.diffAddress, oldValue: companyToEdit.address, newValue: company.address));
-                            }
-                            if (FieldChangeItem.isDifferent(companyToEdit.phone, company.phone)) {
-                              changes.add(FieldChangeItem(fieldName: l10n.diffPhone, oldValue: companyToEdit.phone, newValue: company.phone));
-                            }
-
-                            if (changes.isNotEmpty) {
-                              final confirmed = await showChangeDiffConfirmationDialog(
-                                context,
-                                title: l10n.diffConfirmCompanyTitle,
-                                itemReference: companyToEdit.importerName,
-                                changes: changes,
-                              );
-                              if (!confirmed) return;
-                            }
-
-                            errorMessage = await ref.read(importCompaniesProvider.notifier).updateCompany(companyToEdit.companyId!, company);
-                          } else {
-                            errorMessage = await ref.read(importCompaniesProvider.notifier).createCompany(company);
-                          }
-
-                          if (errorMessage == null) {
-                            if (context.mounted) {
-                              Navigator.pop(dialogCtx);
-                            }
-                          } else {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(errorMessage, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  backgroundColor: AppTheme.crimson,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            }
-                          }
                         },
                       ),
                     ],
@@ -815,8 +1046,18 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
               ],
             ),
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+    ).then((_) {
+      isSubmitting.dispose();
+      nameCtrl.dispose();
+      addressCtrl.dispose();
+      countryCtrl.dispose();
+      impIdCtrl.dispose();
+      vatIdCtrl.dispose();
+      regNumCtrl.dispose();
+      phoneCtrl.dispose();
+    });
   }
 }

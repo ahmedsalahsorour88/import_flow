@@ -21,7 +21,9 @@ class ShippingScenarioService:
 
     @staticmethod
     def _enrich_session_response(
-        db: Session, session_obj: ShippingEvaluationSession
+        db: Session,
+        session_obj: ShippingEvaluationSession,
+        import_file_code: Optional[str] = None,
     ) -> ShippingEvaluationResponse:
         crd = session_obj.cargo_ready_date
         form4_days = session_obj.avg_form4_days
@@ -177,8 +179,7 @@ class ShippingScenarioService:
         # Fetch names for linked entities if present
         po_num = session_obj.po.po_number if getattr(session_obj, "po", None) else None
         prj_name = session_obj.project.project_name if getattr(session_obj, "project", None) else None
-        import_file_code = None
-        if session_obj.import_file_id:
+        if session_obj.import_file_id and import_file_code is None:
             from modules.import_files.model import ImportFile
             imp = db.query(ImportFile).filter(ImportFile.import_file_id == session_obj.import_file_id).first()
             if imp:
@@ -268,8 +269,24 @@ class ShippingScenarioService:
             po_id=po_id,
             search=search,
         )
+        if not sessions:
+            return []
+
+        # Batch preload ImportFile codes to eliminate N+1 queries
+        import_file_ids = {s.import_file_id for s in sessions if s.import_file_id}
+        import_files_map = {}
+        if import_file_ids:
+            from modules.import_files.model import ImportFile
+            imps = db.query(ImportFile).filter(ImportFile.import_file_id.in_(import_file_ids)).all()
+            import_files_map = {
+                i.import_file_id: (i.import_file_code or i.custom_file_number) for i in imps
+            }
+
         return [
-            ShippingScenarioService._enrich_session_response(db, s) for s in sessions
+            ShippingScenarioService._enrich_session_response(
+                db, s, import_file_code=import_files_map.get(s.import_file_id)
+            )
+            for s in sessions
         ]
 
     @staticmethod

@@ -23,23 +23,36 @@ class IncotermsNotifier
   final Ref ref;
   final Dio _dio;
   final bool showInactive;
+  CancelToken? _cancelToken;
 
   IncotermsNotifier({required this.ref, required this.showInactive, required Dio dio})
       : _dio = dio, super(const AsyncValue.loading()) {
     fetchIncoterms();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('IncotermsNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchIncoterms() async {
+    _cancelToken?.cancel('new fetch');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/incoterms',
         queryParameters: {'include_inactive': showInactive},
+        cancelToken: _cancelToken,
       );
       final list = (response.data as List)
           .map((json) => IncotermModel.fromJson(json))
           .toList();
       state = AsyncValue.data(list);
+    } on DioException catch (e, stack) {
+      if (CancelToken.isCancel(e)) return;
+      state = AsyncValue.error(e, stack);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -103,6 +116,7 @@ class CostItemsNotifier
     extends StateNotifier<AsyncValue<List<CostItemModel>>> {
   final Ref ref;
   final bool showInactive;
+  CancelToken? _cancelToken;
   Dio get _dio => ref.read(dioProvider);
 
   CostItemsNotifier({required this.ref, required this.showInactive})
@@ -110,17 +124,29 @@ class CostItemsNotifier
     fetchCostItems();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('CostItemsNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchCostItems() async {
+    _cancelToken?.cancel('new fetch');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/cost-items',
         queryParameters: {'include_inactive': showInactive},
+        cancelToken: _cancelToken,
       );
       final list = (response.data as List)
           .map((json) => CostItemModel.fromJson(json))
           .toList();
       state = AsyncValue.data(list);
+    } on DioException catch (e, stack) {
+      if (CancelToken.isCancel(e)) return;
+      state = AsyncValue.error(e, stack);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -183,21 +209,35 @@ class ResponsibilityMatrixNotifier
     extends StateNotifier<AsyncValue<List<IncotermResponsibilityModel>>> {
   final Ref ref;
   Dio get _dio => ref.read(dioProvider);
+  CancelToken? _cancelToken;
 
   ResponsibilityMatrixNotifier({required this.ref})
       : super(const AsyncValue.loading()) {
     fetchAll();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('ResponsibilityMatrixNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchAll() async {
+    _cancelToken?.cancel('new fetchAll');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
-      final response =
-          await _dio.get('${ApiConstants.baseUrl}/incoterm-responsibilities');
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/incoterm-responsibilities',
+        cancelToken: _cancelToken,
+      );
       final list = (response.data as List)
           .map((json) => IncotermResponsibilityModel.fromJson(json))
           .toList();
       state = AsyncValue.data(list);
+    } on DioException catch (e, stack) {
+      if (CancelToken.isCancel(e)) return;
+      state = AsyncValue.error(e, stack);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }

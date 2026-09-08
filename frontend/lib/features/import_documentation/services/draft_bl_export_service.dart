@@ -1,7 +1,4 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -523,6 +520,7 @@ class DraftBLExportService {
     final filename = 'Phase3_Draft_BL_${blNo}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final bytes = await pdf.save();
 
+    if (context == null || !context.mounted) return null;
     return FileSaveHelper.saveBytes(
       context: context,
       bytes: bytes,

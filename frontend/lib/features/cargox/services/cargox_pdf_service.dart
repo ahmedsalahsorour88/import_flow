@@ -42,7 +42,7 @@ class CargoXPdfService {
                   ),
                   pw.SizedBox(height: 2),
                   pw.Text(
-                    'Egyptian Customs & CargoX Standard (ACID: \)',
+                    'Egyptian Customs & CargoX Standard (ACID: )',
                     style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
                   ),
                 ],
@@ -75,7 +75,7 @@ class CargoXPdfService {
                 style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
               ),
               pw.Text(
-                'Page \ of ',
+                'Page  of ',
                 style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
               ),
             ],
@@ -200,7 +200,7 @@ class CargoXPdfService {
                 i.unitPrice.toStringAsFixed(4),
                 i.netWeightKg.toStringAsFixed(1),
                 i.grossWeightKg.toStringAsFixed(1),
-                '\ ',
+                ' ',
               ];
             }).toList(),
           ),
@@ -229,14 +229,14 @@ class CargoXPdfService {
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
                         pw.Text('Total Net Weight:', style: const pw.TextStyle(fontSize: 8)),
-                        pw.Text('\ ', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                        pw.Text(' ', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
                       ],
                     ),
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
                         pw.Text('Total Gross Weight:', style: const pw.TextStyle(fontSize: 8)),
-                        pw.Text('\ ', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                        pw.Text(' ', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
                       ],
                     ),
                   ],
@@ -258,7 +258,7 @@ class CargoXPdfService {
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
                         pw.Text('Subtotal:', style: const pw.TextStyle(fontSize: 9)),
-                        pw.Text('\ ', style: const pw.TextStyle(fontSize: 9)),
+                        pw.Text(' ', style: const pw.TextStyle(fontSize: 9)),
                       ],
                     ),
                     if (payload.freightCost > 0) ...[
@@ -267,7 +267,7 @@ class CargoXPdfService {
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
                           pw.Text('Freight:', style: const pw.TextStyle(fontSize: 9)),
-                          pw.Text('\ ', style: const pw.TextStyle(fontSize: 9)),
+                          pw.Text(' ', style: const pw.TextStyle(fontSize: 9)),
                         ],
                       ),
                     ],
@@ -277,7 +277,7 @@ class CargoXPdfService {
                       children: [
                         pw.Text('TOTAL (CIF/FOB):', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: darkBlue)),
                         pw.Text(
-                          '\ ',
+                          ' ',
                           style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: emerald),
                         ),
                       ],
@@ -361,7 +361,7 @@ class CargoXPdfService {
                   ),
                   pw.SizedBox(height: 2),
                   pw.Text(
-                    'Egyptian Customs & CargoX Standard (ACID: \)',
+                    'Egyptian Customs & CargoX Standard (ACID: )',
                     style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
                   ),
                 ],
@@ -394,7 +394,7 @@ class CargoXPdfService {
                 style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
               ),
               pw.Text(
-                'Page \ of ',
+                'Page  of ',
                 style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
               ),
             ],
@@ -425,9 +425,9 @@ class CargoXPdfService {
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildMetaItem('Total Packages / CTN:', '\ PKGS'),
-                    _buildMetaItem('Total Net Weight:', '\ KGS'),
-                    _buildMetaItem('Total Gross Weight:', '\ KGS'),
+                    _buildMetaItem('Total Packages / CTN:', '$totalPackages PKGS'),
+                    _buildMetaItem('Total Net Weight:', '${totalNet.toStringAsFixed(2)} KGS'),
+                    _buildMetaItem('Total Gross Weight:', '${totalGross.toStringAsFixed(2)} KGS'),
                   ],
                 ),
               ],
@@ -458,7 +458,7 @@ class CargoXPdfService {
             data: itemsList.map((i) {
               final idx = itemsList.indexOf(i) + 1;
               return [
-                '',
+                '$idx',
                 i['package_no']?.toString() ?? 'PKG ',
                 i['hs_code']?.toString() ?? '',
                 i['product_code']?.toString() ?? '',
@@ -484,9 +484,9 @@ class CargoXPdfService {
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
               children: [
-                pw.Text('Total Packages: \ PKGS', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: darkBlue)),
-                pw.Text('Total Net Weight: \ KGS', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: darkBlue)),
-                pw.Text('Total Gross Weight: \ KGS', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: emerald)),
+                pw.Text('Total Packages:  PKGS', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: darkBlue)),
+                pw.Text('Total Net Weight:  KGS', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: darkBlue)),
+                pw.Text('Total Gross Weight:  KGS', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: emerald)),
               ],
             ),
           ),

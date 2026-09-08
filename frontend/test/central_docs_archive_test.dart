@@ -200,7 +200,7 @@ void main() {
 
     // Verify Header information
     expect(find.textContaining('كود الملف: IMP-2026-0042'), findsOneWidget);
-    expect(find.textContaining('CUST-8812'), findsOneWidget);
+    expect(find.textContaining('رقم الملف الجمركي: CUST-8812'), findsOneWidget);
     expect(find.textContaining('7595528271020210010'), findsOneWidget);
 
     // Verify BP-011 compliance card

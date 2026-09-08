@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,11 +13,13 @@ import '../../import_files/providers/import_files_provider.dart';
 class LandedCostComparisonScreen extends ConsumerStatefulWidget {
   final int? importFileId;
   final String? importFileCode;
+  final bool isEmbedded;
 
   const LandedCostComparisonScreen({
     super.key,
     this.importFileId,
     this.importFileCode,
+    this.isEmbedded = false,
   });
 
   @override
@@ -31,6 +34,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
   String _selectedImportFileCode = '';
   double _estimatedCost = 0.0;
   Map<String, dynamic>? _settlementRecord;
+  CancelToken? _cancelToken;
 
   // Colors based on AppTheme specifications
   final Color _charcoal = AppTheme.charcoal;
@@ -44,16 +48,27 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     _selectedImportFileId = widget.importFileId;
     _selectedImportFileCode = widget.importFileCode ?? '';
     Future.microtask(() {
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
+      if (!ref.read(importFilesProvider).isLoading) {
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
       if (_selectedImportFileId != null && _selectedImportFileId! > 0) {
         _fetchData(_selectedImportFileId!);
       }
     });
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('LandedCostComparisonScreen disposed');
+    super.dispose();
+  }
+
   String _selectedIncoterm = 'FOB';
 
   Future<void> _fetchData(int fileId) async {
+    _cancelToken?.cancel('New file fetch requested');
+    _cancelToken = CancelToken();
+
     setState(() {
       _isLoading = true;
       _error = null;
@@ -65,7 +80,10 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
 
       // Fetch import file for estimated cost and Incoterm
       try {
-        final importFileRes = await dio.get('${ApiConstants.baseUrl}/import-files/$fileId');
+        final importFileRes = await dio.get(
+          '${ApiConstants.baseUrl}/import-files/$fileId',
+          cancelToken: _cancelToken,
+        );
         if (importFileRes.data != null) {
           _estimatedCost = (importFileRes.data['estimated_cost'] ?? 0.0).toDouble();
           if (importFileRes.data['import_file_code'] != null) {
@@ -75,16 +93,19 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
             _selectedIncoterm = importFileRes.data['incoterm_code'].toString().toUpperCase();
           }
         }
-      } catch (_) {
+      } catch (e) {
+        if (e is DioException && CancelToken.isCancel(e)) return;
         _estimatedCost = 0.0;
         _selectedIncoterm = 'FOB';
       }
 
       // Fetch settlement record safely
       try {
-        final settlementRes = await dio.get('${ApiConstants.baseUrl}/financial-settlements', queryParameters: {
-          'import_file_id': fileId,
-        });
+        final settlementRes = await dio.get(
+          '${ApiConstants.baseUrl}/financial-settlements',
+          queryParameters: {'import_file_id': fileId},
+          cancelToken: _cancelToken,
+        );
 
         final settlements = settlementRes.data;
         if (settlements != null && settlements is List && settlements.isNotEmpty) {
@@ -100,12 +121,14 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         } else {
           _settlementRecord = null;
         }
-      } catch (_) {
+      } catch (e) {
+        if (e is DioException && CancelToken.isCancel(e)) return;
         // No settlement registered yet for this file
         _settlementRecord = null;
       }
 
     } catch (e) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       _settlementRecord = null;
     } finally {
       if (mounted) {
@@ -132,6 +155,27 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     final l10n = context.l10n;
     final fileDisplayCode = _selectedImportFileCode.isNotEmpty ? _selectedImportFileCode : (_selectedImportFileId != null ? 'IMP-#$_selectedImportFileId' : '');
 
+    final bodyContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          child: _buildImportFileSelector(),
+        ),
+        Expanded(
+          child: _isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null 
+                  ? Center(child: Text(_error!, style: TextStyle(color: _crimson)))
+                  : _buildContent(),
+        ),
+      ],
+    );
+
+    if (widget.isEmbedded) {
+      return bodyContent;
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -145,29 +189,13 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
           SizedBox(width: 10),
         ],
       ),
-
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-            child: _buildImportFileSelector(),
-          ),
-          Expanded(
-            child: _isLoading 
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null 
-                    ? Center(child: Text(_error!, style: TextStyle(color: _crimson)))
-                    : _buildContent(),
-          ),
-        ],
-      ),
+      body: bodyContent,
     );
   }
 
   Widget _buildImportFileSelector() {
     final l10n = context.l10n;
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     final items = importFiles.map((file) {
       final code = file.importFileCode;

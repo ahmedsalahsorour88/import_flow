@@ -155,5 +155,58 @@ void main() {
       expect(prefill.inspectionBody, 'SGS');
       expect(prefill.readinessPercentage, 100.0);
     });
+
+    test('ImportRequirementHSCodeItemModel handles Decree 43 compliance states and pillar checks', () {
+      // Unverified without justification -> Not fulfilled
+      final unverifiedItem = ImportRequirementHSCodeItemModel(
+        hsCode: '8415820010',
+        decree43Applicable: true,
+        whiteListVerified: false,
+        cooRequired: true,
+        cooStatus: 'Pending',
+      );
+      expect(unverifiedItem.isPillarFulfilled(0), false);
+      expect(unverifiedItem.fulfilledPillarsCount, 3); // 2, 3, 4 are not required so fulfilled
+      expect(unverifiedItem.isFullyCompliant, false);
+
+      // With justification reason -> Fulfilled
+      final justifiedItem = unverifiedItem.copyWith(
+        decree43Action: 'justified',
+        decree43Justification: 'استيراد مستلزمات إنتاج لاستخدام المصنع الخاص طبقا للقرار الوزاري',
+      );
+      expect(justifiedItem.isPillarFulfilled(0), true);
+
+      // Verified registration -> Fulfilled
+      final verifiedItem = unverifiedItem.copyWith(
+        whiteListVerified: true,
+        factoryRegistrationNo: 'GOEIC-2026-99',
+      );
+      expect(verifiedItem.isPillarFulfilled(0), true);
+
+      // Complete all 5 pillars
+      final fullyCompliantItem = verifiedItem.copyWith(
+        cooStatus: 'Obtained',
+        inspectionRequired: true,
+        inspectionStatus: 'Completed',
+        permitRequired: true,
+        permitStatus: 'Approved',
+        msdsRequired: true,
+        msdsStatus: 'Obtained',
+      );
+      expect(fullyCompliantItem.fulfilledPillarsCount, 5);
+      expect(fullyCompliantItem.isFullyCompliant, true);
+
+      // Test JSON round-trip
+      final json = fullyCompliantItem.toJson();
+      expect(json['hs_code'], '8415820010');
+      expect(json['decree_43_applicable'], true);
+      expect(json['white_list_verified'], true);
+      expect(json['factory_registration_no'], 'GOEIC-2026-99');
+
+      final fromJson = ImportRequirementHSCodeItemModel.fromJson(json);
+      expect(fromJson.hsCode, '8415820010');
+      expect(fromJson.whiteListVerified, true);
+      expect(fromJson.isFullyCompliant, true);
+    });
   });
 }

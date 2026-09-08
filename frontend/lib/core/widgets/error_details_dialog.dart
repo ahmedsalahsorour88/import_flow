@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../constants/api_constants.dart';
+import '../localization/app_localizations.dart';
+import '../localization/app_localizations_ar.dart';
 import '../theme/app_theme.dart';
 
 class ValidationIssueItem {
@@ -37,49 +39,16 @@ class ParsedErrorInfo {
 }
 
 class ErrorFormatter {
-  static final Map<String, String> _fieldTranslations = {
-    'importer_name': 'اسم الشركة المستوردة',
-    'importer_tax_id': 'الرقم الضريبي للمستورد',
-    'importer_address': 'عنوان المستورد',
-    'exporter_name': 'اسم المورد / المصدر الأجنبي',
-    'exporter_reg_type': 'نوع التسجيل للمصدر',
-    'exporter_reg_id': 'المعرف الضريبي / السجل للمصدر',
-    'exporter_country': 'دولة المورد',
-    'exporter_country_code': 'كود الدولة',
-    'exporter_address': 'عنوان المصدر بالخارج',
-    'exporter_phone': 'هاتف المصدر',
-    'cargox_id': 'معرف CargoX للمصدر',
-    'proforma_invoice_no': 'رقم الفاتورة المبدئية',
-    'proforma_invoice_date': 'تاريخ الفاتورة المبدئية',
-    'invoice_date': 'تاريخ الفاتورة',
-    'invoice_type': 'نوع الفاتورة',
-    'po_number': 'رقم أمر الشراء (PO)',
-    'po_date': 'تاريخ أمر الشراء',
-    'pol_name': 'ميناء الشحن (POL)',
-    'pod_name': 'ميناء الوصول (POD)',
-    'customs_broker_name': 'اسم المخلص الجمركي',
-    'customs_broker_id': 'المستخلص الجمركي المعني',
-    'customs_broker_phone': 'هاتف المخلص الجمركي',
-    'requested_date': 'تاريخ الطلب',
-    'acid_number': 'رقم الـ ACID (19 رقماً)',
-    'generated_date': 'تاريخ إصدار الـ ACID',
-    'expiry_date': 'تاريخ انتهاء الصلاحية',
-    'items': 'بنود وعروض الشحن',
-    'cargo_ready_date': 'تاريخ جاهزية البضاعة (CRD)',
-    'title': 'موضوع / عنوان الاستشارة الجمركية',
-    'consultation_title': 'عنوان الاستشارة الجمركية',
-    'amount': 'المبلغ أو القيمة المالية',
-    'currency': 'العملة',
-  };
-
   static ParsedErrorInfo parse(
     dynamic error, {
-    String defaultMessage = 'حدث خطأ أثناء معالجة الطلب',
+    String? defaultMessage,
     List<ValidationIssueItem>? customIssues,
+    AppLocalizations? l10n,
   }) {
+    final loc = l10n ?? const AppLocalizationsAr();
     final points = <String>[];
     final issues = <ValidationIssueItem>[...(customIssues ?? [])];
-    String summary = defaultMessage;
+    String summary = defaultMessage ?? loc.errorDefaultSummary;
     String rawLog = error.toString();
     bool isConn = false;
 
@@ -93,38 +62,38 @@ class ErrorFormatter {
             summary = detail;
             points.add(detail);
             issues.add(ValidationIssueItem(
-              fieldName: 'استجابة الخادم',
+              fieldName: loc.errorServerResponseField,
               issueDescription: detail,
-              recommendation: 'يرجى مراجعة وتصحيح البيانات وفقاً لإرشادات الخادم.',
+              recommendation: loc.errorServerResponseRecommendation,
               isBlocking: true,
             ));
           } else if (detail is List) {
-            summary = 'يوجد أخطاء في التحقق من صحة البيانات المدخلة (Validation Errors):';
+            summary = loc.errorValidationSummary;
             for (var item in detail) {
               if (item is Map) {
                 final locList = (item['loc'] as List?)
                         ?.where((p) => p.toString() != 'body')
-                        .map((p) => _fieldTranslations[p.toString()] ?? p.toString())
+                        .map((p) => loc.errorFieldName(p.toString()))
                         .toList() ??
                     [];
-                final rawField = (item['loc'] as List?)?.last?.toString() ?? 'حقل غير محدد';
+                final rawField = (item['loc'] as List?)?.last?.toString() ?? loc.errorUnspecifiedField;
                 final fieldPath = locList.join(' ➔ ');
-                final msg = item['msg']?.toString() ?? 'قيمة غير صالحة';
+                final msg = item['msg']?.toString() ?? loc.errorInvalidValue;
 
                 String localizedMsg = msg;
-                String rec = 'يرجى إدخال قيمة صحيحة ومطابقة للشروط.';
+                String rec = loc.errorStandardRecommendation;
                 if (msg.contains('Field required') || msg.contains('field required')) {
-                  localizedMsg = 'هذا الحقل إلزامي ولا يمكن تركه فارغاً.';
-                  rec = 'قم بتعبئة هذا الحقل قبل حفظ البيانات.';
+                  localizedMsg = loc.errorFieldRequiredMsg;
+                  rec = loc.errorFieldRequiredRec;
                 } else if (msg.contains('valid date')) {
-                  localizedMsg = 'صيغة التاريخ غير صالحة.';
-                  rec = 'تأكد من صيغة التاريخ بالتنسيق: YYYY-MM-DD.';
+                  localizedMsg = loc.errorValidDateMsg;
+                  rec = loc.errorValidDateRec;
                 } else if (msg.contains('at least')) {
-                  localizedMsg = 'القيمة المدخلة قصيرة جداً.';
-                  rec = 'أدخل نصاً واضحاً ومكتملاً.';
+                  localizedMsg = loc.errorMinLengthMsg;
+                  rec = loc.errorMinLengthRec;
                 }
 
-                final displayField = fieldPath.isNotEmpty ? fieldPath : (_fieldTranslations[rawField] ?? rawField);
+                final displayField = fieldPath.isNotEmpty ? fieldPath : loc.errorFieldName(rawField);
                 points.add('[$displayField]: $localizedMsg');
                 issues.add(ValidationIssueItem(
                   fieldName: displayField,
@@ -149,30 +118,30 @@ class ErrorFormatter {
         final targetUri = error.requestOptions.uri.toString().isNotEmpty 
             ? error.requestOptions.uri.toString() 
             : ApiConstants.baseUrl;
-        summary = 'تعذر الاتصال بالخادم الخلفي (Backend API Connection Error / CORS)';
-        points.add('خادم الباك إند (FastAPI) غير متاح حالياً أو متوقف.');
-        points.add('العنوان المستهدف: $targetUri');
-        points.add('إذا كنت تعمل على متصفح الويب، تأكد من تشغيل السيرفر ومن عدم حظر طلبات CORS.');
+        summary = loc.errorConnectionSummary;
+        points.add(loc.errorConnectionPointUnavailable);
+        points.add(loc.errorConnectionPointTarget(targetUri));
+        points.add(loc.errorConnectionPointCors);
 
         issues.add(ValidationIssueItem(
-          fieldName: 'اتصال الخادم (Backend Server)',
-          issueDescription: 'تعذر الوصول إلى $targetUri (${error.message ?? 'XMLHttpRequest onError'}).',
-          recommendation: 'تأكد من تشغيل خادم FastAPI عبر الأمر: python run_server.py أو uvicorn main:app --reload وعمل تحديث للصفحة (F5).',
+          fieldName: loc.errorConnectionFieldName,
+          issueDescription: loc.errorConnectionIssueDesc(targetUri, error.message ?? 'XMLHttpRequest onError'),
+          recommendation: loc.errorConnectionRecommendation,
           isBlocking: true,
         ));
       } else if (error.type == DioExceptionType.connectionTimeout ||
           error.type == DioExceptionType.receiveTimeout) {
         isConn = true;
-        summary = 'انتهت مهلة استجابة الخادم (Connection Timeout).';
-        points.add('استغرق الخادم وقتاً أطول من المعتاد. يرجى إعادة المحاولة.');
+        summary = loc.errorTimeoutSummary;
+        points.add(loc.errorTimeoutPoint);
         issues.add(ValidationIssueItem(
-          fieldName: 'مهلة الاتصال',
-          issueDescription: 'انتهت المهلة المحددة للطلب دون تلقي رد من الخادم.',
-          recommendation: 'تحقق من سرعة الاتصال بالشبكة وأعد المحاولة.',
+          fieldName: loc.errorTimeoutFieldName,
+          issueDescription: loc.errorTimeoutIssueDesc,
+          recommendation: loc.errorTimeoutRecommendation,
           isBlocking: true,
         ));
       } else {
-        summary = error.message ?? defaultMessage;
+        summary = error.message ?? defaultMessage ?? loc.errorDefaultSummary;
         points.add(summary);
       }
     } else {
@@ -201,11 +170,14 @@ Future<void> showErrorDetailsDialog(
   List<ValidationIssueItem>? validationIssues,
   Future<void> Function()? onRetry,
   VoidCallback? onFixAction,
+  AppLocalizations? l10n,
 }) async {
+  final loc = l10n ?? context.l10n;
   final parsed = ErrorFormatter.parse(
     error,
-    defaultMessage: subtitle ?? 'يرجى مراجعة الأخطاء وتصحيحها لتتمكن من استكمال العملية بنجاح:',
+    defaultMessage: subtitle ?? loc.errorDialogDefaultSubtitle,
     customIssues: validationIssues,
+    l10n: loc,
   );
 
   bool showTechnical = false;
@@ -289,9 +261,9 @@ Future<void> showErrorDetailsDialog(
                                 ),
                                 if (parsed.isConnectionError) ...[
                                   const SizedBox(height: 6),
-                                  const Text(
-                                    '💡 الخادم الخلفي (FastAPI) غير متاح حالياً. يرجى التأكد من تشغيل السيرفر المحلي وإعادة المحاولة.',
-                                    style: TextStyle(fontSize: 11.5, color: Colors.black87),
+                                  Text(
+                                    loc.errorConnectionBannerHint,
+                                    style: const TextStyle(fontSize: 11.5, color: Colors.black87),
                                   ),
                                 ],
                               ],
@@ -306,12 +278,14 @@ Future<void> showErrorDetailsDialog(
                         children: [
                           const Icon(Icons.playlist_remove, color: AppTheme.crimson, size: 20),
                           const SizedBox(width: 8),
-                          Text(
-                            '📋 جدول الأخطاء وعوائق الاستكمال المطلوب تصحيحها (${parsed.validationIssues.length}):',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13.5,
-                              color: AppTheme.charcoal,
+                          Expanded(
+                            child: Text(
+                              loc.errorTableSectionTitle(parsed.validationIssues.length),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.5,
+                                color: AppTheme.charcoal,
+                              ),
                             ),
                           ),
                         ],
@@ -334,18 +308,18 @@ Future<void> showErrorDetailsDialog(
                           children: [
                             TableRow(
                               decoration: BoxDecoration(color: Colors.grey.shade100),
-                              children: const [
+                              children: [
                                 Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  child: Text('الحقل / الشرط', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  child: Text(loc.errorColFieldCondition, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                 ),
                                 Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  child: Text('وصف الخطأ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  child: Text(loc.errorColDescription, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                 ),
                                 Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  child: Text('الإجراء المقترح للتصحيح', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  child: Text(loc.errorColAction, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                 ),
                               ],
                             ),
@@ -416,8 +390,8 @@ Future<void> showErrorDetailsDialog(
                             ),
                             label: Text(
                               showTechnical
-                                  ? 'إخفاء السجل التقني المفصل'
-                                  : 'عرض السجل التقني المفصل للمطورين (Diagnostic Log)',
+                                  ? loc.errorBtnHideTechnicalLog
+                                  : loc.errorBtnShowTechnicalLog,
                               style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
                             ),
                           ),
@@ -428,28 +402,28 @@ Future<void> showErrorDetailsDialog(
                               side: BorderSide(color: Colors.grey.shade300),
                             ),
                             icon: const Icon(Icons.copy, size: 14, color: AppTheme.cobalt),
-                            label: const Text('نسخ تقرير الفحص', style: TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+                            label: Text(loc.errorBtnCopyReport, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt)),
                             onPressed: () {
                               final report = '''
-=== تقرير فحص ومعالجة أخطاء Sorour Logistics ERP ===
-التاريخ والوقت: ${DateTime.now().toIso8601String()}
-العنوان: $title
-الملخص: ${parsed.summary}
-نوع الخطأ: ${parsed.isConnectionError ? 'Connection / CORS Error' : 'Validation / Server Error'}
+${loc.errorReportHeader}
+${loc.errorReportDateTime} ${DateTime.now().toIso8601String()}
+${loc.errorReportTitle} $title
+${loc.errorReportSummary} ${parsed.summary}
+${loc.errorReportType} ${parsed.isConnectionError ? loc.errorReportTypeConnection : loc.errorReportTypeValidation}
 ------------------------------------------------
-الأخطاء والنواقص (${parsed.validationIssues.length}):
+${loc.errorReportIssues(parsed.validationIssues.length)}
 ${parsed.validationIssues.map((i) => '- [${i.fieldName}]: ${i.issueDescription} -> ${i.recommendation}').join('\n')}
 ------------------------------------------------
-السجل التقني الكامل:
+${loc.errorReportRawLog}
 ${parsed.rawTechnicalLog}
 ================================================
 ''';
                               Clipboard.setData(ClipboardData(text: report));
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('📋 تم نسخ تقرير الفحص التشخيصي إلى الحافظة!'),
+                                SnackBar(
+                                  content: Text(loc.errorReportCopiedSnackBar),
                                   backgroundColor: AppTheme.charcoal,
-                                  duration: Duration(seconds: 2),
+                                  duration: const Duration(seconds: 2),
                                 ),
                               );
                             },
@@ -497,7 +471,7 @@ ${parsed.rawTechnicalLog}
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.refresh, size: 18),
-                  label: Text(isRetrying ? 'جارٍ إعادة المحاولة...' : 'إعادة المحاولة الآن (Retry)'),
+                  label: Text(isRetrying ? loc.errorBtnRetrying : loc.errorBtnRetryNow),
                   onPressed: isRetrying
                       ? null
                       : () async {
@@ -510,7 +484,7 @@ ${parsed.rawTechnicalLog}
                               setState(() => isRetrying = false);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('❌ فشلت إعادة المحاولة: $retryErr'),
+                                  content: Text(loc.errorRetryFailedSnackBar(retryErr.toString())),
                                   backgroundColor: Colors.red,
                                 ),
                               );
@@ -526,8 +500,13 @@ ${parsed.rawTechnicalLog}
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 icon: const Icon(Icons.check),
-                label: const Text('فهمت، سأقوم بمعالجة الأخطاء (Fix & Retry)'),
-                onPressed: () => Navigator.of(ctx).pop(),
+                label: Text(loc.errorBtnFixAndClose),
+                onPressed: () {
+                  if (onFixAction != null) {
+                    onFixAction();
+                  }
+                  Navigator.of(ctx).pop();
+                },
               ),
             ],
           );

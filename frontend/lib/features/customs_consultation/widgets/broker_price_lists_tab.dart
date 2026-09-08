@@ -26,10 +26,18 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(allPartnersProvider.notifier).fetchPartners();
-      ref.read(partnersProvider.notifier).fetchPartners();
-      ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
-      ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
+      if (!ref.read(allPartnersProvider).isLoading) {
+        ref.read(allPartnersProvider.notifier).fetchPartners();
+      }
+      if (!ref.read(partnersProvider).isLoading) {
+        ref.read(partnersProvider.notifier).fetchPartners();
+      }
+      if (!ref.read(brokerPriceListsProvider).isLoading) {
+        ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
+      }
+      if (!ref.read(clearanceExpenseTypesProvider).isLoading) {
+        ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
+      }
     });
   }
 
@@ -42,7 +50,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
     final l = context.l10n;
     final priceListsAsync = ref.watch(brokerPriceListsProvider);
     final expenseTypesAsync = ref.watch(clearanceExpenseTypesProvider);
-    final allPartners = ref.watch(allPartnersProvider).value ?? ref.watch(partnersProvider).value ?? [];
+    final allPartners = ref.watch(allPartnersProvider).valueOrNull ?? ref.watch(partnersProvider).valueOrNull ?? [];
     final brokersList = allPartners
         .where((p) => p.partnerType.toLowerCase().contains('customs broker') || p.partnerType.toLowerCase().contains('مخلص'))
         .toList();

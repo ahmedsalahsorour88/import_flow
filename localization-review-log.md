@@ -74,6 +74,7 @@
 - [x] Screen 36: Customs Tariff Schedule (`CustomsTariffScreen` in `customs_tariff_screen.dart`, `nafeza_details_dialog.dart`, `add_agreement_dialog.dart`, `verify_tariff_dialog.dart`) — **Reviewed & Fixed**
 - [x] Screen 37: Ports & Transport Locations (`TransportLocationsScreen` in `transport_locations_screen.dart`) — **Reviewed & Fixed**
 - [x] Screen 38: Currencies & Exchange Rates (`CurrenciesScreen` in `currencies_screen.dart`) — **Reviewed & Fixed**
+- [x] Screen 42: Operational & Daily Shipment Updates Engine (`ShipmentUpdateEngineScreen` in `shipment_update_engine_screen.dart` & `ShipmentUpdateDialog` in `shipment_update_dialog.dart`) — **Reviewed & Fixed**
 - [x] Screen 43: Regulatory Requirements (`ImportRequirementsScreen` in `import_requirements_screen.dart`) — **Reviewed & Fixed**
 - [x] Screen 44: Demurrage & Detention (`DemurrageDetentionScreen` in `demurrage_detention_screen.dart`) — **Reviewed & Fixed**
 - [x] Screen 48: Lifecycle Kanban Board (`LifecycleBoardScreen` in `lifecycle_board_screen.dart` & `step_action_dialog.dart`) — **Reviewed & Fixed**
@@ -87,6 +88,11 @@
 - [x] Screen 59: Production Sync Screen & Hub (`ProductionSyncScreen` & `ProductionSyncHubDialog`) — **Reviewed & Fixed**
 - [x] Screen 63: Goods In Transit (GIT) Inventory Ledger (`GoodsInTransitScreen`) — **Reviewed & Fixed**
 - [x] Screen 64: Warehouse Received Shipments Detailed Report (`WarehouseReceivedReportScreen`) — **Reviewed & Fixed**
+- [x] Screen 65: HS Code Explorer & Tariff Search (`HSCodesSearchScreen`) — **Reviewed & Fixed**
+- [x] Screen 66: Users Management & RBAC (`UsersManagementScreen` in `users_management_screen.dart`) — **Reviewed & Fixed**
+- [x] Screen 67: Dynamic Report Builder (`DynamicReportBuilderScreen` in `dynamic_report_builder_screen.dart`) — **Reviewed & Fixed**
+- [x] Screen 68: Comprehensive Import File Report (`ImportFileComprehensiveReportScreen`) — **Reviewed & Fixed**
+- [x] Screen Core: System-Wide Error & Diagnostic Details Dialog (`frontend/lib/core/widgets/error_details_dialog.dart`) — **Reviewed & Fixed**
 
 ---
 
@@ -1568,11 +1574,133 @@
 
 ---
 
-**Master Status:** **ALL 68 SCREENS, CORE COMPONENTS & AI EXTRACTOR DIALOGS ARE 100% COMPLETE & VERIFIED!**  
+### Session: Users Management & RBAC Screen (Screen 66) — 2026-09-06
+
+#### 1. Screens / Modules Fully Reviewed & Fixed
+- **Users Management & RBAC Screen (`frontend/lib/features/auth/screens/users_management_screen.dart`):**
+  - Refactored `UsersManagementScreen` to use `AppLocalizations` (`context.l10n`) across all sections, replacing hardcoded Arabic and stacked bilingual strings.
+  - Eliminated stacked bilingual text and hardcoded strings across all components:
+    - **Header & Action Bar:** `usersMgmtTitle` ('إدارة المستخدمين والصلاحيات' / 'Users & Access Control (RBAC)'), `usersMgmtSubtitle(count)` ('التحكم في حسابات المستخدمين — X مستخدم مسجل' / 'User Access Control — X registered users'), `usersMgmtRefreshTooltip`, `usersMgmtNewUserBtn`, `usersMgmtReadOnlyNotice`.
+    - **KPI Stats & Filter Tabs:** `usersMgmtStatAll`, `usersMgmtStatActive`, `usersMgmtStatAdmin`, `usersMgmtStatManager`, `usersMgmtStatOperator`, `usersMgmtSearchHint`, and role filter tabs (`usersMgmtRoleAdminLabel`, `usersMgmtRoleManagerLabel`, `usersMgmtRoleOperatorLabel`).
+    - **Data Table Columns:** `usersMgmtColFullName`, `usersMgmtColUsername`, `usersMgmtColEmail`, `usersMgmtColRole`, `usersMgmtColStatus`, `usersMgmtColCreatedAt`, `usersMgmtColActions`. Expanded Status column from 80px to 95px and added `Flexible` with `TextOverflow.ellipsis` to prevent `RenderFlex` overflow across languages and screen widths.
+    - **User Row Badges & Actions:** `usersMgmtSelfBadge` ('(أنت)' / '(You)'), `usersMgmtStatusActive`, `usersMgmtStatusInactive`, `usersMgmtActionEditTooltip`, `usersMgmtActionDeactivateTooltip`, `usersMgmtActionActivateTooltip`.
+    - **Empty & Error States:** `usersMgmtNoResults`, `usersMgmtNoResultsHint`, `usersMgmtRetryBtn`.
+    - **Add/Edit User Dialog:** `usersMgmtDialogEditTitle`, `usersMgmtDialogNewTitle`, `usersMgmtFieldFullName`, `usersMgmtFieldFullNameHint`, `usersMgmtFieldFullNameRequired`, `usersMgmtFieldUsername`, `usersMgmtFieldUsernameHint`, `usersMgmtFieldUsernameHelper`, `usersMgmtFieldUsernameRequired`, `usersMgmtFieldUsernameMinLength`, `usersMgmtFieldUsernameNoSpaces`, `usersMgmtFieldEmail`, `usersMgmtFieldEmailHint`, `usersMgmtFieldEmailRequired`, `usersMgmtFieldEmailInvalid`, `usersMgmtFieldRole`, `usersMgmtRoleAdminOption`, `usersMgmtRoleManagerOption`, `usersMgmtRoleOperatorOption`, `usersMgmtFieldRoleRequired`, `usersMgmtFieldPasswordNew`, `usersMgmtFieldPassword`, `usersMgmtFieldPasswordRequired`, `usersMgmtFieldPasswordMinLength`, `usersMgmtBtnCancel`, `usersMgmtBtnSave`, `usersMgmtBtnCreate`, `usersMgmtSuccessUpdated`, `usersMgmtSuccessCreated`.
+    - **Status Toggle Dialog:** `usersMgmtConfirmActivateTitle`, `usersMgmtConfirmDeactivateTitle`, `usersMgmtConfirmActivatePrompt`, `usersMgmtConfirmDeactivatePrompt`, `usersMgmtBtnActivate`, `usersMgmtBtnDeactivate`, `usersMgmtSuccessActivated`, `usersMgmtSuccessDeactivated`.
+    - **Role Description & RBAC Permissions Card:** `usersMgmtRoleAdminDescTitle`, `usersMgmtRoleAdminPerm1`..`5`, `usersMgmtRoleManagerDescTitle`, `usersMgmtRoleManagerPerm1`..`5`, `usersMgmtRoleOperatorDescTitle`, `usersMgmtRoleOperatorPerm1`..`5`.
+  - Created automated test suite `frontend/test/users_management_localization_test.dart` (5/5 passing) verifying all getters in Arabic and English, zero Latin characters in pure Arabic getters, absence of stacked bilingual patterns, and full widget rendering in Arabic (RTL) and English (LTR).
+
+#### 2. New Translation Keys Added in this Session
+- `usersMgmtTitle`, `usersMgmtSubtitle`, `usersMgmtRefreshTooltip`, `usersMgmtNewUserBtn`, `usersMgmtReadOnlyNotice`
+- `usersMgmtStatAll`, `usersMgmtStatActive`, `usersMgmtStatAdmin`, `usersMgmtStatManager`, `usersMgmtStatOperator`, `usersMgmtSearchHint`
+- `usersMgmtColFullName`, `usersMgmtColUsername`, `usersMgmtColEmail`, `usersMgmtColRole`, `usersMgmtColStatus`, `usersMgmtColCreatedAt`, `usersMgmtColActions`
+- `usersMgmtSelfBadge`, `usersMgmtStatusActive`, `usersMgmtStatusInactive`, `usersMgmtRoleAdminLabel`, `usersMgmtRoleManagerLabel`, `usersMgmtRoleOperatorLabel`
+- `usersMgmtActionEditTooltip`, `usersMgmtActionDeactivateTooltip`, `usersMgmtActionActivateTooltip`
+- `usersMgmtNoResults`, `usersMgmtNoResultsHint`, `usersMgmtRetryBtn`
+- `usersMgmtDialogEditTitle`, `usersMgmtDialogNewTitle`, `usersMgmtFieldFullName`, `usersMgmtFieldFullNameHint`, `usersMgmtFieldFullNameRequired`
+- `usersMgmtFieldUsername`, `usersMgmtFieldUsernameHint`, `usersMgmtFieldUsernameHelper`, `usersMgmtFieldUsernameRequired`, `usersMgmtFieldUsernameMinLength`, `usersMgmtFieldUsernameNoSpaces`
+- `usersMgmtFieldEmail`, `usersMgmtFieldEmailHint`, `usersMgmtFieldEmailRequired`, `usersMgmtFieldEmailInvalid`, `usersMgmtFieldRole`
+- `usersMgmtRoleAdminOption`, `usersMgmtRoleManagerOption`, `usersMgmtRoleOperatorOption`, `usersMgmtFieldRoleRequired`
+- `usersMgmtFieldPasswordNew`, `usersMgmtFieldPassword`, `usersMgmtFieldPasswordRequired`, `usersMgmtFieldPasswordMinLength`
+- `usersMgmtBtnCancel`, `usersMgmtBtnSave`, `usersMgmtBtnCreate`, `usersMgmtSuccessUpdated`, `usersMgmtSuccessCreated`
+- `usersMgmtConfirmActivateTitle`, `usersMgmtConfirmDeactivateTitle`, `usersMgmtConfirmActivatePrompt`, `usersMgmtConfirmDeactivatePrompt`
+- `usersMgmtBtnActivate`, `usersMgmtBtnDeactivate`, `usersMgmtSuccessActivated`, `usersMgmtSuccessDeactivated`
+- `usersMgmtRoleAdminDescTitle`, `usersMgmtRoleAdminPerm1`..`5`, `usersMgmtRoleManagerDescTitle`, `usersMgmtRoleManagerPerm1`..`5`, `usersMgmtRoleOperatorDescTitle`, `usersMgmtRoleOperatorPerm1`..`5`
+
+---
+
+### Session: Smart Tasks & Reminder Engine (Screen 69) — 2026-09-06
+
+#### 1. Screens / Modules Fully Reviewed & Fixed
+- **Smart Tasks & Reminder Engine (`frontend/lib/features/smart_tasks/screens/smart_tasks_screen.dart` and `frontend/lib/features/smart_tasks/widgets/smart_task_dialog.dart`):**
+  - Refactored `SmartTasksScreen` and `SmartTaskDialog` to use `AppLocalizations` (`context.l10n`) across all sections, eliminating hardcoded strings and stacked bilingual text.
+  - Eliminated stacked bilingual text and hardcoded strings across all components:
+    - **Header & Action Bar:** `smartTasksTitle` ('إدارة المهام الذكية ومحرك التذكيرات' / 'Smart Tasks & Reminder Engine'), `smartTasksNewTaskBtn` ('إضافة مهمة جديدة' / 'Add New Task'), `smartTasksResetFiltersTooltip`.
+    - **Top Filters:** `smartTasksFilterType`, `smartTasksTypeAll`, `smartTasksTypeSystem` ('آلية' / 'Automated' instead of stacked 'آلي (System)'), `smartTasksTypeManual` ('يدوية' / 'Manual' instead of stacked 'يدوية (To-Do)'), `smartTasksFilterPriority`, `smartTasksPriorityAll`, `smartTasksPriorityLow`, `smartTasksPriorityMedium`, `smartTasksPriorityHigh`, `smartTasksPriorityCritical` ('حرجة' / 'Critical' instead of stacked 'حرجة (Critical)'), `smartTasksFilterStatus`, `smartTasksStatusAll`, `smartTasksStatusPending`, `smartTasksStatusInProgress`, `smartTasksStatusCompleted`, `smartTasksStatusCancelled`. Set `isExpanded: true` and responsive dropdown sizing to guarantee 0 RenderFlex overflows across locales.
+    - **Data Table Columns & Badges:** `smartTasksColCode`, `smartTasksColType`, `smartTasksColTitle`, `smartTasksColShipment`, `smartTasksColPriority`, `smartTasksColReminder`, `smartTasksColDueDate`, `smartTasksColStatus`, `smartTasksColActions`. Replaced stacked shipment badge 'عام (General)' with `smartTasksGeneralBadge` ('عام' / 'General').
+    - **Dynamic Value Formatters:** `smartTaskPriorityLabel(priority)`, `smartTaskStatusLabel(status)`, `smartTaskReminderTypeLabel(type)`. Pure Arabic in Arabic mode ('موعد وصول الشحنة' for ETA Arrival, 'نموذج 4 البنكي' for Bank Form 4), pure English in English mode.
+    - **Row Actions & Bulk Operations:** `smartTasksActionCompleteTooltip`, `smartTasksActionEditTooltip`, `smartTasksActionDeleteTooltip`, `smartTasksBulkCompleteBtn(count)`, `smartTasksBulkCompleteSuccess(count)`, `smartTasksFetchError(err)`, `smartTasksEmptyMessage`.
+    - **Add/Edit Smart Task Dialog:** `smartTaskDialogEditTitle`, `smartTaskDialogNewTitle`, `smartTaskFieldTitle`, `smartTaskFieldTitleRequired`, `smartTaskFieldLinkShipment`, `smartTaskFieldPriority`, `smartTaskFieldReminderType`, `smartTaskFieldDueDate`, `smartTaskFieldReminderDate`, `smartTaskFieldDescription`, `smartTaskFieldNotes`, `smartTaskBtnCancel`, `smartTaskBtnUpdate`, `smartTaskBtnSave`, `smartTaskSuccessUpdated`, `smartTaskSuccessCreated`, `smartTaskSubmitError(err)`.
+  - Created automated test suite `frontend/test/smart_tasks_localization_test.dart` (5/5 passing) verifying all getters in Arabic and English, zero Latin characters in pure Arabic getters, zero Arabic characters in English getters, and absence of stacked bilingual patterns in RTL and LTR modes.
+  - Verified 100% of all Flutter tests (372/372 tests) passing cleanly.
+
+#### 2. New Translation Keys Added in this Session
+- `smartTasksTitle`, `smartTasksNewTaskBtn`, `smartTasksFilterType`, `smartTasksTypeAll`, `smartTasksTypeSystem`, `smartTasksTypeManual`
+- `smartTasksFilterPriority`, `smartTasksPriorityAll`, `smartTasksPriorityLow`, `smartTasksPriorityMedium`, `smartTasksPriorityHigh`, `smartTasksPriorityCritical`
+- `smartTasksFilterStatus`, `smartTasksStatusAll`, `smartTasksStatusPending`, `smartTasksStatusInProgress`, `smartTasksStatusCompleted`, `smartTasksStatusCancelled`
+- `smartTasksResetFiltersTooltip`, `smartTasksTableTitle`, `smartTasksColCode`, `smartTasksColType`, `smartTasksColTitle`, `smartTasksColShipment`, `smartTasksColPriority`, `smartTasksColReminder`, `smartTasksColDueDate`, `smartTasksColStatus`, `smartTasksColActions`, `smartTasksGeneralBadge`
+- `smartTasksActionCompleteTooltip`, `smartTasksActionEditTooltip`, `smartTasksActionDeleteTooltip`, `smartTasksBulkCompleteBtn`, `smartTasksBulkCompleteSuccess`, `smartTasksFetchError`, `smartTasksEmptyMessage`
+- `smartTaskDialogEditTitle`, `smartTaskDialogNewTitle`, `smartTaskFieldTitle`, `smartTaskFieldTitleRequired`, `smartTaskFieldLinkShipment`, `smartTaskFieldPriority`, `smartTaskFieldReminderType`, `smartTaskFieldDueDate`, `smartTaskFieldReminderDate`, `smartTaskFieldDescription`, `smartTaskFieldNotes`
+- `smartTaskBtnCancel`, `smartTaskBtnUpdate`, `smartTaskBtnSave`, `smartTaskSuccessUpdated`, `smartTaskSuccessCreated`, `smartTaskSubmitError`
+- `smartTaskPriorityLabel`, `smartTaskStatusLabel`, `smartTaskReminderTypeLabel`
+
+---
+
+### Session: Operational & Daily Shipment Updates Engine (Screen 42) — 2026-09-06
+
+#### 1. Screens / Modules Fully Reviewed & Fixed
+- **Screen 42: Operational & Daily Shipment Updates Engine (`frontend/lib/features/shipment_updates/screens/shipment_update_engine_screen.dart` and `frontend/lib/features/shipment_updates/widgets/shipment_update_dialog.dart`):**
+  - Refactored `ShipmentUpdateEngineScreen` and `ShipmentUpdateDialog` to use typed `AppLocalizations` (`context.l10n`) across all sections, eliminating hardcoded strings and bilingual stacked text.
+  - Eliminated stacked bilingual text and hardcoded strings across all components:
+    - **Header & Action Bar:** `shipmentUpdateEngineTitle` ('محرك تحديث الشحنات التشغيلي واليومي' / 'Operational & Daily Shipment Updates Engine' instead of stacked 'محرك تحديث الشحنات التشغيلي واليومي (Operational & Daily Update Engine)'), `shipmentUpdateRefreshTooltip`, `shipmentUpdateComprehensiveDailyCheckinBtn`.
+    - **Shipment Selector & Pipeline:** `shipmentUpdateSelectShipmentPrompt`, `shipmentUpdateNoShipmentsRegistered`, `shipmentUpdateErrorLoadingShipments(err)`, `shipmentUpdateDropdownLabel(fileCode, supplier, stage)`, `shipmentUpdatePipelineTitle(fileCode)`, `shipmentUpdateCurrentStage(stage)`, `shipmentUpdatePhase1Name`..`10Name`, `shipmentUpdateStatusCompleted`, `shipmentUpdateStatusCurrent`, `shipmentUpdateStatusFuture`. Dynamically maps phase codes to localized names without hardcoded Arabic in data structures.
+    - **Live Update Logs DataTable:** `shipmentUpdateCountBadge(count)`, `shipmentUpdateLogsFetchError(err)`, `shipmentUpdateLogsEmptyMessage`, `shipmentUpdateColActions`, `shipmentUpdateColCode`, `shipmentUpdateColDate`, `shipmentUpdateColType`, `shipmentUpdateColTargetStage`, `shipmentUpdateColNotes`, `shipmentUpdateColCostAdjustment` ('تعديل التكلفة' / 'Cost Adjustment' instead of stacked 'تعديل التكلفة (Cost Adjustment)'), `shipmentUpdateColAssignedUser`.
+    - **Badges, Tooltips & Modals:** `shipmentUpdateBadgeDaily`, `shipmentUpdateBadgeCostAdj`, `shipmentUpdateBadgeFollowUp`, `shipmentUpdateBadgeFutureAlert`, `shipmentUpdateActionViewTooltip`, `shipmentUpdateActionEditTooltip`, `shipmentUpdateActionPrintTooltip`, `shipmentUpdateActionDeleteTooltip`, `shipmentUpdateViewDialogTitle(code)`, `shipmentUpdateViewStage(stage)`, `shipmentUpdateViewDate(date)`, `shipmentUpdateViewUser(user)`, `shipmentUpdateViewNotes`, `shipmentUpdateViewCloseBtn`, `shipmentUpdatePrintSnackBar(code, stage)`, `shipmentUpdateDeleteConfirmTitle`, `shipmentUpdateDeleteConfirmMsg(code)`, `shipmentUpdateDeleteCancelBtn`, `shipmentUpdateDeleteConfirmBtn`.
+    - **Customs Consultation & Inspection Section:** `shipmentUpdateCustomsSecTitle` ('سجل ونتائج دراسة الاستشارة الجمركية والفحص المستندي' / 'Customs Consultation & Inspection Records' instead of stacked 'سجل ونتائج دراسة الاستشارة الجمركية والفحص المستندي (Customs Consultation & Inspection Records)'), `shipmentUpdateCustomsStudiesCount(count)`, `shipmentUpdateCustomsNoStudies`, `shipmentUpdateCustomsEmptyPrompt`, `shipmentUpdateBrokerPrefix(broker)`, `shipmentUpdateMetricEstDuties`, `shipmentUpdateMetricApprovedDocs`, `shipmentUpdateMetricDocsRatio(approved, total)`, `shipmentUpdateMetricBlockingIssues` ('عوائق التخليص المعطلة' / 'Active Blocking Issues' instead of stacked 'عوائق التخليص (Blocking)'), `shipmentUpdateMetricBlockingCount(count)`, `shipmentUpdateMetricZeroBlocking`, `shipmentUpdateMetricReadinessRate`, `shipmentUpdateBtnPrintPdf`, `shipmentUpdateBtnViewChecklist`, `shipmentUpdateBtnEditDocs`, `shipmentUpdateBtnRecordDailyUpdate`.
+    - **Customs Consultation Review Modal:** `shipmentUpdateConsultDialogEditTitle(code)`, `shipmentUpdateConsultDialogViewTitle(code)`, `shipmentUpdateConsultPrintTooltip`, `shipmentUpdateConsultSwitchViewTooltip`, `shipmentUpdateConsultSwitchEditTooltip`, `shipmentUpdateConsultBrokerPrefix(broker)`, `shipmentUpdateConsultEstDuties(amount)`, `shipmentUpdateConsultOverallStatusLabel`, `shipmentUpdateConsultStatus(status)`, `shipmentUpdateConsultReadinessRateLabel`, `shipmentUpdateConsultTotalDocsLabel`, `shipmentUpdateConsultApprovedLabel`, `shipmentUpdateConsultBlockingLabel`, `shipmentUpdateConsultChecklistSectionTitle`, `shipmentUpdateConsultEditModeBanner`, `shipmentUpdateConsultColDocType`, `shipmentUpdateConsultColResponsibleParty`, `shipmentUpdateConsultColStatus`, `shipmentUpdateConsultColRemarks`, `shipmentUpdateConsultBlockingTooltip`, `shipmentUpdateConsultHsCodesPrefix(hs)`, `shipmentUpdateConsultSaveBtn`, `shipmentUpdateConsultSavingBtn`, `shipmentUpdateConsultCloseBtn`, `shipmentUpdateConsultSaveSuccess(code)`, `shipmentUpdateConsultSaveError(err)`.
+    - **Add/Record Shipment Update Dialog:** `shipmentUpdateDialogTitle`, `shipmentUpdateFieldShipmentLabel`, `shipmentUpdateFieldShipmentRequired`, `shipmentUpdateFieldCategoryLabel`, `shipmentUpdateCatOptFollowUp`, `shipmentUpdateCatOptCostAdjustment`, `shipmentUpdateCatOptFutureAlert`, `shipmentUpdateCatOptDailyCheckin`, `shipmentUpdateFieldTargetStageLabel`, `shipmentUpdateFieldCostItemLabel`, `shipmentUpdateFieldPrevCostLabel`, `shipmentUpdateFieldNewCostLabel`, `shipmentUpdateFieldAlertPriorityLabel`, `shipmentUpdatePriorityLow`, `shipmentUpdatePriorityNormal` ('عادي' / 'Normal' instead of stacked 'عادي (Normal)'), `shipmentUpdatePriorityHigh` ('عالي' / 'High Priority' instead of stacked 'عالي (High Priority)'), `shipmentUpdatePriorityCritical` ('حرج' / 'Critical Alert' instead of stacked 'حرج (Critical Alert)'), `shipmentUpdateFieldDateLabel`, `shipmentUpdateFieldNotesLabel`, `shipmentUpdateFieldNotesHint`, `shipmentUpdateFieldNotesRequired`, `shipmentUpdateBtnCancel`, `shipmentUpdateBtnSaveUpdate`, `shipmentUpdateSuccessSaved`, `shipmentUpdateErrorSaving(err)`.
+    - **Responsive Overflow Protection:** Added `Expanded` to dialog title row, and set `isExpanded: true` with `overflow: TextOverflow.ellipsis` on all `DropdownButtonFormField` widgets to guarantee 0 RenderFlex overflow errors.
+  - Created automated test suite `frontend/test/shipment_updates_localization_test.dart` (7/7 passing, 100%) verifying all getters in Arabic and English, zero stacked bilingual patterns, parametrized methods, and complete widget rendering of both screen and dialog in Arabic (RTL) and English (LTR).
+
+#### 2. New Translation Keys Added in this Session
+- `shipmentUpdateEngineTitle`, `shipmentUpdateRefreshTooltip`, `shipmentUpdateErrorLoadingShipments`, `shipmentUpdateNoShipmentsRegistered`, `shipmentUpdateSelectShipmentPrompt`, `shipmentUpdateDropdownLabel`, `shipmentUpdateComprehensiveDailyCheckinBtn`, `shipmentUpdatePipelineTitle`, `shipmentUpdateCurrentStage`
+- `shipmentUpdatePhase1Name`..`10Name`, `shipmentUpdateStatusCompleted`, `shipmentUpdateStatusCurrent`, `shipmentUpdateStatusFuture`, `shipmentUpdateCountBadge`
+- `shipmentUpdateCustomsSecTitle`, `shipmentUpdateCustomsStudiesCount`, `shipmentUpdateCustomsNoStudies`, `shipmentUpdateCustomsEmptyPrompt`, `shipmentUpdateBrokerPrefix`, `shipmentUpdateMetricEstDuties`, `shipmentUpdateMetricApprovedDocs`, `shipmentUpdateMetricDocsRatio`, `shipmentUpdateMetricBlockingIssues`, `shipmentUpdateMetricBlockingCount`, `shipmentUpdateMetricZeroBlocking`, `shipmentUpdateMetricReadinessRate`
+- `shipmentUpdateBtnPrintPdf`, `shipmentUpdateBtnViewChecklist`, `shipmentUpdateBtnEditDocs`, `shipmentUpdateBtnRecordDailyUpdate`
+- `shipmentUpdateConsultDialogEditTitle`, `shipmentUpdateConsultDialogViewTitle`, `shipmentUpdateConsultPrintTooltip`, `shipmentUpdateConsultSwitchViewTooltip`, `shipmentUpdateConsultSwitchEditTooltip`, `shipmentUpdateConsultBrokerPrefix`, `shipmentUpdateConsultEstDuties`, `shipmentUpdateConsultOverallStatusLabel`, `shipmentUpdateConsultStatus`, `shipmentUpdateConsultReadinessRateLabel`, `shipmentUpdateConsultTotalDocsLabel`, `shipmentUpdateConsultApprovedLabel`, `shipmentUpdateConsultBlockingLabel`, `shipmentUpdateConsultChecklistSectionTitle`, `shipmentUpdateConsultEditModeBanner`, `shipmentUpdateConsultColDocType`, `shipmentUpdateConsultColResponsibleParty`, `shipmentUpdateConsultColStatus`, `shipmentUpdateConsultColRemarks`, `shipmentUpdateConsultBlockingTooltip`, `shipmentUpdateConsultHsCodesPrefix`, `shipmentUpdateConsultSaveBtn`, `shipmentUpdateConsultSavingBtn`, `shipmentUpdateConsultCloseBtn`, `shipmentUpdateConsultSaveSuccess`, `shipmentUpdateConsultSaveError`
+- `shipmentUpdateLogsFetchError`, `shipmentUpdateLogsEmptyMessage`, `shipmentUpdateColActions`, `shipmentUpdateColCode`, `shipmentUpdateColDate`, `shipmentUpdateColType`, `shipmentUpdateColTargetStage`, `shipmentUpdateColNotes`, `shipmentUpdateColCostAdjustment`, `shipmentUpdateColAssignedUser`, `shipmentUpdateBadgeDaily`, `shipmentUpdateBadgeCostAdj`, `shipmentUpdateBadgeFollowUp`, `shipmentUpdateBadgeFutureAlert`
+- `shipmentUpdateActionViewTooltip`, `shipmentUpdateActionEditTooltip`, `shipmentUpdateActionPrintTooltip`, `shipmentUpdateActionDeleteTooltip`, `shipmentUpdateViewDialogTitle`, `shipmentUpdateViewStage`, `shipmentUpdateViewDate`, `shipmentUpdateViewUser`, `shipmentUpdateViewNotes`, `shipmentUpdateViewCloseBtn`, `shipmentUpdatePrintSnackBar`, `shipmentUpdateDeleteConfirmTitle`, `shipmentUpdateDeleteConfirmMsg`, `shipmentUpdateDeleteCancelBtn`, `shipmentUpdateDeleteConfirmBtn`
+- `shipmentUpdateDialogTitle`, `shipmentUpdateFieldShipmentLabel`, `shipmentUpdateFieldShipmentRequired`, `shipmentUpdateFieldCategoryLabel`, `shipmentUpdateCatOptFollowUp`, `shipmentUpdateCatOptCostAdjustment`, `shipmentUpdateCatOptFutureAlert`, `shipmentUpdateCatOptDailyCheckin`, `shipmentUpdateFieldTargetStageLabel`, `shipmentUpdateFieldCostItemLabel`, `shipmentUpdateFieldPrevCostLabel`, `shipmentUpdateFieldNewCostLabel`, `shipmentUpdateFieldAlertPriorityLabel`, `shipmentUpdatePriorityLow`, `shipmentUpdatePriorityNormal`, `shipmentUpdatePriorityHigh`, `shipmentUpdatePriorityCritical`, `shipmentUpdateFieldDateLabel`, `shipmentUpdateFieldNotesLabel`, `shipmentUpdateFieldNotesHint`, `shipmentUpdateFieldNotesRequired`, `shipmentUpdateBtnCancel`, `shipmentUpdateBtnSaveUpdate`, `shipmentUpdateSuccessSaved`, `shipmentUpdateErrorSaving`
+
+---
+
+### Session: Core System-Wide Error & Diagnostic Details Dialog — 2026-09-06
+
+#### 1. Screens / Modules Fully Reviewed & Fixed
+- **Core Error & Diagnostic Details Dialog (`frontend/lib/core/widgets/error_details_dialog.dart`):**
+  - Completely refactored `ErrorFormatter` and `showErrorDetailsDialog` to use typed `AppLocalizations` (`context.l10n`), eliminating all hardcoded strings and stacked bilingual text.
+  - Eliminated stacked bilingual text and hardcoded strings across all error dialog elements:
+    - **Default Dialog Headers & Subtitles:** `errorDefaultSummary` ('حدث خطأ أثناء معالجة الطلب' / 'An error occurred while processing the request'), `errorDialogDefaultSubtitle` ('يرجى مراجعة الأخطاء وتصحيحها لتتمكن من استكمال العملية بنجاح:' / 'Please review and correct the errors to proceed successfully:').
+    - **Server Response & Validation Errors:** `errorServerResponseField`, `errorServerResponseRecommendation`, `errorValidationSummary` ('يوجد أخطاء في التحقق من صحة البيانات المدخلة:' / 'Validation errors occurred in the submitted data:' instead of stacked 'يوجد أخطاء في التحقق من صحة البيانات المدخلة (Validation Errors):'), `errorUnspecifiedField`, `errorInvalidValue`, `errorStandardRecommendation`, `errorFieldRequiredMsg`, `errorFieldRequiredRec`, `errorValidDateMsg`, `errorValidDateRec`, `errorMinLengthMsg`, `errorMinLengthRec`.
+    - **Connection & Timeout Diagnostics:** `errorConnectionSummary` ('تعذر الاتصال بالخادم الخلفي' / 'Unable to connect to the backend server' instead of stacked 'تعذر الاتصال بالخادم الخلفي (Backend API Connection Error / CORS)'), `errorConnectionPointUnavailable`, `errorConnectionPointTarget(targetUri)`, `errorConnectionPointCors`, `errorConnectionFieldName` ('اتصال الخادم' / 'Server Connection' instead of stacked 'اتصال الخادم (Backend Server)'), `errorConnectionIssueDesc(targetUri, errorDetail)`, `errorConnectionRecommendation`, `errorConnectionBannerHint`, `errorTimeoutSummary` ('انتهت مهلة استجابة الخادم.' / 'Server response timed out.' instead of stacked 'انتهت مهلة استجابة الخادم (Connection Timeout).'), `errorTimeoutPoint`, `errorTimeoutFieldName`, `errorTimeoutIssueDesc`, `errorTimeoutRecommendation`.
+    - **Validation Issues Table:** `errorTableSectionTitle(count)`, `errorColFieldCondition` ('الحقل أو الشرط' / 'Field / Condition'), `errorColDescription` ('وصف الخطأ' / 'Issue Description'), `errorColAction` ('الإجراء المقترح للتصحيح' / 'Recommended Action'). Wrapped section title with `Expanded` to prevent RenderFlex overflow.
+    - **Diagnostic Log & Clipboard Actions:** `errorBtnHideTechnicalLog` ('إخفاء السجل التقني المفصل' / 'Hide Technical Diagnostic Log'), `errorBtnShowTechnicalLog` ('عرض السجل التقني المفصل للمطورين' / 'Show Diagnostic Log for Developers' instead of stacked 'عرض السجل التقني المفصل للمطورين (Diagnostic Log)'), `errorBtnCopyReport`, `errorReportCopiedSnackBar`, `errorReportHeader`, `errorReportDateTime`, `errorReportTitle`, `errorReportSummary`, `errorReportType`, `errorReportTypeConnection`, `errorReportTypeValidation`, `errorReportIssues(count)`, `errorReportRawLog`.
+    - **Action Buttons & Feedback:** `errorBtnRetrying` ('جارٍ إعادة المحاولة...' / 'Retrying...'), `errorBtnRetryNow` ('إعادة المحاولة الآن' / 'Retry Now' instead of stacked 'إعادة المحاولة الآن (Retry)'), `errorRetryFailedSnackBar(err)`, `errorBtnFixAndClose` ('فهمت، سأقوم بمعالجة الأخطاء' / 'Understood, I will fix the issues' instead of stacked 'فهمت، سأقوم بمعالجة الأخطاء (Fix & Retry)'). Added execution support for `onFixAction` callback.
+    - **Dynamic Entity Field Translator (`errorFieldName(key)`):** Fully implemented dynamic mapping for all 32 core fields (`importer_name`, `importer_tax_id`, `importer_address`, `exporter_name`, `exporter_reg_type`, `exporter_reg_id`, `exporter_country`, `exporter_country_code`, `exporter_address`, `exporter_phone`, `cargox_id`, `proforma_invoice_no`, `proforma_invoice_date`, `invoice_date`, `invoice_type`, `po_number`, `po_date`, `pol_name`, `pod_name`, `customs_broker_name`, `customs_broker_id`, `customs_broker_phone`, `requested_date`, `acid_number`, `generated_date`, `expiry_date`, `items`, `cargo_ready_date`, `title`, `consultation_title`, `amount`, `currency`). Completely removed all stacked acronyms like `(PO)`, `(POL)`, `(POD)`, `(CRD)` in Arabic mode, and ensured pure English representation in English mode.
+  - Created automated test suite `frontend/test/error_details_dialog_localization_test.dart` (8/8 passing, 100%) verifying all getters in Arabic and English, zero stacked bilingual patterns, complete validation error parsing in both languages, and rendering of the error dialog under Arabic (RTL) and English (LTR) locales with 0 overflow errors.
+  - Verified full test suites: 100% passing across the board.
+
+#### 2. New Translation Keys Added in this Session
+- `errorDefaultSummary`, `errorDialogDefaultSubtitle`, `errorServerResponseField`, `errorServerResponseRecommendation`, `errorValidationSummary`, `errorUnspecifiedField`, `errorInvalidValue`, `errorStandardRecommendation`
+- `errorFieldRequiredMsg`, `errorFieldRequiredRec`, `errorValidDateMsg`, `errorValidDateRec`, `errorMinLengthMsg`, `errorMinLengthRec`
+- `errorConnectionSummary`, `errorConnectionPointUnavailable`, `errorConnectionPointTarget`, `errorConnectionPointCors`, `errorConnectionFieldName`, `errorConnectionIssueDesc`, `errorConnectionRecommendation`, `errorConnectionBannerHint`
+- `errorTimeoutSummary`, `errorTimeoutPoint`, `errorTimeoutFieldName`, `errorTimeoutIssueDesc`, `errorTimeoutRecommendation`
+- `errorTableSectionTitle`, `errorColFieldCondition`, `errorColDescription`, `errorColAction`
+- `errorBtnHideTechnicalLog`, `errorBtnShowTechnicalLog`, `errorBtnCopyReport`, `errorReportHeader`, `errorReportDateTime`, `errorReportTitle`, `errorReportSummary`, `errorReportType`, `errorReportTypeConnection`, `errorReportTypeValidation`, `errorReportIssues`, `errorReportRawLog`, `errorReportCopiedSnackBar`
+- `errorBtnRetrying`, `errorBtnRetryNow`, `errorRetryFailedSnackBar`, `errorBtnFixAndClose`
+- `errorFieldName`
+
+---
+
+**Master Status:** **ALL 70 SCREENS, CORE COMPONENTS, MODALS & DIALOGS ARE 100% COMPLETE & VERIFIED!**  
 - Zero stacked Arabic/English text in any screen, navigation bar, or modal across the entire application.
 - Pure Arabic translations in Arabic mode, pure English translations in English mode.
-- All Flutter (320 tests) and Backend (442 pytest tests) passing 100%.
-- Flutter static analysis clean with 0 errors.
+- Flutter static analysis clean with 0 errors in localized screens.
+- Full Flutter test suite passing (387/387 passing).
+- Full Python test suite passing (538/538 passing).
 
-**Last screen fully fixed:** Screen 68 — Comprehensive Import File Report (`ImportFileComprehensiveReportScreen`)  
-**Next screen to review:** All screens completed (100% Full System Coverage)
+**Last screen/module fully fixed:** Core System-Wide Error & Diagnostic Details Dialog (`frontend/lib/core/widgets/error_details_dialog.dart`)  
+**Next screen to review:** All screens, modules, and core dialogs completed (100% Full System Coverage)
+
+
+

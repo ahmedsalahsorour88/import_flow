@@ -12,9 +12,16 @@ final financialSettlementProvider =
 
 class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCostSettlementModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   FinancialSettlementNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchSettlements();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('FinancialSettlementNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchSettlements({
@@ -23,7 +30,14 @@ class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCo
     String? status,
     String? search,
   }) async {
-    state = const AsyncValue.loading();
+    _cancelToken?.cancel('Cancelled by new fetchSettlements request');
+    _cancelToken = CancelToken();
+
+    // Preserve previous data during background search/refresh if available
+    if (state.valueOrNull == null) {
+      state = const AsyncValue.loading();
+    }
+
     try {
       final queryParams = <String, dynamic>{'include_inactive': includeInactive};
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
@@ -33,12 +47,16 @@ class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCo
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/financial-settlement',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List data = response.data;
       final list = data.map((json) => LandedCostSettlementModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }

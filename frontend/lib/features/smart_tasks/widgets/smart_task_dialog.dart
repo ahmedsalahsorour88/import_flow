@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -107,18 +108,20 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
       }
 
       if (mounted) {
+        final l = context.l10n;
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(widget.taskToEdit != null ? 'تم تحديث المهمة بنجاح' : 'تم إضافة المهمة والتذكير بنجاح'),
+            content: Text(widget.taskToEdit != null ? l.smartTaskSuccessUpdated : l.smartTaskSuccessCreated),
             backgroundColor: AppTheme.emerald,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final l = context.l10n;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء تقديم المهمة: $e'), backgroundColor: AppTheme.crimson),
+          SnackBar(content: Text(l.smartTaskSubmitError(e.toString())), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
@@ -129,6 +132,7 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
   @override
   Widget build(BuildContext context) {
     final importFilesState = ref.watch(importFilesProvider);
+    final l = context.l10n;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -145,11 +149,14 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                 children: [
                   const Icon(Icons.add_task, color: AppTheme.cobalt, size: 28),
                   const SizedBox(width: 10),
-                  Text(
-                    widget.taskToEdit != null ? 'تعديل المهمة والتذكير' : 'إضافة مهمة جديدة وتذكير (2.4 / 2.5)',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal),
+                  Expanded(
+                    child: Text(
+                      widget.taskToEdit != null ? l.smartTaskDialogEditTitle : l.smartTaskDialogNewTitle,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                  const Spacer(),
                   IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
                 ],
               ),
@@ -163,12 +170,12 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                       // Title
                       TextFormField(
                         controller: _titleController,
-                        decoration: const InputDecoration(
-                          labelText: 'عنوان المهمة / التذكير *',
-                          prefixIcon: Icon(Icons.title),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.smartTaskFieldTitle,
+                          prefixIcon: const Icon(Icons.title),
+                          border: const OutlineInputBorder(),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'عنوان المهمة مطلوب' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? l.smartTaskFieldTitleRequired : null,
                       ),
                       const SizedBox(height: 14),
 
@@ -179,19 +186,19 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                         data: (files) {
                           return SearchableDropdownField<int>(
                             value: _selectedFileId,
-                            labelText: 'ربط بملف الاستيراد / الشحنة (اختياري)',
+                            labelText: l.smartTaskFieldLinkShipment,
                             items: files.map((f) => SearchableDropdownItem<int>(
                               value: f.importFileId,
-                              label: '${f.customFileNumber ?? f.importFileCode} - ${f.supplierName}',
+                              label: '${f.primaryNameWithCode} - ${f.supplierName}',
                             )).toList(),
                             onChanged: (val) {
                               setState(() {
                                 _selectedFileId = val;
                                 if (val != null) {
-                                  final selectedFile = files.firstWhere((f) => f.importFileId == val);
-                                  _selectedFileCode = selectedFile.customFileNumber ?? selectedFile.importFileCode;
+                                   final selectedFile = files.firstWhere((f) => f.importFileId == val);
+                                   _selectedFileCode = selectedFile.importFileCode;
                                 } else {
-                                  _selectedFileCode = null;
+                                   _selectedFileCode = null;
                                 }
                               });
                             },
@@ -206,8 +213,9 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                           Expanded(
                             child: DropdownButtonFormField<String>(
                               value: _priority,
-                              decoration: const InputDecoration(labelText: 'الأولوية (Priority)', border: OutlineInputBorder()),
-                              items: _priorities.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                              isExpanded: true,
+                              decoration: InputDecoration(labelText: l.smartTaskFieldPriority, border: const OutlineInputBorder()),
+                              items: _priorities.map((p) => DropdownMenuItem(value: p, child: Text(l.smartTaskPriorityLabel(p)))).toList(),
                               onChanged: (v) => setState(() => _priority = v!),
                             ),
                           ),
@@ -215,8 +223,9 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                           Expanded(
                             child: DropdownButtonFormField<String>(
                               value: _reminderType,
-                              decoration: const InputDecoration(labelText: 'نوع التذكير (Reminder Engine)', border: OutlineInputBorder()),
-                              items: _reminderTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                              isExpanded: true,
+                              decoration: InputDecoration(labelText: l.smartTaskFieldReminderType, border: const OutlineInputBorder()),
+                              items: _reminderTypes.map((t) => DropdownMenuItem(value: t, child: Text(l.smartTaskReminderTypeLabel(t)))).toList(),
                               onChanged: (v) => setState(() => _reminderType = v!),
                             ),
                           ),
@@ -230,10 +239,10 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                           Expanded(
                             child: TextFormField(
                               controller: _dueDateController,
-                              decoration: const InputDecoration(
-                                labelText: 'تاريخ الإنجاز المطلوب (Due Date)',
-                                prefixIcon: Icon(Icons.event),
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: l.smartTaskFieldDueDate,
+                                prefixIcon: const Icon(Icons.event),
+                                border: const OutlineInputBorder(),
                               ),
                             ),
                           ),
@@ -241,10 +250,10 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                           Expanded(
                             child: TextFormField(
                               controller: _reminderDateController,
-                              decoration: const InputDecoration(
-                                labelText: 'تاريخ التذكير (Reminder Date)',
-                                prefixIcon: Icon(Icons.notifications_active),
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: l.smartTaskFieldReminderDate,
+                                prefixIcon: const Icon(Icons.notifications_active),
+                                border: const OutlineInputBorder(),
                               ),
                             ),
                           ),
@@ -256,9 +265,9 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                       TextFormField(
                         controller: _descController,
                         maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: 'وصف المهمة والمتطلبات',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.smartTaskFieldDescription,
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -267,9 +276,9 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                       TextFormField(
                         controller: _notesController,
                         maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: 'ملاحظات إضافية',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.smartTaskFieldNotes,
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ],
@@ -282,7 +291,7 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+                  OutlinedButton(onPressed: () => Navigator.pop(context), child: Text(l.smartTaskBtnCancel)),
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
@@ -290,7 +299,7 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                     icon: _isSubmitting
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Icon(Icons.check, color: Colors.white),
-                    label: Text(widget.taskToEdit != null ? 'تحديث المهمة' : 'حفظ المهمة والتذكير', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    label: Text(widget.taskToEdit != null ? l.smartTaskBtnUpdate : l.smartTaskBtnSave, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),

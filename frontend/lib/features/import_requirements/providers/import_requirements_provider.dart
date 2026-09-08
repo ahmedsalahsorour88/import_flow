@@ -13,13 +13,20 @@ final importRequirementsProvider = AsyncNotifierProvider<ImportRequirementsNotif
 class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementModel>> {
   Dio get _dio => ref.read(dioProvider);
   final String _baseUrl = ApiConstants.baseUrl;
+  CancelToken? _cancelToken;
 
   @override
   Future<List<ImportRequirementModel>> build() async {
+    ref.onDispose(() {
+      _cancelToken?.cancel();
+    });
     return _fetchRequirements();
   }
 
   Future<List<ImportRequirementModel>> _fetchRequirements({int? importFileId}) async {
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
+
     try {
       final queryParams = <String, dynamic>{
         'include_inactive': true,
@@ -28,7 +35,7 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
         queryParams['import_file_id'] = importFileId;
       }
 
-      final response = await _dio.get('$_baseUrl/import-requirements', queryParameters: queryParams);
+      final response = await _dio.get('$_baseUrl/import-requirements', queryParameters: queryParams, cancelToken: _cancelToken);
       
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
@@ -36,6 +43,9 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
       }
       return [];
     } catch (e) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return [];
+      }
       throw Exception('Failed to fetch import requirements: $e');
     }
   }

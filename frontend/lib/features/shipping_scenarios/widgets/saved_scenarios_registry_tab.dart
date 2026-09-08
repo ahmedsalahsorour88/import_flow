@@ -1,4 +1,3 @@
-import 'package:flutter/services.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +13,7 @@ import '../models/shipping_scenario_model.dart';
 import '../providers/shipping_scenarios_provider.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 class SavedScenariosRegistryTab extends ConsumerStatefulWidget {
   final void Function(ShippingEvaluationModel session) onEditSession;
@@ -42,7 +42,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
   Widget build(BuildContext context) {
     final state = ref.watch(shippingScenariosProvider);
     final poList = ref.watch(purchaseOrdersProvider).purchaseOrders;
-    final projectsList = ref.watch(projectsProvider).value ?? [];
+    final projectsList = ref.watch(projectsProvider).valueOrNull ?? [];
 
     return _buildHistoryRegistryTab(state, poList, projectsList);
   }
@@ -133,15 +133,20 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                   decoration: InputDecoration(
                     hintText: l.searchStudiesHint,
                     prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              _searchController.clear();
-                              ref.read(shippingScenariosProvider.notifier).setSearchQuery('');
-                            },
-                          )
-                        : null,
+                    suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _searchController,
+                      builder: (context, val, _) {
+                        return val.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  ref.read(shippingScenariosProvider.notifier).setSearchQuery('');
+                                },
+                              )
+                            : const SizedBox.shrink();
+                      },
+                    ),
                     filled: true,
                     fillColor: Colors.grey.shade50,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -150,9 +155,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
                     isDense: true,
                   ),
-                  onChanged: (v) => setState(() {
+                  onChanged: (v) {
                     ref.read(shippingScenariosProvider.notifier).setSearchQuery(v.trim());
-                  }),
+                  },
                 ),
               ),
               const SizedBox(width: 16),
@@ -284,6 +289,8 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                       ? Colors.white
                                       : Colors.grey.shade50;
 
+                              final rowSummary = '${sess.sessionCode} | ${sess.title ?? ""} | ${sess.avgExpectedTransitDays.toStringAsFixed(1)}d | WH: ${sess.avgExpectedWarehouseArrivalDate ?? "-"} | ${sess.recommendedScenarioProvider ?? "-"}';
+
                               return DataRow(
                                 color: WidgetStateProperty.all(rowColor),
                                 onSelectChanged: (_) => _showSessionDetailsDialog(context, sess),
@@ -338,37 +345,40 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                     ),
                                   ),
 
-
                                   // 2. Study Code
                                   DataCell(
-                                    InkWell(
-                                      onTap: () => _showSessionDetailsDialog(context, sess),
-                                      borderRadius: BorderRadius.circular(6),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.cobalt.withOpacity(0.08),
-                                          borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (!sess.isActive)
-                                              const Padding(
-                                                padding: EdgeInsets.only(right: 4),
-                                                child: Icon(Icons.block, size: 12, color: AppTheme.crimson),
+                                    CopyableTableCell(
+                                      value: sess.sessionCode,
+                                      rowSummary: rowSummary,
+                                      child: InkWell(
+                                        onTap: () => _showSessionDetailsDialog(context, sess),
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.cobalt.withOpacity(0.08),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (!sess.isActive)
+                                                const Padding(
+                                                  padding: EdgeInsets.only(right: 4),
+                                                  child: Icon(Icons.block, size: 12, color: AppTheme.crimson),
+                                                ),
+                                              Text(
+                                                sess.sessionCode,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: sess.isActive ? AppTheme.cobalt : AppTheme.crimson,
+                                                  fontSize: 12,
+                                                  decoration: sess.isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                                                ),
                                               ),
-                                            Text(
-                                              sess.sessionCode,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                color: sess.isActive ? AppTheme.cobalt : AppTheme.crimson,
-                                                fontSize: 12,
-                                                decoration: sess.isActive ? TextDecoration.none : TextDecoration.lineThrough,
-                                              ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -376,46 +386,58 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
 
                                   // 3. Import File
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.charcoal.withOpacity(0.07),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : '—'),
-                                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                    CopyableTableCell(
+                                      value: sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : '—'),
+                                      rowSummary: rowSummary,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.charcoal.withOpacity(0.07),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : '—'),
+                                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                   ),
 
                                   // 4. Title
                                   DataCell(
-                                    SizedBox(
-                                      width: 180,
-                                      child: Text(
-                                        sess.title ?? 'Shipping Transit Study',
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 2,
-                                        style: const TextStyle(fontSize: 12),
+                                    CopyableTableCell(
+                                      value: sess.title ?? l.freightStudiesTitle,
+                                      rowSummary: rowSummary,
+                                      child: SizedBox(
+                                        width: 180,
+                                        child: Text(
+                                          sess.title ?? l.freightStudiesTitle,
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 2,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                   ),
 
                                   // 5. Avg Transit
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.purple.shade50,
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        '${sess.avgExpectedTransitDays.toStringAsFixed(1)} يوم',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.purple.shade700,
-                                          fontSize: 12,
+                                    CopyableTableCell(
+                                      value: l.avgTransitDays(sess.avgExpectedTransitDays.toStringAsFixed(1)),
+                                      rowSummary: rowSummary,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.purple.shade50,
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: Text(
+                                          l.avgTransitDays(sess.avgExpectedTransitDays.toStringAsFixed(1)),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.purple.shade700,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -423,67 +445,79 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
 
                                   // 6. Avg WH Arrival
                                   DataCell(
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.warehouse_rounded, size: 14, color: AppTheme.emerald.withOpacity(0.7)),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          sess.avgExpectedWarehouseArrivalDate ?? '—',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: AppTheme.emerald,
-                                            fontSize: 12,
+                                    CopyableTableCell(
+                                      value: sess.avgExpectedWarehouseArrivalDate ?? '—',
+                                      rowSummary: rowSummary,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.warehouse_rounded, size: 14, color: AppTheme.emerald.withOpacity(0.7)),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            sess.avgExpectedWarehouseArrivalDate ?? '—',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.emerald,
+                                              fontSize: 12,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
 
                                   // 7. Recommended Carrier
                                   DataCell(
-                                    sess.recommendedScenarioProvider != null && sess.recommendedScenarioProvider!.isNotEmpty
-                                        ? Container(
-                                            constraints: const BoxConstraints(maxWidth: 150),
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                colors: [Colors.blue.shade600, Colors.blue.shade400],
-                                              ),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
-                                                const SizedBox(width: 4),
-                                                Flexible(
-                                                  child: Text(
-                                                    sess.recommendedScenarioProvider!,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                                  ),
+                                    CopyableTableCell(
+                                      value: sess.recommendedScenarioProvider ?? '—',
+                                      rowSummary: rowSummary,
+                                      child: sess.recommendedScenarioProvider != null && sess.recommendedScenarioProvider!.isNotEmpty
+                                          ? Container(
+                                              constraints: const BoxConstraints(maxWidth: 150),
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [Colors.blue.shade600, Colors.blue.shade400],
                                                 ),
-                                              ],
-                                            ),
-                                          )
-                                        : Text('—', style: TextStyle(color: Colors.grey.shade400)),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                                                  const SizedBox(width: 4),
+                                                  Flexible(
+                                                    child: Text(
+                                                      sess.recommendedScenarioProvider!,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            )
+                                          : Text('—', style: TextStyle(color: Colors.grey.shade400)),
+                                    ),
                                   ),
 
                                   // 8. Options Count
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blueGrey.shade50,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        '${sess.items.length} خيار',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.blueGrey.shade700,
-                                          fontSize: 12,
+                                    CopyableTableCell(
+                                      value: l.optionsCount(sess.items.length),
+                                      rowSummary: rowSummary,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blueGrey.shade50,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          l.optionsCount(sess.items.length),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blueGrey.shade700,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -491,47 +525,61 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
 
                                   // 9. Linked PO / Project
                                   DataCell(
-                                    sess.poNumber != null
-                                        ? Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(Icons.receipt_long_rounded, size: 13, color: AppTheme.emerald),
-                                              const SizedBox(width: 4),
-                                              Text('PO: ${sess.poNumber}', style: const TextStyle(color: AppTheme.emerald, fontSize: 11, fontWeight: FontWeight.w600)),
-                                            ],
-                                          )
-                                        : sess.projectName != null
-                                            ? Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(Icons.folder_special_rounded, size: 13, color: Colors.orange.shade600),
-                                                  const SizedBox(width: 4),
-                                                  Text('PRJ: ${sess.projectName}', style: TextStyle(color: Colors.orange.shade700, fontSize: 11, fontWeight: FontWeight.w600)),
-                                                ],
-                                              )
-                                            : Text('مستقل', style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                                    CopyableTableCell(
+                                      value: sess.poNumber != null
+                                          ? 'PO: ${sess.poNumber}'
+                                          : (sess.projectName != null ? 'PRJ: ${sess.projectName}' : l.independentStudy),
+                                      rowSummary: rowSummary,
+                                      child: sess.poNumber != null
+                                          ? Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.receipt_long_rounded, size: 13, color: AppTheme.emerald),
+                                                const SizedBox(width: 4),
+                                                Text('PO: ${sess.poNumber}', style: const TextStyle(color: AppTheme.emerald, fontSize: 11, fontWeight: FontWeight.w600)),
+                                              ],
+                                            )
+                                          : sess.projectName != null
+                                              ? Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.folder_special_rounded, size: 13, color: Colors.orange.shade600),
+                                                    const SizedBox(width: 4),
+                                                    Text('PRJ: ${sess.projectName}', style: TextStyle(color: Colors.orange.shade700, fontSize: 11, fontWeight: FontWeight.w600)),
+                                                  ],
+                                                )
+                                              : Text(l.independentStudy, style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                                    ),
                                   ),
 
                                   // 10. CRD Date
                                   DataCell(
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.event_rounded, size: 13, color: Colors.grey.shade500),
-                                        const SizedBox(width: 4),
-                                        Text(sess.cargoReadyDate, style: const TextStyle(fontSize: 12)),
-                                      ],
+                                    CopyableTableCell(
+                                      value: sess.cargoReadyDate,
+                                      rowSummary: rowSummary,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.event_rounded, size: 13, color: Colors.grey.shade500),
+                                          const SizedBox(width: 4),
+                                          Text(sess.cargoReadyDate, style: const TextStyle(fontSize: 12)),
+                                        ],
+                                      ),
                                     ),
                                   ),
 
                                   // 11. Pick-up Address
                                   DataCell(
-                                    SizedBox(
-                                      width: 140,
-                                      child: Text(
-                                        sess.pickUpAddress ?? '—',
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                    CopyableTableCell(
+                                      value: sess.pickUpAddress ?? '—',
+                                      rowSummary: rowSummary,
+                                      child: SizedBox(
+                                        width: 140,
+                                        child: Text(
+                                          sess.pickUpAddress ?? '—',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -570,7 +618,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+              CopyableText(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
               Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
             ],
           ),
@@ -613,19 +661,20 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                     ],
                     rows: sess.items.asMap().entries.map((e) {
                       final item = e.value;
+                      final rowSummary = '${item.providerName} | ${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency} | ${item.expectedTotalDaysToWarehouse}d | ${item.polName ?? "-"} ➔ ${item.podName ?? "-"} | ${item.vesselName}';
                       return DataRow(
                         cells: [
-                          DataCell(Text('${e.key + 1}')),
-                          DataCell(Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold))),
-                          DataCell(Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red))),
-                          DataCell(Text('${item.expectedTotalDaysToWarehouse} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
-                          DataCell(Text(item.customsBrokerName ?? '-')),
-                          DataCell(Text('${item.vesselName} (${item.voyageNumber ?? "-"})')),
-                          DataCell(Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11))),
-                          DataCell(Text(item.sailingDate)),
-                          DataCell(Text(item.estimatedArrivalDate)),
-                          DataCell(Text('${item.freeTimeDays} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
-                          DataCell(Text(item.isRecommended ? '⭐ ${l.recommendedLineMetric}' : item.isExcludedFromAverage ? '🚫 Excluded' : 'Normal')),
+                          DataCell(CopyableTableCell(value: '${e.key + 1}', rowSummary: rowSummary, child: Text('${e.key + 1}'))),
+                          DataCell(CopyableTableCell(value: item.providerName, rowSummary: rowSummary, child: Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold)))),
+                          DataCell(CopyableTableCell(value: '${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', rowSummary: rowSummary, child: Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)))),
+                          DataCell(CopyableTableCell(value: '${item.expectedTotalDaysToWarehouse} d', rowSummary: rowSummary, child: Text('${item.expectedTotalDaysToWarehouse} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)))),
+                          DataCell(CopyableTableCell(value: item.customsBrokerName ?? '-', rowSummary: rowSummary, child: Text(item.customsBrokerName ?? '-'))),
+                          DataCell(CopyableTableCell(value: '${item.vesselName} (${item.voyageNumber ?? "-"})', rowSummary: rowSummary, child: Text('${item.vesselName} (${item.voyageNumber ?? "-"})'))),
+                          DataCell(CopyableTableCell(value: '${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', rowSummary: rowSummary, child: Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11)))),
+                          DataCell(CopyableTableCell(value: item.sailingDate, rowSummary: rowSummary, child: Text(item.sailingDate))),
+                          DataCell(CopyableTableCell(value: item.estimatedArrivalDate, rowSummary: rowSummary, child: Text(item.estimatedArrivalDate))),
+                          DataCell(CopyableTableCell(value: '${item.freeTimeDays} d', rowSummary: rowSummary, child: Text('${item.freeTimeDays} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)))),
+                          DataCell(CopyableTableCell(value: item.isRecommended ? l.recommendedLineMetric : item.isExcludedFromAverage ? l.excludedBadge : l.normalBadge, rowSummary: rowSummary, child: Text(item.isRecommended ? '⭐ ${l.recommendedLineMetric}' : item.isExcludedFromAverage ? l.excludedBadge : l.normalBadge))),
                         ],
                       );
                     }).toList(),
@@ -852,7 +901,6 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             final l = dialogCtx.l10n;
-            final isArabic = Localizations.localeOf(dialogCtx).languageCode == 'ar';
             // Compute plan dynamically based on the selected mode
             final plan = ContainerRequirementEngine.planShipment(
               baseCargoItems,
@@ -897,7 +945,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                       border: Border.all(color: AppTheme.cobalt),
                     ),
                     child: Text(
-                      '${isArabic ? "الأسطول المطلوب:" : "Required Fleet:"} $fleetSummaryText (${plan.length} ${isArabic ? "حاوية" : "Container(s)"})',
+                      l.requiredFleetLabel(fleetSummaryText, plan.length),
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                     ),
                   ),
@@ -920,7 +968,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            isArabic ? '🔄 اختر سيناريو الرص للمعاينة:' : '🔄 Select Stacking Scenario for Preview:',
+                            l.selectStackingScenarioLabel,
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                           ),
                           Row(
@@ -986,18 +1034,18 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                         children: [
                           Row(
                             children: [
-                              _buildLoadMetricPill('📦 إجمالي الطرود', '$totalPkgs طرد', AppTheme.cobalt),
+                              _buildLoadMetricPill(l.totalPackagesMetricLabel, '$totalPkgs', AppTheme.cobalt),
                               const SizedBox(width: 8),
-                              _buildLoadMetricPill('⚖️ إجمالي الوزن', '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
+                              _buildLoadMetricPill(l.totalWeightMetricLabel, '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
                               const SizedBox(width: 8),
-                              _buildLoadMetricPill('📐 إجمالي الحجم', '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
+                              _buildLoadMetricPill(l.totalVolumeMetricLabel, '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
                             ],
                           ),
                           Row(
                             children: [
-                              _buildLoadMetricPill('✅ يقبل الرص', '$stackableInActive طرد', Colors.green.shade800),
+                              _buildLoadMetricPill(l.stackableMetricLabel, '$stackableInActive', Colors.green.shade800),
                               const SizedBox(width: 8),
-                              _buildLoadMetricPill('🚫 لا يقبل الرص', '$nonStackableInActive طرد', Colors.red.shade800),
+                              _buildLoadMetricPill(l.nonStackableMetricLabel, '$nonStackableInActive', Colors.red.shade800),
                             ],
                           ),
                         ],
@@ -1019,11 +1067,11 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                           TableRow(
                             decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
                             children: [
-                              Padding(padding: const EdgeInsets.all(6.0), child: Text(isArabic ? 'الحاوية' : 'Container', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6.0), child: Text(isArabic ? 'الأصناف والطرود' : 'Items & Packages', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6.0), child: Text(isArabic ? 'الوزن المحمّل' : 'Loaded Weight', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6.0), child: Text(isArabic ? 'استغلال المساحة %' : 'Space Util %', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6.0), child: Text(isArabic ? 'توزيع الرص والسلامة' : 'Safety & Distribution', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6.0), child: Text(l.itemsAndPackagesCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6.0), child: Text(l.loadedWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6.0), child: Text(l.spaceUtilizationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6.0), child: Text(l.safetyDistributionCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                             ],
                           ),
                         ...plan.asMap().entries.map((entry) {
@@ -1033,17 +1081,13 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
 
                           String statusText = '';
                           if (res.containerCode == 'FAILED') {
-                            statusText = isArabic ? 'فشل التحميل (طرود كبيرة الحجم/الوزن)' : 'Loading Failed (Oversized/Overweight)';
+                            statusText = l.loadingFailedStatus(res.unplacedItems.map((u) => u.itemId).join(", "));
                           } else {
                             final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
                             if (nonStackInThis > 0) {
-                              statusText = isArabic
-                                  ? 'تحتوي على $nonStackInThis طرد غير قابل للرص مثبت على الأرضية'
-                                  : 'Contains $nonStackInThis floor-placed non-stackable package(s)';
+                              statusText = l.nonStackableFloorCount(nonStackInThis);
                             } else {
-                              statusText = isArabic
-                                  ? 'رص متعدد الطبقات متوافق (${(res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1)}%)'
-                                  : 'Multi-layer stacking compliant (${(res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1)}%)';
+                              statusText = l.multiLayerCompliant((res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1));
                             }
                           }
 
@@ -1053,33 +1097,33 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                             children: [
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text(
-                                  res.containerCode == 'FAILED' ? (isArabic ? 'فشل الرص' : 'Failed') : '$idx: ${res.spec.code}',
+                                child: CopyableText(
+                                  res.containerCode == 'FAILED' ? l.failedStackLabel : '$idx: ${res.spec.code}',
                                   style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11),
                                 ),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text(placedIds.isEmpty ? '-' : placedIds, style: const TextStyle(fontSize: 11)),
+                                child: CopyableText(placedIds.isEmpty ? '-' : placedIds, style: const TextStyle(fontSize: 11)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11)),
+                                child: CopyableText(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange)),
+                                child: CopyableText('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text(
+                                child: CopyableText(
                                   statusText,
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
-                                    color: statusText.contains('فشل') || statusText.contains('Failed')
+                                    color: res.containerCode == 'FAILED'
                                         ? Colors.red.shade800
-                                        : (statusText.contains('غير قابل') || statusText.contains('non-stackable') ? Colors.brown.shade800 : Colors.green.shade800),
+                                        : (res.placedItems.any((p) => !p.item.isStackable) ? Colors.brown.shade800 : Colors.green.shade800),
                                   ),
                                 ),
                               ),
@@ -1101,10 +1145,8 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                               padding: const EdgeInsets.all(16),
                               margin: const EdgeInsets.all(12),
                               decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade300)),
-                              child: Text(
-                                isArabic
-                                    ? 'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(", ")}'
-                                    : 'The following items exceed container capacity: ${res.unplacedItems.map((u) => u.itemId).join(", ")}',
+                              child: CopyableText(
+                                l.itemsExceedCapacity(res.unplacedItems.map((u) => u.itemId).join(", ")),
                                 style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                               ),
                             );
@@ -1121,21 +1163,19 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        isArabic
-                                            ? 'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})'
-                                            : 'Container #${pIdx + 1} Layout: ${res.spec.name} (${res.spec.code})',
+                                      CopyableText(
+                                        l.containerLayoutTitle(pIdx + 1, res.spec.name, res.spec.code),
                                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                       ),
                                       Row(
                                         children: [
-                                          Text(isArabic ? '🪵 طبالي خشبية أرضية' : '🪵 Wooden Floor Pallets', style: const TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                          Text(l.woodenFloorPalletsLabel, style: const TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 10),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
-                                            child: Text(
-                                              '${isArabic ? "الأبعاد الداخلية:" : "Internal Dims:"} ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm',
+                                            child: CopyableText(
+                                              l.internalDimsLabel(res.spec.internalLength.toStringAsFixed(0), res.spec.internalWidth.toStringAsFixed(0), res.spec.internalHeight.toStringAsFixed(0)),
                                               style: const TextStyle(fontSize: 10, color: AppTheme.cobalt),
                                             ),
                                           ),
@@ -1188,7 +1228,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                 TextButton.icon(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
-                  label: Text(isArabic ? 'إغلاق المخطط' : 'Close Plan'),
+                  label: Text(l.closePlanBtn),
                 ),
               ],
             );
@@ -1240,7 +1280,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
         children: [
           Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
           const SizedBox(width: 4),
-          Text(value, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+          CopyableText(value, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
         ],
       ),
     );

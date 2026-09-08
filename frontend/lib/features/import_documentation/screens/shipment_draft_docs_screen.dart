@@ -59,12 +59,21 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         _selectedSubTab = widget.initialSubTab;
       });
     }
+    if (oldWidget.initialImportFileId != widget.initialImportFileId && widget.initialImportFileId != null) {
+      setState(() {
+        _selectedImportFileId = widget.initialImportFileId;
+      });
+    }
   }
 
   Future<void> _refreshData() async {
-    await ref.read(importFilesProvider.notifier).fetchImportFiles();
-    final files = ref.read(importFilesProvider).value ?? [];
-    ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments();
+    if (!ref.read(importFilesProvider).isLoading) {
+      await ref.read(importFilesProvider.notifier).fetchImportFiles();
+    }
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
+    if (!ref.read(shipmentDocumentsProvider).isLoading) {
+      ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments();
+    }
     if (_selectedImportFileId == null && files.isNotEmpty && mounted) {
       setState(() {
         _selectedImportFileId = files.first.importFileId;

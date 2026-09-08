@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 
 void showRouteIntelligenceDialog(BuildContext context, WidgetRef ref, {
   required int supplierId,
@@ -67,41 +68,45 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 820,
-        padding: const EdgeInsets.all(24),
-        child: _isLoading
-            ? const SizedBox(
-                height: 320,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            : _error != null
-                ? SizedBox(
-                    height: 250,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.error_outline, color: AppTheme.crimson, size: 48),
-                          const SizedBox(height: 12),
-                          Text(_error!, style: const TextStyle(color: AppTheme.crimson)),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: _fetchIntelligenceCard,
-                            child: const Text('إعادة المحاولة'),
-                          ),
-                        ],
+      child: SelectionArea(
+        child: Container(
+          width: 820,
+          padding: const EdgeInsets.all(24),
+          child: _isLoading
+              ? const SizedBox(
+                  height: 320,
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              : _error != null
+                  ? SizedBox(
+                      height: 250,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline, color: AppTheme.crimson, size: 48),
+                            const SizedBox(height: 12),
+                            Text(_error!, style: const TextStyle(color: AppTheme.crimson)),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: _fetchIntelligenceCard,
+                              child: Text(l10n.retryConnectionBtn),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  )
-                : _buildContent(),
+                    )
+                  : _buildContent(context),
+        ),
       ),
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(BuildContext context) {
+    final l10n = context.l10n;
     final country = _card?['country_name'] ?? '';
     final code = _card?['country_code'] ?? '';
     final avgCycleDays = _card?['average_cycle_days'] ?? 0;
@@ -133,11 +138,11 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'بطاقة ذكاء المسار والمورد والتاريخ التفاوضي (Route Intelligence Card)',
+                      l10n.routeIntelligenceDialogTitle,
                       style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                     ),
                     Text(
-                      'المورد: ${widget.supplierName}  •  الدولة: $country ($code)',
+                      '${l10n.supplierCompanyNameLabel}: ${widget.supplierName}  •  ${l10n.supplierCountryLabel}: $country ($code)',
                       style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                     ),
                   ],
@@ -170,9 +175,9 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'توصية الذكاء الاصطناعي للاعتماد والتفاوض:',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13),
+                        Text(
+                          l10n.routeIntelligenceAiRecommendationTitle,
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13),
                         ),
                         const SizedBox(height: 4),
                         Text(recommendation, style: TextStyle(color: Colors.grey.shade900, fontSize: 13, height: 1.4)),
@@ -188,8 +193,8 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
             children: [
               Expanded(
                 child: _buildMetricTile(
-                  'متوسط دورة الاستيراد',
-                  '$avgCycleDays يوم',
+                  l10n.routeIntelligenceAvgCycleDays,
+                  '$avgCycleDays ${l10n.routeIntelligenceDaysSuffix}',
                   Icons.timelapse_outlined,
                   AppTheme.cobalt,
                 ),
@@ -197,8 +202,8 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
               const SizedBox(width: 12),
               Expanded(
                 child: _buildMetricTile(
-                  'آخر نولون مسجل',
-                  recentFreight != null ? '\$${(recentFreight['freight_cost_usd'] ?? 0)}' : 'غير مسجل',
+                  l10n.routeIntelligenceRecentFreight,
+                  recentFreight != null ? '\$${(recentFreight['freight_cost_usd'] ?? 0)}' : l10n.routeIntelligenceNotRecorded,
                   Icons.directions_boat_outlined,
                   AppTheme.emerald,
                 ),
@@ -206,8 +211,8 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
               const SizedBox(width: 12),
               Expanded(
                 child: _buildMetricTile(
-                  'آخر أتعاب تخليص',
-                  clearance != null ? '${(clearance['clearance_fee_egp'] ?? 0)} ج.م' : 'غير مسجل',
+                  l10n.routeIntelligenceRecentClearance,
+                  clearance != null ? '${(clearance['clearance_fee_egp'] ?? 0)} ${l10n.routeIntelligenceCurrencyEgp}' : l10n.routeIntelligenceNotRecorded,
                   Icons.receipt_outlined,
                   AppTheme.orange,
                 ),
@@ -217,22 +222,22 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
           const SizedBox(height: 18),
 
           // Historical Item Prices
-          const Text('📊 تاريخ أسعار الأصناف من هذا المورد (Historical Item Prices):',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+          Text('📊 ${l10n.routeIntelligenceItemPricesTitle}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
           const SizedBox(height: 8),
           if (historicalPrices.isEmpty)
-            Text('لا توجد مشتريات سابقة مسجلة لأصناف هذا المورد بعد.', style: TextStyle(color: Colors.grey.shade500, fontSize: 13))
+            Text(l10n.routeIntelligenceNoPurchasesYet, style: TextStyle(color: Colors.grey.shade500, fontSize: 13))
           else
             Table(
               border: TableBorder.all(color: Colors.grey.shade300),
               children: [
                 TableRow(
                   decoration: BoxDecoration(color: Colors.grey.shade100),
-                  children: const [
-                    Padding(padding: EdgeInsets.all(8), child: Text('كود الصنف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    Padding(padding: EdgeInsets.all(8), child: Text('الوصف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    Padding(padding: EdgeInsets.all(8), child: Text('آخر سعر وحدة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    Padding(padding: EdgeInsets.all(8), child: Text('أمر الشراء', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  children: [
+                    Padding(padding: const EdgeInsets.all(8), child: Text(l10n.routeIntelligenceItemCodeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    Padding(padding: const EdgeInsets.all(8), child: Text(l10n.routeIntelligenceItemDescCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    Padding(padding: const EdgeInsets.all(8), child: Text(l10n.routeIntelligenceLastUnitPriceCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    Padding(padding: const EdgeInsets.all(8), child: Text(l10n.routeIntelligenceOrderCodeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                   ],
                 ),
                 ...historicalPrices.map((p) => TableRow(
@@ -249,8 +254,8 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
 
           // Operational Notes & Warnings
           if (notes.isNotEmpty) ...[
-            const Text('⚠️ الملاحظات التشغيلية والتحذيرات السابقة:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.crimson)),
+            Text('⚠️ ${l10n.routeIntelligenceNotesTitle}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.crimson)),
             const SizedBox(height: 8),
             ...notes.map((n) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),

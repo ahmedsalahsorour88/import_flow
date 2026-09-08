@@ -100,5 +100,51 @@ void main() {
       expect(serialized['container_mismatch_reason'], 'High volumetric density required 40HC');
       expect(serialized['status'], 'Confirmed');
     });
+
+    test('ShipmentBookingModel should parse and serialize cost savings and variances correctly', () {
+      final json = {
+        'booking_id': 1,
+        'booking_code': 'BKG-2026-0001',
+        'shipment_type': 'Ocean FCL',
+        'status': 'Draft',
+        'owner': 'Kamal',
+        'total_freight_cost_usd': 7750.0,
+        'original_freight_cost_usd': 8280.0,
+        'cost_savings_usd': 530.0,
+        'cost_variance_usd': 530.0,
+        'savings_notes': 'وفر محقق في النولون: \$530.00 USD (6.4% توفير)',
+        'quotation_details_data': {
+          'original_container_40ft_price': 8280.0,
+          'container_40ft_price': 7750.0,
+          'savings_breakdown': [
+            {
+              'charge_type': 'Sea Freight 40ft',
+              'original_unit_rate': 8280.0,
+              'executed_unit_rate': 7750.0,
+              'unit_diff': 530.0,
+              'quantity': 1,
+              'item_savings': 530.0,
+            }
+          ]
+        },
+      };
+
+      final booking = ShipmentBookingModel.fromJson(json);
+
+      expect(booking.totalFreightCostUsd, 7750.0);
+      expect(booking.originalFreightCostUsd, 8280.0);
+      expect(booking.costSavingsUsd, 530.0);
+      expect(booking.costVarianceUsd, 530.0);
+      expect(booking.hasSavings, isTrue);
+      expect(booking.hasCostIncrease, isFalse);
+      expect(booking.savingsPercent, closeTo(6.40, 0.05));
+      expect(booking.savingsNotes, contains('530.00'));
+
+      final map = booking.toJson();
+      expect(map['original_freight_cost_usd'], 8280.0);
+      expect(map['cost_savings_usd'], 530.0);
+      expect(map['cost_variance_usd'], 530.0);
+      expect(map['savings_notes'], contains('530.00'));
+    });
   });
 }

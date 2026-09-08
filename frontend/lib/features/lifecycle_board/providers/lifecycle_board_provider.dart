@@ -8,14 +8,24 @@ import '../../../core/network/api_client.dart';
 final lifecycleBoardSummaryProvider =
     FutureProvider.autoDispose<LifecycleBoardSummaryModel>((ref) async {
   final dio = ref.watch(dioProvider);
-  final response = await dio.get('${ApiConstants.baseUrl}/lifecycle-board/summary');
+  final cancelToken = CancelToken();
+  ref.onDispose(() => cancelToken.cancel('lifecycleBoardSummaryProvider disposed'));
+  final response = await dio.get(
+    '${ApiConstants.baseUrl}/lifecycle-board/summary',
+    cancelToken: cancelToken,
+  );
   return LifecycleBoardSummaryModel.fromJson(response.data);
 });
 
 final liveLogisticsTrackingProvider =
     FutureProvider.autoDispose<LiveLogisticsSummaryModel>((ref) async {
   final dio = ref.watch(dioProvider);
-  final response = await dio.get('${ApiConstants.baseUrl}/lifecycle-board/live-tracking');
+  final cancelToken = CancelToken();
+  ref.onDispose(() => cancelToken.cancel('liveLogisticsTrackingProvider disposed'));
+  final response = await dio.get(
+    '${ApiConstants.baseUrl}/lifecycle-board/live-tracking',
+    cancelToken: cancelToken,
+  );
   return LiveLogisticsSummaryModel.fromJson(response.data);
 });
 

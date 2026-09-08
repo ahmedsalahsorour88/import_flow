@@ -81,6 +81,27 @@ void main() {
       expect(lAr.customsStudySavedSuccess, equals('تم حفظ مراجعة الضرائب والرسوم الجمركية بنجاح!'));
       expect(lAr.customsStudyUpdatedSuccess, equals('تم تحديث مراجعة الضرائب الجمركية بنجاح!'));
 
+      // Screen 6 & 7 Keys
+      expect(lAr.invoiceCurrencyLabel, equals('عملة البضاعة / الفاتورة'));
+      expect(lAr.customsFxRateLabel, equals('سعر الصرف الجمركي للبضاعة (EGP)'));
+      expect(lAr.freightDataHeader, equals('بيانات النولون البحري / الجوي'));
+      expect(lAr.fetchHighestFreightFromStudy, equals('جلب أعلى نولون من دراسة الشحن'));
+      expect(lAr.foreignFreightAmountLabel, equals('قيمة النولون بالعملة الأجنبية'));
+      expect(lAr.freightCurrencyLabel, equals('عملة النولون'));
+      expect(lAr.freightFxRateLabel, equals('سعر صرف عملة النولون (EGP)'));
+      expect(lAr.estimatedCustomsInsuranceRateLabel, equals('نسبة التأمين التقديري الجمركي:'));
+      expect(lAr.standardCustomsInsuranceRate, equals('0.5% (القياسي للجمارك)'));
+      expect(lAr.customInsuranceRate, equals('مخصص'));
+      expect(lAr.declaredCifBaseLabel, equals('إجمالي القيمة المقر عنها للأغراض الجمركية (CIF Base):'));
+      expect(lAr.groupedHsCodeItems, equals('بند تعريفة مجمع'));
+      expect(lAr.detailedItems, equals('بند تفصيلي'));
+      expect(lAr.groupByHsCodeOption, equals('✓ مجمع حسب بند التعريفة'));
+      expect(lAr.detailedItemViewOption, equals('عرض تفصيلي لكل بند'));
+      expect(lAr.partySupplierExporter, equals('المورد المعتمد'));
+      expect(lAr.partyImporterTeam, equals('فريق المستورد'));
+      expect(lAr.acidShipmentDoc, equals('قيد رقم ACID المسبق للشحنة الكاملة (Nafeza / CargoX)'));
+      expect(lAr.goeicAgencyName, equals('هيئة الرقابة على الصادرات والواردات (GOEIC)'));
+
       // Verify no stacked bilingual strings in Arabic
       expect(lAr.customsStudiesTitle.contains('Customs Studies'), isFalse);
       expect(lAr.customsWorkspaceTab.contains('Customs Workspace'), isFalse);
@@ -88,6 +109,9 @@ void main() {
       expect(lAr.blockingIssuesTitle.contains('Blocking Issues'), isFalse);
       expect(lAr.nafezaDeclarationBreakdown.contains('Nafeza Statement'), isFalse);
       expect(lAr.agreementEur1.contains('Agreement'), isFalse);
+      expect(lAr.freightDataHeader.contains('Freight'), isFalse);
+      expect(lAr.partySupplierExporter.contains('Supplier'), isFalse);
+      expect(lAr.partyImporterTeam.contains('Importer'), isFalse);
     });
 
     test('English AppLocalizationsEn returns pure English for customs consultation keys', () {
@@ -167,6 +191,27 @@ void main() {
       expect(lEn.customsStudySavedSuccess, equals('Customs duty and tax review saved successfully!'));
       expect(lEn.customsStudyUpdatedSuccess, equals('Customs duty review updated successfully!'));
 
+      // Screen 6 & 7 Keys
+      expect(lEn.invoiceCurrencyLabel, equals('Invoice / Goods Currency'));
+      expect(lEn.customsFxRateLabel, equals('Customs Exchange Rate (EGP)'));
+      expect(lEn.freightDataHeader, equals('Ocean / Air Freight Details'));
+      expect(lEn.fetchHighestFreightFromStudy, equals('Fetch Highest Freight from Shipping Study'));
+      expect(lEn.foreignFreightAmountLabel, equals('Freight in Foreign Currency'));
+      expect(lEn.freightCurrencyLabel, equals('Freight Currency'));
+      expect(lEn.freightFxRateLabel, equals('Freight Exchange Rate (EGP)'));
+      expect(lEn.estimatedCustomsInsuranceRateLabel, equals('Estimated Customs Insurance Rate:'));
+      expect(lEn.standardCustomsInsuranceRate, equals('0.5% (Customs Standard)'));
+      expect(lEn.customInsuranceRate, equals('Custom'));
+      expect(lEn.declaredCifBaseLabel, equals('Total Declared CIF Base Value:'));
+      expect(lEn.groupedHsCodeItems, equals('Grouped HS Items'));
+      expect(lEn.detailedItems, equals('Detailed Items'));
+      expect(lEn.groupByHsCodeOption, equals('✓ Grouped by HS Code'));
+      expect(lEn.detailedItemViewOption, equals('Detailed Item View'));
+      expect(lEn.partySupplierExporter, equals('Authorized Supplier'));
+      expect(lEn.partyImporterTeam, equals('Importer Team'));
+      expect(lEn.acidShipmentDoc, equals('Advance ACID Filing for Entire Shipment (Nafeza / CargoX)'));
+      expect(lEn.goeicAgencyName, equals('General Organization for Export & Import Control (GOEIC)'));
+
       // Verify no Arabic characters in English getters
       final arabicRegex = RegExp(r'[\u0600-\u06FF]');
       expect(arabicRegex.hasMatch(lEn.customsStudiesTitle), isFalse);
@@ -174,6 +219,9 @@ void main() {
       expect(arabicRegex.hasMatch(lEn.customsChecklistTitle), isFalse);
       expect(arabicRegex.hasMatch(lEn.blockingIssuesTitle), isFalse);
       expect(arabicRegex.hasMatch(lEn.nafezaDeclarationBreakdown), isFalse);
+      expect(arabicRegex.hasMatch(lEn.freightDataHeader), isFalse);
+      expect(arabicRegex.hasMatch(lEn.partySupplierExporter), isFalse);
+      expect(arabicRegex.hasMatch(lEn.partyImporterTeam), isFalse);
     });
   });
 }

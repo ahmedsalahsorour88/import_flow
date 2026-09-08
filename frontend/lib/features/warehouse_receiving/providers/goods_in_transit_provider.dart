@@ -24,7 +24,7 @@ class GoodsInTransitNotifier extends StateNotifier<AsyncValue<List<GitLineItemMo
     required String importFileCode,
     required List<GitLineItemModel> items,
   }) {
-    final current = state.value ?? [];
+    final current = state.valueOrNull ?? [];
     final updated = List<GitLineItemModel>.from(current);
     // Remove old entries for this file if any, then insert new items
     updated.removeWhere((i) => i.importFileId == importFileId);
@@ -33,7 +33,7 @@ class GoodsInTransitNotifier extends StateNotifier<AsyncValue<List<GitLineItemMo
   }
 
   void confirmWarehouseReceipt(int importFileId) {
-    final current = state.value ?? [];
+    final current = state.valueOrNull ?? [];
     final updated = current.map((item) {
       if (item.importFileId == importFileId) {
         return item.copyWith(isDeliveredToWarehouse: true);

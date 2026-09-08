@@ -4,6 +4,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 class PartnerStatementOfAccountDialog extends ConsumerWidget {
   final PartnerModel partner;
@@ -25,6 +26,37 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
     return '$intPart.${parts[1]}';
   }
 
+  void _copySoaTsv(BuildContext context, dynamic soa) {
+    final l10n = context.l10n;
+    final headers = [
+      l10n.ledgerDateCol,
+      l10n.ledgerTypeCol,
+      l10n.ledgerRefCol,
+      l10n.ledgerImportFileCol,
+      l10n.ledgerDescriptionCol,
+      l10n.ledgerCurrencyCol,
+      l10n.ledgerDebitCol,
+      l10n.ledgerCreditCol,
+      l10n.ledgerStatusCol,
+    ];
+    final rows = soa.ledgerEntries.map((e) => [
+      e.entryDate,
+      e.entryType.contains('Invoice') ? l10n.ledgerInvoiceBadge : l10n.ledgerPaymentBadge,
+      e.referenceNo,
+      e.importFileCode ?? '',
+      e.description,
+      e.currency,
+      e.debitAmount.toStringAsFixed(2),
+      e.creditAmount.toStringAsFixed(2),
+      e.status,
+    ]);
+    final tsv = [
+      headers.join('\t'),
+      ...rows.map((r) => r.map((c) => c.toString().replaceAll('\t', ' ').replaceAll('\n', ' ')).join('\t')),
+    ].join('\n');
+    CopyHelper.copy(context, tsv, customMessage: l10n.soaExportTsvSuccess);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
@@ -33,8 +65,9 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-      child: Container(
-        width: 1000,
+      child: SelectionArea(
+        child: Container(
+          width: 1000,
         constraints: const BoxConstraints(maxHeight: 700),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -66,12 +99,15 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                       children: [
                         Row(
                           children: [
-                            Text(
-                              l10n.partnerSoaTitle(partner.partnerName),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
+                            Flexible(
+                              child: Text(
+                                l10n.partnerSoaTitle(partner.partnerName),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -92,9 +128,20 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                         Text(
                           l10n.partnerSoaSubtitle(partner.partnerType, partner.taxId ?? "—"),
                           style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.table_chart_outlined, color: Colors.white70),
+                    tooltip: l10n.soaExportTsvBtn,
+                    onPressed: () {
+                      final soa = soaAsync.asData?.value;
+                      if (soa != null && soa.ledgerEntries.isNotEmpty) {
+                        _copySoaTsv(context, soa);
+                      }
+                    },
                   ),
                   IconButton(
                     icon: const Icon(Icons.refresh, color: Colors.white70),
@@ -159,7 +206,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                           children: soa.currencyBalances.map((cb) {
                             final isPositive = cb.balanceDue > 0;
                             return Container(
-                              width: 220,
+                              width: 250,
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: Colors.grey.shade50,
@@ -191,25 +238,43 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                   ),
                                   const Divider(height: 12),
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(l10n.totalInvoicedLabel, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                                      Expanded(
+                                        child: Text(
+                                          l10n.totalInvoicedLabel,
+                                          style: const TextStyle(fontSize: 11, color: Colors.black54),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
                                       Text(_formatNumber(cb.totalInvoiced), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                     ],
                                   ),
                                   const SizedBox(height: 4),
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(l10n.totalPaidLabel, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                                      Expanded(
+                                        child: Text(
+                                          l10n.totalPaidLabel,
+                                          style: const TextStyle(fontSize: 11, color: Colors.black54),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
                                       Text(_formatNumber(cb.totalPaid), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                                     ],
                                   ),
                                   const SizedBox(height: 4),
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(l10n.balanceDueLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                                      Expanded(
+                                        child: Text(
+                                          l10n.balanceDueLabel,
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
                                       Text(
                                         _formatNumber(cb.balanceDue),
                                         style: TextStyle(
@@ -275,7 +340,10 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
                                     child: SingleChildScrollView(
-                                      child: DataTable(
+                                      scrollDirection: Axis.horizontal,
+                                      child: SingleChildScrollView(
+                                        scrollDirection: Axis.vertical,
+                                        child: DataTable(
                                         headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                                         columnSpacing: 18,
                                         horizontalMargin: 12,
@@ -363,6 +431,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                     ),
                                   ),
                                 ),
+                              ),
                         ),
                       ],
                     ),
@@ -398,6 +467,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
               ),
             ),
           ],
+          ),
         ),
       ),
     );

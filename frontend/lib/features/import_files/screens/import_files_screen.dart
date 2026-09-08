@@ -23,11 +23,12 @@ import '../../../core/widgets/reopen_shipment_dialog.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/stop_shipment_dialog.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
-
+import '../../../core/performance/dispose_tracker.dart';
 
 class ImportFilesScreen extends ConsumerStatefulWidget {
   final String? initialSearchQuery;
@@ -43,10 +44,41 @@ class ImportFilesScreen extends ConsumerStatefulWidget {
   ConsumerState<ImportFilesScreen> createState() => _ImportFilesScreenState();
 }
 
-class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
+class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with DisposeTrackerMixin<ImportFilesScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String _selectedStatusFilter = 'All';
+  String? _selectedStatusFilter = 'All';
   int? _highlightedFileId;
+
+  String _getPriorityLabel(String priority, AppLocalizations l) {
+    switch (priority.toLowerCase()) {
+      case 'critical':
+        return l.priorityCritical;
+      case 'high':
+        return l.priorityHigh;
+      case 'medium':
+        return l.priorityMedium;
+      case 'low':
+        return l.priorityLow;
+      default:
+        return priority;
+    }
+  }
+
+  String _getStatusLabel(String status, AppLocalizations l) {
+    switch (status.toLowerCase()) {
+      case 'open':
+        return l.statusOpen;
+      case 'closed':
+        return l.statusClosed;
+      case 'in progress':
+      case 'inprogress':
+        return l.statusInProgress;
+      case 'draft':
+        return l.filterStatusDraft;
+      default:
+        return status;
+    }
+  }
 
 
   void _showVisualLoadPlanDialogForReport(BuildContext context, List<PurchaseOrderModel> pos, double totalCbm, double totalWeight) {
@@ -409,7 +441,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                         ),
                         ...report.files.map((f) => SearchableDropdownItem<int?>(
                               value: f.importFileId,
-                              label: '📦 ${l.shipmentNoPrefix} ${f.customFileNumber ?? f.importFileCode} - ${f.supplierName} (${f.companyName})',
+                              label: '📦 ${f.primaryNameWithCode} - ${f.supplierName} (${f.companyName})',
                             )),
                       ],
                       onChanged: (val) => setPromptState(() => selectedFileId = val),
@@ -602,7 +634,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                   ),
                                   ...report.files.map((f) => SearchableDropdownItem<int?>(
                                         value: f.importFileId,
-                                        label: '📦 ${l.shipmentNoPrefix} ${f.customFileNumber ?? f.importFileCode} - ${f.supplierName} (${f.companyName})',
+                                        label: '📦 ${f.primaryNameWithCode} - ${f.supplierName} (${f.companyName})',
                                       )),
                                 ],
                                 onChanged: (val) {
@@ -664,82 +696,92 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                       DataColumn(label: Text(l.projectsAndCostCenters)),
                                       DataColumn(label: Text(l.poInvoiceLabel)),
                                       DataColumn(label: Text(l.transportModeIncoterm)),
-                                      const DataColumn(label: Text('Incoterms')),
+                                      DataColumn(label: Text(l.colIncoterms)),
                                       DataColumn(label: Text(l.totalCostMetric)),
                                       DataColumn(label: Text(l.targetEta)),
-                                      const DataColumn(label: Text('Port')),
-                                      const DataColumn(label: Text('Warehouse')),
-                                      const DataColumn(label: Text('Direct/Transit')),
-                                      const DataColumn(label: Text('Pickup Date')),
+                                      DataColumn(label: Text(l.colPort)),
+                                      DataColumn(label: Text(l.colWarehouse)),
+                                      DataColumn(label: Text(l.colDirectTransit)),
+                                      DataColumn(label: Text(l.colPickupDate)),
                                       DataColumn(label: Text(l.nextActionLabel)),
-                                      const DataColumn(label: Text('Doc Date')),
-                                      const DataColumn(label: Text('Swift')),
-                                      const DataColumn(label: Text('Carrier')),
-                                      const DataColumn(label: Text('ACID')),
-                                      const DataColumn(label: Text('FORM 4')),
-                                      const DataColumn(label: Text('FORM 46')),
+                                      DataColumn(label: Text(l.colDocDate)),
+                                      DataColumn(label: Text(l.colSwift)),
+                                      DataColumn(label: Text(l.colCarrier)),
+                                      DataColumn(label: Text(l.colAcid)),
+                                      DataColumn(label: Text(l.colForm4)),
+                                      DataColumn(label: Text(l.colForm46)),
                                       DataColumn(label: Text(l.status)),
                                     ],
                                     rows: displayFiles.map((f) {
                                       final double piVal = f.invoicesData.isNotEmpty
                                           ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                           : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
+                                      final ownerText = f.owner.contains('Broker') ? f.owner : l.customsBrokerLabel;
 
                                       return DataRow(
                                         cells: [
-                                          DataCell(Text(f.owner.contains('Broker') ? f.owner : 'Customs Broker', style: const TextStyle(fontSize: 11))),
+                                          DataCell(CopyableTableCell(value: ownerText, child: Text(ownerText, style: const TextStyle(fontSize: 11)))),
                                           DataCell(
-                                            InkWell(
-                                              onTap: () {
-                                                Navigator.pop(dialogCtx);
-                                                _showImportFileDetailsDialog(context, f);
-                                              },
-                                              child: Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(f.customFileNumber ?? f.importFileCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline, fontSize: 12)),
-                                                  Text(f.importFileCode, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                                ],
+                                            CopyableTableCell(
+                                              value: f.primaryNameWithCode,
+                                              child: InkWell(
+                                                onTap: () {
+                                                  Navigator.pop(dialogCtx);
+                                                  _showImportFileDetailsDialog(context, f);
+                                                },
+                                                child: Column(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(f.customFileNumber ?? f.importFileCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline, fontSize: 12)),
+                                                    Text(f.importFileCode, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           ),
-                                          DataCell(Text(f.supplierName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
-                                          DataCell(Text(f.projectNames ?? 'Main Site Building', style: const TextStyle(fontSize: 11))),
-                                          DataCell(Text('\$ ${piVal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 11))),
-                                          DataCell(Text(f.shipmentMode, style: const TextStyle(fontSize: 11))),
-                                          DataCell(Text(f.incotermCode, style: const TextStyle(fontSize: 11))),
-                                          DataCell(Text('\$ ${f.estimatedCost.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                          DataCell(Text(f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026', style: const TextStyle(fontSize: 11))),
-                                          DataCell(Text(f.requiredEta ?? '15-8-2026', style: const TextStyle(fontSize: 11))),
-                                          const DataCell(Text('31-8-2026', style: TextStyle(fontSize: 11))),
-                                          const DataCell(Center(child: Text('X', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
-                                          DataCell(Text(f.requiredEta ?? '15-8-2026', style: const TextStyle(fontSize: 11))),
+                                          DataCell(CopyableTableCell(value: f.supplierName, child: Text(f.supplierName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)))),
+                                          DataCell(CopyableTableCell(value: f.projectNames ?? 'Main Site Building', child: Text(f.projectNames ?? 'Main Site Building', style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: '\$ ${piVal.toStringAsFixed(2)}', child: Text('\$ ${piVal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: f.shipmentMode, child: Text(f.shipmentMode, style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: f.incotermCode, child: Text(f.incotermCode, style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: '\$ ${f.estimatedCost.toStringAsFixed(0)}', child: Text('\$ ${f.estimatedCost.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026', child: Text(f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026', style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: f.requiredEta ?? '15-8-2026', child: Text(f.requiredEta ?? '15-8-2026', style: const TextStyle(fontSize: 11)))),
+                                          const DataCell(CopyableTableCell(value: '31-8-2026', child: Text('31-8-2026', style: TextStyle(fontSize: 11)))),
+                                          const DataCell(CopyableTableCell(value: 'X', child: Center(child: Text('X', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))))),
+                                          DataCell(CopyableTableCell(value: f.requiredEta ?? '15-8-2026', child: Text(f.requiredEta ?? '15-8-2026', style: const TextStyle(fontSize: 11)))),
                                           DataCell(
-                                            SizedBox(
-                                              width: 240,
-                                              child: Text(
-                                                '${f.currentStage} (${f.progressPercent.toInt()}%) - ${f.nextAction}',
-                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
-                                                overflow: TextOverflow.ellipsis,
+                                            CopyableTableCell(
+                                              value: '${f.currentStage} (${f.progressPercent.toInt()}%) - ${f.nextAction}',
+                                              child: SizedBox(
+                                                width: 240,
+                                                child: Text(
+                                                  '${f.currentStage} (${f.progressPercent.toInt()}%) - ${f.nextAction}',
+                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
                                               ),
                                             ),
                                           ),
-                                          const DataCell(Text('10-8-2026', style: TextStyle(fontSize: 11))),
-                                          DataCell(Text(f.swiftNo ?? 'Vertex', style: const TextStyle(fontSize: 11))),
-                                          DataCell(Text(f.selectedScenario ?? 'MSC / COCOS', style: const TextStyle(fontSize: 11))),
-                                          DataCell(Text(f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                          DataCell(Text(f.form4No ?? 'FORM4-2026-001', style: const TextStyle(fontSize: 11))),
-                                          DataCell(Text(f.form46No ?? 'DEC46-2026-001', style: const TextStyle(fontSize: 11))),
+                                          const DataCell(CopyableTableCell(value: '10-8-2026', child: Text('10-8-2026', style: TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: f.swiftNo ?? 'Vertex', child: Text(f.swiftNo ?? 'Vertex', style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: f.selectedScenario ?? 'MSC / COCOS', child: Text(f.selectedScenario ?? 'MSC / COCOS', style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432', child: Text(f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
+                                          DataCell(CopyableTableCell(value: f.form4No ?? 'FORM4-2026-001', child: Text(f.form4No ?? 'FORM4-2026-001', style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: f.form46No ?? 'DEC46-2026-001', child: Text(f.form46No ?? 'DEC46-2026-001', style: const TextStyle(fontSize: 11)))),
                                           DataCell(
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: f.status == 'Open' ? AppTheme.emerald.withOpacity(0.15) : Colors.grey.shade200,
-                                                borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(color: f.status == 'Open' ? AppTheme.emerald : Colors.grey),
+                                            CopyableTableCell(
+                                              value: _getStatusLabel(f.status, l),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: f.status == 'Open' ? AppTheme.emerald.withOpacity(0.15) : Colors.grey.shade200,
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  border: Border.all(color: f.status == 'Open' ? AppTheme.emerald : Colors.grey),
+                                                ),
+                                                child: Text(_getStatusLabel(f.status, l), style: TextStyle(fontWeight: FontWeight.bold, color: f.status == 'Open' ? AppTheme.emerald : Colors.grey, fontSize: 11)),
                                               ),
-                                              child: Text(f.status, style: TextStyle(fontWeight: FontWeight.bold, color: f.status == 'Open' ? AppTheme.emerald : Colors.grey, fontSize: 11)),
                                             ),
                                           ),
                                         ],
@@ -831,8 +873,10 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                   // File Header & Summary Bar
                                   Row(
                                     children: [
-                                      Text(
-                                        '${l.importFileIdLabel}: ${file.customFileNumber ?? file.importFileCode} (${file.companyName})',
+                                      Text('${l.importFileIdLabel}: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                                      CopyableText(
+                                        '${file.customFileNumber ?? file.importFileCode} (${file.companyName})',
+                                        showIcon: false,
                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                                       ),
                                       const Spacer(),
@@ -843,7 +887,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                           borderRadius: BorderRadius.circular(6),
                                           border: Border.all(color: file.status == 'Open' ? AppTheme.emerald : Colors.grey),
                                         ),
-                                        child: Text(file.status, style: TextStyle(fontWeight: FontWeight.bold, color: file.status == 'Open' ? AppTheme.emerald : Colors.grey, fontSize: 12)),
+                                        child: Text(_getStatusLabel(file.status, l), style: TextStyle(fontWeight: FontWeight.bold, color: file.status == 'Open' ? AppTheme.emerald : Colors.grey, fontSize: 12)),
                                       ),
                                     ],
                                   ),
@@ -956,20 +1000,26 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                               ? '$poPalletCount ${l.palletsShippingPlan}'
                                               : '${po.packingListItems.length} ${l.packingItemsCount}';
 
+                                          final poRowSummary = '${po.poNumber}\t${po.proformaInvoiceNumber ?? "-"}\t${po.supplierName ?? file.supplierName}\t${po.paymentTerms ?? "-"}\t${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}\t$plText\t${poCbm.toStringAsFixed(3)} m³ / ${poWt.toStringAsFixed(0)} kg\t${po.status}';
+
                                           return DataRow(
                                             cells: [
-                                              DataCell(Text(po.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                              DataCell(Text(po.proformaInvoiceNumber ?? '-')),
-                                              DataCell(Text(po.supplierName ?? file.supplierName)),
-                                              DataCell(Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.amber.shade200)),
-                                                child: Text(po.paymentTerms ?? '-', style: TextStyle(fontSize: 11, color: Colors.brown.shade800, fontWeight: FontWeight.bold)),
+                                              DataCell(CopyableTableCell(value: po.poNumber, rowSummary: poRowSummary, child: Text(po.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
+                                              DataCell(CopyableTableCell(value: po.proformaInvoiceNumber ?? '-', rowSummary: poRowSummary, child: Text(po.proformaInvoiceNumber ?? '-'))),
+                                              DataCell(CopyableTableCell(value: po.supplierName ?? file.supplierName, rowSummary: poRowSummary, child: Text(po.supplierName ?? file.supplierName))),
+                                              DataCell(CopyableTableCell(
+                                                value: po.paymentTerms ?? '-',
+                                                rowSummary: poRowSummary,
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.amber.shade200)),
+                                                  child: Text(po.paymentTerms ?? '-', style: TextStyle(fontSize: 11, color: Colors.brown.shade800, fontWeight: FontWeight.bold)),
+                                                ),
                                               )),
-                                              DataCell(Text('${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
-                                              DataCell(Text(plText)),
-                                              DataCell(Text('${poCbm.toStringAsFixed(3)} m³ / ${poWt.toStringAsFixed(0)} kg', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
-                                              DataCell(Text(po.status, style: TextStyle(color: po.status == 'Approved' ? AppTheme.emerald : Colors.blue, fontWeight: FontWeight.bold))),
+                                              DataCell(CopyableTableCell(value: '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', rowSummary: poRowSummary, child: Text('${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)))),
+                                              DataCell(CopyableTableCell(value: plText, rowSummary: poRowSummary, child: Text(plText))),
+                                              DataCell(CopyableTableCell(value: '${poCbm.toStringAsFixed(3)} m³ / ${poWt.toStringAsFixed(0)} kg', rowSummary: poRowSummary, child: Text('${poCbm.toStringAsFixed(3)} m³ / ${poWt.toStringAsFixed(0)} kg', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)))),
+                                              DataCell(CopyableTableCell(value: po.status, rowSummary: poRowSummary, child: Text(po.status, style: TextStyle(color: po.status == 'Approved' ? AppTheme.emerald : Colors.blue, fontWeight: FontWeight.bold)))),
                                             ],
                                           );
                                         }).toList(),
@@ -1041,7 +1091,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             context: context,
                             textContent: buffer.toString(),
                             defaultFileName: filename,
-                            dialogTitle: 'حفظ التقرير الشامل لملفات الاستيراد بصيغة Excel / CSV',
+                            dialogTitle: l.saveComprehensiveReportDialogTitle,
                             allowedExtensions: ['csv', 'xlsx'],
                           );
                         },
@@ -1081,7 +1131,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
         children: [
           Text(title, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+          CopyableText(value, showIcon: false, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
           Text(sub, style: const TextStyle(fontSize: 9, color: Colors.grey), overflow: TextOverflow.ellipsis),
         ],
@@ -1098,7 +1148,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
           children: [
             Text(title, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text(value, style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.bold)),
+            CopyableText(value, showIcon: false, style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -1113,12 +1163,29 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
     }
     _highlightedFileId = widget.highlightedFileId;
     Future.microtask(() {
-      ref.read(paginatedImportFilesProvider.notifier).fetchPage(1);
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
-      ref.read(importCompaniesProvider.notifier).fetchCompanies();
-      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
-      ref.read(shippingScenariosProvider.notifier).fetchSessions();
+      final paginatedState = ref.read(paginatedImportFilesProvider);
+      if (!paginatedState.isLoading) {
+        ref.read(paginatedImportFilesProvider.notifier).fetchPage(1);
+      }
+      final companiesState = ref.read(importCompaniesProvider);
+      if (companiesState is! AsyncLoading && (companiesState.value == null || companiesState.value!.isEmpty)) {
+        ref.read(importCompaniesProvider.notifier).fetchCompanies();
+      }
+      final posState = ref.read(purchaseOrdersProvider);
+      if (!posState.isLoading && posState.purchaseOrders.isEmpty) {
+        ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      }
+      final scenariosState = ref.read(shippingScenariosProvider);
+      if (!scenariosState.isLoading && scenariosState.sessions.isEmpty) {
+        ref.read(shippingScenariosProvider.notifier).fetchSessions();
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _showImportFileDetailsDialog(BuildContext context, ImportFileModel file) {
@@ -1146,6 +1213,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final paginatedState = ref.watch(paginatedImportFilesProvider);
+    final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
+    final Map<int, List<PurchaseOrderModel>> linkedPOsCache = {};
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -1231,9 +1300,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             );
                           },
                           icon: const Icon(Icons.auto_awesome),
-                          label: const Text(
-                            'استخلاص الفواتير والبوالص (AI)',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          label: Text(
+                            l.smartInvoiceBlExtractorButton,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
                         ElevatedButton.icon(
@@ -1249,9 +1318,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             );
                           },
                           icon: const Icon(Icons.analytics_outlined),
-                          label: const Text(
-                            'محاكي الأزمات وتحوط الصرف (What-If)',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          label: Text(
+                            l.whatIfSimulatorButton,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
@@ -1343,61 +1412,142 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             DataColumn(label: Text(l.actions, style: const TextStyle(fontWeight: FontWeight.bold))),
                           ],
                           rows: paginatedState.items.map((file) {
+                            final priorityText = _getPriorityLabel(file.priority, l);
+                            final statusText = _getStatusLabel(file.status, l);
+
+                            String poDisplay;
+                            if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
+                              poDisplay = file.poNumber!.trim();
+                            } else {
+                              final linkedPOs = linkedPOsCache.putIfAbsent(file.importFileId, () => ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs));
+                              if (linkedPOs.isNotEmpty) {
+                                poDisplay = linkedPOs.map((p) => (p.poReference != null && p.poReference!.trim().isNotEmpty && p.poReference != file.customFileNumber && p.poReference != file.importFileCode) ? p.poReference! : p.poNumber).join(', ');
+                              } else {
+                                poDisplay = '-';
+                              }
+                            }
+                            final piDisplay = file.piNumber != null && file.piNumber!.trim().isNotEmpty ? file.piNumber!.trim() : '-';
+                            final rowSummary = '${file.displayName}\t${file.companyName}\t${l.poNumberShortPrefix}$poDisplay, ${l.piNumberShortPrefix}$piDisplay\t${file.supplierName}\t${file.shipmentMode} (${file.incotermCode})\t$priorityText\t${file.requiredEta ?? "-"}\t${file.currentStage}\t${file.progressPercent.toInt()}%\t${file.nextAction}\t${file.owner}\t$statusText';
+
                             return DataRow(
+                              selected: _highlightedFileId == file.importFileId,
                               cells: [
                                 DataCell(
-                                  InkWell(
-                                    onTap: () => _showImportFileDetailsDialog(context, file),
+                                  CopyableTableCell(
+                                    value: file.displayName,
+                                    rowSummary: rowSummary,
+                                    child: InkWell(
+                                      onTap: () => _showImportFileDetailsDialog(context, file),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(file.displayName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline)),
+                                          if (file.displayName != file.importFileCode)
+                                            Text(file.importFileCode, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  CopyableTableCell(
+                                    value: file.companyName,
+                                    rowSummary: rowSummary,
+                                    child: Text(file.companyName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  ),
+                                ),
+                                DataCell(
+                                  CopyableTableCell(
+                                    value: '${l.poNumberShortPrefix}$poDisplay | ${l.piNumberShortPrefix}$piDisplay',
+                                    rowSummary: rowSummary,
                                     child: Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(file.customFileNumber ?? file.importFileCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline)),
-                                        Text(file.importFileCode, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                        Text('${l.poNumberShortPrefix}$poDisplay', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                        Text('${l.piNumberShortPrefix}$piDisplay', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                       ],
                                     ),
                                   ),
                                 ),
-                                DataCell(Text(file.companyName, style: const TextStyle(fontWeight: FontWeight.w600))),
                                 DataCell(
-                                  Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('PO: ${file.poNumber ?? "-"}'),
-                                      Text('PI: ${file.piNumber ?? "-"}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                    ],
+                                  CopyableTableCell(
+                                    value: file.supplierName,
+                                    rowSummary: rowSummary,
+                                    child: Text(file.supplierName),
                                   ),
                                 ),
-                                DataCell(Text(file.supplierName)),
-                                DataCell(Text('${file.shipmentMode} (${file.incotermCode})')),
                                 DataCell(
-                                  Chip(
-                                    label: Text(file.priority, style: const TextStyle(fontSize: 10, color: Colors.white)),
-                                    backgroundColor: file.priority == 'High' || file.priority == 'Critical' ? Colors.red : Colors.orange,
+                                  CopyableTableCell(
+                                    value: '${file.shipmentMode} (${file.incotermCode})',
+                                    rowSummary: rowSummary,
+                                    child: Text('${file.shipmentMode} (${file.incotermCode})'),
                                   ),
                                 ),
-                                DataCell(Text(file.requiredEta ?? '-')),
-                                DataCell(Text(file.currentStage, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                                 DataCell(
-                                  SizedBox(
-                                    width: 100,
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        LinearProgressIndicator(value: file.progressPercent / 100, backgroundColor: Colors.grey.shade200, color: AppTheme.emerald),
-                                        const SizedBox(height: 2),
-                                        Text('${file.progressPercent.toInt()}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                                      ],
+                                  CopyableTableCell(
+                                    value: priorityText,
+                                    rowSummary: rowSummary,
+                                    child: Chip(
+                                      label: Text(priorityText, style: const TextStyle(fontSize: 10, color: Colors.white)),
+                                      backgroundColor: file.priority == 'High' || file.priority == 'Critical' ? Colors.red : Colors.orange,
                                     ),
                                   ),
                                 ),
-                                DataCell(Text(file.nextAction, style: const TextStyle(fontSize: 11, color: AppTheme.charcoal))),
-                                DataCell(Text(file.owner, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataCell(
-                                  Chip(
-                                    label: Text(file.status, style: const TextStyle(fontSize: 10, color: Colors.white)),
-                                    backgroundColor: file.status == 'Open' ? Colors.green : Colors.grey,
+                                  CopyableTableCell(
+                                    value: file.requiredEta ?? '-',
+                                    rowSummary: rowSummary,
+                                    child: Text(file.requiredEta ?? '-'),
+                                  ),
+                                ),
+                                DataCell(
+                                  CopyableTableCell(
+                                    value: file.currentStage,
+                                    rowSummary: rowSummary,
+                                    child: Text(file.currentStage, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                                DataCell(
+                                  CopyableTableCell(
+                                    value: '${file.progressPercent.toInt()}%',
+                                    rowSummary: rowSummary,
+                                    child: SizedBox(
+                                      width: 100,
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          LinearProgressIndicator(value: file.progressPercent / 100, backgroundColor: Colors.grey.shade200, color: AppTheme.emerald),
+                                          const SizedBox(height: 2),
+                                          Text('${file.progressPercent.toInt()}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  CopyableTableCell(
+                                    value: file.nextAction,
+                                    rowSummary: rowSummary,
+                                    child: Text(file.nextAction, style: const TextStyle(fontSize: 11, color: AppTheme.charcoal)),
+                                  ),
+                                ),
+                                DataCell(
+                                  CopyableTableCell(
+                                    value: file.owner,
+                                    rowSummary: rowSummary,
+                                    child: Text(file.owner, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                                DataCell(
+                                  CopyableTableCell(
+                                    value: statusText,
+                                    rowSummary: rowSummary,
+                                    child: Chip(
+                                      label: Text(statusText, style: const TextStyle(fontSize: 10, color: Colors.white)),
+                                      backgroundColor: file.status == 'Open' ? Colors.green : Colors.grey,
+                                    ),
                                   ),
                                 ),
                                 DataCell(

@@ -9,6 +9,7 @@ import 'core/constants/api_constants.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/localization/locale_provider.dart';
 import 'core/network/dio_client.dart';
+import 'core/performance/navigation_perf_tracker.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
@@ -248,10 +249,11 @@ class _ImportFlowAppState extends ConsumerState<ImportFlowApp>
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'ImportFlow ERP - Sorour Logistics (v1.0.137)',
+            title: 'ImportFlow ERP - Sorour Logistics (v1.0.155)',
             theme: AppTheme.lightTheme,
             scrollBehavior: AppCustomScrollBehavior(),
             locale: locale,
+            navigatorObservers: [NavigationPerfTracker.instance],
             builder: (context, child) {
               return Overlay(
                 initialEntries: [

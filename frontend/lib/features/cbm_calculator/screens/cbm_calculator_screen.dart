@@ -1,3 +1,4 @@
+import '../../../core/performance/dispose_tracker.dart';
 import '../../projects/models/project_model.dart';
 import '../../purchase_orders/models/purchase_order_model.dart';
 import '../widgets/saved_cbm_registry_tab.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 
 import '../../../core/widgets/container_load_plan_painter.dart';
@@ -26,7 +28,7 @@ class CBMCalculatorScreen extends ConsumerStatefulWidget {
   ConsumerState<CBMCalculatorScreen> createState() => _CBMCalculatorScreenState();
 }
 
-class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with SingleTickerProviderStateMixin {
+class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with SingleTickerProviderStateMixin, DisposeTrackerMixin<CBMCalculatorScreen> {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
 
@@ -60,10 +62,18 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     Future.microtask(() {
-      ref.read(cbmCalculatorProvider.notifier).fetchCalculations();
-      ref.read(projectsProvider.notifier).fetchProjects();
-      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
+      if (!ref.read(cbmCalculatorProvider).isLoading) {
+        ref.read(cbmCalculatorProvider.notifier).fetchCalculations();
+      }
+      if (!ref.read(projectsProvider).isLoading) {
+        ref.read(projectsProvider.notifier).fetchProjects();
+      }
+      if (!ref.read(purchaseOrdersProvider).isLoading) {
+        ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      }
+      if (!ref.read(importFilesProvider).isLoading) {
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
     });
   }
 
@@ -174,7 +184,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   Widget build(BuildContext context) {
     final l = context.l10n;
     final state = ref.watch(cbmCalculatorProvider);
-    final projectsList = ref.watch(projectsProvider).value ?? [];
+    final projectsList = ref.watch(projectsProvider).valueOrNull ?? [];
     final poList = ref.watch(purchaseOrdersProvider).purchaseOrders;
 
     return Scaffold(
@@ -903,10 +913,19 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Text('CBM: ${itemCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 12)),
+                                      CopyableText(
+                                        '${l.cbmRowLineCbm}: ${itemCbm.toStringAsFixed(4)} m³',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 12),
+                                      ),
                                       if (_quickShipmentMode == 'air') ...[
-                                        Text('Gross: ${itemGross.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                        Text('Air Vol: ${itemVolWt.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, color: Colors.purple)),
+                                        CopyableText(
+                                          '${l.cbmRowLineGross}: ${itemGross.toStringAsFixed(1)} kg',
+                                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                        ),
+                                        CopyableText(
+                                          '${l.cbmRowLineAirVol}: ${itemVolWt.toStringAsFixed(1)} kg',
+                                          style: const TextStyle(fontSize: 11, color: Colors.purple),
+                                        ),
                                       ],
                                     ],
                                   ),
@@ -958,10 +977,18 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 children: [
                   Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
-                  Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis),
+                  CopyableText(
+                    value,
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
-                    Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.black87), overflow: TextOverflow.ellipsis),
+                    CopyableText(
+                      subtitle,
+                      style: const TextStyle(fontSize: 10, color: Colors.black87),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ],
               ),
@@ -983,7 +1010,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     final titleCtrl = TextEditingController(text: isEditing ? (_activeSessionTitle ?? l.calculationSessionTitle) : l.calculationSessionTitle);
     final notesCtrl = TextEditingController(text: isEditing ? (_activeSessionNotes ?? '') : '');
     int? selectedImportFileId = isEditing ? _activeSessionImportFileId : null;
-    final importFiles = ref.read(importFilesProvider).value ?? [];
+    final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
 
     showDialog(
       context: context,
@@ -1029,7 +1056,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       ),
                       ...importFiles.map((f) => SearchableDropdownItem<int?>(
                             value: f.importFileId,
-                            label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                            label: '${f.primaryNameWithCode} - ${f.companyName}',
                             subtitle: f.companyName,
                           )),
                     ],
@@ -1272,41 +1299,62 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 final double volUtil = detail['spaceUtil'] as double;
                 final double weightUtil = detail['payloadUtil'] as double;
                 final isBest = spec.code == rec.recommendedContainerCode;
+                final rowSummary = '${spec.name} | $count x ${spec.code} | Vol: ${volUtil.toStringAsFixed(1)}% | Wt: ${weightUtil.toStringAsFixed(1)}%';
 
                 return TableRow(
                   decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withOpacity(0.12)) : null,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
-                          Text('${l.totalCbmVolumeMetric}: ${spec.internalVolumeCbm} CBM | Max: ${spec.maxPayloadKg} kg', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                        ],
+                    CopyableTableCell(
+                      value: '${spec.name} (${spec.internalVolumeCbm} CBM | ${spec.maxPayloadKg} kg)',
+                      rowSummary: rowSummary,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
+                            Text('${l.totalCbmVolumeMetric}: ${spec.internalVolumeCbm} CBM | Max: ${spec.maxPayloadKg} kg', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          ],
+                        ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text('$count x ${spec.code}', style: TextStyle(fontWeight: FontWeight.bold, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
+                    CopyableTableCell(
+                      value: '$count x ${spec.code}',
+                      rowSummary: rowSummary,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text('$count x ${spec.code}', style: TextStyle(fontWeight: FontWeight.bold, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
+                      ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text('${volUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: volUtil > 90 ? Colors.green : Colors.orange)),
+                    CopyableTableCell(
+                      value: '${volUtil.toStringAsFixed(1)}%',
+                      rowSummary: rowSummary,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text('${volUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: volUtil > 90 ? Colors.green : Colors.orange)),
+                      ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text('${weightUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: weightUtil > 90 ? Colors.green : Colors.orange)),
+                    CopyableTableCell(
+                      value: '${weightUtil.toStringAsFixed(1)}%',
+                      rowSummary: rowSummary,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text('${weightUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: weightUtil > 90 ? Colors.green : Colors.orange)),
+                      ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: isBest
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: AppTheme.emerald, borderRadius: BorderRadius.circular(4)),
-                              child: Text(l.bestOptionBadge, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
-                            )
-                          : Text(l.viableAlternative, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                    CopyableTableCell(
+                      value: isBest ? l.bestOptionBadge : l.viableAlternative,
+                      rowSummary: rowSummary,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: isBest
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(color: AppTheme.emerald, borderRadius: BorderRadius.circular(4)),
+                                child: Text(l.bestOptionBadge, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+                              )
+                            : Text(l.viableAlternative, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      ),
                     ),
                   ],
                 );
@@ -1601,7 +1649,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
                           String statusText = '';
                           if (res.containerCode == 'FAILED' || !res.fits) {
-                            statusText = res.failureReason ?? 'FAILED';
+                            statusText = res.failureReason ?? l.operationFailed;
                           } else {
                             final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
                             if (nonStackInThis > 0) {
@@ -1611,43 +1659,65 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             }
                           }
 
+                          final containerLabel = res.containerCode == 'FAILED' ? l.operationFailed : '$idx: ${res.spec.code}';
+                          final pkgsLabel = placedIds.isEmpty ? '-' : '$placedIds ($totalPlacedCount)';
+                          final wtLabel = res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg';
+                          final rowSummary = '$containerLabel | $pkgsLabel | $wtLabel | ${displaySpaceUtil.toStringAsFixed(1)}% | $statusText';
+
                           return TableRow(
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(
-                                  res.containerCode == 'FAILED' ? 'FAILED' : '$idx: ${res.spec.code}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11),
+                              CopyableTableCell(
+                                value: containerLabel,
+                                rowSummary: rowSummary,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6.0),
+                                  child: Text(
+                                    containerLabel,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11),
+                                  ),
                                 ),
                               ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(
-                                  placedIds.isEmpty ? '-' : '$placedIds ($totalPlacedCount)',
-                                  style: const TextStyle(fontSize: 11),
+                              CopyableTableCell(
+                                value: pkgsLabel,
+                                rowSummary: rowSummary,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6.0),
+                                  child: Text(pkgsLabel, style: const TextStyle(fontSize: 11)),
                                 ),
                               ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11)),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(
-                                  '${displaySpaceUtil.toStringAsFixed(1)}%',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange),
+                              CopyableTableCell(
+                                value: wtLabel,
+                                rowSummary: rowSummary,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6.0),
+                                  child: Text(wtLabel, style: const TextStyle(fontSize: 11)),
                                 ),
                               ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(
-                                  statusText,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: statusText.contains('FAILED')
-                                        ? Colors.red.shade800
-                                        : Colors.green.shade800,
+                              CopyableTableCell(
+                                value: '${displaySpaceUtil.toStringAsFixed(1)}%',
+                                rowSummary: rowSummary,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6.0),
+                                  child: Text(
+                                    '${displaySpaceUtil.toStringAsFixed(1)}%',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange),
+                                  ),
+                                ),
+                              ),
+                              CopyableTableCell(
+                                value: statusText,
+                                rowSummary: rowSummary,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6.0),
+                                  child: Text(
+                                    statusText,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: statusText.contains(l.operationFailed)
+                                          ? Colors.red.shade800
+                                          : Colors.green.shade800,
+                                    ),
                                   ),
                                 ),
                               ),

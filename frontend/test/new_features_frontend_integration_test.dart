@@ -170,8 +170,8 @@ void main() {
 
       expect(find.byType(DualClockRadarDialog), findsOneWidget);
       expect(find.textContaining('Dual-Clock Radar'), findsOneWidget);
-      expect(find.textContaining('غرامات التوكيل الملاحي'), findsOneWidget);
-      expect(find.textContaining('أرضيات هيئة الميناء'), findsOneWidget);
+      expect(find.textContaining('Carrier Demurrage'), findsOneWidget);
+      expect(find.text('Port Storage'), findsOneWidget);
     });
 
     testWidgets('RouteIntelligenceDialog renders properly', (tester) async {
@@ -268,7 +268,7 @@ void main() {
       );
 
       expect(find.byType(NafezaTariffSyncDialog), findsOneWidget);
-      expect(find.text('محلل ومزامن نصوص نافذة الذكي (Smart Nafeza Tariff & FX Gateway)'), findsOneWidget);
+      expect(find.text('Smart Nafeza Tariff & FX Gateway'), findsOneWidget);
     });
   });
 }

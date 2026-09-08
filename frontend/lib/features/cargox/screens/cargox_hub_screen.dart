@@ -130,13 +130,27 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
   }
 
   void _refreshData() {
-    ref.read(cargoxEnvelopesProvider.notifier).fetchEnvelopes();
-    ref.read(importFilesProvider.notifier).fetchImportFiles();
-    ref.read(suppliersProvider.notifier).fetchSuppliers();
-    ref.read(importCompaniesProvider.notifier).fetchCompanies();
-    ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
-    ref.read(draftBLReviewsProvider.notifier).fetchReviews();
-    ref.read(freightBookingProvider.notifier).fetchBookings();
+    if (!ref.read(cargoxEnvelopesProvider).isLoading) {
+      ref.read(cargoxEnvelopesProvider.notifier).fetchEnvelopes();
+    }
+    if (!ref.read(importFilesProvider).isLoading) {
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    }
+    if (!ref.read(suppliersProvider).isLoading) {
+      ref.read(suppliersProvider.notifier).fetchSuppliers();
+    }
+    if (!ref.read(importCompaniesProvider).isLoading) {
+      ref.read(importCompaniesProvider.notifier).fetchCompanies();
+    }
+    if (!ref.read(purchaseOrdersProvider).isLoading) {
+      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+    }
+    if (!ref.read(draftBLReviewsProvider).isLoading) {
+      ref.read(draftBLReviewsProvider.notifier).fetchReviews();
+    }
+    if (!ref.read(freightBookingProvider).isLoading) {
+      ref.read(freightBookingProvider.notifier).fetchBookings();
+    }
   }
 
   @override
@@ -163,7 +177,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
       return;
     }
 
-    final files = ref.read(importFilesProvider).value ?? [];
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
     final file = files.where((f) => f.importFileId == fileId).firstOrNull;
     if (file == null) return;
 
@@ -173,7 +187,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
 
     // 2. Auto-populate Importer Company
     _selectedCompanyId = file.companyId;
-    final companies = ref.read(importCompaniesProvider).value ?? [];
+    final companies = ref.read(importCompaniesProvider).valueOrNull ?? [];
     final matchedCompany = companies.where((c) => c.companyId == file.companyId).firstOrNull;
     _importerNameCtrl.text = matchedCompany?.importerName ?? file.companyName;
     if (matchedCompany?.vatId != null && matchedCompany!.vatId.isNotEmpty) {
@@ -183,7 +197,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     }
 
     // 3. Auto-populate Foreign Exporter (Supplier) & CargoX ID
-    final suppliers = ref.read(suppliersProvider).value ?? [];
+    final suppliers = ref.read(suppliersProvider).valueOrNull ?? [];
     final matchedSup = suppliers.where((s) => s.supplierId == file.supplierId).firstOrNull;
     if (matchedSup != null) {
       _selectedSupplierId = matchedSup.supplierId;
@@ -201,7 +215,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     // 4. Auto-populate B/L Number (from draftBLReviewsProvider, freightBookingProvider, or file)
     String resolvedBlNumber = '';
 
-    final reviews = ref.read(draftBLReviewsProvider).value ?? [];
+    final reviews = ref.read(draftBLReviewsProvider).valueOrNull ?? [];
     final linkedReview = reviews.where((r) => r.importFileId == fileId).firstOrNull;
     if (linkedReview != null) {
       final extractedBl = linkedReview.draftExtractedData?['draft_bl_number'] ??
@@ -214,7 +228,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     }
 
     if (resolvedBlNumber.isEmpty) {
-      final bookings = ref.read(freightBookingProvider).value ?? [];
+      final bookings = ref.read(freightBookingProvider).valueOrNull ?? [];
       final linkedBooking = bookings.where((b) => b.importFileId == fileId).firstOrNull;
       if (linkedBooking != null) {
         resolvedBlNumber = linkedBooking.bookingConfirmationNo ?? linkedBooking.bookingCode;
@@ -273,7 +287,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
   @override
   Widget build(BuildContext context) {
     final envelopesState = ref.watch(cargoxEnvelopesProvider);
-    final envelopes = envelopesState.value ?? [];
+    final envelopes = envelopesState.valueOrNull ?? [];
 
     final tabs = [
       VerticalNavTabItem(
@@ -400,7 +414,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
 
   // ── TAB 0: CREATE & SIGN ENVELOPE ───────────────────────────────────────────
   Widget _buildCreateEnvelopeTab() {
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -482,7 +496,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                               ),
                               ...importFiles.map((f) => SearchableDropdownItem<int?>(
                                     value: f.importFileId,
-                                    label: '${f.importFileCode} — ${f.supplierName} (${f.companyName})',
+                                    label: '${f.primaryNameWithCode} — ${f.supplierName} (${f.companyName})',
                                   )),
                             ],
                             onChanged: _onImportFileSelected,

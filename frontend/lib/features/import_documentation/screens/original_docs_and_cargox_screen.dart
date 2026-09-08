@@ -53,9 +53,13 @@ class _OriginalDocsAndCargoXScreenState
   }
 
   Future<void> _refreshData() async {
-    await ref.read(importFilesProvider.notifier).fetchImportFiles();
-    final files = ref.read(importFilesProvider).value ?? [];
-    ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments();
+    if (!ref.read(importFilesProvider).isLoading) {
+      await ref.read(importFilesProvider.notifier).fetchImportFiles();
+    }
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
+    if (!ref.read(shipmentDocumentsProvider).isLoading) {
+      ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments();
+    }
     if (_selectedImportFileId == null && files.isNotEmpty && mounted) {
       setState(() => _selectedImportFileId = files.first.importFileId);
     }
@@ -64,7 +68,7 @@ class _OriginalDocsAndCargoXScreenState
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final shipmentDocs = ref.watch(shipmentDocumentsProvider).value ?? [];
+    final shipmentDocs = ref.watch(shipmentDocumentsProvider).valueOrNull ?? [];
 
     final tabs = [
       const VerticalNavTabItem(
@@ -108,9 +112,11 @@ class _OriginalDocsAndCargoXScreenState
       onTabSelected: (index) {
         setState(() => _selectedSubTab = index);
         if (index == 1) {
-          ref
-              .read(shipmentDocumentsProvider.notifier)
-              .fetchShipmentDocuments();
+          if (!ref.read(shipmentDocumentsProvider).isLoading) {
+            ref
+                .read(shipmentDocumentsProvider.notifier)
+                .fetchShipmentDocuments();
+          }
         }
       },
       selectedImportFileId: _selectedImportFileId,

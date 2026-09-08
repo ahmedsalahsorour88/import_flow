@@ -12,9 +12,16 @@ final cargoShippingProvider =
 
 class CargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShippingModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   CargoShippingNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchRecords();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('CargoShippingNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchRecords({
@@ -23,9 +30,12 @@ class CargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShippingM
     String? status,
     String? search,
   }) async {
-    if (state.value == null) {
+    if (state.valueOrNull == null) {
       state = const AsyncValue.loading();
     }
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
+
     try {
       final queryParams = <String, dynamic>{'include_inactive': includeInactive};
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
@@ -35,12 +45,16 @@ class CargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShippingM
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/cargo-shipping',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List data = response.data;
       final list = data.map((json) => CargoShippingModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }

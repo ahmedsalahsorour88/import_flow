@@ -496,12 +496,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   }
 
   void _applyExtractedFieldsToState(Map<String, dynamic> ext, {String targetTab = 'all'}) {
-    final companies = ref.read(importCompaniesProvider).value ?? [];
-    final suppliers = ref.read(suppliersProvider).value ?? [];
-    final incoterms = ref.read(incotermsProvider).value ?? [];
-    final currencies = ref.read(currenciesProvider).value ?? [];
-    final tariffs = ref.read(customsTariffProvider).value ?? [];
+    final companies = ref.read(importCompaniesProvider).valueOrNull ?? [];
+    final suppliers = ref.read(suppliersProvider).valueOrNull ?? [];
+    final incoterms = ref.read(incotermsProvider).valueOrNull ?? [];
+    final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
+    final tariffs = ref.read(customsTariffProvider).valueOrNull ?? [];
 
+    if (!mounted) return;
     setState(() {
       if (targetTab == 'invoice' || targetTab == 'all') {
         final poNum = ext['po_number']?.toString() ?? ext['proforma_invoice_number']?.toString();
@@ -718,7 +719,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
     final po = widget.po;
     final ext = widget.initialExtractedFields;
-    final tariffs = ref.read(customsTariffProvider).value ?? [];
+    final tariffs = ref.read(customsTariffProvider).valueOrNull ?? [];
 
     _selectedOrderDate = po?.orderDate ??
         (ext != null ? _parseFlexDate((ext['order_date'] ?? ext['po_date'] ?? ext['date'])?.toString()) : DateTime.now());
@@ -979,13 +980,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     final tariffsAsync = ref.watch(customsTariffProvider);
     final importFilesAsync = ref.watch(importFilesProvider);
 
-    final projects = projectsAsync.value ?? [];
-    final companies = companiesAsync.value ?? [];
-    final suppliers = suppliersAsync.value ?? [];
-    final incoterms = incotermsAsync.value ?? [];
-    final currencies = currenciesAsync.value ?? [];
-    final tariffs = tariffsAsync.value ?? [];
-    final importFiles = importFilesAsync.value ?? [];
+    final projects = projectsAsync.valueOrNull ?? [];
+    final companies = companiesAsync.valueOrNull ?? [];
+    final suppliers = suppliersAsync.valueOrNull ?? [];
+    final incoterms = incotermsAsync.valueOrNull ?? [];
+    final currencies = currenciesAsync.valueOrNull ?? [];
+    final tariffs = tariffsAsync.valueOrNull ?? [];
+    final importFiles = importFilesAsync.valueOrNull ?? [];
 
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
@@ -1171,8 +1172,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        widget.po == null ? context.l10n.newPurchaseOrder : '${context.l10n.editPurchaseOrder} (${widget.po!.poNumber})',
+                        widget.po == null ? context.l10n.newPurchaseOrder : '${context.l10n.editPurchaseOrder} (${widget.po!.displayName})',
                         style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1273,7 +1276,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 ),
                                 ...importFiles.map((f) => SearchableDropdownItem<int?>(
                                       value: f.importFileId,
-                                      label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                                      label: '${f.primaryNameWithCode} - ${f.companyName}',
                                     )),
                               ],
                               onChanged: (v) => setState(() => _selectedImportFileId = v),
@@ -1383,9 +1386,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             children: [
                                               Icon(Icons.domain_add, size: 13, color: AppTheme.cobalt),
                                               SizedBox(width: 4),
-                                              Text(
-                                                '+ استدعاء AI Extractor & Coding لتكويد شركة مستوردة',
-                                                style: TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                              Flexible(
+                                                child: Text(
+                                                  '+ استدعاء AI Extractor & Coding لتكويد شركة مستوردة',
+                                                  style: TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
                                               ),
                                             ],
                                           ),
@@ -1426,9 +1432,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             children: [
                                               Icon(Icons.auto_awesome, size: 13, color: AppTheme.cobalt),
                                               SizedBox(width: 4),
-                                              Text(
-                                                '+ استدعاء AI Extractor & Coding لتكويد مورد جديد',
-                                                style: TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                              Flexible(
+                                                child: Text(
+                                                  '+ استدعاء AI Extractor & Coding لتكويد مورد جديد',
+                                                  style: TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
                                               ),
                                             ],
                                           ),
@@ -2526,10 +2535,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   Expanded(
                                                     flex: 3,
                                                     child: TextFormField(
-                                                      key: ValueKey('po_pkg_main_desc_'),
+                                                      key: const ValueKey('po_pkg_main_desc_'),
                                                       initialValue: p.mainDescription ?? '',
                                                       decoration: InputDecoration(
-                                                        labelText: '' + l.mainDescription + ' (الوصف الرئيسي)',
+                                                        labelText: '${l.mainDescription} (الوصف الرئيسي)',
                                                         isDense: true,
                                                       ),
                                                       onChanged: (v) {
@@ -2543,7 +2552,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   Expanded(
                                                     flex: 3,
                                                     child: TextFormField(
-                                                      key: ValueKey('po_pkg_desc_'),
+                                                      key: const ValueKey('po_pkg_desc_'),
                                                       initialValue: p.description ?? '',
                                                       decoration: InputDecoration(
                                                         labelText: l.itemDescriptionLabel,
@@ -2921,6 +2930,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         packingListItems: _dialogPackingItems,
       );
       final errorMsg = await ref.read(purchaseOrdersProvider.notifier).createPurchaseOrder(newPO);
+      if (!mounted) return;
       if (errorMsg != null) {
         setState(() => _isSubmitting = false);
         messenger.showSnackBar(
@@ -2941,11 +2951,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     } else {
       final oldPO = widget.po!;
       final List<FieldChangeItem> changes = [];
-      final projects = ref.read(projectsProvider).value ?? [];
-      final companies = ref.read(importCompaniesProvider).value ?? [];
-      final suppliers = ref.read(suppliersProvider).value ?? [];
-      final incoterms = ref.read(incotermsProvider).value ?? [];
-      final currencies = ref.read(currenciesProvider).value ?? [];
+      final projects = ref.read(projectsProvider).valueOrNull ?? [];
+      final companies = ref.read(importCompaniesProvider).valueOrNull ?? [];
+      final suppliers = ref.read(suppliersProvider).valueOrNull ?? [];
+      final incoterms = ref.read(incotermsProvider).valueOrNull ?? [];
+      final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
 
       // 1. Header changes
       final newPoRef = _poReferenceCtrl.text.trim().isEmpty ? null : _poReferenceCtrl.text.trim();
@@ -3167,7 +3177,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         final confirmed = await showChangeDiffConfirmationDialog(
           context,
           title: 'مراجعة وتأكيد تعديلات أمر الشراء',
-          itemReference: oldPO.poNumber,
+          itemReference: oldPO.displayName,
           changes: changes,
         );
         if (!confirmed) {
@@ -3211,6 +3221,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         'packing_list_items': _dialogPackingItems.map((i) => i.toJson()).toList(),
       };
       final errorMsg = await ref.read(purchaseOrdersProvider.notifier).updatePurchaseOrder(widget.po!.poId!, updateData);
+      if (!mounted) return;
       if (errorMsg != null) {
         setState(() => _isSubmitting = false);
         messenger.showSnackBar(
@@ -3232,13 +3243,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   }
 
   void _showPoComprehensiveReportPreview(BuildContext context) {
-    final companies = ref.read(importCompaniesProvider).value ?? [];
-    final suppliers = ref.read(suppliersProvider).value ?? [];
-    final incoterms = ref.read(incotermsProvider).value ?? [];
-    final currencies = ref.read(currenciesProvider).value ?? [];
-    final projects = ref.read(projectsProvider).value ?? [];
-    final tariffs = ref.read(customsTariffProvider).value ?? [];
-    final importFiles = ref.read(importFilesProvider).value ?? [];
+    final companies = ref.read(importCompaniesProvider).valueOrNull ?? [];
+    final suppliers = ref.read(suppliersProvider).valueOrNull ?? [];
+    final incoterms = ref.read(incotermsProvider).valueOrNull ?? [];
+    final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
+    final projects = ref.read(projectsProvider).valueOrNull ?? [];
+    final tariffs = ref.read(customsTariffProvider).valueOrNull ?? [];
+    final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
 
     final comp = companies.where((c) => c.companyId == _selectedCompanyId).firstOrNull;
     final supp = suppliers.where((s) => s.supplierId == _selectedSupplierId).firstOrNull;

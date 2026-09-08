@@ -165,3 +165,67 @@ def test_clearance_price_list_master(db_session):
     items = get_price_list_service(db_session, port_name="Alexandria")
     assert len(items) == 1
     assert items[0].provider_name == "مكتب الأهرام للتخليص الجمركي"
+
+
+def test_acc_customs_broker_quotation_extractor():
+    extractor = CustomsBrokerQuotationExtractor()
+    acc_text = """
+    شركة اسكندرية للأعمال الجمركية
+    Alexandria Customs Clearance Co.
+    عرض أسعار خدمات التخليص والنقل الداخلي
+    ميناء الإسكندرية والدخيلة
+    التاريخ: 2026-07-09
+
+    أولاً: أتعاب التخليص الجمركي
+    - أتعاب تخليص حاوية 40 قدم: 2,500 EGP
+    - أتعاب تخليص حاوية 20 قدم: 2,000 EGP
+    - أتعاب شحنة طرد جزئي LCL: 1,500 EGP
+
+    ثانياً: النولون والنقل البري الداخلي (الإسكندرية - القاهرة)
+    - نقل حاوية 40 قدم: 18,400 EGP
+    - نقل حاوية 20 قدم: 16,000 EGP
+    - نقل سيارة صغيرة LCL: 6,000 EGP
+
+    ثالثاً: مصاريف الفحص والجهات الرقابية والموانئ
+    1. موازين: 250 EGP
+    2. كشف ومعاينة: 450 EGP
+    3. سحب عينات جهات رقابية: 650 EGP
+    4. عمالة وتعتيق: 800 EGP
+    5. رسوم نافذة وإدراج: 950 EGP
+    6. تصريح خروج وبوابات: 350 EGP
+    7. إذن تسليم ملاحي: 1,200 EGP
+    8. غسيل حاويات: 400 EGP
+    9. كارتة طريق ورسوم مرور: 550 EGP
+    10. مصاريف تفريغ وساحات: 1,500 EGP
+    11. نثريات ودمغات: 500 EGP
+    12. مطابقة وهيئة الرقابة: 1,200 EGP
+    13. خدمات أرضية وتداول: 700 EGP
+    14. تأمين بوليصة: 500 EGP
+
+    الإجمالي التقديري لحاوية 40HQ: 30,900 EGP
+    الإجمالي التقديري لحاوية 20GP: 27,300 EGP
+    الإجمالي التقديري لطرد LCL: 13,650 EGP
+    """
+
+    res = extractor.extract(acc_text, {})
+    assert "اسكندرية" in res["broker_name"] or "Alexandria" in res["broker_name"]
+    assert "الإسكندرية" in res["port_name"] or "Alexandria" in res["port_name"]
+    assert res["total_estimated_clearance_cost"] == 30900.0
+    assert res["clearance_fee"] == 2500.0
+    assert res["inland_transport_fee"] == 18400.0
+    assert "rate_options" in res
+    assert len(res["rate_options"]) >= 3
+    
+    # Check rate options
+    options_by_type = {opt["container_type"]: opt for opt in res["rate_options"]}
+    assert "40HQ" in options_by_type
+    assert options_by_type["40HQ"]["total_estimated_clearance_cost"] == 30900.0
+    assert "20GP" in options_by_type
+    assert options_by_type["20GP"]["total_estimated_clearance_cost"] == 27300.0
+    assert "LCL" in options_by_type
+    assert options_by_type["LCL"]["total_estimated_clearance_cost"] == 13650.0
+
+    # Check expenses catalog
+    assert "expenses_catalog" in res
+    assert len(res["expenses_catalog"]) >= 14
+

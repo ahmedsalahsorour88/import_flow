@@ -22,6 +22,7 @@ class CustomsTariffNotifier
   final Dio _dio;
   final bool showInactive;
   final String search;
+  CancelToken? _cancelToken;
 
   CustomsTariffNotifier({
     required this.ref,
@@ -32,7 +33,15 @@ class CustomsTariffNotifier
     fetchTariffs();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('CustomsTariffNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchTariffs() async {
+    _cancelToken?.cancel('Cancelled by new fetchTariffs request');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final response = await _dio.get(
@@ -41,12 +50,14 @@ class CustomsTariffNotifier
           'include_inactive': showInactive,
           if (search.isNotEmpty) 'search': search,
         },
+        cancelToken: _cancelToken,
       );
       final list = (response.data as List)
           .map((json) => CustomsTariffModel.fromJson(json))
           .toList();
       state = AsyncValue.data(list);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       state = AsyncValue.error(e, stack);
     }
   }

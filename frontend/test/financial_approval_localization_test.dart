@@ -149,6 +149,58 @@ void main() {
       expect(lAr.swiftCodeLabel, equals('كود السويفت'));
       expect(lEn.swiftCodeLabel, equals('SWIFT Code'));
     });
+
+    test('New Screen 8 Dialogs, Duplicate Warnings & Sharing keys are verified', () {
+      const lAr = AppLocalizationsAr();
+      const lEn = AppLocalizationsEn();
+
+      // Duplicate detection
+      expect(lAr.duplicatePaymentRequestTitle, equals('طلب سداد مالي محفوظ مسبقاً'));
+      expect(lEn.duplicatePaymentRequestTitle, equals('Duplicate Payment Request Already Saved'));
+      expect(lAr.duplicatePaymentRequestMessage('PAY-01', 'Test Title').contains('PAY-01'), isTrue);
+      expect(lEn.duplicatePaymentRequestMessage('PAY-01', 'Test Title').contains('PAY-01'), isTrue);
+
+      expect(lAr.duplicateBudgetTitle, equals('اعتماد ميزانية محفوظ مسبقاً'));
+      expect(lEn.duplicateBudgetTitle, equals('Budget Approval Already Saved'));
+      expect(lAr.duplicateBudgetMessage('BGT-01', 'Test Budget').contains('BGT-01'), isTrue);
+      expect(lEn.duplicateBudgetMessage('BGT-01', 'Test Budget').contains('BGT-01'), isTrue);
+
+      // Actions
+      expect(lAr.viewAndEditPaymentRequest, equals('استعراض وتعديل طلب السداد الحالي'));
+      expect(lEn.viewAndEditPaymentRequest, equals('View & Edit Current Payment Request'));
+      expect(lAr.viewAndPrintBudget, equals('استعراض وطباعة الميزانية الحالية'));
+      expect(lEn.viewAndPrintBudget, equals('View & Print Current Budget'));
+
+      // Sharing & Modals
+      expect(lAr.exportAndShareOptionsTitle, equals('خيارات التصدير، الطباعة والمشاركة المباشرة:'));
+      expect(lEn.exportAndShareOptionsTitle, equals('Export, Print & Direct Sharing Options:'));
+      expect(lAr.sendPaymentWhatsAppTitle, equals('إرسال تفاصيل السداد عبر واتساب'));
+      expect(lEn.sendPaymentWhatsAppTitle, equals('Send Payment Details via WhatsApp'));
+      expect(lAr.sendPaymentEmailTitle, equals('إرسال طلب السداد عبر البريد الإلكتروني'));
+      expect(lEn.sendPaymentEmailTitle, equals('Send Payment Request via Email'));
+      expect(lAr.sendBudgetWhatsAppTitle, equals('مشاركة اعتماد الميزانية عبر واتساب'));
+      expect(lEn.sendBudgetWhatsAppTitle, equals('Share Budget Approval via WhatsApp'));
+      expect(lAr.sendBudgetEmailTitle, equals('إرسال تقرير الميزانية بالبريد الإلكتروني'));
+      expect(lEn.sendBudgetEmailTitle, equals('Send Budget Report via Email'));
+
+      // Statuses & Details
+      expect(lAr.paymentRequestDetailsTitle('PAY-100'), equals('طلب سداد مالي: PAY-100'));
+      expect(lEn.paymentRequestDetailsTitle('PAY-100'), equals('Payment Request: PAY-100'));
+      expect(lAr.budgetDetailsTitle('BGT-200'), equals('اعتماد الميزانية: BGT-200'));
+      expect(lEn.budgetDetailsTitle('BGT-200'), equals('Budget Approval: BGT-200'));
+
+      // Customs Authority
+      expect(lAr.customsAuthority, equals('مصلحة الجمارك'));
+      expect(lEn.customsAuthority, equals('Customs Authority'));
+
+      // SWIFT prefixes
+      expect(lAr.swiftPaymentPrefix, equals('سداد تحويل سويفت'));
+      expect(lEn.swiftPaymentPrefix, equals('SWIFT Wire Transfer Payment'));
+      expect(lAr.orderingCustomerPrefix, equals('الآمر بالتحويل'));
+      expect(lEn.orderingCustomerPrefix, equals('Ordering Customer / Remitter'));
+      expect(lAr.paymentDetailsPrefix, equals('التفاصيل'));
+      expect(lEn.paymentDetailsPrefix, equals('Details'));
+    });
   });
 }
 

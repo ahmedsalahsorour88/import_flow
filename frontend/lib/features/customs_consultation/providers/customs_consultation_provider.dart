@@ -16,9 +16,16 @@ final clearanceExpenseTypesProvider =
 
 class ClearanceExpenseTypesNotifier extends StateNotifier<AsyncValue<List<ClearanceExpenseTypeModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   ClearanceExpenseTypesNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchExpenseTypes();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('ClearanceExpenseTypesNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchExpenseTypes({
@@ -26,6 +33,8 @@ class ClearanceExpenseTypesNotifier extends StateNotifier<AsyncValue<List<Cleara
     String? category,
     String? search,
   }) async {
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{
@@ -37,12 +46,16 @@ class ClearanceExpenseTypesNotifier extends StateNotifier<AsyncValue<List<Cleara
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/customs-consultations/expense-types',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List<dynamic> data = response.data;
       final items = data.map((json) => ClearanceExpenseTypeModel.fromJson(json)).toList();
       state = AsyncValue.data(items);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }
@@ -96,9 +109,16 @@ final brokerPriceListsProvider =
 
 class BrokerPriceListsNotifier extends StateNotifier<AsyncValue<List<BrokerPriceListModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   BrokerPriceListsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchPriceLists();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('BrokerPriceListsNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchPriceLists({
@@ -106,6 +126,8 @@ class BrokerPriceListsNotifier extends StateNotifier<AsyncValue<List<BrokerPrice
     int? brokerId,
     String? search,
   }) async {
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{
@@ -117,12 +139,16 @@ class BrokerPriceListsNotifier extends StateNotifier<AsyncValue<List<BrokerPrice
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/customs-consultations/price-lists',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List<dynamic> data = response.data;
       final items = data.map((json) => BrokerPriceListModel.fromJson(json)).toList();
       state = AsyncValue.data(items);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }
@@ -192,9 +218,16 @@ final customsConsultationsProvider =
 
 class CustomsConsultationNotifier extends StateNotifier<AsyncValue<List<CustomsConsultationModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   CustomsConsultationNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchConsultations();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('CustomsConsultationNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchConsultations({
@@ -205,6 +238,8 @@ class CustomsConsultationNotifier extends StateNotifier<AsyncValue<List<CustomsC
     int? projectId,
     String? status,
   }) async {
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{
@@ -219,12 +254,16 @@ class CustomsConsultationNotifier extends StateNotifier<AsyncValue<List<CustomsC
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/customs-consultations',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List<dynamic> data = response.data;
       final consultations = data.map((json) => CustomsConsultationModel.fromJson(json)).toList();
       state = AsyncValue.data(consultations);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return; // Silent cancellation
+      }
       state = AsyncValue.error(e, stack);
     }
   }

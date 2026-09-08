@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/providers/workspace_tabs_provider.dart';
 import 'package:frontend/features/home/widgets/multi_tab_workspace_bar.dart';
 
@@ -141,8 +142,11 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: const MaterialApp(
-            home: Scaffold(
-              body: MultiTabWorkspaceBar(),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Scaffold(
+                body: MultiTabWorkspaceBar(),
+              ),
             ),
           ),
         ),

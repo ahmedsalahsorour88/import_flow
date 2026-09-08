@@ -40,7 +40,8 @@ def normalize_swift_ocr_text(text: str) -> str:
     # Replace fullwidth / Unicode colons and slashes
     text = text.replace('\uff1a', ':').replace('\uff0f', '/')
 
-    # OCR 5OK -> 50K, 5OA -> 50A
+    # OCR tag typos e.g. 2O -> 20, 5OK -> 50K, 5OA -> 50A
+    text = re.sub(r':?2[oO](?:/|\b)', r':20/', text)
     text = re.sub(r':?5[oO]([KA])', r':50\1', text)
 
     # Standardize tag lines e.g. "20/TRANSACTION..." or "59/Beneficiary..." to ":20:" or ":59:"
@@ -48,6 +49,14 @@ def normalize_swift_ocr_text(text: str) -> str:
     for tag in standard_tags:
         # Match tag at line start with optional leading colon, optional label, and optional table pipes
         text = re.sub(rf'(?m)^:?({tag})(?:/[^\n:|]+)?\s*[:\n|]\s*\|?\s*:?', rf':\1: ', text)
+
+    # OCR Currency Typos normalization (especially in field 32A e.g. 260818U5D4370400 -> 260818USD4370400)
+    text = re.sub(r'(\d{6})\s*U[5S0][Dd0]', r'\1USD', text)
+    text = re.sub(r'(\d{6})\s*E[0OVU]R', r'\1EUR', text)
+    text = re.sub(r'(\d{6})\s*E[6CG]P', r'\1EGP', text)
+    text = re.sub(r'(\d{6})\s*6BP', r'\1GBP', text)
+    text = re.sub(r'(\d{6})\s*5AR', r'\1SAR', text)
+    text = re.sub(r'\bU5D\b', 'USD', text)
 
     return text
 

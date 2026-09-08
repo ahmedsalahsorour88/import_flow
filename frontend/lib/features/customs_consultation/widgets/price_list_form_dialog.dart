@@ -82,8 +82,219 @@ void showPriceListFormDialog(
   };
 
   // Load items either from existing price list or from master expense catalog
-  final catalog = ref.read(clearanceExpenseTypesProvider).value ?? [];
+  final catalog = ref.read(clearanceExpenseTypesProvider).valueOrNull ?? [];
   final List<Map<String, dynamic>> itemsState = [];
+
+  String normalizeArabic(String s) {
+    var str = s.toLowerCase().trim();
+    str = str.replaceAll(RegExp(r'[أإآ]'), 'ا');
+    str = str.replaceAll('ة', 'ه');
+    str = str.replaceAll('ى', 'ي');
+    str = str.replaceAll(RegExp(r'[^\w\s\u0600-\u06FF]'), ' ');
+    return str.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  int calculateMatchScore(String name, String extName) {
+    final n1 = normalizeArabic(name);
+    final n2 = normalizeArabic(extName);
+    if (n1 == n2) return 100;
+    if (n1.isEmpty || n2.isEmpty) return 0;
+    if (n1.contains(n2) || n2.contains(n1)) return 80;
+
+    // LCL items
+    if (n1.contains('lcl') && n2.contains('lcl')) {
+      if ((n1.contains('فاتوره') && n2.contains('فاتوره')) || (n1.contains('اتعاب') && n2.contains('اتعاب'))) {
+        return 95;
+      }
+      if (n1.contains('واحد طن') && n2.contains('واحد طن')) return 95;
+      if ((n1.contains('زياده') || n1.contains('اضافي')) && (n2.contains('زياده') || n2.contains('اضافي'))) {
+        return 95;
+      }
+    }
+
+    // 20FT vs 40FT
+    final has20_1 = n1.contains('20');
+    final has20_2 = n2.contains('20');
+    final has40_1 = n1.contains('40');
+    final has40_2 = n2.contains('40');
+
+    // Prevent 20ft matching 40ft
+    if ((has20_1 && has40_2 && !has20_2) || (has40_1 && has20_2 && !has40_2)) {
+      return 0;
+    }
+
+    // 20ft 2x20 dual
+    final isDual_1 = n1.contains('20 2') || n1.contains('20*2') || n1.contains('حاويتين');
+    final isDual_2 = n2.contains('20 2') || n2.contains('20*2') || n2.contains('حاويتين');
+    if (isDual_1 && isDual_2) {
+      if (n1.contains('بياته') && n2.contains('بياته')) return 95;
+      if (n1.contains('نقل') && n2.contains('نقل')) return 95;
+    }
+    if (isDual_1 != isDual_2 && (isDual_1 || isDual_2)) {
+      return 0; // Don't confuse dual 20ft with single 20ft
+    }
+
+    // 20ft single
+    if (has20_1 && has20_2) {
+      if (n1.contains('بياته') && n2.contains('بياته')) return 90;
+      if (n1.contains('اول حاويه') && (n2.contains('اول حاويه') || n2.contains('1 حاويه'))) return 95;
+      if (n1.contains('زياده') && n2.contains('زياده')) return 95;
+      if ((n1.contains('فاتوره') && n2.contains('فاتوره')) || (n1.contains('اتعاب') && n2.contains('اتعاب'))) return 95;
+      if (n2.contains('اكبر') || n1.contains('اكثر')) {
+        if ((n2.contains('اكبر') || n2.contains('اكثر')) && (n1.contains('اكبر') || n1.contains('اكثر'))) return 95;
+      } else if ((n2.contains('اقل') || n1.contains('حتي') || n1.contains('اقل')) && (!n2.contains('اكبر') && !n2.contains('اكثر'))) {
+        return 95;
+      }
+    }
+
+    // 40ft
+    if (has40_1 && has40_2) {
+      if (n1.contains('بياته') && n2.contains('بياته')) return 95;
+      if (n1.contains('اول حاويه') && (n2.contains('اول حاويه') || n2.contains('1 حاويه'))) return 95;
+      if (n1.contains('زياده') && n2.contains('زياده')) return 95;
+      if ((n1.contains('فاتوره') && n2.contains('فاتوره')) || (n1.contains('اتعاب') && n2.contains('اتعاب'))) return 95;
+      if (n1.contains('نقل') && n2.contains('نقل')) return 90;
+    }
+
+    // Inland transport trucks
+    if (n1.contains('دبابه') && n2.contains('دبابه')) return 95;
+    if (n1.contains('جامبو') && n2.contains('جامبو')) return 95;
+    if (n1.contains('فرداني') && n2.contains('فرداني')) return 95;
+
+    // Procedures & approvals
+    if (n1.contains('acid') && n2.contains('acid')) return 95;
+    if (n1.contains('بريد') && n2.contains('بريد')) return 95;
+    if ((n1.contains('واردات') || n1.contains('ايلاك') || n1.contains('ايباك')) &&
+        (n2.contains('واردات') || n2.contains('ايلاك') || n2.contains('ايباك'))) {
+      return 90;
+    }
+    if (n1.contains('امن عام') && n2.contains('امن عام')) {
+      if (n1.contains('قاهره') && n2.contains('قاهره')) return 95;
+      if (!n1.contains('قاهره') && !n2.contains('قاهره')) return 90;
+    }
+    if (n1.contains('تامين') && n2.contains('تامين')) return 95;
+    if (n1.contains('اكس راي') && n2.contains('اكس راي')) return 95;
+    if (n1.contains('اتفاقيات') && n2.contains('اتفاقيات')) return 95;
+    if (n1.contains('تحفظ') && n2.contains('تحفظ')) return 95;
+    if (!n1.contains('غسيل') && !n2.contains('غسيل')) {
+      if ((n1.contains('سيل') || n1.contains('ترصيص')) && (n2.contains('سيل') || n2.contains('ترصيص'))) return 95;
+    }
+    if (n1.contains('غسيل') && n2.contains('غسيل')) return 95;
+    if (n1.contains('ابوقير') && n2.contains('ابوقير')) return 95;
+    if (n1.contains('وزن') && n2.contains('وزن') && n1.contains('ميناء') && n2.contains('ميناء')) return 95;
+    if ((n1.contains('سحب') || n1.contains('اذن')) && (n2.contains('سحب') || n2.contains('اذن'))) return 90;
+
+    return 0;
+  }
+
+  void applyExtractedExpenses(Map<String, dynamic> extracted, {required bool isInitial}) {
+    final expensesCatalog = (extracted['expenses_catalog'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? [];
+    final cFee = (extracted['clearance_fee'] as num?)?.toDouble();
+    final inlandFee = (extracted['inland_transport_fee'] as num?)?.toDouble();
+    final inspFee = (extracted['inspection_fee'] as num?)?.toDouble();
+    final portFee = (extracted['port_expenses'] as num?)?.toDouble();
+    final miscFee = (extracted['miscellaneous_fee'] as num?)?.toDouble();
+
+    final matchedExtractedIndices = <int>{};
+
+    for (var itm in itemsState) {
+      final name = (itm['expense_name'] as String? ?? '').trim();
+      double? foundPrice;
+      double? minP;
+      double? maxP;
+      String? notes;
+
+      // 1. Match against expenses_catalog from AI extractor with score >= 80
+      int bestScore = 0;
+      int bestExtIdx = -1;
+      Map<String, dynamic>? bestExtItem;
+
+      for (int i = 0; i < expensesCatalog.length; i++) {
+        final extItem = expensesCatalog[i];
+        final extName = ((extItem['item_name'] ?? extItem['expense_name']) as String? ?? '').trim();
+        final extPrice = ((extItem['price'] ?? extItem['amount']) as num?)?.toDouble() ?? 0.0;
+        if (extPrice > 0) {
+          final score = calculateMatchScore(name, extName);
+          if (score > bestScore) {
+            bestScore = score;
+            bestExtIdx = i;
+            bestExtItem = extItem;
+          }
+        }
+      }
+
+      if (bestScore >= 80 && bestExtItem != null) {
+        foundPrice = ((bestExtItem['price'] ?? bestExtItem['amount']) as num?)?.toDouble();
+        minP = (bestExtItem['min_price'] as num?)?.toDouble();
+        maxP = (bestExtItem['max_price'] as num?)?.toDouble();
+        notes = bestExtItem['notes']?.toString();
+        matchedExtractedIndices.add(bestExtIdx);
+      }
+
+      // 2. Match against high-level extracted fee buckets ONLY if not matched above
+      if (foundPrice == null || foundPrice == 0.0) {
+        // IMPORTANT: NEVER overwrite LCL with cFee (2500)!
+        if (cFee != null && cFee > 0 && name.contains('تخليص') && (name.contains('40') || name.contains('20')) && !name.contains('LCL')) {
+          foundPrice = cFee;
+        } else if (inlandFee != null && inlandFee > 0 && (name.contains('نقل') || name.contains('شاحنة')) && name.contains('40')) {
+          foundPrice = inlandFee;
+        } else if (inlandFee != null && inlandFee > 0 && (name.contains('نقل') || name.contains('شاحنة')) && name.contains('20') && !name.contains('20*2')) {
+          foundPrice = inlandFee * 0.8;
+        } else if (inspFee != null && inspFee > 0 && (name.contains('فحص') || name.contains('واردات') || name.contains('إيباك'))) {
+          foundPrice = inspFee;
+        } else if (portFee != null && portFee > 0 && name.contains('أول حاوية')) {
+          foundPrice = portFee;
+        } else if (miscFee != null && miscFee > 0 && (name.contains('بريد') || name.contains('دمغات') || name.contains('نثريات'))) {
+          foundPrice = miscFee;
+        }
+      }
+
+      // 3. Fallback to standard benchmark rates map if still 0.0
+      if ((foundPrice == null || foundPrice == 0.0) && isInitial) {
+        for (var entry in standardRatesMap.entries) {
+          if (calculateMatchScore(name, entry.key) >= 80) {
+            foundPrice = entry.value;
+            break;
+          }
+        }
+      }
+
+      if (foundPrice != null && foundPrice > 0) {
+        itm['standard_price'] = foundPrice;
+        if (minP != null) itm['min_price'] = minP;
+        if (maxP != null) itm['max_price'] = maxP;
+        if (notes != null && notes.isNotEmpty) itm['notes'] = notes;
+      }
+    }
+
+    // 4. Any custom line items from expenses_catalog that were NOT matched to standard catalog:
+    for (int i = expensesCatalog.length - 1; i >= 0; i--) {
+      if (matchedExtractedIndices.contains(i)) continue;
+      final extItem = expensesCatalog[i];
+      final extName = ((extItem['item_name'] ?? extItem['expense_name']) as String? ?? '').trim();
+      final extPrice = ((extItem['price'] ?? extItem['amount']) as num?)?.toDouble() ?? 0.0;
+      if (extPrice > 0) {
+        final alreadyInItems = itemsState.any((itm) {
+          final existingName = (itm['expense_name'] as String? ?? '').trim();
+          return calculateMatchScore(existingName, extName) >= 80;
+        });
+        if (!alreadyInItems) {
+          itemsState.insert(0, {
+            'expense_type_id': null,
+            'expense_name': extName,
+            'category': extItem['category']?.toString() ?? 'Other Fees (مصاريف أخرى)',
+            'unit_type': ((extItem['pricing_unit'] ?? extItem['unit_type'])?.toString()) ?? 'Per Shipment (لكل شحنة)',
+            'standard_price': extPrice,
+            'currency': extItem['currency']?.toString() ?? 'EGP',
+            'min_price': (extItem['min_price'] as num?)?.toDouble(),
+            'max_price': (extItem['max_price'] as num?)?.toDouble(),
+            'notes': extItem['notes']?.toString() ?? 'مستخرج آلياً من مقايسة التخليص',
+            'is_active': true,
+          });
+        }
+      }
+    }
+  }
 
   if (isEditing) {
     for (final itm in existingPriceList.items) {
@@ -103,27 +314,32 @@ void showPriceListFormDialog(
     }
   } else {
     for (final exp in catalog) {
-      double initialPrice = 0.0;
-      if (initialExtractedData != null) {
-        for (final entry in standardRatesMap.entries) {
-          if (exp.nameAr.contains(entry.key) || entry.key.contains(exp.nameAr)) {
-            initialPrice = entry.value;
-            break;
-          }
-        }
-      }
       itemsState.add({
         'expense_type_id': exp.expenseId,
         'expense_name': exp.nameAr,
         'category': exp.category,
         'unit_type': exp.defaultUnit,
-        'standard_price': initialPrice,
+        'standard_price': 0.0,
         'currency': exp.defaultCurrency,
         'min_price': null,
         'max_price': null,
         'notes': '',
         'is_active': true,
       });
+    }
+
+    if (initialExtractedData != null) {
+      applyExtractedExpenses(initialExtractedData, isInitial: true);
+    } else {
+      for (var itm in itemsState) {
+        final name = itm['expense_name'] as String;
+        for (var entry in standardRatesMap.entries) {
+          if (name.contains(entry.key) || entry.key.contains(name)) {
+            itm['standard_price'] = entry.value;
+            break;
+          }
+        }
+      }
     }
   }
 
@@ -133,7 +349,7 @@ void showPriceListFormDialog(
     if (bName.isNotEmpty) {
       for (final b in brokersList) {
         final pName = (b.partnerName as String).toLowerCase();
-        if (bName.contains(pName) || pName.contains(bName) || (bName.contains('acc') && pName.contains('acc')) || (bName.contains('اسكندرية') && pName.contains('اسكندرية'))) {
+        if (bName.contains(pName) || pName.contains(bName) || (bName.contains('acc') && pName.contains('acc')) || (bName.contains('اسكندرية') && pName.contains('اسكندرية')) || (bName.contains('أهرام') && pName.contains('أهرام')) || (bName.contains('اهرام') && pName.contains('اهرام'))) {
           selectedBroker = b.providerId;
           break;
         }
@@ -174,6 +390,7 @@ void showPriceListFormDialog(
               currentStep: 1,
             );
 
+            if (!ctx.mounted) return;
             ExtractionProgressDialog.show(
               context: ctx,
               title: 'استخراج وتصنيف مقايسة التخليص الجمركي',
@@ -193,16 +410,23 @@ void showPriceListFormDialog(
             final response = await dio.post(
               '${ApiConstants.baseUrl}/smart-upload/upload',
               data: formData,
-              options: Options(receiveTimeout: const Duration(seconds: 60)),
+              options: Options(receiveTimeout: const Duration(seconds: 120)),
               onSendProgress: (sent, total) {
                 if (total > 0) {
                   final ratio = sent / total;
                   progressCtrl.update(
                     percent: 0.20 + (ratio * 0.40),
                     status: 'جاري رفع الملف (${(ratio * 100).round()}%)...',
-                    stepLabel: 'المرحلة 2 من 3: معالجة البيانات',
+                    stepLabel: 'المرحلة 2 من 4: معالجة البيانات',
                     currentStep: 2,
                   );
+                  if (ratio >= 0.99) {
+                    progressCtrl.startAutoAdvance(
+                      targetPercent: 0.92,
+                      duration: const Duration(seconds: 4),
+                      step4Status: 'جاري استخراج أتعاب ومصروفات مقايسة التخليص والنقل وتنسيق البيانات...',
+                    );
+                  }
                 }
               },
             );
@@ -232,23 +456,15 @@ void showPriceListFormDialog(
                 if (bName.isNotEmpty) {
                   for (final b in brokersList) {
                     final pName = (b.partnerName as String).toLowerCase();
-                    if (bName.contains(pName) || pName.contains(bName) || (bName.contains('acc') && pName.contains('acc')) || (bName.contains('اسكندرية') && pName.contains('اسكندرية'))) {
+                    if (bName.contains(pName) || pName.contains(bName) || (bName.contains('acc') && pName.contains('acc')) || (bName.contains('اسكندرية') && pName.contains('اسكندرية')) || (bName.contains('أهرام') && pName.contains('أهرام')) || (bName.contains('اهرام') && pName.contains('اهرام'))) {
                       selectedBroker = b.providerId;
                       break;
                     }
                   }
                 }
 
-                // Apply standard benchmark rates
-                for (var itm in itemsState) {
-                  final name = itm['expense_name'] as String;
-                  for (var entry in standardRatesMap.entries) {
-                    if (name.contains(entry.key) || entry.key.contains(name)) {
-                      itm['standard_price'] = entry.value;
-                      break;
-                    }
-                  }
-                }
+                // Apply extracted items and dynamic fees
+                applyExtractedExpenses(extracted, isInitial: false);
               });
 
               if (ctx.mounted) {
@@ -703,8 +919,8 @@ void showPriceListFormDialog(
                                 SizedBox(
                                   width: 130,
                                   child: TextFormField(
-                                    key: ValueKey('dlg_price_${itm["expense_type_id"] ?? itm["expense_name"]}'),
-                                    initialValue: standardPrice == 0.0 ? '' : standardPrice.toString(),
+                                    key: ValueKey('dlg_price_${itm["expense_type_id"] ?? itm["expense_name"]}_$standardPrice'),
+                                    initialValue: standardPrice == 0.0 ? '' : (standardPrice % 1 == 0 ? standardPrice.toInt().toString() : standardPrice.toString()),
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     decoration: InputDecoration(
                                       labelText: l.approvedPriceField,
@@ -739,7 +955,7 @@ void showPriceListFormDialog(
                                 Expanded(
                                   flex: 3,
                                   child: TextFormField(
-                                    key: ValueKey('dlg_notes_${itm['expense_type_id'] ?? itm['expense_name']}'),
+                                    key: ValueKey('dlg_notes_${itm['expense_type_id'] ?? itm['expense_name']}_${itm['notes']}'),
                                     initialValue: itm['notes'] ?? '',
                                     decoration: InputDecoration(
                                       labelText: l.notesPriceRangeField,

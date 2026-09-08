@@ -4,6 +4,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 import 'consultation_metric_badge.dart';
 import 'consultation_status_badges.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import 'package:printing/printing.dart';
 import '../services/customs_consultation_pdf_service.dart';
 import '../services/customs_export_service.dart';
@@ -18,7 +19,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
               const Icon(Icons.verified_user, color: AppTheme.cobalt),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('${l.consultationDetailsTitle}: ${session.consultationCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                child: CopyableText('${l.consultationDetailsTitle}: ${session.consultationCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
               ConsultationStatusBadge(status: session.overallStatus),
             ],
@@ -36,14 +37,14 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('${l.titleField}: ${session.title}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        CopyableText('${l.titleField}: ${session.title}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                         const SizedBox(height: 6),
-                        Text('${l.customsBrokerLabel}: ${session.brokerName} ${session.brokerContactPerson != null ? "(${session.brokerContactPerson})" : ""}'),
+                        CopyableText('${l.customsBrokerLabel}: ${session.brokerName} ${session.brokerContactPerson != null ? "(${session.brokerContactPerson})" : ""}'),
                         const SizedBox(height: 6),
-                        Text('${l.totalTaxesAndDutiesCol}: ${session.estimatedDutiesEgp.toStringAsFixed(2)} EGP'),
+                        CopyableText('${l.totalTaxesAndDutiesCol}: ${session.estimatedDutiesEgp.toStringAsFixed(2)} EGP'),
                         if (session.notes != null && session.notes!.isNotEmpty) ...[
                           const SizedBox(height: 6),
-                          Text('${l.notes}: ${session.notes}'),
+                          CopyableText('${l.notes}: ${session.notes}'),
                         ],
                       ],
                     ),
@@ -71,7 +72,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                          child: Text('${l.totalExpenses}: ${session.totalBrokerFeesEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
+                          child: CopyableText('${l.totalExpenses}: ${session.totalBrokerFeesEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
                         ),
                       ],
                     ),
@@ -99,13 +100,13 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                         ...session.brokerQuoteItems.where((q) => q.isApplicable).map((quote) {
                           return TableRow(
                             children: [
-                              Padding(padding: const EdgeInsets.all(6), child: Text(quote.expenseName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6), child: Text(quote.category.split('(').first.trim(), style: const TextStyle(fontSize: 10))),
-                              Padding(padding: const EdgeInsets.all(6), child: Text('${quote.unitPrice.toStringAsFixed(2)} ${quote.currency}', style: const TextStyle(fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6), child: Text('${quote.qty}', style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText(quote.expenseName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText(quote.category.split('(').first.trim(), style: const TextStyle(fontSize: 10))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText('${quote.unitPrice.toStringAsFixed(2)} ${quote.currency}', style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: CopyableText('${quote.qty}', style: const TextStyle(fontSize: 11))),
                               Padding(
                                 padding: const EdgeInsets.all(6),
-                                child: Text('${quote.totalAmount.toStringAsFixed(2)} ${quote.currency}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11)),
+                                child: CopyableText('${quote.totalAmount.toStringAsFixed(2)} ${quote.currency}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11)),
                               ),
                             ],
                           );
@@ -135,21 +136,45 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                         ],
                       ),
                       ...session.checklistItems.map((doc) {
+                        final statusLower = doc.status.toLowerCase();
+                        final isApproved = statusLower == 'approved' ||
+                            statusLower == 'verified' ||
+                            statusLower == 'completed' ||
+                            statusLower == 'received' ||
+                            statusLower == 'obtained' ||
+                            statusLower.contains('معتمد') ||
+                            statusLower.contains('مستوفى');
+                        final isRejected = statusLower == 'rejected' ||
+                            statusLower.contains('مرفوض');
+
                         return TableRow(
                           children: [
                             Padding(
                               padding: const EdgeInsets.all(8),
                               child: Row(
                                 children: [
-                                  if (doc.isBlockingShipment) const Icon(Icons.block, color: Colors.red, size: 14),
-                                  if (doc.isBlockingShipment) const SizedBox(width: 4),
-                                  Expanded(child: Text(doc.documentType, style: const TextStyle(fontWeight: FontWeight.w600))),
+                                  if (isApproved)
+                                    const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 16)
+                                  else if (isRejected)
+                                    const Icon(Icons.cancel_rounded, color: AppTheme.crimson, size: 16)
+                                  else ...[
+                                    const Icon(Icons.hourglass_top_rounded, color: Colors.orange, size: 15),
+                                    if (doc.isBlockingShipment) ...[
+                                      const SizedBox(width: 4),
+                                      Tooltip(
+                                        message: l.shipmentUpdateConsultBlockingTooltip,
+                                        child: const Icon(Icons.block, color: Colors.red, size: 13),
+                                      ),
+                                    ],
+                                  ],
+                                  const SizedBox(width: 6),
+                                  Expanded(child: CopyableText(doc.documentType, style: const TextStyle(fontWeight: FontWeight.w600))),
                                 ],
                               ),
                             ),
-                            Padding(padding: const EdgeInsets.all(8), child: Text(doc.responsibleParty)),
+                            Padding(padding: const EdgeInsets.all(8), child: CopyableText(doc.responsibleParty)),
                             Padding(padding: const EdgeInsets.all(8), child: ConsultationDocStatusBadge(status: doc.status)),
-                            Padding(padding: const EdgeInsets.all(8), child: Text(doc.remarks ?? '-')),
+                            Padding(padding: const EdgeInsets.all(8), child: CopyableText(doc.remarks ?? '-')),
                           ],
                         );
                       }),

@@ -6,6 +6,7 @@ import main
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 from database.database import Base
 from modules.import_companies.model import ImportCompany
 from modules.suppliers.model import Supplier
@@ -19,10 +20,15 @@ from modules.lifecycle_board.schemas import StepAdvancePayload, SkipStepPayload,
 
 @pytest.fixture
 def db_session():
-    engine = create_engine("sqlite:///:memory:")
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)
     session = Session()
+
 
     # Seed an import file
     file1 = ImportFile(
@@ -214,3 +220,312 @@ def test_sync_consultation_lifecycle_stage(db_session):
     db_session.refresh(file1)
     assert "STEP_02" in file1.current_module
     assert "STEP_03" in file1.next_action
+
+
+def test_sync_budget_lifecycle_stage(db_session):
+    file1 = db_session.query(ImportFile).filter(ImportFile.import_file_code == "IMP-2026-0001").first()
+    assert file1 is not None
+
+    # Case 1: Budget created but not approved yet -> moves to STEP_04 In-Progress
+    service.sync_budget_lifecycle_stage(db_session, file1.import_file_id, is_approved=False)
+    db_session.refresh(file1)
+
+    step1 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_01")
+    assert step1.status == "Completed"
+    step2 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_02")
+    assert step2.status == "Completed"
+    step3 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_03")
+    assert step3.status == "Completed"
+    step4 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_04")
+    assert step4.status == "In-Progress"
+    assert file1.current_stage == "Phase 2: Approvals & ACID"
+    assert "STEP_04" in file1.current_module
+
+    # Case 2: Budget approved -> completes STEP_04 and activates STEP_05 (ACID)
+    service.sync_budget_lifecycle_stage(db_session, file1.import_file_id, is_approved=True, approved_by="Finance Admin")
+    db_session.refresh(file1)
+
+    step4 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_04")
+    assert step4.status == "Completed"
+    step5 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_05")
+    assert step5.status == "In-Progress"
+    assert file1.current_stage == "Phase 2: Approvals & ACID"
+    assert "STEP_05" in file1.current_module
+    assert "STEP_05" in file1.next_action
+
+
+def test_full_stage_advancement_and_phase_transition(db_session):
+    from modules.smart_tasks.model import SmartTask
+
+    file1 = db_session.query(ImportFile).filter(ImportFile.import_file_code == "IMP-2026-0001").first()
+    assert file1 is not None
+
+    # Start at STEP_05 (in Phase 2)
+    repo.save_or_update_activity(db_session, "IMP-2026-0001", "STEP_05", "In-Progress")
+    file1.current_stage = "Phase 2: Approvals & ACID"
+    file1.current_module = "STEP_05 إصدار رقم ACID نافذة"
+    db_session.commit()
+
+    # Advance without next_step_codes -> should auto-infer STEP_06 (Phase 3 transition)
+    payload = StepAdvancePayload(
+        import_file_code="IMP-2026-0001",
+        current_step_code="STEP_05",
+        next_step_codes=[], # auto-infer
+        notes="تم استخراج وتوثيق رقم ACID بنجاح",
+    )
+    res = service.advance_step_service(db_session, payload)
+    assert res["completed_step"] == "STEP_05"
+    assert res["activated_steps"] == ["STEP_06"]
+
+    # Verify activities
+    act_step5 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_05")
+    assert act_step5.status == "Completed"
+    act_step6 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_06")
+    assert act_step6.status == "In-Progress"
+
+    # Verify ImportFile updated to Phase 3
+    db_session.refresh(file1)
+    assert file1.current_stage == "Phase 3: Booking & Doc Prep"
+    assert "STEP_06" in file1.current_module
+    assert "حجز النولون" in file1.current_module
+    assert file1.progress_percent >= 28.0
+
+    # Verify SmartTask created for STEP_06
+    task = db_session.query(SmartTask).filter(
+        SmartTask.import_file_id == file1.import_file_id,
+        SmartTask.title.ilike("%STEP_06%"),
+        SmartTask.is_active == True,
+    ).first()
+    assert task is not None
+    assert task.status == "Pending"
+
+    # Advance to Final Step STEP_21
+    payload_final = StepAdvancePayload(
+        import_file_code="IMP-2026-0001",
+        current_step_code="STEP_20",
+        next_step_codes=["STEP_21"],
+    )
+    service.advance_step_service(db_session, payload_final)
+    db_session.refresh(file1)
+    assert file1.current_stage == "Phase 6: Inbound & Final Closure"
+    assert "STEP_21" in file1.current_module
+    assert file1.progress_percent == 100.0
+
+
+def test_sync_booking_lifecycle_stage(db_session):
+    from modules.smart_tasks.model import SmartTask
+    from modules.lifecycle_board.service import sync_booking_lifecycle_stage
+
+    file1 = db_session.query(ImportFile).filter(ImportFile.import_file_code == "IMP-2026-0001").first()
+    file1.acid_number = "5281534391023010013"
+    db_session.commit()
+
+    # Call sync_booking_lifecycle_stage with confirmed booking
+    sync_booking_lifecycle_stage(
+        db=db_session,
+        import_file_id=file1.import_file_id,
+        booking_code="BKG-2026-0001",
+        booking_confirmation_no="MSC-CN-889001",
+        is_confirmed=True,
+        vessel_name="MSC ISABELLA",
+    )
+
+    db_session.refresh(file1)
+    assert file1.current_stage == "Phase 3: Booking & Doc Prep"
+    assert "STEP_07" in file1.current_module
+    assert file1.progress_percent >= 50.0
+
+    # Verify activities
+    act_step5 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_05")
+    assert act_step5.status == "Completed"
+
+    act_step6 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_06")
+    assert act_step6.status == "Completed"
+    assert "MSC-CN-889001" in act_step6.notes
+
+    act_step7 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_07")
+    assert act_step7.status == "In-Progress"
+
+    # Verify smart task created for STEP_07
+    task7 = db_session.query(SmartTask).filter(
+        SmartTask.import_file_id == file1.import_file_id,
+        SmartTask.title.ilike("%STEP_07%"),
+        SmartTask.is_active == True,
+    ).first()
+    assert task7 is not None
+    assert task7.status == "Pending"
+
+
+def test_generic_advance_lifecycle_step_auto_reconciliation(db_session):
+    """
+    Validates that leaping to a later milestone (e.g. STEP_06) automatically reconciles
+    all prior steps (STEP_01 to STEP_05), preventing the shipment from being trapped
+    in earlier phases on the lifecycle board.
+    """
+    file1 = db_session.query(ImportFile).filter(ImportFile.import_file_code == "IMP-2026-0001").first()
+    assert file1 is not None
+
+    # Step 1 was initially In-Progress
+    repo.save_or_update_activity(db_session, "IMP-2026-0001", "STEP_01", "In-Progress")
+
+    # Now execute generic advance on STEP_06 with target STEP_07
+    res = service.advance_lifecycle_step_service(
+        db=db_session,
+        import_file_code="IMP-2026-0001",
+        completed_step_code="STEP_06",
+        target_step_codes=["STEP_07"],
+        auto_complete_prior=True,
+        notes="Booking confirmed on vessel EVER GIVEN",
+        source_module="Freight Booking",
+    )
+
+    assert res["completed_step"] == "STEP_06"
+    assert "STEP_07" in res["activated_steps"]
+    assert "STEP_01" in res["auto_completed_prior_steps"]
+
+    # Verify all prior steps are marked Completed
+    for i in range(1, 6):
+        code = f"STEP_{str(i).zfill(2)}"
+        act = repo.get_activity(db_session, "IMP-2026-0001", code)
+        assert act is not None, f"Expected {code} activity to exist"
+        assert act.status == "Completed", f"Expected {code} to be Completed, got {act.status}"
+
+    # Verify STEP_06 is Completed and STEP_07 is In-Progress
+    step6 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_06")
+    assert step6.status == "Completed"
+    step7 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_07")
+    assert step7.status == "In-Progress"
+
+    # Verify that board active query ONLY returns STEP_07 for this shipment (no duplicate phase cards)
+    active_cards = repo.get_active_shipments_with_details(db_session)
+    matching_cards = [c for c in active_cards if c[0].import_file_code == "IMP-2026-0001"]
+    assert len(matching_cards) == 1
+    assert matching_cards[0][0].step_code == "STEP_07"
+
+
+def test_generic_advance_lifecycle_step_idempotency(db_session):
+    """
+    Validates that calling advance_lifecycle_step_service repeatedly with the same
+    parameters produces the exact same clean state without duplicating activities or failing.
+    """
+    # First invocation
+    res1 = service.advance_lifecycle_step_service(
+        db=db_session,
+        import_file_code="IMP-2026-0001",
+        completed_step_code="STEP_03",
+        target_step_codes=["STEP_04"],
+    )
+    # Second invocation (idempotency check)
+    res2 = service.advance_lifecycle_step_service(
+        db=db_session,
+        import_file_code="IMP-2026-0001",
+        completed_step_code="STEP_03",
+        target_step_codes=["STEP_04"],
+    )
+
+    assert res1["completed_step"] == res2["completed_step"]
+    assert res1["activated_steps"] == res2["activated_steps"]
+
+    # Ensure no duplicates in DB
+    all_acts = repo.get_all_activities(db_session, import_file_code="IMP-2026-0001")
+    step3_records = [a for a in all_acts if a.step_code == "STEP_03"]
+    step4_records = [a for a in all_acts if a.step_code == "STEP_04"]
+    assert len(step3_records) == 1
+    assert len(step4_records) == 1
+
+
+def test_generic_advance_lifecycle_step_natural_next_inference(db_session):
+    """
+    Validates that when target_step_codes is None, the engine automatically infers
+    the sequential natural next step.
+    """
+    res = service.advance_lifecycle_step_service(
+        db=db_session,
+        import_file_code="IMP-2026-0001",
+        completed_step_code="STEP_10",
+        target_step_codes=None, # should auto-infer STEP_11
+    )
+    assert res["completed_step"] == "STEP_10"
+    assert res["activated_steps"] == ["STEP_11"]
+
+    step11 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_11")
+    assert step11.status == "In-Progress"
+
+
+def test_generic_advance_lifecycle_step_by_file_id(db_session):
+    """
+    Validates that passing import_file_id without import_file_code resolves properly.
+    """
+    file1 = db_session.query(ImportFile).filter(ImportFile.import_file_code == "IMP-2026-0001").first()
+    res = service.advance_lifecycle_step_service(
+        db=db_session,
+        import_file_id=file1.import_file_id,
+        completed_step_code="STEP_08",
+        target_step_codes=["STEP_09"],
+    )
+    assert res["import_file_code"] == "IMP-2026-0001"
+    assert res["completed_step"] == "STEP_08"
+    assert res["activated_steps"] == ["STEP_09"]
+
+
+def test_generic_advance_lifecycle_step_final_closure(db_session):
+    """
+    Validates that completing STEP_21 transitions shipment to Phase 6 with 100% progress.
+    """
+    file1 = db_session.query(ImportFile).filter(ImportFile.import_file_code == "IMP-2026-0001").first()
+    res = service.advance_lifecycle_step_service(
+        db=db_session,
+        import_file_code="IMP-2026-0001",
+        completed_step_code="STEP_21",
+        target_step_codes=None,
+    )
+    assert res["completed_step"] == "STEP_21"
+    assert res["activated_steps"] == []
+    assert res["progress_percent"] == 100.0
+
+    db_session.refresh(file1)
+    assert file1.current_stage == "Phase 6: Inbound & Final Closure"
+    assert file1.progress_percent == 100.0
+
+
+def test_sync_lifecycle_step_api(db_session):
+    """
+    Tests the POST /api/v1/lifecycle-board/stages/sync endpoint via FastAPI TestClient.
+    """
+    from fastapi.testclient import TestClient
+    from database.database import get_db
+
+    app = main.app
+
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    try:
+        with TestClient(app) as client:
+            payload = {
+                "completed_step_code": "STEP_06",
+                "import_file_code": "IMP-2026-0001",
+                "target_step_codes": ["STEP_07"],
+                "auto_complete_prior": True,
+                "notes": "Freight booking confirmed via API",
+                "source_module": "API Test",
+            }
+            resp = client.post("/api/v1/lifecycle-board/stages/sync", json=payload)
+            assert resp.status_code == 200, resp.text
+            data = resp.json()
+            assert data["completed_step"] == "STEP_06"
+            assert "STEP_07" in data["activated_steps"]
+            assert "STEP_01" in data["auto_completed_prior_steps"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+
+
+
+

@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:file_picker/file_picker.dart';
-import 'dart:io';
 import '../../../core/services/file_save_helper.dart';
 
 class CustomsPdfService {
@@ -350,6 +348,7 @@ class CustomsPdfService {
 
     final String defaultFileName = 'Phase1_Nafeza_Customs_Statement_${DateTime.now().millisecondsSinceEpoch}.pdf';
     
+    if (context == null || !context.mounted) return null;
     return FileSaveHelper.saveBytes(
       context: context,
       bytes: pdfBytes,

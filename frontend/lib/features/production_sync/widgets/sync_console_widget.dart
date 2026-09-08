@@ -98,13 +98,16 @@ class _SyncConsoleWidgetState extends State<SyncConsoleWidget> {
                 const SizedBox(width: 12),
                 const Icon(Icons.terminal_rounded, color: Colors.white70, size: 16),
                 const SizedBox(width: 8),
-                const Text(
-                  'سجل التنفيذ المباشر (Production Sync Terminal)',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'monospace',
+                const Expanded(
+                  child: Text(
+                    'سجل التنفيذ المباشر (Production Sync Terminal)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'monospace',
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (widget.isRunning) ...[

@@ -52,12 +52,23 @@ class CBMCalculatorState {
 
 class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   CBMCalculatorNotifier(this._dio) : super(CBMCalculatorState()) {
     fetchCalculations();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('CBMCalculatorNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchCalculations() async {
+    _cancelToken?.cancel('New fetch requested');
+    final cancelToken = CancelToken();
+    _cancelToken = cancelToken;
+
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final response = await _dio.get(
@@ -68,11 +79,14 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
           if (state.poFilter != null) 'po_id': state.poFilter,
           if (state.searchQuery.isNotEmpty) 'search': state.searchQuery,
         },
+        cancelToken: cancelToken,
       );
+      if (cancelToken.isCancelled) return;
       final List data = response.data;
       final list = data.map((json) => CBMCalculationModel.fromJson(json)).toList();
       state = state.copyWith(calculations: list, isLoading: false);
     } catch (e) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to load CBM calculations: ${e.toString()}',

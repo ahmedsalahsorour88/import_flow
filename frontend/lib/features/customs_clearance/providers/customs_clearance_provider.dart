@@ -12,9 +12,16 @@ final customsClearanceProvider =
 
 class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClearanceModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   CustomsClearanceNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchRecords();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('CustomsClearanceNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchRecords({
@@ -23,7 +30,12 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
     String? status,
     String? search,
   }) async {
-    state = const AsyncValue.loading();
+    if (state.valueOrNull == null) {
+      state = const AsyncValue.loading();
+    }
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
+
     try {
       final queryParams = <String, dynamic>{'include_inactive': includeInactive};
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
@@ -33,12 +45,16 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/customs-clearance',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List data = response.data;
       final list = data.map((json) => CustomsClearanceModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }

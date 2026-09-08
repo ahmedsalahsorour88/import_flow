@@ -10,8 +10,8 @@ void main() {
     late AppLocalizationsEn en;
 
     setUp(() {
-      ar = AppLocalizationsAr();
-      en = AppLocalizationsEn();
+      ar = const AppLocalizationsAr();
+      en = const AppLocalizationsEn();
     });
 
     test('Template mode labels and preset headers are properly localized', () {
@@ -66,9 +66,30 @@ void main() {
       expect(en.dynCatEcoTracking, isNotEmpty);
     });
 
-    test('ECO Template contains exactly 16 predefined operational columns', () {
-      expect(DynamicReportBuilderScreen.kEcoPresetColumnIds.length, equals(16));
-      expect(DynamicReportBuilderScreen.kEcoPresetColumnIds, containsAll([
+    test('ECO Template contains exactly 15 milestone & document tracking columns from image in exact order', () {
+      expect(DynamicReportBuilderScreen.kEcoPresetColumnIds.length, equals(15));
+      expect(DynamicReportBuilderScreen.kEcoPresetColumnIds, equals([
+        'scasProjectFileAcid',
+        'scasExFactory',
+        'scasOrderToOrigin',
+        'scasPickUpDate',
+        'scasDeparturePort',
+        'scasArrivalAlexPort',
+        'scasOrigInvoice',
+        'scasOrigPackingList',
+        'scasOrigCoo',
+        'scasOrigBl',
+        'scasOrigInsurance',
+        'scasInsertNafeza',
+        'scasBankForm4',
+        'scasDeclare3A',
+        'scasMaterialReceived',
+      ]));
+    });
+
+    test('SCAS Template contains exactly 16 operational tracking columns in exact requested order', () {
+      expect(DynamicReportBuilderScreen.kScasPresetColumnIds.length, equals(16));
+      expect(DynamicReportBuilderScreen.kScasPresetColumnIds, equals([
         'ecoBroker',
         'ecoShipmentNo',
         'ecoSupplier',
@@ -88,41 +109,36 @@ void main() {
       ]));
     });
 
-    test('SCAS Template contains exactly 15 milestone & document tracking columns', () {
-      expect(DynamicReportBuilderScreen.kScasPresetColumnIds.length, equals(15));
-      expect(DynamicReportBuilderScreen.kScasPresetColumnIds, containsAll([
-        'scasProjectFileAcid',
-        'scasExFactory',
-        'scasOrderToOrigin',
-        'scasPickUpDate',
-        'scasDeparturePort',
-        'scasArrivalAlexPort',
-        'scasOrigInvoice',
-        'scasOrigPackingList',
-        'scasOrigCoo',
-        'scasOrigBl',
-        'scasOrigInsurance',
-        'scasInsertNafeza',
-        'scasBankForm4',
-        'scasDeclare3A',
-        'scasMaterialReceived',
-      ]));
-    });
-
-    test('SCAS and ECO specific column getters return localized text', () {
+    test('SCAS and ECO specific column getters return localized text matching specifications', () {
       expect(ar.dynColEcoBroker, equals('Custom Broker Name'));
       expect(ar.dynColEcoShipmentNo, equals('Shipment No'));
       expect(ar.dynColEcoSupplier, equals('Supp. Name'));
       expect(ar.dynColEcoProject, equals('Project Name'));
       expect(ar.dynColEcoPiValue, equals('PI Value'));
-      expect(ar.dynColEcoSara, equals('SARA'));
-      expect(ar.dynColEcoMaro, equals('MARO'));
+      expect(ar.dynColEcoShippingDate, equals('Shipping Date'));
+      expect(ar.dynColEcoArrivalPort, equals('Arrival Port'));
+      expect(ar.dynColEcoArrivalWarehouse, equals('Arrival Warehouse'));
+      expect(ar.dynColEcoSara, equals('المسئول عن المشروع'));
+      expect(ar.dynColEcoMaro, equals('مالك المشروع'));
+      expect(en.dynColEcoSara, equals('المسئول عن المشروع'));
+      expect(en.dynColEcoMaro, equals('مالك المشروع'));
+      expect(ar.dynColEcoSara.toLowerCase(), isNot(contains('sara')));
+      expect(ar.dynColEcoMaro.toLowerCase(), isNot(contains('maro')));
+      expect(en.dynColEcoSara.toLowerCase(), isNot(contains('sara')));
+      expect(en.dynColEcoMaro.toLowerCase(), isNot(contains('maro')));
+      expect(ar.dynColEcoReadyToPickUp, equals('Ready to Pick Up Date'));
+      expect(ar.dynColEcoLatestUpdate, equals('Latest Update for Pending Shipment'));
+      expect(ar.dynColEcoSwiftDate, equals('تاريخ السويفت'));
+      expect(ar.dynColEcoSwiftAmount, equals('قيمة السويفت'));
+      expect(ar.dynColEcoShippingCompany, equals('شركة الشحن'));
       expect(ar.dynColEcoAcid, equals('ACID'));
 
-      expect(ar.dynColScasProjectFileAcid, equals('Project / File / ACID'));
+      expect(ar.dynColScasProjectFileAcid, equals('Project'));
       expect(ar.dynColScasExFactory, equals('EX Factory'));
       expect(ar.dynColScasOrderToOrigin, equals('Order to Origin for Pick Up'));
-      expect(ar.dynColScasPickUpDate, equals('Pick Up Date from Origin'));
+      expect(ar.dynColScasPickUpDate, equals('Pick Up Date from Gind'));
+      expect(ar.dynColScasDeparturePort, equals('Departure Date from Port (ETD)'));
+      expect(ar.dynColScasArrivalAlexPort, equals('Arrival Date to Alex Port (ETA)'));
       expect(ar.dynColScasOrigInvoice, equals('Original Commercial Invoice'));
       expect(ar.dynColScasOrigPackingList, equals('Original Packing List'));
       expect(ar.dynColScasOrigCoo, equals('Original Certificate of Origin'));
@@ -131,7 +147,7 @@ void main() {
       expect(ar.dynColScasInsertNafeza, equals('Insert on Nafeza'));
       expect(ar.dynColScasBankForm4, equals('Bank Name (Form 4)'));
       expect(ar.dynColScasDeclare3A, equals('Declare to 3A'));
-      expect(ar.dynColScasMaterialReceived, equals('Material Received / Clearance'));
+      expect(ar.dynColScasMaterialReceived, equals('Material Received'));
     });
 
     test('Data extraction correctly formats composite values for ECO and SCAS models', () {
@@ -195,6 +211,158 @@ void main() {
       expect(sampleFile.invoicesData.first.currency, equals('EUR'));
       expect(sampleFile.packingListsData.first.totalPackages, equals(12));
       expect(sampleFile.packingListsData.first.cbm, equals(18.5));
+    });
+
+    test('Company/project filtering logic validates ECO only vs SCAS & Archi Rands', () {
+      final ecoFileByCompany = ImportFileModel(
+        importFileId: 1,
+        importFileCode: 'ECO-001',
+        companyName: 'ECO Associates LLC',
+        supplierName: 'Supplier 1',
+        shipmentMode: 'Sea FCL',
+        incotermCode: 'CIF',
+        estimatedCost: 1000,
+        estimatedCostCurrency: 'USD',
+        currentModule: 'Shipping',
+        currentStage: 'Booking',
+        progressPercent: 20,
+        nextAction: 'Pending',
+        status: 'Active',
+        owner: 'User',
+        createdAt: '2026-09-01',
+        updatedAt: '2026-09-06',
+        invoicesData: const [],
+        packingListsData: const [],
+      );
+
+      final ecoFileByProject = ImportFileModel(
+        importFileId: 2,
+        importFileCode: 'PRJ-002',
+        companyName: 'Trading Corp',
+        supplierName: 'Supplier 2',
+        projectNames: 'ECO Tower Project',
+        shipmentMode: 'Air',
+        incotermCode: 'FOB',
+        estimatedCost: 2000,
+        estimatedCostCurrency: 'USD',
+        currentModule: 'Shipping',
+        currentStage: 'Departure',
+        progressPercent: 40,
+        nextAction: 'Pending',
+        status: 'Active',
+        owner: 'User',
+        createdAt: '2026-09-01',
+        updatedAt: '2026-09-06',
+        invoicesData: const [],
+        packingListsData: const [],
+      );
+
+      final scasFile = ImportFileModel(
+        importFileId: 3,
+        importFileCode: 'SCAS-003',
+        companyName: 'SCAS Construction',
+        supplierName: 'Supplier 3',
+        projectNames: 'Mall Project',
+        shipmentMode: 'Sea FCL',
+        incotermCode: 'FOB',
+        estimatedCost: 3000,
+        estimatedCostCurrency: 'USD',
+        currentModule: 'Shipping',
+        currentStage: 'Customs',
+        progressPercent: 60,
+        nextAction: 'Pending',
+        status: 'Active',
+        owner: 'User',
+        createdAt: '2026-09-01',
+        updatedAt: '2026-09-06',
+        invoicesData: const [],
+        packingListsData: const [],
+      );
+
+      final archiFile = ImportFileModel(
+        importFileId: 4,
+        importFileCode: 'ARC-004',
+        companyName: 'Archi Rands Design',
+        supplierName: 'Supplier 4',
+        shipmentMode: 'Air',
+        incotermCode: 'CIF',
+        estimatedCost: 4000,
+        estimatedCostCurrency: 'USD',
+        currentModule: 'Shipping',
+        currentStage: 'Arrival',
+        progressPercent: 80,
+        nextAction: 'Pending',
+        status: 'Active',
+        owner: 'User',
+        createdAt: '2026-09-01',
+        updatedAt: '2026-09-06',
+        invoicesData: const [],
+        packingListsData: const [],
+      );
+
+      final otherFile = ImportFileModel(
+        importFileId: 5,
+        importFileCode: 'OTH-005',
+        companyName: 'General Logistics',
+        supplierName: 'Supplier 5',
+        projectNames: 'City Center',
+        shipmentMode: 'Sea FCL',
+        incotermCode: 'FOB',
+        estimatedCost: 5000,
+        estimatedCostCurrency: 'USD',
+        currentModule: 'Shipping',
+        currentStage: 'Completed',
+        progressPercent: 100,
+        nextAction: 'Done',
+        status: 'Closed',
+        owner: 'User',
+        createdAt: '2026-09-01',
+        updatedAt: '2026-09-06',
+        invoicesData: const [],
+        packingListsData: const [],
+      );
+
+      final allFiles = [ecoFileByCompany, ecoFileByProject, scasFile, archiFile, otherFile];
+
+      // ECO Filter predicate
+      bool isEco(ImportFileModel f) {
+        final comp = f.companyName.toLowerCase();
+        final proj = (f.projectNames ?? '').toLowerCase();
+        final owner = f.owner.toLowerCase();
+        final notes = (f.notes ?? '').toLowerCase();
+        return comp.contains('eco') || comp.contains('إيكو') || comp.contains('ايكو') ||
+               proj.contains('eco') || proj.contains('إيكو') || proj.contains('ايكو') ||
+               owner.contains('eco') || notes.contains('eco');
+      }
+
+      // SCAS & Archi Rands Filter predicate
+      bool isScasOrArchi(ImportFileModel f) {
+        final comp = f.companyName.toLowerCase();
+        final proj = (f.projectNames ?? '').toLowerCase();
+        final owner = f.owner.toLowerCase();
+        final notes = (f.notes ?? '').toLowerCase();
+        return comp.contains('scas') || comp.contains('سكاس') ||
+               comp.contains('archi') || comp.contains('أركي') || comp.contains('اركي') ||
+               proj.contains('scas') || proj.contains('سكاس') ||
+               proj.contains('archi') || proj.contains('أركي') || proj.contains('اركي') ||
+               owner.contains('scas') || owner.contains('archi') ||
+               notes.contains('scas') || notes.contains('archi');
+      }
+
+      final ecoFiltered = allFiles.where(isEco).toList();
+      final scasFiltered = allFiles.where(isScasOrArchi).toList();
+
+      expect(ecoFiltered.length, equals(2));
+      expect(ecoFiltered.map((f) => f.importFileCode), containsAll(['ECO-001', 'PRJ-002']));
+      expect(ecoFiltered.map((f) => f.importFileCode), isNot(contains('SCAS-003')));
+      expect(ecoFiltered.map((f) => f.importFileCode), isNot(contains('ARC-004')));
+      expect(ecoFiltered.map((f) => f.importFileCode), isNot(contains('OTH-005')));
+
+      expect(scasFiltered.length, equals(2));
+      expect(scasFiltered.map((f) => f.importFileCode), containsAll(['SCAS-003', 'ARC-004']));
+      expect(scasFiltered.map((f) => f.importFileCode), isNot(contains('ECO-001')));
+      expect(scasFiltered.map((f) => f.importFileCode), isNot(contains('PRJ-002')));
+      expect(scasFiltered.map((f) => f.importFileCode), isNot(contains('OTH-005')));
     });
   });
 }

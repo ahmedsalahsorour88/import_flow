@@ -12,12 +12,21 @@ final transportLocationsProvider =
 
 class TransportLocationsNotifier extends StateNotifier<AsyncValue<List<TransportLocationModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   TransportLocationsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchLocations();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('TransportLocationsNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchLocations({bool includeInactive = true, String? locationType, String? search}) async {
+    _cancelToken?.cancel('Cancelled by new fetchLocations request');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{
@@ -33,11 +42,13 @@ class TransportLocationsNotifier extends StateNotifier<AsyncValue<List<Transport
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/transport-locations',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
       final List data = response.data as List;
       final locations = data.map((json) => TransportLocationModel.fromJson(json)).toList();
       state = AsyncValue.data(locations);
     } catch (err, stack) {
+      if (err is DioException && CancelToken.isCancel(err)) return;
       state = AsyncValue.error(err, stack);
     }
   }

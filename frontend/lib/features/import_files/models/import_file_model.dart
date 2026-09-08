@@ -140,6 +140,21 @@ class ImportFileModel {
   final String createdAt;
   final String updatedAt;
 
+  String get displayName => (customFileNumber != null && customFileNumber!.trim().isNotEmpty)
+      ? customFileNumber!.trim()
+      : importFileCode;
+
+  /// Returns the primary file title with code:
+  /// e.g. "PET Stock (IMP-2026-0004)" or "IMP-2026-0004" if no custom name
+  String get primaryNameWithCode {
+    if (customFileNumber != null &&
+        customFileNumber!.trim().isNotEmpty &&
+        customFileNumber!.trim() != importFileCode) {
+      return '${customFileNumber!.trim()} ($importFileCode)';
+    }
+    return importFileCode;
+  }
+
   ImportFileModel({
     required this.importFileId,
     required this.importFileCode,

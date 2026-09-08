@@ -1,12 +1,12 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 
@@ -77,6 +77,7 @@ class _SmartInvoiceBLExtractorDialogState
   // ─── Pick Files ────────────────────────────────────────────────────────────
 
   Future<void> _pickInvoiceFile() async {
+    final l = context.l10n;
     try {
       final res = await FilePicker.pickFiles(
         type: FileType.custom,
@@ -89,11 +90,14 @@ class _SmartInvoiceBLExtractorDialogState
         });
       }
     } catch (e) {
-      _showSnackBar('فشل اختيار الملف: $e', isError: true);
+      if (mounted) {
+        _showSnackBar(l.smartExtractorPickFileError(e), isError: true);
+      }
     }
   }
 
   Future<void> _pickBLFile() async {
+    final l = context.l10n;
     try {
       final res = await FilePicker.pickFiles(
         type: FileType.custom,
@@ -106,16 +110,19 @@ class _SmartInvoiceBLExtractorDialogState
         });
       }
     } catch (e) {
-      _showSnackBar('فشل اختيار الملف: $e', isError: true);
+      if (mounted) {
+        _showSnackBar(l.smartExtractorPickFileError(e), isError: true);
+      }
     }
   }
 
   // ─── Extract Actions ───────────────────────────────────────────────────────
 
   Future<void> _extractInvoice() async {
+    final l = context.l10n;
     final text = _invoiceTextCtrl.text.trim();
     if (text.isEmpty && _pickedInvoiceFile == null) {
-      _showSnackBar('يرجى اختيار ملف الفاتورة أو لصق نصها أولاً', isError: true);
+      _showSnackBar(l.smartExtractorRequireInvoiceInput, isError: true);
       return;
     }
 
@@ -143,19 +150,26 @@ class _SmartInvoiceBLExtractorDialogState
           _extractedInvoice = data['extracted_fields'] as Map<String, dynamic>?;
           _invoiceItems = (data['items'] as List<dynamic>?) ?? [];
         });
-        _showSnackBar('تم استخلاص بيانات الفاتورة بنجاح بنسبة دقة عالية ✅');
+        if (mounted) {
+          _showSnackBar(l.smartExtractorInvoiceExtractedSuccess);
+        }
       }
     } catch (e) {
-      _showSnackBar('خطأ أثناء استخلاص الفاتورة: $e', isError: true);
+      if (mounted) {
+        _showSnackBar(l.smartExtractorExtractInvoiceError(e), isError: true);
+      }
     } finally {
-      setState(() => _isExtractingInvoice = false);
+      if (mounted) {
+        setState(() => _isExtractingInvoice = false);
+      }
     }
   }
 
   Future<void> _extractBL() async {
+    final l = context.l10n;
     final text = _blTextCtrl.text.trim();
     if (text.isEmpty && _pickedBLFile == null) {
-      _showSnackBar('يرجى اختيار ملف البوليصة أو لصق نصها أولاً', isError: true);
+      _showSnackBar(l.smartExtractorRequireBlInput, isError: true);
       return;
     }
 
@@ -183,20 +197,27 @@ class _SmartInvoiceBLExtractorDialogState
           _extractedBL = data['extracted_fields'] as Map<String, dynamic>?;
           _blContainers = (data['containers'] as List<dynamic>?) ?? [];
         });
-        _showSnackBar('تم استخلاص بوليصة الشحن والحاويات بنجاح ✅');
+        if (mounted) {
+          _showSnackBar(l.smartExtractorBlExtractedSuccess);
+        }
       }
     } catch (e) {
-      _showSnackBar('خطأ أثناء استخلاص البوليصة: $e', isError: true);
+      if (mounted) {
+        _showSnackBar(l.smartExtractorExtractBlError(e), isError: true);
+      }
     } finally {
-      setState(() => _isExtractingBL = false);
+      if (mounted) {
+        setState(() => _isExtractingBL = false);
+      }
     }
   }
 
   // ─── Cross-Audit ───────────────────────────────────────────────────────────
 
   Future<void> _runCrossAudit() async {
+    final l = context.l10n;
     if (_extractedInvoice == null || _extractedBL == null) {
-      _showSnackBar('يرجى استخلاص الفاتورة والبوليصة أولاً لإجراء المطابقة', isError: true);
+      _showSnackBar(l.smartExtractorRequireBothDocsForAudit, isError: true);
       return;
     }
 
@@ -213,21 +234,28 @@ class _SmartInvoiceBLExtractorDialogState
         setState(() {
           _auditResult = resp.data as Map<String, dynamic>;
         });
-        _showSnackBar('تم اكتمال تدقيق المطابقة الجمركية بنجاح ✅');
+        if (mounted) {
+          _showSnackBar(l.smartExtractorAuditSuccess);
+        }
       }
     } catch (e) {
-      _showSnackBar('خطأ أثناء تدقيق المطابقة: $e', isError: true);
+      if (mounted) {
+        _showSnackBar(l.smartExtractorAuditError(e), isError: true);
+      }
     } finally {
-      setState(() => _isAuditing = false);
+      if (mounted) {
+        setState(() => _isAuditing = false);
+      }
     }
   }
 
   // ─── Apply Services ────────────────────────────────────────────────────────
 
   Future<void> _applyInvoiceToImportFile() async {
+    final l = context.l10n;
     if (_extractedInvoice == null) return;
     if (_selectedImportFileId == null) {
-      _showSnackBar('يرجى تحديد الملف الاستيرادي المستهدف أولاً', isError: true);
+      _showSnackBar(l.smartExtractorSelectFileWarning, isError: true);
       return;
     }
 
@@ -240,19 +268,26 @@ class _SmartInvoiceBLExtractorDialogState
       });
       if (resp.statusCode == 200) {
         ref.invalidate(importFilesProvider);
-        _showSnackBar(resp.data['message_ar'] ?? 'تم ربط بيانات الفاتورة بالملف بنجاح');
+        if (mounted) {
+          _showSnackBar(l.smartExtractorInvoiceAppliedSuccess);
+        }
       }
     } catch (e) {
-      _showSnackBar('فشل تطبيق بيانات الفاتورة: $e', isError: true);
+      if (mounted) {
+        _showSnackBar(l.smartExtractorApplyInvoiceError(e), isError: true);
+      }
     } finally {
-      setState(() => _isApplyingInvoice = false);
+      if (mounted) {
+        setState(() => _isApplyingInvoice = false);
+      }
     }
   }
 
   Future<void> _applyBLToShipping() async {
+    final l = context.l10n;
     if (_extractedBL == null) return;
     if (_selectedImportFileId == null) {
-      _showSnackBar('يرجى تحديد الملف الاستيرادي المستهدف أولاً', isError: true);
+      _showSnackBar(l.smartExtractorSelectFileWarning, isError: true);
       return;
     }
 
@@ -265,12 +300,18 @@ class _SmartInvoiceBLExtractorDialogState
       });
       if (resp.statusCode == 200) {
         ref.invalidate(importFilesProvider);
-        _showSnackBar(resp.data['message_ar'] ?? 'تم تطبيق بيانات البوليصة بنجاح');
+        if (mounted) {
+          _showSnackBar(l.smartExtractorBlAppliedSuccess);
+        }
       }
     } catch (e) {
-      _showSnackBar('فشل تطبيق بيانات البوليصة: $e', isError: true);
+      if (mounted) {
+        _showSnackBar(l.smartExtractorApplyBlError(e), isError: true);
+      }
     } finally {
-      setState(() => _isApplyingBL = false);
+      if (mounted) {
+        setState(() => _isApplyingBL = false);
+      }
     }
   }
 
@@ -290,33 +331,36 @@ class _SmartInvoiceBLExtractorDialogState
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 1120,
-        height: 760,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 16),
-            _buildTabsBar(),
-            const SizedBox(height: 16),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildInvoiceTab(),
-                  _buildBLTab(),
-                  _buildCrossCheckTab(),
-                ],
+      child: SelectionArea(
+        child: Container(
+          width: 1120,
+          height: 760,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 16),
+              _buildTabsBar(),
+              const SizedBox(height: 16),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildInvoiceTab(),
+                    _buildBLTab(),
+                    _buildCrossCheckTab(),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildHeader() {
+    final l = context.l10n;
     return Row(
       children: [
         Container(
@@ -331,15 +375,15 @@ class _SmartInvoiceBLExtractorDialogState
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
-                'استخلاص الفواتير وبوالص الشحن بالذكاء الاصطناعي (AI-INV-010)',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                l.smartExtractorDialogTitle,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
-                'استخراج ذكي لبيانات الفواتير والبوالص البحرية والجوية مع التدقيق والمطابقة الجمركية المسبقة',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                l.smartExtractorDialogSubtitle,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -348,13 +392,14 @@ class _SmartInvoiceBLExtractorDialogState
         IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
-          tooltip: 'إغلاق',
+          tooltip: l.invoiceBlMatcherCloseButton,
         ),
       ],
     );
   }
 
   Widget _buildTabsBar() {
+    final l = context.l10n;
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
@@ -369,18 +414,18 @@ class _SmartInvoiceBLExtractorDialogState
           borderRadius: BorderRadius.circular(8),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
-        tabs: const [
+        tabs: [
           Tab(
-            icon: Icon(Icons.receipt_long_outlined),
-            text: 'الفاتورة التجارية (Invoice)',
+            icon: const Icon(Icons.receipt_long_outlined),
+            text: l.smartExtractorTabInvoice,
           ),
           Tab(
-            icon: Icon(Icons.directions_boat_outlined),
-            text: 'بوليصة الشحن (B/L & AWB)',
+            icon: const Icon(Icons.directions_boat_outlined),
+            text: l.smartExtractorTabBl,
           ),
           Tab(
-            icon: Icon(Icons.rule_folder_outlined),
-            text: 'رادار المطابقة (10-Point Audit)',
+            icon: const Icon(Icons.rule_folder_outlined),
+            text: l.smartExtractorTabAudit,
           ),
         ],
       ),
@@ -390,19 +435,21 @@ class _SmartInvoiceBLExtractorDialogState
   // ─── TAB 1: Invoice Extractor ──────────────────────────────────────────────
 
   Widget _buildInvoiceTab() {
+    final l = context.l10n;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildInputCard(
-            title: '1. إدخال أو رفع الفاتورة التجارية (Commercial Invoice)',
-            hint: 'الصق نص الفاتورة هنا، أو اختر ملف الفاتورة (PDF / Excel / Word)...',
+            title: l.smartExtractorInvoiceCardTitle,
+            hint: l.smartExtractorInvoiceCardHint,
             textController: _invoiceTextCtrl,
             pickedFile: _pickedInvoiceFile,
             onPickFile: _pickInvoiceFile,
+            onClearFile: () => setState(() => _pickedInvoiceFile = null),
             onExtract: _extractInvoice,
             isLoading: _isExtractingInvoice,
-            extractButtonLabel: 'استخلاص الفاتورة بالذكاء الاصطناعي',
+            extractButtonLabel: l.smartExtractorExtractInvoiceButton,
           ),
           const SizedBox(height: 16),
           if (_extractedInvoice != null) ...[
@@ -418,7 +465,9 @@ class _SmartInvoiceBLExtractorDialogState
   }
 
   Widget _buildInvoiceSummaryCards() {
-    final inv = _extractedInvoice!;
+    final l = context.l10n;
+    final inv = _extractedInvoice ?? {};
+    final currency = (inv['currency'] ?? 'USD').toString();
     return Card(
       elevation: 0,
       color: AppTheme.cobaltLight,
@@ -435,9 +484,9 @@ class _SmartInvoiceBLExtractorDialogState
               children: [
                 const Icon(Icons.verified, color: AppTheme.cobalt, size: 20),
                 const SizedBox(width: 8),
-                const Text(
-                  'البيانات المستخلصة من الفاتورة:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                Text(
+                  l.smartExtractorExtractedInvoiceTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                 ),
                 const Spacer(),
                 Container(
@@ -447,7 +496,7 @@ class _SmartInvoiceBLExtractorDialogState
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    'العملة: ${inv['currency'] ?? 'USD'}',
+                    l.smartExtractorCurrency(currency),
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
@@ -458,16 +507,16 @@ class _SmartInvoiceBLExtractorDialogState
               spacing: 24,
               runSpacing: 12,
               children: [
-                _buildFieldChip('رقم الفاتورة', inv['invoice_number'] ?? '-'),
-                _buildFieldChip('تاريخ الفاتورة', inv['invoice_date'] ?? '-'),
-                _buildFieldChip('رقم الـ ACID (19 رقماً)', inv['acid_number'] ?? '-', isHighlight: true),
-                _buildFieldChip('البطاقة الضريبية للمستورد', inv['importer_tax_id'] ?? '-'),
-                _buildFieldChip('المورد / الشاحن', inv['supplier_name'] ?? '-'),
-                _buildFieldChip('المستورد المصري', inv['importer_name'] ?? '-'),
-                _buildFieldChip('شرط التعاقد', inv['incoterms'] ?? '-'),
-                _buildFieldChip('إجمالي القيمة', '${inv['invoice_value'] ?? 0} ${inv['currency'] ?? 'USD'}', isHighlight: true),
-                _buildFieldChip('الوزن القائم الإجمالي', '${inv['total_gross_weight_kg'] ?? '-'} KG'),
-                _buildFieldChip('ميناء الشحن والتفريغ', 'POL: ${inv['loading_port'] ?? '-'} | POD: ${inv['discharge_port'] ?? '-'}'),
+                _buildFieldChip(l.smartExtractorFieldInvoiceNo, '${inv['invoice_number'] ?? '-'}'),
+                _buildFieldChip(l.smartExtractorFieldInvoiceDate, '${inv['invoice_date'] ?? '-'}'),
+                _buildFieldChip(l.smartExtractorFieldAcidNo, '${inv['acid_number'] ?? '-'}', isHighlight: true),
+                _buildFieldChip(l.smartExtractorFieldImporterTaxId, '${inv['importer_tax_id'] ?? '-'}'),
+                _buildFieldChip(l.smartExtractorFieldSupplier, '${inv['supplier_name'] ?? '-'}'),
+                _buildFieldChip(l.smartExtractorFieldImporter, '${inv['importer_name'] ?? '-'}'),
+                _buildFieldChip(l.smartExtractorFieldIncoterms, '${inv['incoterms'] ?? '-'}'),
+                _buildFieldChip(l.smartExtractorFieldTotalAmount, '${inv['invoice_value'] ?? 0} $currency', isHighlight: true),
+                _buildFieldChip(l.smartExtractorFieldTotalGrossWeight, '${inv['total_gross_weight_kg'] ?? '-'} KG'),
+                _buildFieldChip(l.smartExtractorFieldPorts, 'POL: ${inv['loading_port'] ?? '-'} | POD: ${inv['discharge_port'] ?? '-'}'),
               ],
             ),
           ],
@@ -477,6 +526,7 @@ class _SmartInvoiceBLExtractorDialogState
   }
 
   Widget _buildInvoiceItemsTable() {
+    final l = context.l10n;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -493,16 +543,16 @@ class _SmartInvoiceBLExtractorDialogState
                 const Icon(Icons.table_chart_outlined, color: AppTheme.charcoal, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  'جدول الأصناف والبنود المستخلصة (${_invoiceItems.length} صنف):',
+                  l.smartExtractorItemsTableTitle(_invoiceItems.length),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             if (_invoiceItems.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(child: Text('لم يتم العثور على جدول تفصيلي للأصناف في المستند')),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: Text(l.smartExtractorNoItemsFound)),
               )
             else
               ConstrainedBox(
@@ -511,26 +561,70 @@ class _SmartInvoiceBLExtractorDialogState
                   child: DataTable(
                     headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                     columnSpacing: 18,
-                    columns: const [
-                      DataColumn(label: Text('#')),
-                      DataColumn(label: Text('بيان الصنف')),
-                      DataColumn(label: Text('الكمية')),
-                      DataColumn(label: Text('الوحدة')),
-                      DataColumn(label: Text('سعر الوحدة')),
-                      DataColumn(label: Text('إجمالي السعر')),
+                    columns: [
+                      const DataColumn(label: Text('#')),
+                      DataColumn(label: Text(l.smartExtractorColItemDescription)),
+                      DataColumn(label: Text(l.smartExtractorColQuantity)),
+                      DataColumn(label: Text(l.smartExtractorColUnit)),
+                      DataColumn(label: Text(l.smartExtractorColUnitPrice)),
+                      DataColumn(label: Text(l.smartExtractorColTotalPrice)),
                     ],
                     rows: List.generate(_invoiceItems.length, (idx) {
                       final itm = _invoiceItems[idx] as Map<String, dynamic>;
+                      final idxStr = '${idx + 1}';
+                      final desc = '${itm['description'] ?? '-'}';
+                      final qty = '${itm['quantity'] ?? 0}';
+                      final uom = '${itm['unit_of_measure'] ?? 'PCS'}';
+                      final uPrice = '${itm['unit_price'] ?? 0}';
+                      final tPrice = '${itm['total_price'] ?? 0}';
+                      final rowSummary = '$idxStr\t$desc\t$qty\t$uom\t$uPrice\t$tPrice';
+
                       return DataRow(cells: [
-                        DataCell(Text('${idx + 1}')),
-                        DataCell(SizedBox(
-                          width: 250,
-                          child: Text(itm['description'] ?? '-', overflow: TextOverflow.ellipsis),
-                        )),
-                        DataCell(Text('${itm['quantity'] ?? 0}')),
-                        DataCell(Text(itm['unit_of_measure'] ?? 'PCS')),
-                        DataCell(Text('${itm['unit_price'] ?? 0}')),
-                        DataCell(Text('${itm['total_price'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataCell(
+                          CopyableTableCell(
+                            value: idxStr,
+                            rowSummary: rowSummary,
+                            child: Text(idxStr),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: desc,
+                            rowSummary: rowSummary,
+                            child: SizedBox(
+                              width: 250,
+                              child: Text(desc, overflow: TextOverflow.ellipsis),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: qty,
+                            rowSummary: rowSummary,
+                            child: Text(qty),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: uom,
+                            rowSummary: rowSummary,
+                            child: Text(uom),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: uPrice,
+                            rowSummary: rowSummary,
+                            child: Text(uPrice),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: tPrice,
+                            rowSummary: rowSummary,
+                            child: Text(tPrice, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
                       ]);
                     }),
                   ),
@@ -543,6 +637,7 @@ class _SmartInvoiceBLExtractorDialogState
   }
 
   Widget _buildInvoiceApplySection() {
+    final l = context.l10n;
     final importFilesAsync = ref.watch(importFilesProvider);
     return Card(
       elevation: 0,
@@ -557,18 +652,18 @@ class _SmartInvoiceBLExtractorDialogState
           children: [
             const Icon(Icons.link, color: AppTheme.cobalt),
             const SizedBox(width: 8),
-            const Text('ربط وتطبيق في ملف استيرادي:', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(l.smartExtractorApplySectionTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(width: 16),
             Expanded(
               child: importFilesAsync.when(
                 data: (files) {
                   return SearchableDropdownField<int>(
-                    labelText: 'اختر الملف الاستيرادي',
-                    hintText: 'ابحث برقم الملف أو الشركة...',
+                    labelText: l.smartExtractorSelectFileLabel,
+                    hintText: l.smartExtractorSearchFileHint,
                     items: files
                         .map((f) => SearchableDropdownItem<int>(
                               value: f.importFileId,
-                              label: '${f.importFileCode} - ${f.companyName}',
+                              label: '${f.primaryNameWithCode} - ${f.companyName}',
                             ))
                         .toList(),
                     value: _selectedImportFileId,
@@ -576,7 +671,7 @@ class _SmartInvoiceBLExtractorDialogState
                   );
                 },
                 loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('خطأ في جلب الملفات: $e'),
+                error: (e, _) => Text(l.smartExtractorFetchFilesError(e)),
               ),
             ),
             const SizedBox(width: 16),
@@ -585,7 +680,7 @@ class _SmartInvoiceBLExtractorDialogState
               icon: _isApplyingInvoice
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.check_circle_outline),
-              label: const Text('تطبيق في ملف الاستيراد'),
+              label: Text(l.smartExtractorApplyInvoiceButton),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.emerald,
                 foregroundColor: Colors.white,
@@ -601,19 +696,21 @@ class _SmartInvoiceBLExtractorDialogState
   // ─── TAB 2: B/L & AWB Extractor ───────────────────────────────────────────
 
   Widget _buildBLTab() {
+    final l = context.l10n;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildInputCard(
-            title: '2. إدخال أو رفع بوليصة الشحن (Bill of Lading / Air Waybill)',
-            hint: 'الصق نص البوليصة هنا، أو اختر ملف البوليصة (PDF / Word / Text)...',
+            title: l.smartExtractorBlCardTitle,
+            hint: l.smartExtractorBlCardHint,
             textController: _blTextCtrl,
             pickedFile: _pickedBLFile,
             onPickFile: _pickBLFile,
+            onClearFile: () => setState(() => _pickedBLFile = null),
             onExtract: _extractBL,
             isLoading: _isExtractingBL,
-            extractButtonLabel: 'استخلاص بوليصة الشحن والحاويات',
+            extractButtonLabel: l.smartExtractorExtractBlButton,
           ),
           const SizedBox(height: 16),
           if (_extractedBL != null) ...[
@@ -629,7 +726,8 @@ class _SmartInvoiceBLExtractorDialogState
   }
 
   Widget _buildBLSummaryCards() {
-    final bl = _extractedBL!;
+    final l = context.l10n;
+    final bl = _extractedBL ?? {};
     final isAir = bl['bl_type'] == 'AIR_WAYBILL';
     return Card(
       elevation: 0,
@@ -649,7 +747,7 @@ class _SmartInvoiceBLExtractorDialogState
                     color: isAir ? AppTheme.orange : AppTheme.emerald, size: 22),
                 const SizedBox(width: 8),
                 Text(
-                  isAir ? 'بوليصة شحن جوي (Air Waybill - AWB)' : 'بوليصة شحن بحري (Ocean Bill of Lading)',
+                  isAir ? l.smartExtractorAirWaybillTitle : l.smartExtractorOceanBlTitle,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                 ),
                 const Spacer(),
@@ -660,7 +758,7 @@ class _SmartInvoiceBLExtractorDialogState
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    bl['freight_payment_term'] ?? 'FREIGHT_COLLECT',
+                    bl['freight_payment_term'] == 'FREIGHT_PREPAID' ? l.smartExtractorPaymentPrepaid : l.smartExtractorPaymentCollect,
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
@@ -671,18 +769,20 @@ class _SmartInvoiceBLExtractorDialogState
               spacing: 24,
               runSpacing: 12,
               children: [
-                _buildFieldChip('رقم البوليصة', bl['bl_number'] ?? '-', isHighlight: true),
-                _buildFieldChip('رقم الـ ACID الجمركي', bl['acid_number'] ?? '-', isHighlight: true),
-                _buildFieldChip('الخط الملاحي / الناقل', bl['carrier_name'] ?? '-'),
-                _buildFieldChip(isAir ? 'رقم الرحلة الجوية' : 'السفينة والرحلة',
-                    isAir ? (bl['flight_number'] ?? '-') : '${bl['vessel_name'] ?? '-'} / ${bl['voyage_number'] ?? '-'}'),
-                _buildFieldChip('ميناء الشحن (POL)', bl['loading_port'] ?? '-'),
-                _buildFieldChip('ميناء التفريغ (POD)', bl['discharge_port'] ?? '-'),
-                _buildFieldChip('إجمالي الوزن القائم', '${bl['total_gross_weight_kg'] ?? '-'} KG', isHighlight: true),
-                _buildFieldChip('الحجم الكلي (CBM)', '${bl['total_cbm'] ?? '-'} CBM'),
-                _buildFieldChip('عدد الطرود', '${bl['total_packages_count'] ?? '-'} (${bl['package_type'] ?? 'Pkgs'})'),
-                _buildFieldChip('الشاحن (Shipper)', bl['shipper'] ?? '-'),
-                _buildFieldChip('المرسل إليه (Consignee)', bl['consignee'] ?? '-'),
+                _buildFieldChip(l.smartExtractorFieldBlNo, '${bl['bl_number'] ?? '-'}', isHighlight: true),
+                _buildFieldChip(l.smartExtractorFieldAcidNo, '${bl['acid_number'] ?? '-'}', isHighlight: true),
+                _buildFieldChip(l.smartExtractorFieldCarrier, '${bl['carrier_name'] ?? '-'}'),
+                _buildFieldChip(
+                  isAir ? l.smartExtractorFieldFlightNo : l.smartExtractorFieldVesselVoyage,
+                  isAir ? '${bl['flight_number'] ?? '-'}' : '${bl['vessel_name'] ?? '-'} / ${bl['voyage_number'] ?? '-'}',
+                ),
+                _buildFieldChip(l.smartExtractorFieldPol, '${bl['loading_port'] ?? '-'}'),
+                _buildFieldChip(l.smartExtractorFieldPod, '${bl['discharge_port'] ?? '-'}'),
+                _buildFieldChip(l.smartExtractorFieldTotalGrossWeight, '${bl['total_gross_weight_kg'] ?? '-'} KG', isHighlight: true),
+                _buildFieldChip(l.smartExtractorFieldTotalCbm, '${bl['total_cbm'] ?? '-'} CBM'),
+                _buildFieldChip(l.smartExtractorFieldPackagesCount, '${bl['total_packages_count'] ?? '-'} (${bl['package_type'] ?? 'Pkgs'})'),
+                _buildFieldChip(l.smartExtractorFieldShipper, '${bl['shipper'] ?? '-'}'),
+                _buildFieldChip(l.smartExtractorFieldConsignee, '${bl['consignee'] ?? '-'}'),
               ],
             ),
           ],
@@ -692,6 +792,7 @@ class _SmartInvoiceBLExtractorDialogState
   }
 
   Widget _buildBLContainersTable() {
+    final l = context.l10n;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -708,16 +809,16 @@ class _SmartInvoiceBLExtractorDialogState
                 const Icon(Icons.view_in_ar_outlined, color: AppTheme.charcoal, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  'قائمة الحاويات والأختام المستخلصة (${_blContainers.length} حاوية):',
+                  l.smartExtractorContainersTableTitle(_blContainers.length),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             if (_blContainers.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(child: Text('لا توجد حاويات محددة أو أن الشحنة شحن جوي / طرود LCL')),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: Text(l.smartExtractorNoContainersFound)),
               )
             else
               ConstrainedBox(
@@ -726,21 +827,58 @@ class _SmartInvoiceBLExtractorDialogState
                   child: DataTable(
                     headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                     columnSpacing: 24,
-                    columns: const [
-                      DataColumn(label: Text('#')),
-                      DataColumn(label: Text('رقم الحاوية (Container No)')),
-                      DataColumn(label: Text('رقم السيل (Seal No)')),
-                      DataColumn(label: Text('النوع والمقاس')),
-                      DataColumn(label: Text('الوزن القائم (KG)')),
+                    columns: [
+                      const DataColumn(label: Text('#')),
+                      DataColumn(label: Text(l.smartExtractorColContainerNo)),
+                      DataColumn(label: Text(l.smartExtractorColSealNo)),
+                      DataColumn(label: Text(l.smartExtractorColContainerType)),
+                      DataColumn(label: Text(l.smartExtractorColGrossWeightKg)),
                     ],
                     rows: List.generate(_blContainers.length, (idx) {
                       final c = _blContainers[idx] as Map<String, dynamic>;
+                      final idxStr = '${idx + 1}';
+                      final cNo = '${c['container_no'] ?? '-'}';
+                      final sealNo = '${c['seal_no'] ?? '-'}';
+                      final cType = '${c['container_type'] ?? '40HC'}';
+                      final gw = '${c['gross_weight_kg'] ?? '-'}';
+                      final rowSummary = '$idxStr\t$cNo\t$sealNo\t$cType\t$gw';
+
                       return DataRow(cells: [
-                        DataCell(Text('${idx + 1}')),
-                        DataCell(Text(c['container_no'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataCell(Text(c['seal_no'] ?? '-')),
-                        DataCell(Text(c['container_type'] ?? '40HC')),
-                        DataCell(Text('${c['gross_weight_kg'] ?? '-'}')),
+                        DataCell(
+                          CopyableTableCell(
+                            value: idxStr,
+                            rowSummary: rowSummary,
+                            child: Text(idxStr),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: cNo,
+                            rowSummary: rowSummary,
+                            child: Text(cNo, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: sealNo,
+                            rowSummary: rowSummary,
+                            child: Text(sealNo),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: cType,
+                            rowSummary: rowSummary,
+                            child: Text(cType),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: gw,
+                            rowSummary: rowSummary,
+                            child: Text(gw),
+                          ),
+                        ),
                       ]);
                     }),
                   ),
@@ -753,6 +891,7 @@ class _SmartInvoiceBLExtractorDialogState
   }
 
   Widget _buildBLApplySection() {
+    final l = context.l10n;
     return Card(
       elevation: 0,
       color: Colors.grey.shade50,
@@ -766,14 +905,14 @@ class _SmartInvoiceBLExtractorDialogState
           children: [
             const Icon(Icons.directions_boat, color: AppTheme.emerald),
             const SizedBox(width: 8),
-            const Text('تطبيق البوليصة في تتبع الشحن والحاويات:', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(l.smartExtractorApplyBlSectionTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
             const Spacer(),
             ElevatedButton.icon(
               onPressed: _isApplyingBL ? null : _applyBLToShipping,
               icon: _isApplyingBL
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.save_alt),
-              label: const Text('تطبيق في حركة الشحن الحالية'),
+              label: Text(l.smartExtractorApplyBlButton),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.cobalt,
                 foregroundColor: Colors.white,
@@ -789,6 +928,7 @@ class _SmartInvoiceBLExtractorDialogState
   // ─── TAB 3: Cross-Check Audit Radar ────────────────────────────────────────
 
   Widget _buildCrossCheckTab() {
+    final l = context.l10n;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -809,14 +949,14 @@ class _SmartInvoiceBLExtractorDialogState
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text(
-                          'رادار التدقيق الجمركي المتقاطع (10-Point Pre-Clearance Audit)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                          l.smartExtractorAuditCardTitle,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                         ),
                         Text(
-                          'يقوم بمقارنة الفاتورة مع البوليصة للتحقق من تطابق رقم الـ ACID وانحراف الأوزان وشروط النولون والموانئ تفادياً لغرامات نافذة.',
-                          style: TextStyle(fontSize: 12, color: Colors.black87),
+                          l.smartExtractorAuditCardSubtitle,
+                          style: const TextStyle(fontSize: 12, color: Colors.black87),
                         ),
                       ],
                     ),
@@ -826,7 +966,7 @@ class _SmartInvoiceBLExtractorDialogState
                     icon: _isAuditing
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Icon(Icons.play_arrow),
-                    label: const Text('تشغيل الفحص الآن'),
+                    label: Text(l.smartExtractorRunAuditButton),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.orange,
                       foregroundColor: Colors.white,
@@ -851,7 +991,9 @@ class _SmartInvoiceBLExtractorDialogState
   }
 
   Widget _buildAuditScorecard() {
-    final res = _auditResult!;
+    final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final res = _auditResult ?? {};
     final score = (res['compliance_score'] as num?)?.toDouble() ?? 0.0;
     final verdict = res['verdict'] as String? ?? 'COMPLIANT';
     final verdictAr = res['verdict_ar'] as String? ?? '';
@@ -859,10 +1001,17 @@ class _SmartInvoiceBLExtractorDialogState
     final warnings = (res['warnings'] as List<dynamic>?) ?? [];
 
     Color badgeColor = AppTheme.emerald;
+    String verdictDisplay = l.smartExtractorAuditCompliant;
     if (verdict == 'CRITICAL_MISMATCH') {
       badgeColor = AppTheme.crimson;
+      verdictDisplay = l.smartExtractorAuditCriticalMismatch;
     } else if (verdict == 'WARNINGS_DETECTED') {
       badgeColor = AppTheme.orange;
+      verdictDisplay = l.smartExtractorAuditWarningsDetected;
+    }
+
+    if (isArabic && verdictAr.isNotEmpty) {
+      verdictDisplay = verdictAr;
     }
 
     return Card(
@@ -884,14 +1033,14 @@ class _SmartInvoiceBLExtractorDialogState
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'نسبة التطابق: $score%',
+                    l.smartExtractorMatchRatio(score),
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
-                    verdictAr,
+                    verdictDisplay,
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: badgeColor),
                   ),
                 ),
@@ -958,7 +1107,9 @@ class _SmartInvoiceBLExtractorDialogState
   }
 
   Widget _buildAuditMatrixTable() {
-    final matrix = (_auditResult!['audit_matrix'] as List<dynamic>?) ?? [];
+    final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final matrix = ((_auditResult?['audit_matrix']) as List<dynamic>?) ?? [];
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -970,9 +1121,9 @@ class _SmartInvoiceBLExtractorDialogState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'مصفوفة الفحص والتدقيق المتقاطع (10 نقاط):',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            Text(
+              l.smartExtractorAuditMatrixTitle,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 12),
             ConstrainedBox(
@@ -981,42 +1132,87 @@ class _SmartInvoiceBLExtractorDialogState
                 child: DataTable(
                   headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                   columnSpacing: 14,
-                  columns: const [
-                    DataColumn(label: Text('بند الفحص')),
-                    DataColumn(label: Text('القيمة بالفاتورة')),
-                    DataColumn(label: Text('القيمة بالبوليصة')),
-                    DataColumn(label: Text('الحالة')),
-                    DataColumn(label: Text('التفاصيل والتوجيه')),
+                  columns: [
+                    DataColumn(label: Text(l.smartExtractorColCheckItem)),
+                    DataColumn(label: Text(l.smartExtractorColInvoiceValue)),
+                    DataColumn(label: Text(l.smartExtractorColBlValue)),
+                    DataColumn(label: Text(l.smartExtractorColStatus)),
+                    DataColumn(label: Text(l.smartExtractorColDetailsGuidance)),
                   ],
                   rows: matrix.map((m) {
                     final item = m as Map<String, dynamic>;
                     final status = item['status'] ?? 'PASS';
                     Color statusColor = AppTheme.emerald;
                     IconData statusIcon = Icons.check_circle;
+                    String statusLabel = l.smartExtractorAuditPass;
+
                     if (status == 'CRITICAL') {
                       statusColor = AppTheme.crimson;
                       statusIcon = Icons.cancel;
+                      statusLabel = l.smartExtractorAuditCritical;
                     } else if (status == 'WARNING') {
                       statusColor = AppTheme.orange;
                       statusIcon = Icons.warning;
+                      statusLabel = l.smartExtractorAuditWarning;
                     }
 
+                    final checkTitle = isArabic
+                        ? (item['title_ar'] ?? item['title_en'] ?? item['check_code'] ?? '')
+                        : (item['title_en'] ?? item['title_ar'] ?? item['check_code'] ?? '');
+                    final invVal = '${item['invoice_value'] ?? '-'}';
+                    final blVal = '${item['bl_value'] ?? '-'}';
+                    final details = isArabic
+                        ? '${item['details_ar'] ?? item['details_en'] ?? '-'}'
+                        : '${item['details_en'] ?? item['details_ar'] ?? '-'}';
+
+                    final rowSummary = '$checkTitle\t$invVal\t$blVal\t$statusLabel\t$details';
+
                     return DataRow(cells: [
-                      DataCell(Text(item['title_ar'] ?? item['check_code'], style: const TextStyle(fontWeight: FontWeight.bold))),
-                      DataCell(Text(item['invoice_value'] ?? '-')),
-                      DataCell(Text(item['bl_value'] ?? '-')),
-                      DataCell(Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(statusIcon, color: statusColor, size: 16),
-                          const SizedBox(width: 4),
-                          Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11)),
-                        ],
-                      )),
-                      DataCell(SizedBox(
-                        width: 280,
-                        child: Text(item['details_ar'] ?? '-', style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
-                      )),
+                      DataCell(
+                        CopyableTableCell(
+                          value: checkTitle,
+                          rowSummary: rowSummary,
+                          child: Text(checkTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: invVal,
+                          rowSummary: rowSummary,
+                          child: Text(invVal),
+                        ),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: blVal,
+                          rowSummary: rowSummary,
+                          child: Text(blVal),
+                        ),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: statusLabel,
+                          rowSummary: rowSummary,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(statusIcon, color: statusColor, size: 16),
+                              const SizedBox(width: 4),
+                              Text(statusLabel, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        CopyableTableCell(
+                          value: details,
+                          rowSummary: rowSummary,
+                          child: SizedBox(
+                            width: 280,
+                            child: Text(details, style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
+                          ),
+                        ),
+                      ),
                     ]);
                   }).toList(),
                 ),
@@ -1029,8 +1225,9 @@ class _SmartInvoiceBLExtractorDialogState
   }
 
   Widget _buildCorrectionNoticeCard() {
-    final noticeEn = _auditResult!['correction_notice_en'] as String? ?? '';
-    final noticeAr = _auditResult!['correction_notice_ar'] as String? ?? '';
+    final l = context.l10n;
+    final noticeEn = (_auditResult?['correction_notice_en'] ?? '').toString();
+    final noticeAr = (_auditResult?['correction_notice_ar'] ?? '').toString();
 
     return Card(
       elevation: 0,
@@ -1048,34 +1245,40 @@ class _SmartInvoiceBLExtractorDialogState
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
-                    'خطاب التعديل الرسمي للخط الملاحي والمورد (B/L Amendment Notice)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    l.smartExtractorNoticeCardTitle,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   Text(
-                    'صيغة جاهزة بالإنجليزية والعربية لمطالبة الخط الملاحي بتعديل مسودة البوليصة فوراً.',
-                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                    l.smartExtractorNoticeCardSubtitle,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                 ],
               ),
             ),
             OutlinedButton.icon(
               onPressed: () {
-                Clipboard.setData(ClipboardData(text: noticeEn));
-                _showSnackBar('تم نسخ صيغة الخطاب بالإنجليزية إلى الحافظة ✅');
+                CopyHelper.copy(
+                  context,
+                  noticeEn,
+                  customMessage: l.smartExtractorNoticeEnCopied,
+                );
               },
               icon: const Icon(Icons.copy, size: 16),
-              label: const Text('نسخ بالإنجليزية (EN)'),
+              label: Text(l.smartExtractorCopyEnglishNoticeButton),
             ),
             const SizedBox(width: 8),
             ElevatedButton.icon(
               onPressed: () {
-                Clipboard.setData(ClipboardData(text: noticeAr));
-                _showSnackBar('تم نسخ صيغة الخطاب بالعربية إلى الحافظة ✅');
+                CopyHelper.copy(
+                  context,
+                  noticeAr,
+                  customMessage: l.smartExtractorNoticeArCopied,
+                );
               },
               icon: const Icon(Icons.copy, size: 16),
-              label: const Text('نسخ بالعربية (AR)'),
+              label: Text(l.smartExtractorCopyArabicNoticeButton),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.charcoal,
                 foregroundColor: Colors.white,
@@ -1095,10 +1298,12 @@ class _SmartInvoiceBLExtractorDialogState
     required TextEditingController textController,
     required PlatformFile? pickedFile,
     required VoidCallback onPickFile,
+    required VoidCallback onClearFile,
     required VoidCallback onExtract,
     required bool isLoading,
     required String extractButtonLabel,
   }) {
+    final l = context.l10n;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -1131,12 +1336,12 @@ class _SmartInvoiceBLExtractorDialogState
                 OutlinedButton.icon(
                   onPressed: onPickFile,
                   icon: const Icon(Icons.upload_file),
-                  label: Text(pickedFile != null ? pickedFile.name : 'اختيار ملف (PDF / Excel / Word)'),
+                  label: Text(pickedFile != null ? pickedFile.name : l.smartExtractorPickFileButton),
                 ),
                 if (pickedFile != null) ...[
                   IconButton(
                     icon: const Icon(Icons.clear, color: AppTheme.crimson, size: 20),
-                    onPressed: () => setState(() => pickedFile = null),
+                    onPressed: onClearFile,
                   ),
                 ],
                 ElevatedButton.icon(
@@ -1172,7 +1377,7 @@ class _SmartInvoiceBLExtractorDialogState
         children: [
           Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
           const SizedBox(height: 2),
-          Text(
+          CopyableText(
             value,
             style: TextStyle(
               fontSize: 12,

@@ -17,22 +17,38 @@ class ImportCompaniesNotifier extends StateNotifier<AsyncValue<List<ImportCompan
   final Ref? ref;
   final Dio _dio;
   final bool showInactive;
+  CancelToken? _cancelToken;
 
   ImportCompaniesNotifier({this.ref, required this.showInactive, required Dio dio}) : _dio = dio, super(const AsyncValue.loading()) {
     fetchCompanies();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('ImportCompaniesNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchCompanies() async {
-    state = const AsyncValue.loading();
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
+
+    if (!state.hasValue) {
+      state = const AsyncValue.loading();
+    }
     try {
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/import-companies',
         queryParameters: {'include_inactive': showInactive},
+        cancelToken: _cancelToken,
       );
       final List data = response.data;
       final list = data.map((json) => ImportCompanyModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }

@@ -135,6 +135,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   bool _decree43Applicable = false;
   bool _whiteListRequired = false;
   bool _whiteListVerified = false;
+  String? _decree43Action; // 'justified', 'task_created', or null
+  String? _decree43Justification;
 
   bool _cooRequired = false;
   String _cooType = 'EUR.1';
@@ -198,12 +200,24 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   }
 
   void _refreshAllData() {
-    ref.read(importRequirementsProvider.notifier).refreshData();
-    ref.read(importFilesProvider.notifier).fetchImportFiles();
-    ref.read(suppliersProvider.notifier).fetchSuppliers();
-    ref.read(customsTariffProvider.notifier).fetchTariffs();
-    ref.read(customsConsultationsProvider.notifier).fetchConsultations();
-    ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+    if (!ref.read(importRequirementsProvider).isLoading) {
+      ref.read(importRequirementsProvider.notifier).refreshData();
+    }
+    if (!ref.read(importFilesProvider).isLoading) {
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    }
+    if (!ref.read(suppliersProvider).isLoading) {
+      ref.read(suppliersProvider.notifier).fetchSuppliers();
+    }
+    if (!ref.read(customsTariffProvider).isLoading) {
+      ref.read(customsTariffProvider.notifier).fetchTariffs();
+    }
+    if (!ref.read(customsConsultationsProvider).isLoading) {
+      ref.read(customsConsultationsProvider.notifier).fetchConsultations();
+    }
+    if (!ref.read(purchaseOrdersProvider).isLoading) {
+      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+    }
   }
 
   void _resetForm() {
@@ -241,6 +255,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       _decree43Applicable = false;
       _whiteListRequired = false;
       _whiteListVerified = false;
+      _decree43Action = null;
+      _decree43Justification = null;
       _cooRequired = false;
       _cooType = 'EUR.1';
       _cooStatus = 'Not Required';
@@ -297,38 +313,39 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         _selectedHsItemIndex = 0;
 
         if (_hsCodeItems.isNotEmpty) {
-          _selectHsCodeItem(_hsCodeItems[0]);
+          _loadHsItemState(0);
         } else {
           _hsCodeCtrl.text = prefill.hsCode ?? '';
           _descCtrl.text = prefill.commodityDescription ?? '';
+          _decree43Applicable = prefill.decree43Applicable;
+          _whiteListRequired = prefill.whiteListRequired;
+          _whiteListVerified = prefill.whiteListVerified;
+          _decree43Action = null;
+          _decree43Justification = null;
+
+          _cooRequired = prefill.cooRequired;
+          _cooType = prefill.cooType ?? 'EUR.1';
+          _cooStatus = prefill.cooStatus;
+          _cooNotesCtrl.text = prefill.cooNotes ?? '';
+
+          _inspectionRequired = prefill.inspectionRequired;
+          _inspectionBody = prefill.inspectionBody ?? 'SGS';
+          _inspectionStatus = prefill.inspectionStatus;
+          _inspNotesCtrl.text = prefill.inspectionNotes ?? '';
+
+          _importPermitRequired = prefill.importPermitRequired;
+          _permitIssuingAuthority = prefill.permitIssuingAuthority ?? 'EEAA';
+          _permitStatus = prefill.permitStatus;
+          _permitNotesCtrl.text = prefill.permitNotes ?? '';
+
+          _msdsRequired = prefill.msdsRequired;
+          _msdsStatus = prefill.msdsStatus;
+          _halalCertRequired = prefill.halalCertRequired;
+          _halalCertStatus = prefill.halalCertStatus;
+          _coaRequired = prefill.coaRequired;
+          _coaStatus = prefill.coaStatus;
+          _specialNotesCtrl.text = prefill.specialNotes ?? '';
         }
-
-        _decree43Applicable = prefill.decree43Applicable;
-        _whiteListRequired = prefill.whiteListRequired;
-        _whiteListVerified = prefill.whiteListVerified;
-
-        _cooRequired = prefill.cooRequired;
-        _cooType = prefill.cooType ?? 'EUR.1';
-        _cooStatus = prefill.cooStatus;
-        _cooNotesCtrl.text = prefill.cooNotes ?? '';
-
-        _inspectionRequired = prefill.inspectionRequired;
-        _inspectionBody = prefill.inspectionBody ?? 'SGS';
-        _inspectionStatus = prefill.inspectionStatus;
-        _inspNotesCtrl.text = prefill.inspectionNotes ?? '';
-
-        _importPermitRequired = prefill.importPermitRequired;
-        _permitIssuingAuthority = prefill.permitIssuingAuthority ?? 'EEAA';
-        _permitStatus = prefill.permitStatus;
-        _permitNotesCtrl.text = prefill.permitNotes ?? '';
-
-        _msdsRequired = prefill.msdsRequired;
-        _msdsStatus = prefill.msdsStatus;
-        _halalCertRequired = prefill.halalCertRequired;
-        _halalCertStatus = prefill.halalCertStatus;
-        _coaRequired = prefill.coaRequired;
-        _coaStatus = prefill.coaStatus;
-        _specialNotesCtrl.text = prefill.specialNotes ?? '';
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -341,24 +358,94 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     }
   }
 
-  void _selectHsCodeItem(ImportRequirementHSCodeItemModel item) {
-    setState(() {
-      _hsCodeCtrl.text = item.hsCode;
-      _descCtrl.text = item.commodityDescription ?? '';
-      _originCtrl.text = item.countryOfOrigin ?? _originCtrl.text;
-      _currencyCtrl.text = item.currency;
-      _valueCtrl.text = item.itemValue.toStringAsFixed(2);
+  void _saveCurrentHsItemState() {
+    if (_hsCodeItems.isEmpty || _selectedHsItemIndex < 0 || _selectedHsItemIndex >= _hsCodeItems.length) return;
 
-      if (item.cooRequired) _cooRequired = true;
-      if (item.inspectionRequired) _inspectionRequired = true;
-      if (item.permitRequired) {
-        _importPermitRequired = true;
-        if (item.regulatoryAuthority != null) {
-          _permitIssuingAuthority = item.regulatoryAuthority!;
-        }
-      }
-      if (item.decree43Applicable) _decree43Applicable = true;
-    });
+    final current = _hsCodeItems[_selectedHsItemIndex];
+    _hsCodeItems[_selectedHsItemIndex] = current.copyWith(
+      hsCode: _hsCodeCtrl.text.trim(),
+      commodityDescription: _descCtrl.text.trim(),
+      countryOfOrigin: _originCtrl.text.trim(),
+      currency: _currencyCtrl.text.trim(),
+      itemValue: double.tryParse(_valueCtrl.text) ?? current.itemValue,
+      decree43Applicable: _decree43Applicable,
+      whiteListRequired: _whiteListRequired,
+      whiteListVerified: _whiteListVerified,
+      decree43Action: _decree43Action,
+      decree43Justification: _decree43Justification,
+      factoryRegistrationNo: _factoryRegCtrl.text.trim(),
+      cooRequired: _cooRequired,
+      cooType: _cooType,
+      cooStatus: _cooStatus,
+      cooNotes: _cooNotesCtrl.text.trim(),
+      inspectionRequired: _inspectionRequired,
+      inspectionBody: _inspectionBody,
+      inspectionStatus: _inspectionStatus,
+      inspectionReportNo: _inspReportNoCtrl.text.trim(),
+      inspectionNotes: _inspNotesCtrl.text.trim(),
+      permitRequired: _importPermitRequired,
+      regulatoryAuthority: _permitIssuingAuthority,
+      permitNumber: _permitNumberCtrl.text.trim(),
+      permitStatus: _permitStatus,
+      permitNotes: _permitNotesCtrl.text.trim(),
+      msdsRequired: _msdsRequired,
+      msdsStatus: _msdsStatus,
+      msdsNotes: _msdsNotesCtrl.text.trim(),
+      halalCertRequired: _halalCertRequired,
+      halalCertStatus: _halalCertStatus,
+      halalCertNotes: _halalNotesCtrl.text.trim(),
+      coaRequired: _coaRequired,
+      coaStatus: _coaStatus,
+      coaNotes: _coaNotesCtrl.text.trim(),
+      specialNotes: _specialNotesCtrl.text.trim(),
+    );
+  }
+
+  void _loadHsItemState(int index) {
+    if (index < 0 || index >= _hsCodeItems.length) return;
+    _selectedHsItemIndex = index;
+    final itm = _hsCodeItems[index];
+
+    _hsCodeCtrl.text = itm.hsCode;
+    _descCtrl.text = itm.commodityDescription ?? '';
+    _originCtrl.text = itm.countryOfOrigin ?? _originCtrl.text;
+    _currencyCtrl.text = itm.currency;
+    _valueCtrl.text = itm.itemValue.toStringAsFixed(2);
+
+    _decree43Applicable = itm.decree43Applicable;
+    _whiteListRequired = itm.whiteListRequired;
+    _whiteListVerified = itm.whiteListVerified;
+    _decree43Action = itm.decree43Action;
+    _decree43Justification = itm.decree43Justification;
+    _factoryRegCtrl.text = itm.factoryRegistrationNo ?? '';
+
+    _cooRequired = itm.cooRequired;
+    _cooType = itm.cooType ?? 'EUR.1';
+    _cooStatus = itm.cooStatus;
+    _cooNotesCtrl.text = itm.cooNotes ?? '';
+
+    _inspectionRequired = itm.inspectionRequired;
+    _inspectionBody = itm.inspectionBody ?? 'SGS';
+    _inspectionStatus = itm.inspectionStatus;
+    _inspReportNoCtrl.text = itm.inspectionReportNo ?? '';
+    _inspNotesCtrl.text = itm.inspectionNotes ?? '';
+
+    _importPermitRequired = itm.permitRequired;
+    _permitIssuingAuthority = itm.regulatoryAuthority ?? 'EEAA';
+    _permitNumberCtrl.text = itm.permitNumber ?? '';
+    _permitStatus = itm.permitStatus;
+    _permitNotesCtrl.text = itm.permitNotes ?? '';
+
+    _msdsRequired = itm.msdsRequired;
+    _msdsStatus = itm.msdsStatus;
+    _msdsNotesCtrl.text = itm.msdsNotes ?? '';
+    _halalCertRequired = itm.halalCertRequired;
+    _halalCertStatus = itm.halalCertStatus;
+    _halalNotesCtrl.text = itm.halalCertNotes ?? '';
+    _coaRequired = itm.coaRequired;
+    _coaStatus = itm.coaStatus;
+    _coaNotesCtrl.text = itm.coaNotes ?? '';
+    _specialNotesCtrl.text = itm.specialNotes ?? '';
   }
 
   void _loadAssessmentForEditing(ImportRequirementModel item) {
@@ -395,28 +482,34 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       _hsCodeItems.addAll(item.hsCodeItems);
       _selectedHsItemIndex = 0;
 
-      _decree43Applicable = item.decree43Applicable;
-      _whiteListRequired = item.whiteListRequired;
-      _whiteListVerified = item.whiteListVerified;
+      if (_hsCodeItems.isNotEmpty) {
+        _loadHsItemState(0);
+      } else {
+        _decree43Applicable = item.decree43Applicable;
+        _whiteListRequired = item.whiteListRequired;
+        _whiteListVerified = item.whiteListVerified;
+        _decree43Action = item.decree43Action;
+        _decree43Justification = item.decree43Justification;
 
-      _cooRequired = item.cooRequired;
-      _cooType = item.cooType ?? 'EUR.1';
-      _cooStatus = item.cooStatus;
+        _cooRequired = item.cooRequired;
+        _cooType = item.cooType ?? 'EUR.1';
+        _cooStatus = item.cooStatus;
 
-      _inspectionRequired = item.inspectionRequired;
-      _inspectionBody = item.inspectionBody ?? 'SGS';
-      _inspectionStatus = item.inspectionStatus;
+        _inspectionRequired = item.inspectionRequired;
+        _inspectionBody = item.inspectionBody ?? 'SGS';
+        _inspectionStatus = item.inspectionStatus;
 
-      _importPermitRequired = item.importPermitRequired;
-      _permitIssuingAuthority = item.permitIssuingAuthority ?? 'EEAA';
-      _permitStatus = item.permitStatus;
+        _importPermitRequired = item.importPermitRequired;
+        _permitIssuingAuthority = item.permitIssuingAuthority ?? 'EEAA';
+        _permitStatus = item.permitStatus;
 
-      _msdsRequired = item.msdsRequired;
-      _msdsStatus = item.msdsStatus;
-      _halalCertRequired = item.halalCertRequired;
-      _halalCertStatus = item.halalCertStatus;
-      _coaRequired = item.coaRequired;
-      _coaStatus = item.coaStatus;
+        _msdsRequired = item.msdsRequired;
+        _msdsStatus = item.msdsStatus;
+        _halalCertRequired = item.halalCertRequired;
+        _halalCertStatus = item.halalCertStatus;
+        _coaRequired = item.coaRequired;
+        _coaStatus = item.coaStatus;
+      }
 
       _confirmationStatus = item.confirmationStatus;
       _isPostAcidConfirmed = item.isPostAcidConfirmed;
@@ -438,6 +531,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   void _autoCompleteAllPillars() {
     setState(() {
       _whiteListVerified = true;
+      _decree43Action = null;
       _cooStatus = 'Obtained';
       _inspectionStatus = 'Completed';
       _permitStatus = 'Approved';
@@ -452,6 +546,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       if (_factoryRegCtrl.text.isEmpty) _factoryRegCtrl.text = 'GOEIC-REG-PASS-2026';
       if (_inspReportNoCtrl.text.isEmpty) _inspReportNoCtrl.text = 'ILAC-SGS-99201';
       if (_permitNumberCtrl.text.isEmpty) _permitNumberCtrl.text = 'PERMIT-GOEIC-8871';
+      _saveCurrentHsItemState();
     });
     final l10n = context.l10n;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -479,6 +574,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     }
 
     setState(() => _isSaving = true);
+    _saveCurrentHsItemState();
 
     final payload = {
       'import_file_id': _selectedImportFileId,
@@ -495,6 +591,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       'decree_43_applicable': _decree43Applicable,
       'white_list_required': _whiteListRequired,
       'white_list_verified': _whiteListVerified,
+      'decree_43_action': _decree43Action,
+      'decree_43_justification': _decree43Justification,
       'factory_registration_no': _factoryRegCtrl.text.trim(),
       'coo_required': _cooRequired,
       'coo_type': _cooType,
@@ -654,8 +752,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   // ===========================================================================
   Widget _buildInteractiveAssessmentFormTab() {
     final l10n = context.l10n;
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
-    final suppliers = ref.watch(suppliersProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final suppliers = ref.watch(suppliersProvider).valueOrNull ?? [];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -890,7 +988,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     SearchableDropdownItem<int?>(value: null, label: l10n.selectImportFileOption),
                     ...importFiles.map((f) => SearchableDropdownItem<int?>(
                           value: f.importFileId,
-                          label: '[${f.importFileCode}] ${f.companyName} | ACID: ${f.acidNumber ?? l10n.acidNotIssued}',
+                          label: '${f.primaryNameWithCode} - ${f.companyName} | ACID: ${f.acidNumber ?? l10n.acidNotIssued}',
                         )),
                   ],
                   onChanged: _onImportFileChanged,
@@ -989,62 +1087,162 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           if (_hsCodeItems.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: Colors.grey.shade300),
               ),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: List.generate(_hsCodeItems.length, (idx) {
-                  final itm = _hsCodeItems[idx];
-                  final isSelected = _selectedHsItemIndex == idx;
-                  return InkWell(
-                    onTap: () {
-                      setState(() => _selectedHsItemIndex = idx);
-                      _selectHsCodeItem(itm);
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppTheme.cobalt.withOpacity(0.15) : Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected ? AppTheme.cobalt : Colors.grey.shade300,
-                          width: isSelected ? 1.5 : 1,
-                        ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.alt_route_rounded, color: AppTheme.cobalt, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        l10n.hsCodeSequenceNavTitle,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                            size: 16,
-                            color: isSelected ? AppTheme.cobalt : Colors.grey,
+                      const Spacer(),
+                      Text(
+                        'حدد البند لعرض واستيفاء متطلباته الـ 5 بشكل منفصل:',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: List.generate(_hsCodeItems.length, (idx) {
+                      final itm = _hsCodeItems[idx];
+                      final isSelected = _selectedHsItemIndex == idx;
+
+                      final fulfilledCount = isSelected
+                          ? [
+                              (!_decree43Applicable || _whiteListVerified || _decree43Action == 'justified'),
+                              (!_cooRequired || _cooStatus == 'Obtained'),
+                              (!_inspectionRequired || _inspectionStatus == 'Completed'),
+                              (!_importPermitRequired || _permitStatus == 'Approved'),
+                              _isPostAcidConfirmed,
+                            ].where((b) => b).length
+                          : itm.fulfilledPillarsCount;
+
+                      final isFullyCompliant = isSelected
+                          ? (fulfilledCount == 5)
+                          : itm.isFullyCompliant;
+
+                      final isDecree43Warning = isSelected
+                          ? (_decree43Applicable && !_whiteListVerified && _decree43Action != 'justified')
+                          : (itm.decree43Applicable && !itm.whiteListVerified && itm.decree43Action != 'justified');
+
+                      return InkWell(
+                        onTap: () {
+                          if (_selectedHsItemIndex == idx) return;
+                          setState(() {
+                            _saveCurrentHsItemState();
+                            _loadHsItemState(idx);
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFFEFF6FF) : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSelected ? AppTheme.cobalt : Colors.grey.shade300,
+                              width: isSelected ? 2.0 : 1.0,
+                            ),
+                            boxShadow: isSelected
+                                ? [BoxShadow(color: AppTheme.cobalt.withOpacity(0.12), blurRadius: 6, offset: const Offset(0, 2))]
+                                : null,
                           ),
-                          const SizedBox(width: 6),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                l10n.hsItemCodeLabel(itm.hsCode, itm.itemCode ?? 'Item'),
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isSelected ? AppTheme.cobalt : AppTheme.charcoal),
+                              Icon(
+                                isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                                size: 18,
+                                color: isSelected ? AppTheme.cobalt : Colors.grey,
                               ),
-                              Text(
-                                l10n.hsItemDescLabel(itm.commodityDescription ?? '', itm.itemValue.toStringAsFixed(2), itm.currency),
-                                style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        l10n.hsItemCodeLabel(itm.hsCode, itm.itemCode ?? 'Item'),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                          color: isSelected ? AppTheme.cobalt : AppTheme.charcoal,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: isFullyCompliant
+                                              ? AppTheme.emerald.withOpacity(0.12)
+                                              : (isDecree43Warning ? const Color(0xFFFEE2E2) : Colors.grey.shade100),
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(
+                                            color: isFullyCompliant
+                                                ? AppTheme.emerald
+                                                : (isDecree43Warning ? AppTheme.crimson : Colors.grey.shade300),
+                                            width: 0.8,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              isFullyCompliant
+                                                  ? Icons.check
+                                                  : (isDecree43Warning ? Icons.warning_amber_rounded : Icons.pending_actions),
+                                              size: 11,
+                                              color: isFullyCompliant
+                                                  ? AppTheme.emerald
+                                                  : (isDecree43Warning ? AppTheme.crimson : Colors.grey.shade700),
+                                            ),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              isFullyCompliant
+                                                  ? l10n.hsCodeFullyCompliantChip
+                                                  : (isDecree43Warning ? 'قرار 43: غير مسجل' : '$fulfilledCount/5 استيفاء'),
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: isFullyCompliant
+                                                    ? AppTheme.emerald
+                                                    : (isDecree43Warning ? AppTheme.crimson : Colors.grey.shade700),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    l10n.hsItemDescLabel(itm.commodityDescription ?? '', itm.itemValue.toStringAsFixed(2), itm.currency),
+                                    style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
               ),
             ),
 
@@ -1157,14 +1355,20 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           // Pillar Content Area
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: IndexedStack(
-              index: _activePillarIndex,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildPillar1Content(),
-                _buildPillar2Content(),
-                _buildPillar3Content(),
-                _buildPillar4Content(),
-                _buildPillar5Content(),
+                _buildAdaptivePillarAlertBanner(),
+                IndexedStack(
+                  index: _activePillarIndex,
+                  children: [
+                    _buildPillar1Content(),
+                    _buildPillar2Content(),
+                    _buildPillar3Content(),
+                    _buildPillar4Content(),
+                    _buildPillar5Content(),
+                  ],
+                ),
               ],
             ),
           ),
@@ -1251,6 +1455,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             prefixIcon: const Icon(Icons.badge, color: AppTheme.cobalt),
           ),
         ),
+        _buildDecree43DecisionCard(),
       ],
     );
   }
@@ -1698,15 +1903,29 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               children: [
                 Expanded(
                   flex: 3,
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: l10n.searchRequirementsHint,
-                      prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
-                      border: const OutlineInputBorder(),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                    onChanged: (_) => setState(() {}),
+                  child: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _searchController,
+                    builder: (context, val, _) {
+                      return TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: l10n.searchRequirementsHint,
+                          prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
+                          suffixIcon: val.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() {});
+                                  },
+                                )
+                              : null,
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1841,13 +2060,13 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
 
   Widget _buildRegistryRow(ImportRequirementModel req) {
     final l10n = context.l10n;
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final matchingFile = importFiles.where((f) => f.importFileId == req.importFileId).firstOrNull;
-    final fileCode = matchingFile?.customFileNumber ?? matchingFile?.importFileCode ?? req.importFileCode ?? (req.importFileId != null ? 'IMP-${req.importFileId}' : '');
+    final fileTitle = matchingFile?.primaryNameWithCode ?? req.importFileCode ?? (req.importFileId != null ? 'IMP-${req.importFileId}' : '');
     final companyName = (matchingFile?.companyName.isNotEmpty == true && matchingFile?.companyName != 'N/A')
         ? matchingFile!.companyName
         : l10n.fallbackImportingCompany;
-    final displayName = fileCode.isNotEmpty ? '[$fileCode] $companyName' : req.assessmentCode;
+    final displayName = fileTitle.isNotEmpty ? '$fileTitle - $companyName' : req.assessmentCode;
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -2003,6 +2222,423 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               }
             },
             child: Text(l10n.delete, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Decree 43 Decision Flow ─────────────────────────────────────────────────
+  Future<void> _showDecree43JustificationDialog() async {
+    final l10n = context.l10n;
+    final justCtrl = TextEditingController(text: _decree43Justification ?? '');
+
+    final sampleReasons = [
+      l10n.decree43JustificationReasonProductionInput,
+      l10n.decree43JustificationReasonPrivateUse,
+      l10n.decree43JustificationReasonSpareParts,
+      l10n.decree43JustificationReasonMinisterialExemption,
+      'طلب قيد المصنع مسجل بالفعل برقم وارد بهيئة الرقابة (GOEIC) وقيد المراجعة',
+    ];
+
+    try {
+      await showDialog(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setDState) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            title: Row(
+              children: [
+                const Icon(Icons.gavel_rounded, color: AppTheme.cobalt),
+                const SizedBox(width: 8),
+                Text(l10n.decree43JustificationDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              ],
+            ),
+            content: SizedBox(
+              width: 580,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Text(
+                      l10n.decree43JustificationDialogDesc,
+                      style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('أسباب الإعفاء الشائعة والمعتمدة قانوناً (انقر للتحديد السريع):', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: sampleReasons.map((r) => ActionChip(
+                      label: Text(r, style: const TextStyle(fontSize: 10)),
+                      backgroundColor: Colors.grey.shade100,
+                      onPressed: () {
+                        justCtrl.text = r;
+                        setDState(() {});
+                      },
+                    )).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: justCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      labelText: l10n.decree43OptionRequestJustification,
+                      hintText: 'أدخل المبرر أو السند القانوني للإعفاء...',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                child: Text(l10n.cancel),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+                icon: const Icon(Icons.check, size: 16),
+                label: Text(l10n.save),
+                onPressed: () {
+                  final txt = justCtrl.text.trim();
+                  if (txt.isEmpty) return;
+                  setState(() {
+                    _decree43Action = 'justified';
+                    _decree43Justification = txt;
+                    _saveCurrentHsItemState();
+                  });
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(l10n.decree43JustificationSavedBadge),
+                      backgroundColor: AppTheme.emerald,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      justCtrl.dispose();
+    }
+  }
+
+  void _createDecree43RegistrationTask() {
+    final l10n = context.l10n;
+    setState(() {
+      _decree43Action = 'task_created';
+      _decree43Justification = null;
+      _saveCurrentHsItemState();
+    });
+    // Trigger live refresh in background
+    ref.read(smartTasksProvider.notifier).fetchTasks();
+    ref.read(operationalDashboardProvider.notifier).fetchDashboard();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.decree43TaskCreatedSuccessSnack),
+        backgroundColor: AppTheme.orange,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  Widget _buildDecree43DecisionCard() {
+    final l10n = context.l10n;
+    if (!_decree43Applicable || _whiteListVerified) {
+      return const SizedBox.shrink();
+    }
+
+    if (_decree43Action == 'justified') {
+      return Container(
+        margin: const EdgeInsets.only(top: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0FDF4),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.emerald),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.verified_user_rounded, color: AppTheme.emerald, size: 24),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.decree43JustificationSavedBadge,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.emerald),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _decree43Justification ?? '',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade800),
+                  ),
+                ],
+              ),
+            ),
+            TextButton.icon(
+              icon: const Icon(Icons.edit, size: 14, color: AppTheme.cobalt),
+              label: Text(l10n.edit, style: const TextStyle(fontSize: 11)),
+              onPressed: _showDecree43JustificationDialog,
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_decree43Action == 'task_created') {
+      return Container(
+        margin: const EdgeInsets.only(top: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFBEB),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.orange),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.assignment_late_outlined, color: AppTheme.orange, size: 24),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.decree43TaskCreatedBadge,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.orange),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'تم جدولة مهمة إلزامية لفريق العمل بمتابعة قيد المصنع بالهيئة العامة للرقابة على الصادرات والواردات (GOEIC) وتنبيه الداشبورد.',
+                    style: TextStyle(fontSize: 11, color: AppTheme.charcoal),
+                  ),
+                ],
+              ),
+            ),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt, side: const BorderSide(color: AppTheme.cobalt)),
+              icon: const Icon(Icons.gavel_rounded, size: 14),
+              label: const Text('تغيير إلى استثناء قانوني', style: TextStyle(fontSize: 11)),
+              onPressed: _showDecree43JustificationDialog,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Default: Decision Prompt Card with 2 choices
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFFCA5A5), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.decree43WarningNotRegistered,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.crimson),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.decree43WarningNotRegisteredDesc,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade800),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.cobalt,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+                icon: const Icon(Icons.gavel_rounded, size: 15),
+                label: Text(
+                  l10n.decree43OptionRequestJustification,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+                onPressed: _showDecree43JustificationDialog,
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+                icon: const Icon(Icons.notification_add_rounded, size: 15),
+                label: Text(
+                  l10n.decree43OptionCreateDashboardTask,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+                onPressed: _createDecree43RegistrationTask,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Adaptive Pillar Alert Banner ──────────────────────────────────────────
+  Widget _buildAdaptivePillarAlertBanner() {
+    final l10n = context.l10n;
+    final currentHs = _hsCodeCtrl.text.trim();
+    final currentDesc = _descCtrl.text.trim();
+
+    String mandatoryText;
+    String warningText;
+    String exemptionText;
+
+    switch (_activePillarIndex) {
+      case 0:
+        // Pillar 1: Decree 43
+        mandatoryText = 'قرار وزير التجارة والصناعة رقم 43 لسنة 2016: يُشترط للإفراج عن السلع تامة الصنع أن تكون منتجة بمصانع مسجلة بالقائمة البيضاء للهيئة العامة للرقابة على الصادرات والواردات (GOEIC).';
+        warningText = 'في حالة عدم تسجيل المصنع، يُحظر الإفراج الجمركي ويُمنع إصدار الرقم التعريفي المبدئي (ACID) ما لم يتم توثيق استثناء رسمي أو تسجيل المصنع فوراً.';
+        exemptionText = 'يُعفى من التسجيل: مستلزمات الإنتاج والخامات وقطع الغيار للمصانع والشركات الخدمية (مادة 2)، وكذلك الاستيراد للاستخدام الخاص والعينات غير التجارية.';
+        break;
+      case 1:
+        // Pillar 2: Certificate of Origin
+        mandatoryText = 'تقديم أصل شهادة المنشأ موثقة من الغرفة التجارية بالدولة المصدرة ومطابقة تماماً للفاتورة وقائمة التعبئة وبوليصة الشحن.';
+        warningText = 'تضارب بلد المنشأ مع بلد الشحن بدون شهادة حركة، أو اختلاف اسم المصدر يؤدي لفقدان المزايا التفضيلية وتطبيق الرسوم الجمركية كاملة.';
+        exemptionText = 'الاتفاقيات التفضيلية: شهادات (EUR.1 الشراكة الأوروبية، GAFTA الدول العربية، COMESA، تركيا، أغادير) تمنح تخفيضات جمركية وإعفاءات كاملة من ضريبة الوارد.';
+        break;
+      case 2:
+        // Pillar 3: Pre-Shipment Inspection
+        mandatoryText = 'فحص السلع الخاضعة وإصدار شهادة مطابقة وفحص مسبق (ILAC / ISO 17020) من جهة فحص دولية معتمدة (SGS, Bureau Veritas, TÜV, Intertek) قبل إبحار الشحنة.';
+        warningText = 'الشحن بدون شهادة فحص معتمدة يستوجب سحب عينات معملية إجبارية بالهيئة العامة للرقابة مع مخاطر الرفض وإعادة التصدير على نفقة المستورد.';
+        exemptionText = 'تسهيلات الشركات المعتمدة ببرنامج المشغل الاقتصادي المعتمد (AEO) تخضع للفحص الظاهري والمطابقة السريعة بالمسار الأخضر.';
+        break;
+      case 3:
+        // Pillar 4: Regulatory Permits
+        mandatoryText = 'استخراج الموافقات المسبقة والتسجيل لدى الجهات التنظيمية المصرية (هيئة الدواء EDA، جهاز البيئة EEAA، الاتصالات NTRA، سلامة الغذاء NFSA) قبل فتح الاعتماد والشحن.';
+        warningText = 'شحن أي بضائع خاضعة دون تصريح مسبق يمنع إدراج الشحنة على منصة نافذة، ويعرضها للتحفظ والمصادرة الجمركية.';
+        exemptionText = 'المستوردون الصناعيون المصرح لهم يمكنهم طلب الإفراج تحت التحفظ خارج الدائرة الجمركية للتخزين بالمصنع لحين صدور المطابقة النهائية.';
+        break;
+      case 4:
+      default:
+        // Pillar 5: Technical Certificates & MSDS
+        mandatoryText = 'استيفاء صحيفة بيانات سلامة المادة (MSDS) للبضائع الكيماوية والخطرة متضمنة كود UN وCAS، وشهادة الحلال للحوم والأغذية، وشهادة التحليل المخبري (COA).';
+        warningText = 'عدم وضوح تاريخ الصلاحية ورقم التشغيلة باللغة العربية على العبوات يؤدي لرفض الإفراج من الهيئة القومية لسلامة الغذاء أو الحجر الصحي.';
+        exemptionText = 'السلع الجافة، المعدات، وقطع الغيار الميكانيكية والصناعية معفاة كلياً من متطلبات MSDS وشهادة الحلال، وتكتفي بالفحص الفني للكتالوج.';
+        break;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.shield_outlined, color: AppTheme.cobalt, size: 18),
+              const SizedBox(width: 6),
+              Text(
+                'شريط الامتثال والتنبيهات الرقابية للبند: ${currentHs.isNotEmpty ? currentHs : 'HS-Code'} ${currentDesc.isNotEmpty ? "($currentDesc)" : ""}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildBannerSection(
+            icon: Icons.verified_outlined,
+            iconColor: AppTheme.cobalt,
+            title: l10n.adaptivePillarMandatoryRequirements,
+            content: mandatoryText,
+            bgColor: const Color(0xFFEFF6FF),
+            borderColor: const Color(0xFFBFDBFE),
+          ),
+          const SizedBox(height: 6),
+          _buildBannerSection(
+            icon: Icons.warning_amber_rounded,
+            iconColor: AppTheme.crimson,
+            title: l10n.adaptivePillarComplianceAlert,
+            content: warningText,
+            bgColor: const Color(0xFFFEF2F2),
+            borderColor: const Color(0xFFFECACA),
+          ),
+          const SizedBox(height: 6),
+          _buildBannerSection(
+            icon: Icons.lightbulb_outline,
+            iconColor: AppTheme.emerald,
+            title: l10n.adaptivePillarLegalExemptions,
+            content: exemptionText,
+            bgColor: const Color(0xFFF0FDF4),
+            borderColor: const Color(0xFFBBF7D0),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBannerSection({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String content,
+    required Color bgColor,
+    required Color borderColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: iconColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: '$title ',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: iconColor),
+                  ),
+                  TextSpan(
+                    text: content,
+                    style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

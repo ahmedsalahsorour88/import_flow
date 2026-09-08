@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 import '../../projects/providers/projects_provider.dart';
-import 'package:flutter/services.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
@@ -42,7 +42,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(cbmCalculatorProvider);
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final poList = ref.watch(purchaseOrdersProvider).purchaseOrders;
 
     return _buildSavedRegistryTab(context, state, importFiles, poList);
@@ -334,34 +334,38 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
 
                                   // 2. Calc Code
                                   DataCell(
-                                    InkWell(
-                                      onTap: () => _showDetailDialog(context, calc),
-                                      borderRadius: BorderRadius.circular(6),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.cobalt.withOpacity(0.08),
-                                          borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (!calc.isActive)
-                                              const Padding(
-                                                padding: EdgeInsets.only(right: 4),
-                                                child: Icon(Icons.block, size: 12, color: AppTheme.crimson),
+                                    CopyableTableCell(
+                                      value: calc.calcCode,
+                                      rowSummary: '${calc.calcCode} | ${calc.importFileCode ?? "—"} | ${calc.title ?? ""} | ${calc.totalCbm.toStringAsFixed(3)} m³ | ${calc.airChargeableWeightKg.toStringAsFixed(1)} kg | ${calc.totalGrossWeightKg.toStringAsFixed(1)} kg',
+                                      child: InkWell(
+                                        onTap: () => _showDetailDialog(context, calc),
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.cobalt.withOpacity(0.08),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (!calc.isActive)
+                                                const Padding(
+                                                  padding: EdgeInsets.only(right: 4),
+                                                  child: Icon(Icons.block, size: 12, color: AppTheme.crimson),
+                                                ),
+                                              Text(
+                                                calc.calcCode,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: calc.isActive ? AppTheme.cobalt : AppTheme.crimson,
+                                                  fontSize: 12,
+                                                  decoration: calc.isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                                                ),
                                               ),
-                                            Text(
-                                              calc.calcCode,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                color: calc.isActive ? AppTheme.cobalt : AppTheme.crimson,
-                                                fontSize: 12,
-                                                decoration: calc.isActive ? TextDecoration.none : TextDecoration.lineThrough,
-                                              ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -369,83 +373,107 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
 
                                   // 3. Import File
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.charcoal.withOpacity(0.07),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        calc.importFileCode ?? (calc.importFileId != null ? 'IMP-${calc.importFileId}' : '—'),
-                                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                    CopyableTableCell(
+                                      value: calc.importFileCode ?? (calc.importFileId != null ? 'IMP-${calc.importFileId}' : '—'),
+                                      rowSummary: calc.calcCode,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.charcoal.withOpacity(0.07),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          calc.importFileCode ?? (calc.importFileId != null ? 'IMP-${calc.importFileId}' : '—'),
+                                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                   ),
 
                                   // 4. Title
                                   DataCell(
-                                    SizedBox(
-                                      width: 180,
-                                      child: Text(
-                                        calc.title ?? 'Calculation Session',
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 2,
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                    CopyableTableCell(
+                                      value: calc.title ?? l.calculationSessionTitle,
+                                      rowSummary: calc.calcCode,
+                                      child: SizedBox(
+                                        width: 180,
+                                        child: Text(
+                                          calc.title ?? l.calculationSessionTitle,
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 2,
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                        ),
                                       ),
                                     ),
                                   ),
 
                                   // 5. Volume CBM
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.orange.shade50,
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: Colors.orange.shade200),
-                                      ),
-                                      child: Text(
-                                        '${calc.totalCbm.toStringAsFixed(3)} m³',
-                                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900, fontSize: 12),
+                                    CopyableTableCell(
+                                      value: '${calc.totalCbm.toStringAsFixed(3)} m³',
+                                      rowSummary: calc.calcCode,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.shade50,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: Colors.orange.shade200),
+                                        ),
+                                        child: Text(
+                                          '${calc.totalCbm.toStringAsFixed(3)} m³',
+                                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                   ),
 
                                   // 6. Air Chargeable Weight
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.purple.shade50,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        '${calc.airChargeableWeightKg.toStringAsFixed(1)} kg',
-                                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple.shade800, fontSize: 12),
+                                    CopyableTableCell(
+                                      value: '${calc.airChargeableWeightKg.toStringAsFixed(1)} kg',
+                                      rowSummary: calc.calcCode,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.purple.shade50,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          '${calc.airChargeableWeightKg.toStringAsFixed(1)} kg',
+                                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple.shade800, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                   ),
 
                                   // 7. Gross Weight
                                   DataCell(
-                                    Text('${calc.totalGrossWeightKg.toStringAsFixed(1)} kg', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                    CopyableTableCell(
+                                      value: '${calc.totalGrossWeightKg.toStringAsFixed(1)} kg',
+                                      rowSummary: calc.calcCode,
+                                      child: Text('${calc.totalGrossWeightKg.toStringAsFixed(1)} kg', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                    ),
                                   ),
 
                                   // 8. Stacking
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: calc.isStackable ? Colors.green.shade50 : Colors.red.shade50,
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: calc.isStackable ? Colors.green.shade300 : Colors.red.shade300),
-                                      ),
-                                      child: Text(
-                                        calc.isStackable ? '📦 يقبل الرص' : '🚫 لا يقبل',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: calc.isStackable ? Colors.green.shade800 : Colors.red.shade800,
+                                    CopyableTableCell(
+                                      value: calc.isStackable ? l.cbmStackingAccepts : l.cbmStackingRejects,
+                                      rowSummary: calc.calcCode,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: calc.isStackable ? Colors.green.shade50 : Colors.red.shade50,
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: calc.isStackable ? Colors.green.shade300 : Colors.red.shade300),
+                                        ),
+                                        child: Text(
+                                          calc.isStackable ? l.cbmStackingAccepts : l.cbmStackingRejects,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: calc.isStackable ? Colors.green.shade800 : Colors.red.shade800,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -453,34 +481,50 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
 
                                   // 9. Shipping Recommendation
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
-                                      child: Text(calc.recommendedShippingMethod ?? '-', style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
+                                    CopyableTableCell(
+                                      value: calc.recommendedShippingMethod ?? '-',
+                                      rowSummary: calc.calcCode,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+                                        child: Text(calc.recommendedShippingMethod ?? '-', style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      ),
                                     ),
                                   ),
 
                                   // 10. Container Suggestion
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(8)),
-                                      child: Text(calc.recommendedContainerType ?? '-', style: const TextStyle(color: Colors.brown, fontSize: 11, fontWeight: FontWeight.bold)),
+                                    CopyableTableCell(
+                                      value: calc.recommendedContainerType ?? '-',
+                                      rowSummary: calc.calcCode,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(8)),
+                                        child: Text(calc.recommendedContainerType ?? '-', style: const TextStyle(color: Colors.brown, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      ),
                                     ),
                                   ),
 
                                   // 11. Linked PO / Project
                                   DataCell(
-                                    Text(
-                                      calc.poNumber != null
+                                    CopyableTableCell(
+                                      value: calc.poNumber != null
                                           ? 'PO: ${calc.poNumber}'
                                           : calc.projectName != null
                                               ? 'PRJ: ${calc.projectName}'
-                                              : 'غير مرتبط',
-                                      style: TextStyle(
-                                        color: calc.poNumber != null ? AppTheme.emerald : Colors.grey,
-                                        fontWeight: calc.poNumber != null ? FontWeight.bold : FontWeight.normal,
-                                        fontSize: 11,
+                                              : l.cbmNotLinked,
+                                      rowSummary: calc.calcCode,
+                                      child: Text(
+                                        calc.poNumber != null
+                                            ? 'PO: ${calc.poNumber}'
+                                            : calc.projectName != null
+                                                ? 'PRJ: ${calc.projectName}'
+                                                : l.cbmNotLinked,
+                                        style: TextStyle(
+                                          color: calc.poNumber != null ? AppTheme.emerald : Colors.grey,
+                                          fontWeight: calc.poNumber != null ? FontWeight.bold : FontWeight.normal,
+                                          fontSize: 11,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -855,7 +899,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 context,
                 calc,
                 ref.read(purchaseOrdersProvider).purchaseOrders,
-                ref.read(projectsProvider).value ?? [],
+                ref.read(projectsProvider).valueOrNull ?? [],
               );
             },
           ),
@@ -1125,6 +1169,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   }
 
   Future<void> _downloadCalcCSV(BuildContext context, CBMCalculationModel calc) async {
+    final l = context.l10n;
     final buffer = StringBuffer();
     buffer.writeln('Sorour Logistics ERP - Cargo Volume & Weight Measurement Report');
     buffer.writeln('Calc Code,${calc.calcCode}');
@@ -1149,15 +1194,16 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       context: context,
       textContent: buffer.toString(),
       defaultFileName: filename,
-      dialogTitle: 'حفظ تقرير قياسات وأوزان الشحنة CBM بصيغة Excel / CSV',
+      dialogTitle: l.cbmDownloadCsvTitle,
       allowedExtensions: ['csv', 'xlsx'],
     );
   }
 
   void _triggerReportPrint(BuildContext context, CBMCalculationModel calc) {
+    final l = context.l10n;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('جار إرسال التقرير ${calc.calcCode} للشاشة التفاعلية للطباعة والتصدير...'),
+        content: Text(l.cbmSendingReportToScreen(calc.calcCode)),
         backgroundColor: AppTheme.cobalt,
       ),
     );
@@ -1191,7 +1237,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                     SearchableDropdownItem<int?>(value: null, label: l.cbmSessionStandalone),
                     ...poList.map((po) => SearchableDropdownItem<int?>(
                           value: po.poId,
-                          label: '${po.poNumber}${po.poReference != null && po.poReference!.isNotEmpty ? " - ${po.poReference}" : ""} (${po.projectName ?? "Project"})',
+                          label: '${po.displayName} (${po.poNumber}) (${po.projectName ?? "Project"})',
                           subtitle: po.supplierName,
                         )),
                   ],
@@ -1714,9 +1760,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
-                                    color: statusText.contains('فشل') || statusText.contains('Failed')
+                                    color: (res.containerCode == 'FAILED' || !res.fits)
                                         ? Colors.red.shade800
-                                        : (statusText.contains('غير قابل') || statusText.contains('Non-') ? Colors.brown.shade800 : Colors.green.shade800),
+                                        : (hasNonStackable ? Colors.brown.shade800 : Colors.green.shade800),
                                   ),
                                 ),
                               ),

@@ -35,3 +35,8 @@ backend.spec
 *.exe
 *.zip
 *.tar.gz
+
+# Scratch / Temp
+scratch/
+scratch*.txt
+

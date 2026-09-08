@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/docs_customs_approval_model.dart';
@@ -48,20 +49,26 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
   }
 
   Future<void> _refresh() async {
-    await ref.read(importFilesProvider.notifier).fetchImportFiles();
-    final files = ref.read(importFilesProvider).value ?? [];
+    if (!ref.read(importFilesProvider).isLoading) {
+      await ref.read(importFilesProvider.notifier).fetchImportFiles();
+    }
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
     if (_selectedImportFileId == null && files.isNotEmpty && mounted) {
       setState(() {
         _selectedImportFileId = files.first.importFileId;
       });
     }
-    ref.read(docsCustomsApprovalProvider.notifier).fetchApprovals(
-          importFileId: _selectedImportFileId,
-          overallStatus: _selectedStatusFilter == 'All' ? null : _selectedStatusFilter,
-        );
-    ref.read(discrepancyTicketsProvider.notifier).fetchTickets(
-          importFileId: _selectedImportFileId,
-        );
+    if (!ref.read(docsCustomsApprovalProvider).isLoading) {
+      ref.read(docsCustomsApprovalProvider.notifier).fetchApprovals(
+            importFileId: _selectedImportFileId,
+            overallStatus: _selectedStatusFilter == 'All' ? null : _selectedStatusFilter,
+          );
+    }
+    if (!ref.read(discrepancyTicketsProvider).isLoading) {
+      ref.read(discrepancyTicketsProvider.notifier).fetchTickets(
+            importFileId: _selectedImportFileId,
+          );
+    }
   }
 
   Future<void> _handleRunMatrixCheck() async {
@@ -79,7 +86,9 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
       setState(() => _matrixResult = res);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(context.l10n.customsApprovalMatrixCheckCompleted(res.overallCompliance)),
+          content: Text(context.l10n.customsApprovalMatrixCheckCompleted(
+            _getLocalizedCompliance(res.overallCompliance, context.l10n),
+          )),
           backgroundColor: res.overallCompliance == 'Fully Compliant' ? AppTheme.emerald : AppTheme.orange,
         ),
       );
@@ -154,9 +163,130 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
     );
   }
 
+  static String _getLocalizedDocType(String docType, AppLocalizations l) {
+    switch (docType) {
+      case 'Commercial Invoice':
+        return l.customsApprovalDocCommercialInvoice;
+      case 'Packing List':
+        return l.customsApprovalDocPackingList;
+      case 'Bill of Lading':
+        return l.customsApprovalDocBillOfLading;
+      case 'Certificate of Origin':
+        return l.customsApprovalDocCertificateOfOrigin;
+      case 'EUR.1':
+        return l.customsApprovalDocEur1;
+      case 'Inspection Certificate':
+        return l.customsApprovalDocInspectionCertificate;
+      case 'Bank Form 4':
+        return l.customsApprovalDocBankForm4;
+      case 'Proforma Invoice':
+        return l.customsApprovalDocProformaInvoice;
+      default:
+        return docType;
+    }
+  }
+
+  static String _getLocalizedOverallStatus(String status, AppLocalizations l) {
+    switch (status) {
+      case 'Approved for Clearance':
+        return l.customsApprovalStatusApprovedForClearance;
+      case 'Rectification Required':
+        return l.customsApprovalStatusRectificationRequired;
+      case 'Conditionally Approved':
+        return l.customsApprovalStatusConditionallyApproved;
+      case 'Under Review':
+        return l.customsApprovalStatusUnderReview;
+      case 'Pending Review':
+        return l.customsApprovalStatusPendingReview;
+      case 'Draft':
+        return l.customsApprovalStatusDraft;
+      case 'Rejected':
+        return l.customsApprovalStatusRejected;
+      case 'Approved':
+        return l.customsApprovalStatusApproved;
+      case 'Pending':
+        return l.customsApprovalStatusPending;
+      default:
+        return status;
+    }
+  }
+
+  static String _getLocalizedCommercialStatus(String status, AppLocalizations l) {
+    switch (status) {
+      case 'Approved':
+        return l.customsApprovalStatusApproved;
+      case 'Under Review':
+        return l.customsApprovalStatusUnderReview;
+      case 'Rejected':
+        return l.customsApprovalStatusRejected;
+      case 'Pending':
+        return l.customsApprovalStatusPending;
+      default:
+        return status;
+    }
+  }
+
+  static String _getLocalizedBrokerStatus(String status, AppLocalizations l) {
+    switch (status) {
+      case 'Approved':
+        return l.customsApprovalStatusApproved;
+      case 'Conditionally Approved':
+        return l.customsApprovalStatusConditionallyApproved;
+      case 'Rejected':
+        return l.customsApprovalStatusRejected;
+      case 'Pending':
+        return l.customsApprovalStatusPending;
+      default:
+        return status;
+    }
+  }
+
+  static String _getLocalizedSeverity(String severity, AppLocalizations l) {
+    switch (severity) {
+      case 'Critical':
+        return l.customsApprovalSevCriticalBadge;
+      case 'Major':
+        return l.customsApprovalSevMajorBadge;
+      case 'Minor':
+        return l.customsApprovalSevMinorBadge;
+      default:
+        return severity;
+    }
+  }
+
+  static String _getLocalizedTicketStatus(String status, AppLocalizations l) {
+    switch (status) {
+      case 'Open':
+        return l.customsApprovalTicketStatusOpen;
+      case 'Resolved':
+        return l.customsApprovalStatusResolved;
+      case 'Waived':
+        return l.customsApprovalStatusWaived;
+      case 'Closed':
+        return l.customsApprovalStatusClosed;
+      default:
+        return status;
+    }
+  }
+
+  static String _getLocalizedCompliance(String compliance, AppLocalizations l) {
+    switch (compliance) {
+      case 'Fully Compliant':
+        return l.customsApprovalComplianceFullyCompliant;
+      case 'Non-Compliant':
+        return l.customsApprovalComplianceNonCompliant;
+      case 'Discrepancies Found':
+        return l.customsApprovalComplianceDiscrepancies;
+      case 'Critical Blocker':
+        return l.customsApprovalComplianceCriticalBlocker;
+      default:
+        return compliance;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final approvalsState = ref.watch(docsCustomsApprovalProvider);
     final ticketsState = ref.watch(discrepancyTicketsProvider);
 
@@ -180,10 +310,9 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                       labelText: context.l10n.customsApprovalImportFileLabel,
                       searchHintText: context.l10n.customsApprovalSearchFileHint,
                       items: importFiles.map((f) {
-                        final code = f.customFileNumber ?? f.importFileCode;
                         return SearchableDropdownItem(
                           value: f.importFileId,
-                          label: '[$code] ${f.companyName} (${f.supplierName})',
+                          label: '${f.primaryNameWithCode} - ${f.companyName} (${f.supplierName})',
                         );
                       }).toList(),
                       onChanged: (val) {
@@ -292,58 +421,67 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
 
         // --- Live Matrix Banner (if available and in view 0) ---
         if (_activeViewIndex == 0 && _matrixResult != null)
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _matrixResult!.overallCompliance == 'Fully Compliant'
-                  ? AppTheme.emerald.withOpacity(0.12)
-                  : AppTheme.orange.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
+          SelectionArea(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
                 color: _matrixResult!.overallCompliance == 'Fully Compliant'
-                    ? AppTheme.emerald
-                    : AppTheme.orange,
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _matrixResult!.overallCompliance == 'Fully Compliant'
-                      ? Icons.verified
-                      : Icons.warning_amber_rounded,
+                    ? AppTheme.emerald.withOpacity(0.12)
+                    : AppTheme.orange.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
                   color: _matrixResult!.overallCompliance == 'Fully Compliant'
                       ? AppTheme.emerald
                       : AppTheme.orange,
-                  size: 28,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.l10n.customsApprovalMatrixComplianceResult(_matrixResult!.overallCompliance, _matrixResult!.passedChecks, _matrixResult!.totalChecks),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: _matrixResult!.overallCompliance == 'Fully Compliant'
-                              ? AppTheme.emerald
-                              : AppTheme.orange,
-                        ),
-                      ),
-                      if (_matrixResult!.recommendations.isNotEmpty)
-                        Text(
-                          context.l10n.customsApprovalMatrixRecommendations(_matrixResult!.recommendations.join(' | ')),
-                          style: const TextStyle(fontSize: 11, color: Colors.black87),
-                        ),
-                    ],
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _matrixResult!.overallCompliance == 'Fully Compliant'
+                        ? Icons.verified
+                        : Icons.warning_amber_rounded,
+                    color: _matrixResult!.overallCompliance == 'Fully Compliant'
+                        ? AppTheme.emerald
+                        : AppTheme.orange,
+                    size: 28,
                   ),
-                ),
-                Text(
-                  context.l10n.customsApprovalMatrixOpenTicketsCount(_matrixResult!.openTicketsCount),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-              ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CopyableText(
+                          context.l10n.customsApprovalMatrixComplianceResult(
+                            _getLocalizedCompliance(_matrixResult!.overallCompliance, context.l10n),
+                            _matrixResult!.passedChecks,
+                            _matrixResult!.totalChecks,
+                          ),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _matrixResult!.overallCompliance == 'Fully Compliant'
+                                ? AppTheme.emerald
+                                : AppTheme.orange,
+                          ),
+                          isSelectable: false,
+                        ),
+                        if (_matrixResult!.recommendations.isNotEmpty)
+                          CopyableText(
+                            context.l10n.customsApprovalMatrixRecommendations(_matrixResult!.recommendations.join(' | ')),
+                            style: const TextStyle(fontSize: 11, color: Colors.black87),
+                            isSelectable: false,
+                          ),
+                      ],
+                    ),
+                  ),
+                  CopyableText(
+                    context.l10n.customsApprovalMatrixOpenTicketsCount(_matrixResult!.openTicketsCount),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    isSelectable: false,
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -368,52 +506,54 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                     child: Card(
                       elevation: 2,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                          Row(
+                      child: SelectionArea(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.verified_user, color: AppTheme.cobalt),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  context.l10n.customsApprovalDualTierHeader,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  overflow: TextOverflow.ellipsis,
+                            Row(
+                              children: [
+                                const Icon(Icons.verified_user, color: AppTheme.cobalt),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    context.l10n.customsApprovalDualTierHeader,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.refresh, size: 20),
-                                onPressed: _refresh,
-                                tooltip: context.l10n.refresh,
-                              ),
-                            ],
-                          ),
-                          const Divider(),
-                          Expanded(
-                            child: approvalsState.when(
-                              loading: () => const Center(child: CircularProgressIndicator()),
-                              error: (e, _) => Center(child: Text(context.l10n.customsApprovalError(e.toString()), style: const TextStyle(color: Colors.red))),
-                              data: (approvals) {
-                                if (approvals.isEmpty) {
-                                  return Center(
-                                    child: Text(context.l10n.customsApprovalNoDocuments),
-                                  );
-                                }
-                                return ListView.separated(
-                                  itemCount: approvals.length,
-                                  separatorBuilder: (_, __) => const Divider(height: 1),
-                                  itemBuilder: (context, index) {
-                                    final item = approvals[index];
-                                    return _buildApprovalRow(item);
-                                  },
-                                );
-                              },
+                                IconButton(
+                                  icon: const Icon(Icons.refresh, size: 20),
+                                  onPressed: _refresh,
+                                  tooltip: context.l10n.refresh,
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                            const Divider(),
+                            Expanded(
+                              child: approvalsState.when(
+                                loading: () => const Center(child: CircularProgressIndicator()),
+                                error: (e, _) => Center(child: Text(context.l10n.customsApprovalError(e.toString()), style: const TextStyle(color: Colors.red))),
+                                data: (approvals) {
+                                  if (approvals.isEmpty) {
+                                    return Center(
+                                      child: Text(context.l10n.customsApprovalNoDocuments),
+                                    );
+                                  }
+                                  return ListView.separated(
+                                    itemCount: approvals.length,
+                                    separatorBuilder: (_, __) => const Divider(height: 1),
+                                    itemBuilder: (context, index) {
+                                      final item = approvals[index];
+                                      return _buildApprovalRow(item);
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -426,52 +566,54 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                   child: Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.confirmation_number_outlined, color: AppTheme.orange),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  context.l10n.customsApprovalTicketsHeader,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  overflow: TextOverflow.ellipsis,
+                    child: SelectionArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.confirmation_number_outlined, color: AppTheme.orange),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    context.l10n.customsApprovalTicketsHeader,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                              ),
-                              TextButton.icon(
-                                icon: const Icon(Icons.add, size: 16),
-                                label: Text(context.l10n.customsApprovalNewTicketButton),
-                                onPressed: () => _showRaiseTicketDialog(),
-                              ),
-                            ],
-                          ),
-                          const Divider(),
-                          Expanded(
-                            child: ticketsState.when(
-                              loading: () => const Center(child: CircularProgressIndicator()),
-                              error: (e, _) => Center(child: Text(context.l10n.customsApprovalError(e.toString()), style: const TextStyle(color: Colors.red))),
-                              data: (tickets) {
-                                if (tickets.isEmpty) {
-                                  return Center(
-                                    child: Text(context.l10n.customsApprovalNoTickets),
-                                  );
-                                }
-                                return ListView.separated(
-                                  itemCount: tickets.length,
-                                  separatorBuilder: (_, __) => const Divider(height: 1),
-                                  itemBuilder: (context, index) {
-                                    final t = tickets[index];
-                                    return _buildTicketCard(t);
-                                  },
-                                );
-                              },
+                                TextButton.icon(
+                                  icon: const Icon(Icons.add, size: 16),
+                                  label: Text(context.l10n.customsApprovalNewTicketButton),
+                                  onPressed: () => _showRaiseTicketDialog(),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                            const Divider(),
+                            Expanded(
+                              child: ticketsState.when(
+                                loading: () => const Center(child: CircularProgressIndicator()),
+                                error: (e, _) => Center(child: Text(context.l10n.customsApprovalError(e.toString()), style: const TextStyle(color: Colors.red))),
+                                data: (tickets) {
+                                  if (tickets.isEmpty) {
+                                    return Center(
+                                      child: Text(context.l10n.customsApprovalNoTickets),
+                                    );
+                                  }
+                                  return ListView.separated(
+                                    itemCount: tickets.length,
+                                    separatorBuilder: (_, __) => const Divider(height: 1),
+                                    itemBuilder: (context, index) {
+                                      final t = tickets[index];
+                                      return _buildTicketCard(t);
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -485,9 +627,15 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
   }
 
   Widget _buildApprovalRow(CustomsDocumentApprovalModel item) {
+    final l = context.l10n;
     Color overallColor = AppTheme.orange;
     if (item.overallStatus == 'Approved for Clearance') overallColor = AppTheme.emerald;
     if (item.overallStatus == 'Rectification Required' || item.overallStatus == 'Rejected') overallColor = AppTheme.crimson;
+
+    final localizedDocType = _getLocalizedDocType(item.documentType, l);
+    final localizedOverallStatus = _getLocalizedOverallStatus(item.overallStatus, l);
+    final localizedCommercialStatus = _getLocalizedCommercialStatus(item.commercialStatus, l);
+    final localizedBrokerStatus = _getLocalizedBrokerStatus(item.customsStatus, l);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -503,20 +651,22 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                     color: AppTheme.cobalt.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text(
-                    item.documentType,
+                  child: CopyableText(
+                    localizedDocType,
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
                     overflow: TextOverflow.ellipsis,
+                    isSelectable: false,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               if (item.documentReferenceNo != null)
                 Flexible(
-                  child: Text(
-                    context.l10n.customsApprovalDocRef(item.documentReferenceNo!),
+                  child: CopyableText(
+                    l.customsApprovalDocRef(item.documentReferenceNo!),
                     style: const TextStyle(fontSize: 12, color: Colors.black54),
                     overflow: TextOverflow.ellipsis,
+                    isSelectable: false,
                   ),
                 ),
               const Spacer(),
@@ -527,9 +677,10 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: overallColor.withOpacity(0.5)),
                 ),
-                child: Text(
-                  item.overallStatus,
+                child: CopyableText(
+                  localizedOverallStatus,
                   style: TextStyle(color: overallColor, fontWeight: FontWeight.bold, fontSize: 11),
+                  isSelectable: false,
                 ),
               ),
             ],
@@ -564,7 +715,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        context.l10n.customsApprovalCommercialReviewStatus(item.commercialStatus),
+                        l.customsApprovalCommercialReviewStatus(localizedCommercialStatus),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -601,7 +752,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        context.l10n.customsApprovalBrokerReviewStatus(item.customsStatus),
+                        l.customsApprovalBrokerReviewStatus(localizedBrokerStatus),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -620,7 +771,11 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
   }
 
   Widget _buildTicketCard(DiscrepancyRectificationTicketModel ticket) {
+    final l = context.l10n;
     final isResolved = ticket.status == 'Resolved';
+    final localizedSeverity = _getLocalizedSeverity(ticket.severity, l);
+    final localizedTicketStatus = _getLocalizedTicketStatus(ticket.status, l);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Container(
@@ -638,9 +793,10 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
               spacing: 6,
               runSpacing: 4,
               children: [
-                Text(
+                CopyableText(
                   ticket.ticketCode,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                  isSelectable: false,
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
@@ -648,32 +804,36 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                     color: ticket.severity == 'Critical' ? AppTheme.crimson : AppTheme.orange,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text(
-                    ticket.severity,
+                  child: CopyableText(
+                    localizedSeverity,
                     style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                    isSelectable: false,
                   ),
                 ),
-                Text(
-                  ticket.status,
+                CopyableText(
+                  localizedTicketStatus,
                   style: TextStyle(
                     color: isResolved ? AppTheme.emerald : AppTheme.orange,
                     fontWeight: FontWeight.bold,
                     fontSize: 11,
                   ),
+                  isSelectable: false,
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            Text(
+            CopyableText(
               ticket.description,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              isSelectable: false,
             ),
             if (ticket.expectedValue != null || ticket.foundValue != null)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  context.l10n.customsApprovalTicketExpectedVsFound(ticket.expectedValue ?? "-", ticket.foundValue ?? "-"),
+                child: CopyableText(
+                  l.customsApprovalTicketExpectedVsFound(ticket.expectedValue ?? "-", ticket.foundValue ?? "-"),
                   style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
+                  isSelectable: false,
                 ),
               ),
             if (!isResolved)
@@ -682,7 +842,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                 child: TextButton.icon(
                   style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                   icon: const Icon(Icons.check_circle_outline, size: 14),
-                  label: Text(context.l10n.customsApprovalResolveTicketButton, style: const TextStyle(fontSize: 11)),
+                  label: Text(l.customsApprovalResolveTicketButton, style: const TextStyle(fontSize: 11)),
                   onPressed: () => _showResolveTicketDialog(ticket),
                 ),
               ),
@@ -706,10 +866,20 @@ class _CommercialReviewDialog extends StatefulWidget {
 
 class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController(text: 'Commercial Specialist');
+  final _nameCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   String _selectedStatus = 'Approved';
   bool _isSubmitting = false;
+  bool _initialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      _nameCtrl.text = context.l10n.customsApprovalDefaultCommercialReviewer;
+    }
+  }
 
   @override
   void dispose() {
@@ -722,7 +892,9 @@ class _CommercialReviewDialogState extends State<_CommercialReviewDialog> {
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
       return AlertDialog(
-        title: Text(context.l10n.customsApprovalCommercialDialogTitle(widget.item.documentType)),
+        title: Text(context.l10n.customsApprovalCommercialDialogTitle(
+          _CustomsDocumentApprovalTabState._getLocalizedDocType(widget.item.documentType, context.l10n),
+        )),
         content: Form(
           key: _formKey,
           child: SizedBox(
@@ -808,11 +980,22 @@ class _CustomsBrokerReviewDialog extends StatefulWidget {
 
 class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _brokerCtrl = TextEditingController(text: 'Licensed Customs Broker');
-  final _reviewerCtrl = TextEditingController(text: 'Legal Officer');
+  final _brokerCtrl = TextEditingController();
+  final _reviewerCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   String _selectedStatus = 'Approved';
   bool _isSubmitting = false;
+  bool _initialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      _brokerCtrl.text = context.l10n.customsApprovalDefaultBrokerOffice;
+      _reviewerCtrl.text = context.l10n.customsApprovalDefaultLegalOfficer;
+    }
+  }
 
   @override
   void dispose() {
@@ -826,7 +1009,9 @@ class _CustomsBrokerReviewDialogState extends State<_CustomsBrokerReviewDialog> 
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
       return AlertDialog(
-        title: Text(context.l10n.customsApprovalBrokerDialogTitle(widget.item.documentType)),
+        title: Text(context.l10n.customsApprovalBrokerDialogTitle(
+          _CustomsDocumentApprovalTabState._getLocalizedDocType(widget.item.documentType, context.l10n),
+        )),
         content: Form(
           key: _formKey,
           child: SizedBox(
@@ -1068,9 +1253,19 @@ class _ResolveTicketDialog extends StatefulWidget {
 class _ResolveTicketDialogState extends State<_ResolveTicketDialog> {
   final _formKey = GlobalKey<FormState>();
   final _responseCtrl = TextEditingController();
-  final _resolverCtrl = TextEditingController(text: 'Compliance Specialist');
+  final _resolverCtrl = TextEditingController();
   String _newStatus = 'Resolved';
   bool _isSubmitting = false;
+  bool _initialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      _resolverCtrl.text = context.l10n.customsApprovalDefaultComplianceOfficer;
+    }
+  }
 
   @override
   void dispose() {

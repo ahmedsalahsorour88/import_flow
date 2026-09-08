@@ -50,7 +50,7 @@ class _MasterDataToolbarWidgetState
     final cleanTitle = widget.title.replaceAll(' ', '_');
     final formattedDefaultName = defaultFileName.startsWith('MasterData_')
         ? defaultFileName
-        : 'MasterData_${cleanTitle}_${defaultFileName}';
+        : 'MasterData_${cleanTitle}_$defaultFileName';
     final url =
         '${ApiConstants.baseUrl}/${widget.moduleEndpoint}/$actionEndpoint';
     try {

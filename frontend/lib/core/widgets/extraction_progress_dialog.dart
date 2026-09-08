@@ -40,7 +40,11 @@ class ExtractionProgressController extends ChangeNotifier {
   }
 
   Timer? _timer;
-  void startAutoAdvance({double targetPercent = 0.90, Duration duration = const Duration(seconds: 4)}) {
+  void startAutoAdvance({
+    double targetPercent = 0.90,
+    Duration duration = const Duration(seconds: 4),
+    String? step4Status,
+  }) {
     _timer?.cancel();
     const stepDuration = Duration(milliseconds: 150);
     final totalSteps = duration.inMilliseconds ~/ stepDuration.inMilliseconds;
@@ -63,7 +67,7 @@ class ExtractionProgressController extends ChangeNotifier {
         } else if (_percent >= 0.75) {
           _currentStep = 4;
           _stepLabel = 'المرحلة 4 من 4: استخراج الحقول والمطابقة الذكية';
-          _status = 'جاري استخراج بنود الفاتورة وكشف التعبئة وتنسيق البيانات...';
+          _status = step4Status ?? 'جاري استخراج بنود الفاتورة وكشف التعبئة وتنسيق البيانات...';
         }
         notifyListeners();
       } else if (_percent >= targetPercent) {

@@ -398,7 +398,7 @@ Sorour Logistics ERP
                       pw.Row(
                         children: [
                           pw.Expanded(child: pw.Text('اسم البنك: ${supplier.bankName ?? "-"}', style: const pw.TextStyle(fontSize: 9))),
-                          pw.Expanded(child: pw.Text('كود السويفت (SWIFT): ${supplier.swiftCode ?? "-"}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColor.fromHex('#2980B9')))),
+                          pw.Expanded(child: pw.Text('كود السويفت: ${supplier.swiftCode ?? "-"}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColor.fromHex('#2980B9')))),
                         ],
                       ),
                       pw.SizedBox(height: 4),
@@ -586,7 +586,7 @@ Sorour Logistics ERP
                             style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
                           ),
                           pw.Text(
-                            'Partner & Service Provider Official Profile',
+                            'وثيقة رسمية ببيانات الشريك ومقدم الخدمات اللوجستية',
                             style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
                           ),
                         ],
@@ -648,14 +648,14 @@ Sorour Logistics ERP
                     if (partner.swiftCode != null && partner.swiftCode!.isNotEmpty)
                       pw.TableRow(
                         children: [
-                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('كود السويفت البنكي (SWIFT Code)', style: const pw.TextStyle(fontSize: 9))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('كود السويفت البنكي', style: const pw.TextStyle(fontSize: 9))),
                           pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(partner.swiftCode!, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
                         ],
                       ),
                     if (partner.scacCode != null && partner.scacCode!.isNotEmpty)
                       pw.TableRow(
                         children: [
-                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('كود الخط الملاحي (SCAC Code)', style: const pw.TextStyle(fontSize: 9))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('كود الناقل الملاحي', style: const pw.TextStyle(fontSize: 9))),
                           pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(partner.scacCode!, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
                         ],
                       ),
@@ -675,7 +675,7 @@ Sorour Logistics ERP
                     pw.TableRow(
                       children: [
                         pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('شروط السداد والحد الائتماني', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('نوع السداد: ${partner.paymentType} | الحد: ${partner.creditLimit} EGP', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('نوع السداد: ${partner.paymentType} | الحد: ${partner.creditLimit} ج.م', style: const pw.TextStyle(fontSize: 9))),
                       ],
                     ),
                   ],
@@ -743,7 +743,7 @@ Sorour Logistics ERP
     buffer.writeln('تصنيف الخدمات,"${partner.partnerType.replaceAll('"', '""')}"');
     buffer.writeln('الدولة,${partner.country}');
     buffer.writeln('كود السويفت (SWIFT),${partner.swiftCode ?? "-"}');
-    buffer.writeln('كود الخط الملاحي (SCAC),${partner.scacCode ?? "-"}');
+    buffer.writeln('كود الناقل الملاحي,${partner.scacCode ?? "-"}');
     buffer.writeln('رقم رخصة التخليص,${partner.clearanceLicenseNumber ?? "-"}');
     buffer.writeln('السجل التجاري,${partner.commercialRegister ?? "-"}');
     buffer.writeln('البطاقة الضريبية,${partner.taxId ?? "-"}');
@@ -774,26 +774,26 @@ Sorour Logistics ERP
 🏢 *اسم الشريك:* ${p.partnerName}
 📋 *التصنيف:* ${p.partnerType}
 🌍 *الدولة:* ${p.country}
-${p.swiftCode != null && p.swiftCode!.isNotEmpty ? "🏦 *SWIFT:* ${p.swiftCode}\n" : ""}${p.scacCode != null && p.scacCode!.isNotEmpty ? "🚢 *SCAC:* ${p.scacCode}\n" : ""}${p.clearanceLicenseNumber != null && p.clearanceLicenseNumber!.isNotEmpty ? "📜 *رخصة التخليص:* ${p.clearanceLicenseNumber}\n" : ""}
+${p.swiftCode != null && p.swiftCode!.isNotEmpty ? "🏦 *السويفت:* ${p.swiftCode}\n" : ""}${p.scacCode != null && p.scacCode!.isNotEmpty ? "🚢 *كود الناقل:* ${p.scacCode}\n" : ""}${p.clearanceLicenseNumber != null && p.clearanceLicenseNumber!.isNotEmpty ? "📜 *رخصة التخليص:* ${p.clearanceLicenseNumber}\n" : ""}
 *📞 بيانات التواصل:*
 • *المسؤول:* ${p.contactPerson ?? "-"}
 • *الهاتف:* ${p.phone ?? p.mobile ?? "-"}
 • *الإيميل:* ${p.email ?? "-"}
-• *نوع السداد:* ${p.paymentType} (الحد: ${p.creditLimit} EGP)
+• *نوع السداد:* ${p.paymentType} (الحد: ${p.creditLimit} ج.م)
 • *الحالة:* ${p.isActive ? "✅ نشط" : "❌ غير نشط"}
 _تم الإنشاء عبر Sorour Logistics ERP_
 '''.trim();
   }
 
   static String generatePartnerEmailSubject(PartnerModel p) {
-    return 'بيانات الشريك / البنك [${p.partnerCode}] - ${p.partnerName}';
+    return 'بيانات الشريك أو البنك [${p.partnerCode}] - ${p.partnerName}';
   }
 
   static String generatePartnerEmailBody(PartnerModel p) {
     return '''
 تحية طيبة وبعد،،،
 
-مرفق لسيادتكم بطاقة تعريف وبيانات الشريك / مقدم الخدمة المسجل على النظام:
+مرفق لسيادتكم بطاقة تعريف وبيانات الشريك ومقدم الخدمة المسجل على النظام:
 
 - كود الشريك: ${p.partnerCode}
 - اسم الشريك: ${p.partnerName}
@@ -803,7 +803,7 @@ _تم الإنشاء عبر Sorour Logistics ERP_
 
 الأكواد والتراخيص:
 - كود السويفت: ${p.swiftCode ?? "-"}
-- كود الخط الملاحي SCAC: ${p.scacCode ?? "-"}
+- كود الخط الملاحي: ${p.scacCode ?? "-"}
 - ترخيص التخليص: ${p.clearanceLicenseNumber ?? "-"}
 - السجل التجاري: ${p.commercialRegister ?? "-"}
 - البطاقة الضريبية: ${p.taxId ?? "-"}
@@ -812,7 +812,7 @@ _تم الإنشاء عبر Sorour Logistics ERP_
 - مسؤول الحساب: ${p.contactPerson ?? "-"}
 - الهاتف: ${p.phone ?? p.mobile ?? "-"}
 - البريد الإلكتروني: ${p.email ?? "-"}
-- نوع السداد: ${p.paymentType} (الحد الائتماني: ${p.creditLimit} EGP)
+- نوع السداد: ${p.paymentType} (الحد الائتماني: ${p.creditLimit} ج.م)
 
 شاكرين حسن تعاونكم،،،
 فريق العمليات وإدارة الاستيراد

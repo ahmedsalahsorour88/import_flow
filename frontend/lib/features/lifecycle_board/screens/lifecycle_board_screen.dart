@@ -40,6 +40,8 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   final ScrollController _kpiScrollController = ScrollController();
   final ScrollController _radarFilterScrollController = ScrollController();
 
+  final TextEditingController _searchController = TextEditingController();
+
   final Map<String, String> _stepPhases = {
     'STEP_01': '1', 'STEP_02': '1', 'STEP_03': '1',
     'STEP_04': '2', 'STEP_05': '2',
@@ -52,7 +54,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedStepCode = 'STEP_01';
+    _selectedStepCode = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(lifecycleBoardSummaryProvider);
       ref.invalidate(liveLogisticsTrackingProvider);
@@ -62,6 +64,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
   @override
   void dispose() {
+    _searchController.dispose();
     _horizontalScrollController.dispose();
     _verticalScrollController.dispose();
     _topPhasesScrollController.dispose();
@@ -541,24 +544,33 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     SizedBox(
                       width: 260,
                       height: 36,
-                      child: TextField(
-                        onChanged: (val) => setState(() => _searchQuery = val),
-                        decoration: InputDecoration(
-                          hintText: 'بحث بالملف، البوليصة، المورد...',
-                          hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                          prefixIcon: const Icon(Icons.search, size: 16, color: AppTheme.cobalt),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 14),
-                                  onPressed: () => setState(() => _searchQuery = ''),
-                                )
-                              : null,
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: EdgeInsets.zero,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
-                        ),
+                      child: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _searchController,
+                        builder: (context, val, _) {
+                          return TextField(
+                            controller: _searchController,
+                            onChanged: (val) => setState(() => _searchQuery = val),
+                            decoration: InputDecoration(
+                              hintText: 'بحث بالملف، البوليصة، المورد...',
+                              hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                              prefixIcon: const Icon(Icons.search, size: 16, color: AppTheme.cobalt),
+                              suffixIcon: val.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear, size: 14),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _searchQuery = '');
+                                      },
+                                    )
+                                  : null,
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding: EdgeInsets.zero,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
+                            ),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1287,24 +1299,33 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
           SizedBox(
             width: 220,
             height: 32,
-            child: TextField(
-              onChanged: (val) => setState(() => _searchQuery = val),
-              decoration: InputDecoration(
-                hintText: l10n.searchLifecycleTableHint,
-                hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
-                prefixIcon: const Icon(Icons.search, size: 14, color: AppTheme.cobalt),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 12),
-                        onPressed: () => setState(() => _searchQuery = ''),
-                      )
-                    : null,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: EdgeInsets.zero,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: Colors.grey.shade300)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: Colors.grey.shade300)),
-              ),
+            child: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _searchController,
+              builder: (context, val, _) {
+                return TextField(
+                  controller: _searchController,
+                  onChanged: (val) => setState(() => _searchQuery = val),
+                  decoration: InputDecoration(
+                    hintText: l10n.searchLifecycleTableHint,
+                    hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                    prefixIcon: const Icon(Icons.search, size: 14, color: AppTheme.cobalt),
+                    suffixIcon: val.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 12),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: EdgeInsets.zero,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: Colors.grey.shade300)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  ),
+                );
+              },
             ),
           ),
         ],

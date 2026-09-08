@@ -1,5 +1,3 @@
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -334,6 +332,7 @@ class InspectionExportService {
     final filename = 'Phase3_Draft_Inspection_Certificate_${agency}_${cleanAcid.isNotEmpty ? cleanAcid : DateTime.now().millisecondsSinceEpoch}.pdf';
     final bytes = await pdf.save();
 
+    if (context == null || !context.mounted) return null;
     return FileSaveHelper.saveBytes(
       context: context,
       bytes: bytes,

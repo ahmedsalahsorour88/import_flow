@@ -29,7 +29,9 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
     super.initState();
     _selectedImportFileId = widget.initialImportFileId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
+      if (!ref.read(importFilesProvider).isLoading) {
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
     });
   }
 
@@ -63,7 +65,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     final content = SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -139,7 +141,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                 items: importFiles
                     .map((f) => SearchableDropdownItem<int>(
                           value: f.importFileId,
-                          label: '${f.importFileCode} - ${f.companyName} (${f.supplierName})',
+                          label: '${f.primaryNameWithCode} - ${f.companyName} (${f.supplierName})',
                         ))
                     .toList(),
                 onChanged: (v) {

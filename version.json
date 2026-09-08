@@ -1,17 +1,17 @@
 {
   "major": 1,
   "minor": 0,
-  "patch": 137,
-  "version": "1.0.137",
-  "build_number": 138,
-  "updated_at": "2026-09-06 12:25:35",
-  "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.137/Sorour_Logistics_Setup_v1.0.137.exe",
-  "installer_filename": "Sorour_Logistics_Setup_v1.0.137.exe",
-  "installer_size_mb": 198.01,
+  "patch": 155,
+  "version": "1.0.155",
+  "build_number": 156,
+  "updated_at": "2026-09-07 16:36:42",
+  "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.151/Sorour_Logistics_Setup_v1.0.151.exe",
+  "installer_filename": "Sorour_Logistics_Setup_v1.0.151.exe",
+  "installer_size_mb": 198.02,
   "release_notes": [
-    "frontend/lib/core/providers/ai_assistant_provider.dart — Created: إدارة حالة الشات والمساعد الذكي، تكامل Google Gemini 1.5 Flash، وحفظ الـ API Key عبر SharedPreferences، ومصفوفة الاقتراحات السريعة، وتحديث سياق الشاشة.",
-    "frontend/lib/core/widgets/ai_assistant_panel.dart — Created: Widget الـ Overlay العائم مع بطاقة \"Hello\" المطابقة للصورة وزر المحادثة الدائري البرتقالي ولوحة الشات التفاعلية المنبثقة.",
-    "frontend/lib/core/providers/workspace_tabs_provider.dart — Modified: فرض حد أقصى للتبويبات (Max 10 Tabs) مع الحفاظ على تبويب لوحة التحكم، وإغلاق أقدم تبويب تلقائياً عند تجاوز الحد.",
-    "frontend/lib/core/providers/navigation_provider.dart — Modified: تحديث إجمالي الشاشات، وإضافة سياق الشاشة النشطة للمساعد الذكي عند أي تنقل."
+    "إزالة شاشة 3 (CBMCalculatorScreen) من قائمة Hub 2 (Shipment Planning).",
+    "إزالة شاشة 49 (FreightQuotationsScreen) من قائمة Phase 1 (Pre-Planning & Studies).",
+    "إضافة قسم ومحور استعلامات الجديد _buildHubTile باسم عربي \"استعلامات\" وإنجليزي \"Inquiries\" يضم الشاشتين 49 و 3.",
+    "إضافة أيقونة استعلامات في شريط الأيقونات المصغر _buildCollapsedRail."
   ]
 }

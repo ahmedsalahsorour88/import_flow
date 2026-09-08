@@ -61,18 +61,63 @@ def parse_swift_mt103_text(raw_text: str) -> Dict[str, Any]:
     amount = 0.0
 
     val_match = re.search(
-        r'(?:^|[\r\n])\s*:?32A(?:/Value\s+Date,?\s*CCY,?\s*Amount)?\s*[:/]?\s*(\d{6})([A-Z]{3})([0-9.,]+)',
+        r'(?:^|[\r\n])\s*:?32A(?:/Value\s+Date,?\s*CCY,?\s*Amount)?\s*[:/]?\s*(\d{6})\s*([A-Za-z0-9]{3})\s*([0-9.,]+)',
         text,
         re.IGNORECASE,
     )
     if val_match:
         raw_date = val_match.group(1) # YYMMDD e.g. 260818 -> 2026-08-18
-        currency = val_match.group(2).upper()
-        raw_amount = val_match.group(3).replace(',', '.')
-        try:
-            amount = float(raw_amount)
-        except ValueError:
-            amount = 0.0
+        raw_curr = val_match.group(2).upper()
+        if raw_curr in ["U5D", "U50", "US0", "U5O"]:
+            currency = "USD"
+        elif raw_curr in ["E0R", "EVR", "FUR", "EOR"]:
+            currency = "EUR"
+        elif raw_curr in ["E6P", "ECP"]:
+            currency = "EGP"
+        elif raw_curr in ["6BP"]:
+            currency = "GBP"
+        elif raw_curr in ["5AR"]:
+            currency = "SAR"
+        elif re.match(r'^[A-Z]{3}$', raw_curr):
+            currency = raw_curr
+        else:
+            currency = "USD"
+
+        raw_amount_str = val_match.group(3).strip()
+        if ',' in raw_amount_str and '.' in raw_amount_str:
+            if raw_amount_str.find(',') < raw_amount_str.find('.'):
+                clean_amount = raw_amount_str.replace(',', '')
+            else:
+                clean_amount = raw_amount_str.replace('.', '').replace(',', '.')
+            try:
+                amount = float(clean_amount)
+            except ValueError:
+                amount = 0.0
+        elif ',' in raw_amount_str:
+            clean_amount = raw_amount_str.replace(',', '.')
+            try:
+                amount = float(clean_amount)
+            except ValueError:
+                amount = 0.0
+        elif '.' in raw_amount_str:
+            try:
+                amount = float(raw_amount_str)
+            except ValueError:
+                amount = 0.0
+        else:
+            # Integer string without dot or comma
+            # In SWIFT MT103 field 32A, decimals are standard (e.g. ,00).
+            # If OCR stripped the comma e.g. 43704,00 -> 4370400:
+            if len(raw_amount_str) > 4 and raw_amount_str.endswith('00'):
+                try:
+                    amount = float(raw_amount_str) / 100.0
+                except ValueError:
+                    amount = 0.0
+            else:
+                try:
+                    amount = float(raw_amount_str)
+                except ValueError:
+                    amount = 0.0
 
         try:
             yy = int(raw_date[0:2])
@@ -334,6 +379,11 @@ def match_swift_against_payment_request(parsed_swift: Dict[str, Any], payment_re
     swift_pi = parsed_swift.get("pi_number", "")
 
     # 1. Amount Match
+    # Auto-recover OCR dropped decimal separator (e.g. 4370400 vs 43704.00)
+    if req_amount > 0 and abs(swift_amt - req_amount * 100) < 0.01:
+        swift_amt = req_amount
+        parsed_swift["amount"] = req_amount
+
     amount_variance = swift_amt - req_amount
     is_amount_exact = abs(amount_variance) < 0.01
     is_currency_match = req_curr == swift_curr

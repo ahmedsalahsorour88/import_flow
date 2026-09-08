@@ -23,7 +23,8 @@ int _numToInt(dynamic val, [int fallback = 0]) {
 
 class HsCodeSearchScreen extends ConsumerStatefulWidget {
   final String? initialQuery;
-  const HsCodeSearchScreen({super.key, this.initialQuery});
+  final bool isEmbedded;
+  const HsCodeSearchScreen({super.key, this.initialQuery, this.isEmbedded = false});
 
   @override
   ConsumerState<HsCodeSearchScreen> createState() => _HsCodeSearchScreenState();
@@ -96,7 +97,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
   Widget build(BuildContext context) {
     final l = context.l10n;
     final tariffsAsync = ref.watch(customsTariffProvider);
-    final allTariffs = tariffsAsync.value ?? [];
+    final allTariffs = tariffsAsync.valueOrNull ?? [];
 
     final query = _searchCtrl.text.trim().toLowerCase().replaceAll('.', '');
     final filtered = query.isEmpty
@@ -121,9 +122,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
       _selectedTariff = filtered.isNotEmpty ? filtered.first : null;
     }
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      body: Padding(
+    final bodyContent = Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,25 +176,30 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                   Row(
                     children: [
                       Expanded(
-                        child: TextField(
-                          controller: _searchCtrl,
-                          onChanged: (v) => setState(() {}),
-                          decoration: InputDecoration(
-                            hintText: l.hsSearchPlaceholder,
-                            prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
-                            suffixIcon: _searchCtrl.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, color: Colors.grey),
-                                    onPressed: () {
-                                      _searchCtrl.clear();
-                                      setState(() {});
-                                    },
-                                  )
-                                : null,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            filled: true,
-                            fillColor: Colors.grey.shade50,
-                          ),
+                        child: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _searchCtrl,
+                          builder: (context, val, _) {
+                            return TextField(
+                              controller: _searchCtrl,
+                              onChanged: (v) => setState(() {}),
+                              decoration: InputDecoration(
+                                hintText: l.hsSearchPlaceholder,
+                                prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
+                                suffixIcon: val.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, color: Colors.grey),
+                                        onPressed: () {
+                                          _searchCtrl.clear();
+                                          setState(() {});
+                                        },
+                                      )
+                                    : null,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                filled: true,
+                                fillColor: Colors.grey.shade50,
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -266,10 +270,15 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              l.hsMatchingResultsHeader,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                            Expanded(
+                              child: Text(
+                                l.hsMatchingResultsHeader,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
@@ -379,8 +388,16 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
           ),
         ],
       ),
-    ),
-  );
+    );
+
+    if (widget.isEmbedded) {
+      return bodyContent;
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.grey.shade50,
+      body: bodyContent,
+    );
   }
 
   Widget _buildDetailedExplorer(CustomsTariffModel tariff) {

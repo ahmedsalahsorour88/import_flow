@@ -229,15 +229,19 @@ class _SyncProgressAndDiffWidgetState extends State<SyncProgressAndDiffWidget> {
               // Tables List
               if (!hasDiff)
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   alignment: Alignment.center,
-                  child: Column(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.rule_folder_outlined, size: 30, color: Colors.grey.shade400),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'اضغط على "فحص التغيرات الآن" أو "مقارنة الجداول" لعرض ما سيتم إضافته بالتحديد إلى الإنتاج',
-                        style: TextStyle(color: Colors.grey, fontSize: 11),
+                      Icon(Icons.rule_folder_outlined, size: 20, color: Colors.grey.shade400),
+                      const SizedBox(width: 8),
+                      const Flexible(
+                        child: Text(
+                          'اضغط على "فحص التغيرات الآن" أو "مقارنة الجداول" لعرض ما سيتم إضافته بالتحديد إلى الإنتاج',
+                          style: TextStyle(color: Colors.grey, fontSize: 11),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ],
                   ),

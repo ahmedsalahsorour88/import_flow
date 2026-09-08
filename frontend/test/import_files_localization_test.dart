@@ -11,6 +11,7 @@ import 'package:frontend/features/import_files/providers/import_files_provider.d
 import 'package:frontend/features/import_files/screens/import_files_screen.dart';
 import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 import 'package:frontend/features/shipping_scenarios/providers/shipping_scenarios_provider.dart';
+import 'package:frontend/core/widgets/copyable_data_helper.dart';
 
 import 'package:frontend/features/import_companies/models/import_company_model.dart';
 import 'package:frontend/features/import_companies/providers/import_companies_provider.dart';
@@ -133,11 +134,15 @@ void main() {
       expect(lAr.clearAndReset, equals('تفريغ وبدء تسجيل جديد'));
       expect(lAr.freightRfqTitle, equals('طلب أسعار نولون الشحن الدولي'));
       expect(lAr.closeShipmentTitle, equals('إيقاف وإغلاق الشحنة'));
+      expect(lAr.smartInvoiceBlExtractorButton, equals('استخلاص الفواتير والبوالص الذكي'));
+      expect(lAr.whatIfSimulatorButton, equals('محاكي الأزمات وتحوط الصرف'));
 
       // Check NO slash separated bilingual strings
       expect(lAr.importFilesManagementTitle.contains('/'), isFalse);
       expect(lAr.addNewImportFile.contains('/'), isFalse);
       expect(lAr.importFileIdLabel.contains('/'), isFalse);
+      expect(lAr.smartInvoiceBlExtractorButton.contains('/'), isFalse);
+      expect(lAr.whatIfSimulatorButton.contains('/'), isFalse);
     });
 
     test('English AppLocalizationsEn returns pure English for Import Files keys', () {
@@ -154,11 +159,16 @@ void main() {
       expect(lEn.clearAndReset, equals('Clear & Reset'));
       expect(lEn.freightRfqTitle, equals('Freight RFQ Generator'));
       expect(lEn.closeShipmentTitle, equals('Stop & Close Shipment'));
+      expect(lEn.smartInvoiceBlExtractorButton, equals('Smart Invoice & B/L Extractor'));
+      expect(lEn.whatIfSimulatorButton, equals('What-If & Hedging Simulator'));
 
       // Check NO slash separated bilingual strings
       expect(lEn.importFilesManagementTitle.contains('/'), isFalse);
       expect(lEn.addNewImportFile.contains('/'), isFalse);
       expect(lEn.importFileIdLabel.contains('/'), isFalse);
+      expect(lEn.smartInvoiceBlExtractorButton.contains(' / '), isFalse);
+      expect(lEn.smartInvoiceBlExtractorButton.contains('الفواتير'), isFalse);
+      expect(lEn.whatIfSimulatorButton.contains('/'), isFalse);
     });
 
     testWidgets('Renders ImportFilesScreen in Arabic without stacked English text', (tester) async {
@@ -205,8 +215,13 @@ void main() {
 
       expect(find.text('إدارة وملفات استيراد الشحنات'), findsOneWidget);
       expect(find.text('إضافة ملف استيراد شحنة جديد'), findsOneWidget);
+      expect(find.text('استخلاص الفواتير والبوالص الذكي'), findsOneWidget);
+      expect(find.text('محاكي الأزمات وتحوط الصرف'), findsOneWidget);
       expect(find.text('Import Files & Shipments Management'), findsNothing);
       expect(find.text('Add New Import File'), findsNothing);
+      expect(find.text('Smart Invoice & B/L Extractor'), findsNothing);
+      expect(find.text('What-If & Hedging Simulator'), findsNothing);
+      expect(find.byType(CopyableTableCell), findsWidgets);
     });
 
     testWidgets('Renders ImportFilesScreen in English without stacked Arabic text', (tester) async {
@@ -253,8 +268,13 @@ void main() {
 
       expect(find.text('Import Files & Shipments Management'), findsOneWidget);
       expect(find.text('Add New Import File'), findsOneWidget);
+      expect(find.text('Smart Invoice & B/L Extractor'), findsOneWidget);
+      expect(find.text('What-If & Hedging Simulator'), findsOneWidget);
       expect(find.text('إدارة وملفات استيراد الشحنات'), findsNothing);
       expect(find.text('إضافة ملف استيراد شحنة جديد'), findsNothing);
+      expect(find.text('استخلاص الفواتير والبوالص الذكي'), findsNothing);
+      expect(find.text('محاكي الأزمات وتحوط الصرف'), findsNothing);
+      expect(find.byType(CopyableTableCell), findsWidgets);
     });
   });
 }

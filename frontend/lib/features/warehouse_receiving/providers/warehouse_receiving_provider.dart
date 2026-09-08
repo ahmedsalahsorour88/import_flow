@@ -12,9 +12,16 @@ final warehouseReceivingProvider =
 
 class WarehouseReceivingNotifier extends StateNotifier<AsyncValue<List<WarehouseReceivingModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   WarehouseReceivingNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchRecords();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('WarehouseReceivingNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchRecords({
@@ -23,7 +30,14 @@ class WarehouseReceivingNotifier extends StateNotifier<AsyncValue<List<Warehouse
     String? status,
     String? search,
   }) async {
-    state = const AsyncValue.loading();
+    _cancelToken?.cancel('Cancelled by new fetchRecords request');
+    _cancelToken = CancelToken();
+
+    // Preserve previous data during refresh if available
+    if (state.valueOrNull == null) {
+      state = const AsyncValue.loading();
+    }
+
     try {
       final queryParams = <String, dynamic>{'include_inactive': includeInactive};
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
@@ -33,12 +47,16 @@ class WarehouseReceivingNotifier extends StateNotifier<AsyncValue<List<Warehouse
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/warehouse-receiving',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List data = response.data;
       final list = data.map((json) => WarehouseReceivingModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }

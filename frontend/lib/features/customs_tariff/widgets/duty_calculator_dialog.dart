@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
 
   void showDutyCalculatorDialog(BuildContext context, WidgetRef ref,
       {String? initialHsCode}) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
     String selectedCurrency = 'USD';
     String selectedFreightCurrency = 'USD';
 
@@ -143,14 +145,16 @@ import '../providers/customs_tariff_provider.dart';
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setCalcState) => AlertDialog(
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.calculate, color: AppTheme.emerald),
-              SizedBox(width: 8),
+              const Icon(Icons.calculate, color: AppTheme.emerald),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Egyptian Customs Duty Calculator (حاسبة الجمارك المصرية — منصة نافذة)',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  isArabic
+                      ? 'حاسبة الجمارك المصرية — منصة نافذة'
+                      : 'Egyptian Customs Duty Calculator — Nafeza Platform',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -158,17 +162,20 @@ import '../providers/customs_tariff_provider.dart';
           content: SizedBox(
             width: 860,
             height: 620,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'حساب الجمارك لشحنة متعددة الأصناف وفق نموذج منصة نافذة (Nafeza Statement)',
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
-                      ),
+            child: SelectionArea(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          isArabic
+                              ? 'حساب الجمارك لشحنة متعددة الأصناف وفق نموذج منصة نافذة'
+                              : 'Multi-item customs calculation according to Nafeza statement model',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.orange,
@@ -1128,8 +1135,11 @@ import '../providers/customs_tariff_provider.dart';
                   if (multiResult != null) ...[
                     const SizedBox(height: 16),
                     const Divider(),
-                    const Text('نتيجة حساب الشحنة (Nafeza Statement Result):',
-                        style: TextStyle(
+                    Text(
+                        isArabic
+                            ? 'نتيجة حساب الشحنة (إقرار نافذة):'
+                            : 'Shipment Calculation Result (Nafeza Statement):',
+                        style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: AppTheme.charcoal,
                             fontSize: 13)),
@@ -1223,14 +1233,16 @@ import '../providers/customs_tariff_provider.dart';
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Row(
+                                  Row(
                                     children: [
-                                      Icon(Icons.receipt_long,
+                                      const Icon(Icons.receipt_long,
                                           color: AppTheme.cobalt, size: 18),
-                                      SizedBox(width: 8),
+                                      const SizedBox(width: 8),
                                       Text(
-                                        'تفاصيل بنود التحصيل والإقرارات الرسمية (Nafeza Statement Fee Breakdown)',
-                                        style: TextStyle(
+                                        isArabic
+                                            ? 'تفاصيل بنود التحصيل والإقرارات الرسمية'
+                                            : 'Nafeza Statement Fee Breakdown & Official Declarations',
+                                        style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             color: AppTheme.cobalt,
                                             fontSize: 13),
@@ -1238,7 +1250,9 @@ import '../providers/customs_tariff_provider.dart';
                                     ],
                                   ),
                                   Text(
-                                    'إجمالي البيان: ${_numToDouble(multiResult!['fee_codes_breakdown']['grand_total']).toStringAsFixed(2)} EGP',
+                                    isArabic
+                                        ? 'إجمالي البيان: ${_numToDouble(multiResult!['fee_codes_breakdown']['grand_total']).toStringAsFixed(2)} ج.م'
+                                        : 'Statement Grand Total: ${_numToDouble(multiResult!['fee_codes_breakdown']['grand_total']).toStringAsFixed(2)} EGP',
                                     style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: AppTheme.cobalt,
@@ -1529,23 +1543,173 @@ import '../providers/customs_tariff_provider.dart';
                             },
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.emerald,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            label: Text(
+                              isArabic ? 'نسخ البيان (Excel)' : 'Copy Statement (Excel)',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            onPressed: () {
+                              final rate = double.tryParse(
+                                      exchangeRateCtrl.text.trim()) ??
+                                  50.7917;
+                              final totalFc = computeTotalInvoiceFc(multiLines);
+                              final fobEgp = totalFc * rate;
+                              final insEgp = (insuranceType == 'deemed')
+                                  ? (double.tryParse(
+                                          deemedInsuranceCtrl.text.trim()) ??
+                                      0)
+                                  : (double.tryParse(
+                                          insuranceCtrl.text.trim()) ??
+                                      0);
+                              final frtEgp = (freightType == 'deemed')
+                                  ? (double.tryParse(
+                                          deemedFreightCtrl.text.trim()) ??
+                                      0)
+                                  : (double.tryParse(
+                                          multiFreightCtrl.text.trim()) ??
+                                      0);
+                              final addEgp = double.tryParse(
+                                      additionalFeesCtrl.text.trim()) ??
+                                  0;
+                              final cifEgp = double.tryParse(
+                                      declaredCifCtrl.text.trim()) ??
+                                  (fobEgp + insEgp + frtEgp);
+
+                              _copyDutyCalculatorStatement(
+                                context,
+                                multiLines: multiLines,
+                                result: multiResult!,
+                                currency: selectedCurrency,
+                                exchangeRate: rate,
+                                fobEgp: fobEgp,
+                                insEgp: insEgp,
+                                frtEgp: frtEgp,
+                                additionalFeesEgp: addEgp,
+                                cifEgp: cifEgp,
+                                isArabic: isArabic,
+                              );
+                            },
+                          ),
+                        ),
                       ],
                     ),
                   ],
                 ],
+                ),
               ),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close'),
+              child: Text(isArabic ? 'إغلاق' : 'Close'),
             ),
           ],
         ),
       ),
-    );
+    ).then((_) {
+      exchangeRateCtrl.dispose();
+      totalInvoiceFcCtrl.dispose();
+      insuranceCtrl.dispose();
+      deemedInsuranceCtrl.dispose();
+      freightForeignCtrl.dispose();
+      freightExchangeRateCtrl.dispose();
+      multiFreightCtrl.dispose();
+      deemedFreightCtrl.dispose();
+      additionalFeesCtrl.dispose();
+      declaredCifCtrl.dispose();
+      for (final m in multiLines) {
+        (m['value'] as TextEditingController?)?.dispose();
+        (m['inspection'] as TextEditingController?)?.dispose();
+      }
+    });
   }
+
+void _copyDutyCalculatorStatement(
+  BuildContext context, {
+  required List<Map<String, dynamic>> multiLines,
+  required Map<String, dynamic> result,
+  required String currency,
+  required double exchangeRate,
+  required double fobEgp,
+  required double insEgp,
+  required double frtEgp,
+  required double additionalFeesEgp,
+  required double cifEgp,
+  required bool isArabic,
+}) {
+  final buffer = StringBuffer();
+  if (isArabic) {
+    buffer.writeln('بيان احتساب الرسوم والضرائب الجمركية — منصة نافذة');
+    buffer.writeln('العملة:\t$currency\tسعر الصرف:\t$exchangeRate');
+    buffer.writeln('إجمالي فوب (ج.م):\t${fobEgp.toStringAsFixed(2)}');
+    buffer.writeln('التأمين (ج.م):\t${insEgp.toStringAsFixed(2)}');
+    buffer.writeln('النولون (ج.م):\t${frtEgp.toStringAsFixed(2)}');
+    if (additionalFeesEgp > 0) {
+      buffer.writeln('رسوم إضافية (ج.م):\t${additionalFeesEgp.toStringAsFixed(2)}');
+    }
+    buffer.writeln('القيمة الجمركية سيف (ج.م):\t${cifEgp.toStringAsFixed(2)}');
+    buffer.writeln('');
+    buffer.writeln('السطر\tبند التعريفة\tالقيمة سيف (ج.م)\tضريبة الوارد (ج.م)\tضريبة القيمة المضافة (ج.م)\tإجمالي البند (ج.م)');
+  } else {
+    buffer.writeln('Egyptian Customs Duty & Tax Statement — Nafeza Platform');
+    buffer.writeln('Currency:\t$currency\tExchange Rate:\t$exchangeRate');
+    buffer.writeln('Total FOB (EGP):\t${fobEgp.toStringAsFixed(2)}');
+    buffer.writeln('Insurance (EGP):\t${insEgp.toStringAsFixed(2)}');
+    buffer.writeln('Freight (EGP):\t${frtEgp.toStringAsFixed(2)}');
+    if (additionalFeesEgp > 0) {
+      buffer.writeln('Additional Fees (EGP):\t${additionalFeesEgp.toStringAsFixed(2)}');
+    }
+    buffer.writeln('Customs Value CIF (EGP):\t${cifEgp.toStringAsFixed(2)}');
+    buffer.writeln('');
+    buffer.writeln('Line\tHS Code\tCIF Value (EGP)\tImport Duty (EGP)\tVAT (EGP)\tLine Total (EGP)');
+  }
+
+  final items = (result['items'] as List<dynamic>?) ?? [];
+  for (int i = 0; i < items.length; i++) {
+    final item = items[i] as Map<String, dynamic>;
+    final lineNum = i + 1;
+    final hs = item['hs_code'] ?? '';
+    final itemCif = _numToDouble(item['cif_egp']).toStringAsFixed(2);
+    final duty = _numToDouble(item['customs_duty_egp']).toStringAsFixed(2);
+    final vat = _numToDouble(item['vat_egp']).toStringAsFixed(2);
+    final total = _numToDouble(item['total_item_taxes_egp']).toStringAsFixed(2);
+    buffer.writeln('$lineNum\t$hs\t$itemCif\t$duty\t$vat\t$total');
+  }
+
+  final feeBreakdown = result['fee_codes_breakdown'] as Map<String, dynamic>?;
+  if (feeBreakdown != null) {
+    buffer.writeln('');
+    buffer.writeln(isArabic ? 'تفاصيل بنود التحصيل:' : 'Fee Codes Breakdown:');
+    final fees = feeBreakdown['fees'] as List<dynamic>?;
+    if (fees != null) {
+      for (final f in fees) {
+        final fee = f as Map<String, dynamic>;
+        final code = fee['code'] ?? '';
+        final name = fee['name'] ?? '';
+        final amt = _numToDouble(fee['amount_egp']).toStringAsFixed(2);
+        buffer.writeln('$code\t$name\t$amt');
+      }
+    }
+    final grandTotal = _numToDouble(feeBreakdown['grand_total']).toStringAsFixed(2);
+    buffer.writeln('${isArabic ? "الإجمالي الكلي" : "Grand Total"}\t\t$grandTotal');
+  }
+
+  CopyHelper.copy(
+    context,
+    buffer.toString(),
+    customMessage: isArabic
+        ? 'تم نسخ بيان الرسوم الجمركية بنجاح بصيغة جدول Excel'
+        : 'Customs duty statement copied successfully as Excel TSV',
+  );
+}
 
 double _numToDouble(dynamic val, [double fallback = 0.0]) {
   if (val == null) return fallback;

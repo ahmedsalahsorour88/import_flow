@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/models/rbac_models.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/providers/rbac_provider.dart';
 import '../../auth/providers/users_provider.dart';
 
 class UsersManagementScreen extends ConsumerStatefulWidget {
@@ -12,6 +15,7 @@ class UsersManagementScreen extends ConsumerStatefulWidget {
 }
 
 class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
+  final TextEditingController _searchController = TextEditingController();
   String _filterRole = 'ALL';
   String _searchQuery = '';
 
@@ -19,8 +23,19 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(usersProvider.notifier).fetchUsers();
+      if (!ref.read(usersProvider).isLoading) {
+        ref.read(usersProvider.notifier).fetchUsers();
+      }
+      if (!ref.read(rbacProvider).isLoading) {
+        ref.read(rbacProvider.notifier).fetchRbacData();
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   // ─── Role Helpers ──────────────────────────────────────────────────────────
@@ -51,6 +66,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
   // ─── Add / Edit Dialog ─────────────────────────────────────────────────────
 
   void _showUserDialog({UserDetail? editUser}) {
+    final l = context.l10n;
     final isEdit = editUser != null;
     final formKey = GlobalKey<FormState>();
 
@@ -82,7 +98,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              Text(isEdit ? 'تعديل بيانات المستخدم' : 'إضافة مستخدم جديد'),
+              Text(isEdit ? l.usersMgmtDialogEditTitle : l.usersMgmtDialogNewTitle),
             ],
           ),
           content: SizedBox(
@@ -96,12 +112,12 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                   // ── Full Name ──────────────────────────────────────────────
                   TextFormField(
                     controller: fullNameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'الاسم الكامل *',
-                      prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
-                      hintText: 'مثال: أحمد محمد سرور',
+                    decoration: InputDecoration(
+                      labelText: l.usersMgmtFieldFullName,
+                      prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
+                      hintText: l.usersMgmtFieldFullNameHint,
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'الاسم الكامل مطلوب' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? l.usersMgmtFieldFullNameRequired : null,
                   ),
                   const SizedBox(height: 14),
 
@@ -110,18 +126,18 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                     controller: usernameCtrl,
                     enabled: !isEdit,
                     decoration: InputDecoration(
-                      labelText: 'اسم المستخدم *',
+                      labelText: l.usersMgmtFieldUsername,
                       prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
-                      hintText: 'مثال: ahmed_sorour',
-                      helperText: isEdit ? 'لا يمكن تعديل اسم المستخدم' : null,
+                      hintText: l.usersMgmtFieldUsernameHint,
+                      helperText: isEdit ? l.usersMgmtFieldUsernameHelper : null,
                       filled: isEdit,
                       fillColor: isEdit ? Colors.grey.shade100 : null,
                     ),
                     validator: (v) {
                       if (isEdit) return null;
-                      if (v == null || v.trim().isEmpty) return 'اسم المستخدم مطلوب';
-                      if (v.trim().length < 3) return 'اسم المستخدم 3 أحرف على الأقل';
-                      if (v.contains(' ')) return 'اسم المستخدم لا يحتوي على مسافات';
+                      if (v == null || v.trim().isEmpty) return l.usersMgmtFieldUsernameRequired;
+                      if (v.trim().length < 3) return l.usersMgmtFieldUsernameMinLength;
+                      if (v.contains(' ')) return l.usersMgmtFieldUsernameNoSpaces;
                       return null;
                     },
                   ),
@@ -131,14 +147,14 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                   TextFormField(
                     controller: emailCtrl,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'البريد الإلكتروني *',
-                      prefixIcon: Icon(Icons.email_outlined, size: 20),
-                      hintText: 'مثال: ahmed@company.com',
+                    decoration: InputDecoration(
+                      labelText: l.usersMgmtFieldEmail,
+                      prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                      hintText: l.usersMgmtFieldEmailHint,
                     ),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'البريد الإلكتروني مطلوب';
-                      if (!v.contains('@') || !v.contains('.')) return 'بريد إلكتروني غير صالح';
+                      if (v == null || v.trim().isEmpty) return l.usersMgmtFieldEmailRequired;
+                      if (!v.contains('@') || !v.contains('.')) return l.usersMgmtFieldEmailInvalid;
                       return null;
                     },
                   ),
@@ -147,38 +163,38 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                   // ── Role Dropdown ──────────────────────────────────────────
                   DropdownButtonFormField<String>(
                     value: selectedRole,
-                    decoration: const InputDecoration(
-                      labelText: 'الدور والصلاحيات *',
-                      prefixIcon: Icon(Icons.shield_outlined, size: 20),
+                    decoration: InputDecoration(
+                      labelText: l.usersMgmtFieldRole,
+                      prefixIcon: const Icon(Icons.shield_outlined, size: 20),
                     ),
-                    items: const [
+                    items: [
                       DropdownMenuItem(
                         value: 'ADMIN',
                         child: Row(children: [
-                          Icon(Icons.admin_panel_settings_rounded, size: 16, color: AppTheme.crimson),
-                          SizedBox(width: 8),
-                          Text('ADMIN — مدير النظام (صلاحيات كاملة)'),
+                          const Icon(Icons.admin_panel_settings_rounded, size: 16, color: AppTheme.crimson),
+                          const SizedBox(width: 8),
+                          Text(l.usersMgmtRoleAdminOption),
                         ]),
                       ),
                       DropdownMenuItem(
                         value: 'MANAGER',
                         child: Row(children: [
-                          Icon(Icons.manage_accounts_rounded, size: 16, color: AppTheme.cobalt),
-                          SizedBox(width: 8),
-                          Text('MANAGER — مدير العمليات'),
+                          const Icon(Icons.manage_accounts_rounded, size: 16, color: AppTheme.cobalt),
+                          const SizedBox(width: 8),
+                          Text(l.usersMgmtRoleManagerOption),
                         ]),
                       ),
                       DropdownMenuItem(
                         value: 'OPERATOR',
                         child: Row(children: [
-                          Icon(Icons.badge_rounded, size: 16, color: AppTheme.emerald),
-                          SizedBox(width: 8),
-                          Text('OPERATOR — أخصائي استيراد'),
+                          const Icon(Icons.badge_rounded, size: 16, color: AppTheme.emerald),
+                          const SizedBox(width: 8),
+                          Text(l.usersMgmtRoleOperatorOption),
                         ]),
                       ),
                     ],
                     onChanged: (v) => setLocal(() => selectedRole = v ?? 'OPERATOR'),
-                    validator: (v) => v == null ? 'اختر دوراً' : null,
+                    validator: (v) => v == null ? l.usersMgmtFieldRoleRequired : null,
                   ),
                   const SizedBox(height: 14),
 
@@ -187,7 +203,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                     controller: passwordCtrl,
                     obscureText: obscurePassword,
                     decoration: InputDecoration(
-                      labelText: isEdit ? 'كلمة مرور جديدة (اتركها فارغة لعدم التغيير)' : 'كلمة المرور *',
+                      labelText: isEdit ? l.usersMgmtFieldPasswordNew : l.usersMgmtFieldPassword,
                       prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -198,8 +214,8 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                       ),
                     ),
                     validator: (v) {
-                      if (!isEdit && (v == null || v.trim().isEmpty)) return 'كلمة المرور مطلوبة';
-                      if (v != null && v.isNotEmpty && v.length < 6) return 'كلمة المرور 6 أحرف على الأقل';
+                      if (!isEdit && (v == null || v.trim().isEmpty)) return l.usersMgmtFieldPasswordRequired;
+                      if (v != null && v.isNotEmpty && v.length < 6) return l.usersMgmtFieldPasswordMinLength;
                       return null;
                     },
                   ),
@@ -214,7 +230,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           actions: [
             TextButton(
               onPressed: isSaving ? null : () => Navigator.pop(ctx),
-              child: const Text('إلغاء'),
+              child: Text(l.usersMgmtBtnCancel),
             ),
             ElevatedButton.icon(
               onPressed: isSaving
@@ -237,12 +253,12 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                             );
                       } else {
                         error = await ref.read(usersProvider.notifier).createUser(
-                              username: usernameCtrl.text.trim(),
-                              email: emailCtrl.text.trim(),
-                              fullName: fullNameCtrl.text.trim(),
-                              role: selectedRole,
-                              password: passwordCtrl.text,
-                            );
+                                username: usernameCtrl.text.trim(),
+                                email: emailCtrl.text.trim(),
+                                fullName: fullNameCtrl.text.trim(),
+                                role: selectedRole,
+                                password: passwordCtrl.text,
+                              );
                       }
 
                       setLocal(() => isSaving = false);
@@ -264,7 +280,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                           content: Row(children: [
                             const Icon(Icons.check_circle_outline, color: Colors.white),
                             const SizedBox(width: 8),
-                            Text(isEdit ? 'تم تعديل بيانات المستخدم بنجاح' : 'تم إنشاء المستخدم بنجاح'),
+                            Text(isEdit ? l.usersMgmtSuccessUpdated : l.usersMgmtSuccessCreated),
                           ]),
                           backgroundColor: AppTheme.emerald,
                           behavior: SnackBarBehavior.floating,
@@ -278,7 +294,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
                   : Icon(isEdit ? Icons.save_outlined : Icons.person_add_outlined, size: 18),
-              label: Text(isEdit ? 'حفظ التعديلات' : 'إنشاء المستخدم'),
+              label: Text(isEdit ? l.usersMgmtBtnSave : l.usersMgmtBtnCreate),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isEdit ? AppTheme.cobalt : AppTheme.emerald,
               ),
@@ -286,12 +302,18 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           ],
         ),
       ),
-    );
+    ).then((_) {
+      usernameCtrl.dispose();
+      emailCtrl.dispose();
+      fullNameCtrl.dispose();
+      passwordCtrl.dispose();
+    });
   }
 
   // ─── Toggle Status Confirm Dialog ──────────────────────────────────────────
 
   void _showToggleConfirmDialog(UserDetail user) {
+    final l = context.l10n;
     final isActivating = !user.isActive;
     showDialog(
       context: context,
@@ -303,7 +325,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
               color: isActivating ? AppTheme.emerald : AppTheme.crimson,
             ),
             const SizedBox(width: 10),
-            Text(isActivating ? 'تفعيل المستخدم' : 'تعطيل المستخدم'),
+            Text(isActivating ? l.usersMgmtConfirmActivateTitle : l.usersMgmtConfirmDeactivateTitle),
           ],
         ),
         content: Column(
@@ -312,8 +334,8 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           children: [
             Text(
               isActivating
-                  ? 'هل تريد تفعيل حساب المستخدم التالي؟'
-                  : 'هل تريد تعطيل حساب المستخدم التالي؟\nلن يتمكن من تسجيل الدخول بعد التعطيل.',
+                  ? l.usersMgmtConfirmActivatePrompt
+                  : l.usersMgmtConfirmDeactivatePrompt,
               style: TextStyle(color: Colors.grey.shade700),
             ),
             const SizedBox(height: 12),
@@ -345,7 +367,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.usersMgmtBtnCancel)),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -359,7 +381,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                 ));
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(isActivating ? 'تم تفعيل المستخدم بنجاح' : 'تم تعطيل المستخدم بنجاح'),
+                  content: Text(isActivating ? l.usersMgmtSuccessActivated : l.usersMgmtSuccessDeactivated),
                   backgroundColor: isActivating ? AppTheme.emerald : AppTheme.orange,
                   behavior: SnackBarBehavior.floating,
                 ));
@@ -368,9 +390,413 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: isActivating ? AppTheme.emerald : AppTheme.crimson,
             ),
-            child: Text(isActivating ? 'تفعيل' : 'تعطيل'),
+            child: Text(isActivating ? l.usersMgmtBtnActivate : l.usersMgmtBtnDeactivate),
           ),
         ],
+      ),
+    );
+  }
+
+  // ─── User Permissions Dialog ────────────────────────────────────────────────
+
+  Future<void> _showUserPermissionsDialog(UserDetail user) async {
+    final l = context.l10n;
+    final rbacState = ref.read(rbacProvider);
+
+    // Ensure roles and permissions are loaded.
+    if (rbacState.roles.isEmpty || rbacState.permissionGroups.isEmpty) {
+      await ref.read(rbacProvider.notifier).fetchRbacData();
+    }
+
+    if (!mounted) return;
+
+    // Show a loading dialog while fetching user's current permissions.
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final userPerms = await ref.read(rbacProvider.notifier).fetchUserPermissions(user.userId);
+
+    if (!mounted) return;
+    Navigator.of(context).pop(); // close loading indicator
+
+    if (userPerms == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(l.usersMgmtPermLoadError),
+        backgroundColor: AppTheme.crimson,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    // Build local mutable permission state.
+    final currentRbac = ref.read(rbacProvider);
+    int? selectedRoleId = userPerms.roleId;
+
+    // Map: permission_code → is_granted (null = inherited from role, no override)
+    final Map<String, bool?> permOverrides = {};
+    for (final code in userPerms.customGrants) {
+      permOverrides[code] = true;
+    }
+    for (final code in userPerms.customRevocations) {
+      permOverrides[code] = false;
+    }
+
+    // Dialog expansion state per module.
+    final Map<String, bool> expandedModules = {
+      for (final g in currentRbac.permissionGroups) g.moduleName: true,
+    };
+
+    bool isSaving = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          // Get the currently selected role's base permissions.
+          final selectedRole = currentRbac.roles.firstWhere(
+            (r) => r.roleId == selectedRoleId,
+            orElse: () => const RoleModel(
+              roleId: -1,
+              roleCode: '',
+              nameEn: 'No Role',
+              nameAr: 'بدون دور',
+              isSystemRole: false,
+              isActive: true,
+              permissions: [],
+            ),
+          );
+
+          return Dialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+            child: SizedBox(
+              width: 820,
+              height: MediaQuery.of(ctx).size.height * 0.88,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Header ──────────────────────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    decoration: const BoxDecoration(
+                      color: AppTheme.charcoal,
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: const Icon(Icons.security_rounded, color: Colors.white, size: 18),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l.usersMgmtPermDialogTitle,
+                                style: const TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                '@${user.username} — ${user.fullName}',
+                                style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.7)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                          onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ── Role Selector ────────────────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.badge_rounded, size: 18, color: AppTheme.cobalt),
+                        const SizedBox(width: 10),
+                        Text(
+                          l.usersMgmtPermRoleLabel,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: DropdownButtonFormField<int?>(
+                            value: selectedRoleId,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                            items: [
+                              DropdownMenuItem<int?>(
+                                value: null,
+                                child: Text(l.usersMgmtPermNoRole,
+                                    style: const TextStyle(color: Colors.grey)),
+                              ),
+                              ...currentRbac.roles
+                                  .where((r) => r.isActive)
+                                  .map((r) => DropdownMenuItem<int?>(
+                                        value: r.roleId,
+                                        child: Text('${r.nameAr} (${r.roleCode})'),
+                                      )),
+                            ],
+                            onChanged: isSaving
+                                ? null
+                                : (val) => setLocal(() => selectedRoleId = val),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Permissions count chip
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cobalt.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                          ),
+                          child: Text(
+                            l.usersMgmtPermRolePermCount(selectedRole.permissions.length),
+                            style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ── Legend ────────────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
+                    child: Wrap(
+                      spacing: 16,
+                      children: [
+                        _PermLegendChip(
+                          color: AppTheme.emerald,
+                          icon: Icons.check_circle,
+                          label: l.usersMgmtPermLegendGranted,
+                        ),
+                        _PermLegendChip(
+                          color: AppTheme.crimson,
+                          icon: Icons.remove_circle,
+                          label: l.usersMgmtPermLegendRevoked,
+                        ),
+                        _PermLegendChip(
+                          color: Colors.grey,
+                          icon: Icons.circle_outlined,
+                          label: l.usersMgmtPermLegendInherited,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ── Permission Groups ─────────────────────────────────────
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      children: currentRbac.permissionGroups.map((group) {
+                        final isExpanded = expandedModules[group.moduleName] ?? true;
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          child: Column(
+                            children: [
+                              // Module header
+                              InkWell(
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                onTap: () => setLocal(
+                                  () => expandedModules[group.moduleName] = !isExpanded,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.folder_outlined,
+                                        size: 15,
+                                        color: AppTheme.cobalt.withOpacity(0.7),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          '${group.moduleNameAr} (${group.moduleName})',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.charcoal,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        '${group.permissions.length}',
+                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Icon(
+                                        isExpanded ? Icons.expand_less : Icons.expand_more,
+                                        size: 16,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              // Permission rows
+                              if (isExpanded)
+                                ...group.permissions.map((perm) {
+                                  final bool roleHas =
+                                      selectedRole.permissions.contains(perm.permissionCode);
+                                  final bool? override = permOverrides[perm.permissionCode];
+                                  final bool effective = override ?? roleHas;
+
+                                  return _PermissionRow(
+                                    perm: perm,
+                                    roleHas: roleHas,
+                                    permOverride: override,
+                                    effective: effective,
+                                    isSaving: isSaving,
+                                    onToggleGrant: () => setLocal(() {
+                                      if (override == true) {
+                                        // Was explicitly granted → remove override (revert to role)
+                                        permOverrides.remove(perm.permissionCode);
+                                      } else {
+                                        // Add explicit grant
+                                        permOverrides[perm.permissionCode] = true;
+                                      }
+                                    }),
+                                    onToggleRevoke: () => setLocal(() {
+                                      if (override == false) {
+                                        // Was explicitly revoked → remove override (revert to role)
+                                        permOverrides.remove(perm.permissionCode);
+                                      } else {
+                                        // Add explicit revocation
+                                        permOverrides[perm.permissionCode] = false;
+                                      }
+                                    }),
+                                  );
+                                }),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
+                  // ── Footer Actions ───────────────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                    ),
+                    child: Row(
+                      children: [
+                        // Override summary
+                        Text(
+                          l.usersMgmtPermOverrideSummary(
+                            permOverrides.values.where((v) => v == true).length,
+                            permOverrides.values.where((v) => v == false).length,
+                          ),
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                          child: Text(l.usersMgmtBtnCancel),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: isSaving
+                              ? null
+                              : () async {
+                                  setLocal(() => isSaving = true);
+
+                                  final permList = permOverrides.entries
+                                      .map((e) => {
+                                            'permission_code': e.key,
+                                            'is_granted': e.value,
+                                          })
+                                      .toList();
+
+                                  final messenger = ScaffoldMessenger.of(context);
+                                  final error = await ref
+                                      .read(rbacProvider.notifier)
+                                      .updateUserPermissions(
+                                        userId: user.userId,
+                                        roleId: selectedRoleId,
+                                        permissions: permList,
+                                      );
+
+                                  setLocal(() => isSaving = false);
+
+                                  if (!ctx.mounted) return;
+                                  if (error != null) {
+                                    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                                      content: Text(error),
+                                      backgroundColor: AppTheme.crimson,
+                                      behavior: SnackBarBehavior.floating,
+                                    ));
+                                  } else {
+                                    Navigator.pop(ctx);
+                                    // Refresh user list to reflect role_id change
+                                    ref.read(usersProvider.notifier).fetchUsers();
+                                    messenger.showSnackBar(SnackBar(
+                                      content: Text(l.usersMgmtPermSavedSuccess),
+                                      backgroundColor: AppTheme.emerald,
+                                      behavior: SnackBarBehavior.floating,
+                                    ));
+                                  }
+                                },
+                          icon: isSaving
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.save_rounded, size: 16),
+                          label: Text(l.usersMgmtPermSaveBtn),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.cobalt,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -422,6 +848,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
   // ── Header ───────────────────────────────────────────────────────────────
 
   Widget _buildHeader(bool isAdmin, UsersState state) {
+    final l = context.l10n;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
@@ -443,12 +870,12 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'إدارة المستخدمين والصلاحيات',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+              Text(
+                l.usersMgmtTitle,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
               ),
               Text(
-                'User Access Control (RBAC) — ${state.users.length} مستخدم مسجل',
+                l.usersMgmtSubtitle(state.users.length),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             ],
@@ -458,7 +885,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           IconButton(
             onPressed: () => ref.read(usersProvider.notifier).fetchUsers(),
             icon: const Icon(Icons.refresh_rounded, color: AppTheme.cobalt),
-            tooltip: 'تحديث القائمة',
+            tooltip: l.usersMgmtRefreshTooltip,
           ),
           const SizedBox(width: 8),
           // Add User (ADMIN only)
@@ -466,7 +893,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
             ElevatedButton.icon(
               onPressed: () => _showUserDialog(),
               icon: const Icon(Icons.person_add_outlined, size: 18),
-              label: const Text('مستخدم جديد'),
+              label: Text(l.usersMgmtNewUserBtn),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.cobalt,
                 foregroundColor: Colors.white,
@@ -481,13 +908,13 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: AppTheme.orange.withOpacity(0.3)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.visibility_outlined, size: 14, color: AppTheme.orange),
-                  SizedBox(width: 6),
+                  const Icon(Icons.visibility_outlined, size: 14, color: AppTheme.orange),
+                  const SizedBox(width: 6),
                   Text(
-                    'عرض فقط — صلاحية ADMIN مطلوبة للتعديل',
-                    style: TextStyle(fontSize: 11, color: AppTheme.orange, fontWeight: FontWeight.w600),
+                    l.usersMgmtReadOnlyNotice,
+                    style: const TextStyle(fontSize: 11, color: AppTheme.orange, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -500,6 +927,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
   // ── Stats & Filters ──────────────────────────────────────────────────────
 
   Widget _buildFiltersRow(UsersState state) {
+    final l = context.l10n;
     final admins = state.users.where((u) => u.role.toUpperCase() == 'ADMIN').length;
     final managers = state.users.where((u) => u.role.toUpperCase() == 'MANAGER').length;
     final operators = state.users.where((u) => u.role.toUpperCase() == 'OPERATOR').length;
@@ -513,26 +941,41 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           // Stats chips
           Row(
             children: [
-              _StatChip(label: 'الكل', count: state.users.length, color: AppTheme.charcoal),
+              _StatChip(label: l.usersMgmtStatAll, count: state.users.length, color: AppTheme.charcoal),
               const SizedBox(width: 8),
-              _StatChip(label: 'نشط', count: active, color: AppTheme.emerald, icon: Icons.check_circle_outline),
+              _StatChip(label: l.usersMgmtStatActive, count: active, color: AppTheme.emerald, icon: Icons.check_circle_outline),
               const SizedBox(width: 8),
-              _StatChip(label: 'Admin', count: admins, color: AppTheme.crimson),
+              _StatChip(label: l.usersMgmtStatAdmin, count: admins, color: AppTheme.crimson),
               const SizedBox(width: 8),
-              _StatChip(label: 'Manager', count: managers, color: AppTheme.cobalt),
+              _StatChip(label: l.usersMgmtStatManager, count: managers, color: AppTheme.cobalt),
               const SizedBox(width: 8),
-              _StatChip(label: 'Operator', count: operators, color: AppTheme.emerald),
+              _StatChip(label: l.usersMgmtStatOperator, count: operators, color: AppTheme.emerald),
               const Spacer(),
               // Search
               SizedBox(
                 width: 260,
                 height: 36,
                 child: TextField(
+                  controller: _searchController,
                   onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
                   decoration: InputDecoration(
-                    hintText: 'بحث بالاسم أو اسم المستخدم أو البريد...',
+                    hintText: l.usersMgmtSearchHint,
                     hintStyle: const TextStyle(fontSize: 12),
                     prefixIcon: const Icon(Icons.search, size: 16),
+                    suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _searchController,
+                      builder: (context, value, _) {
+                        return value.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 16),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                              )
+                            : const SizedBox.shrink();
+                      },
+                    ),
                     contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     enabledBorder: OutlineInputBorder(
@@ -550,16 +993,16 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           // Role filter tabs
           Row(
             children: [
-              _FilterTab(label: 'الكل', value: 'ALL', selected: _filterRole == 'ALL',
+              _FilterTab(label: l.usersMgmtStatAll, value: 'ALL', selected: _filterRole == 'ALL',
                   onTap: () => setState(() => _filterRole = 'ALL')),
               const SizedBox(width: 6),
-              _FilterTab(label: 'ADMIN', value: 'ADMIN', selected: _filterRole == 'ADMIN',
+              _FilterTab(label: l.usersMgmtRoleAdminLabel, value: 'ADMIN', selected: _filterRole == 'ADMIN',
                   color: AppTheme.crimson, onTap: () => setState(() => _filterRole = 'ADMIN')),
               const SizedBox(width: 6),
-              _FilterTab(label: 'MANAGER', value: 'MANAGER', selected: _filterRole == 'MANAGER',
+              _FilterTab(label: l.usersMgmtRoleManagerLabel, value: 'MANAGER', selected: _filterRole == 'MANAGER',
                   color: AppTheme.cobalt, onTap: () => setState(() => _filterRole = 'MANAGER')),
               const SizedBox(width: 6),
-              _FilterTab(label: 'OPERATOR', value: 'OPERATOR', selected: _filterRole == 'OPERATOR',
+              _FilterTab(label: l.usersMgmtRoleOperatorLabel, value: 'OPERATOR', selected: _filterRole == 'OPERATOR',
                   color: AppTheme.emerald, onTap: () => setState(() => _filterRole = 'OPERATOR')),
             ],
           ),
@@ -571,6 +1014,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
   // ── Users Table ──────────────────────────────────────────────────────────
 
   Widget _buildUsersTable(List<UserDetail> users, bool isAdmin, int currentUserId) {
+    final l = context.l10n;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -583,16 +1027,16 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
               border: Border.all(color: Colors.grey.shade200),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                SizedBox(width: 40),
-                Expanded(flex: 3, child: _TableHeader('الاسم الكامل')),
-                Expanded(flex: 2, child: _TableHeader('اسم المستخدم')),
-                Expanded(flex: 3, child: _TableHeader('البريد الإلكتروني')),
-                Expanded(flex: 2, child: _TableHeader('الدور')),
-                SizedBox(width: 80, child: _TableHeader('الحالة')),
-                SizedBox(width: 110, child: _TableHeader('تاريخ الإنشاء')),
-                SizedBox(width: 100, child: _TableHeader('الإجراءات')),
+                const SizedBox(width: 40),
+                Expanded(flex: 3, child: _TableHeader(l.usersMgmtColFullName)),
+                Expanded(flex: 2, child: _TableHeader(l.usersMgmtColUsername)),
+                Expanded(flex: 3, child: _TableHeader(l.usersMgmtColEmail)),
+                Expanded(flex: 2, child: _TableHeader(l.usersMgmtColRole)),
+                SizedBox(width: 95, child: _TableHeader(l.usersMgmtColStatus)),
+                SizedBox(width: 110, child: _TableHeader(l.usersMgmtColCreatedAt)),
+                SizedBox(width: 136, child: _TableHeader(l.usersMgmtColActions)),
               ],
             ),
           ),
@@ -617,6 +1061,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
   }
 
   Widget _buildUserRow(UserDetail user, bool isAdmin, int currentUserId) {
+    final l = context.l10n;
     final isSelf = user.userId == currentUserId;
     final createdDate = _formatDate(user.createdAt);
 
@@ -647,9 +1092,9 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                   ),
                 ),
                 if (isSelf)
-                  const Text(
-                    '(أنت)',
-                    style: TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                  Text(
+                    l.usersMgmtSelfBadge,
+                    style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
                   ),
               ],
             ),
@@ -685,7 +1130,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           ),
           // Status
           SizedBox(
-            width: 80,
+            width: 95,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
@@ -708,12 +1153,15 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                     color: user.isActive ? AppTheme.emerald : Colors.grey.shade400,
                   ),
                   const SizedBox(width: 4),
-                  Text(
-                    user.isActive ? 'نشط' : 'معطّل',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: user.isActive ? AppTheme.emerald : Colors.grey.shade500,
+                  Flexible(
+                    child: Text(
+                      user.isActive ? l.usersMgmtStatusActive : l.usersMgmtStatusInactive,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: user.isActive ? AppTheme.emerald : Colors.grey.shade500,
+                      ),
                     ),
                   ),
                 ],
@@ -730,14 +1178,14 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           ),
           // Actions (ADMIN only)
           SizedBox(
-            width: 100,
+            width: 136,
             child: isAdmin
                 ? Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Edit
                       Tooltip(
-                        message: 'تعديل البيانات',
+                        message: l.usersMgmtActionEditTooltip,
                         child: InkWell(
                           onTap: () => _showUserDialog(editUser: user),
                           borderRadius: BorderRadius.circular(6),
@@ -748,10 +1196,27 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                         ),
                       ),
                       const SizedBox(width: 4),
+                      // Manage Permissions
+                      Tooltip(
+                        message: l.usersMgmtActionPermissionsTooltip,
+                        child: InkWell(
+                          onTap: () => _showUserPermissionsDialog(user),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            child: const Icon(
+                              Icons.security_rounded,
+                              size: 16,
+                              color: AppTheme.orange,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
                       // Toggle Status (can't deactivate self)
                       if (!isSelf)
                         Tooltip(
-                          message: user.isActive ? 'تعطيل الحساب' : 'تفعيل الحساب',
+                          message: user.isActive ? l.usersMgmtActionDeactivateTooltip : l.usersMgmtActionActivateTooltip,
                           child: InkWell(
                             onTap: () => _showToggleConfirmDialog(user),
                             borderRadius: BorderRadius.circular(6),
@@ -779,21 +1244,23 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
   // ── Empty / Error States ──────────────────────────────────────────────────
 
   Widget _buildEmptyState() {
+    final l = context.l10n;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.group_outlined, size: 56, color: Colors.grey.shade300),
           const SizedBox(height: 12),
-          Text('لا توجد نتائج', style: TextStyle(fontSize: 15, color: Colors.grey.shade500)),
+          Text(l.usersMgmtNoResults, style: TextStyle(fontSize: 15, color: Colors.grey.shade500)),
           const SizedBox(height: 6),
-          Text('جرّب تغيير الفلتر أو مسح البحث', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+          Text(l.usersMgmtNoResultsHint, style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
         ],
       ),
     );
   }
 
   Widget _buildErrorState(String error) {
+    final l = context.l10n;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -805,7 +1272,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           ElevatedButton.icon(
             onPressed: () => ref.read(usersProvider.notifier).fetchUsers(),
             icon: const Icon(Icons.refresh),
-            label: const Text('إعادة المحاولة'),
+            label: Text(l.usersMgmtRetryBtn),
           ),
         ],
       ),
@@ -871,14 +1338,15 @@ class _RoleBadge extends StatelessWidget {
     }
   }
 
-  String get _label {
+  String _label(BuildContext context) {
+    final l = context.l10n;
     switch (role.toUpperCase()) {
       case 'ADMIN':
-        return 'Admin';
+        return l.usersMgmtRoleAdminLabel;
       case 'MANAGER':
-        return 'Manager';
+        return l.usersMgmtRoleManagerLabel;
       default:
-        return 'Operator';
+        return l.usersMgmtRoleOperatorLabel;
     }
   }
 
@@ -896,7 +1364,7 @@ class _RoleBadge extends StatelessWidget {
         children: [
           Icon(_icon, size: 12, color: _color),
           const SizedBox(width: 4),
-          Text(_label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _color)),
+          Text(_label(context), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _color)),
         ],
       ),
     );
@@ -994,7 +1462,7 @@ class _RoleDescriptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final info = _getRoleInfo(role);
+    final info = _getRoleInfo(context, role);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1033,45 +1501,46 @@ class _RoleDescriptionCard extends StatelessWidget {
     );
   }
 
-  _RoleInfo _getRoleInfo(String role) {
+  _RoleInfo _getRoleInfo(BuildContext context, String role) {
+    final l = context.l10n;
     switch (role.toUpperCase()) {
       case 'ADMIN':
-        return const _RoleInfo(
-          title: 'مدير النظام — صلاحيات كاملة',
+        return _RoleInfo(
+          title: l.usersMgmtRoleAdminDescTitle,
           icon: Icons.admin_panel_settings_rounded,
           color: AppTheme.crimson,
           permissions: [
-            'إدارة المستخدمين وصلاحياتهم',
-            'الوصول لجميع شاشات النظام',
-            'تعديل البيانات المرجعية (Master Data)',
-            'مزامنة قواعد البيانات (Production Sync)',
-            'عرض جميع سجلات التدقيق (Audit Logs)',
+            l.usersMgmtRoleAdminPerm1,
+            l.usersMgmtRoleAdminPerm2,
+            l.usersMgmtRoleAdminPerm3,
+            l.usersMgmtRoleAdminPerm4,
+            l.usersMgmtRoleAdminPerm5,
           ],
         );
       case 'MANAGER':
-        return const _RoleInfo(
-          title: 'مدير العمليات — صلاحيات متقدمة',
+        return _RoleInfo(
+          title: l.usersMgmtRoleManagerDescTitle,
           icon: Icons.manage_accounts_rounded,
           color: AppTheme.cobalt,
           permissions: [
-            'الوصول لجميع ملفات الاستيراد والشحنات',
-            'اعتماد القرارات التشغيلية',
-            'عرض جميع التقارير والتحليلات',
-            'إدارة البيانات المرجعية (قراءة)',
-            'لا يستطيع إدارة المستخدمين',
+            l.usersMgmtRoleManagerPerm1,
+            l.usersMgmtRoleManagerPerm2,
+            l.usersMgmtRoleManagerPerm3,
+            l.usersMgmtRoleManagerPerm4,
+            l.usersMgmtRoleManagerPerm5,
           ],
         );
       default:
-        return const _RoleInfo(
-          title: 'أخصائي استيراد — صلاحيات تشغيلية',
+        return _RoleInfo(
+          title: l.usersMgmtRoleOperatorDescTitle,
           icon: Icons.badge_rounded,
           color: AppTheme.emerald,
           permissions: [
-            'إنشاء وتعديل ملفات الاستيراد',
-            'إدخال بيانات الشحنات والمستندات',
-            'متابعة مراحل التخليص الجمركي',
-            'عرض التقارير المخصصة له',
-            'لا يستطيع تعديل البيانات المرجعية أو إدارة المستخدمين',
+            l.usersMgmtRoleOperatorPerm1,
+            l.usersMgmtRoleOperatorPerm2,
+            l.usersMgmtRoleOperatorPerm3,
+            l.usersMgmtRoleOperatorPerm4,
+            l.usersMgmtRoleOperatorPerm5,
           ],
         );
     }
@@ -1090,4 +1559,194 @@ class _RoleInfo {
     required this.color,
     required this.permissions,
   });
+}
+
+// ─── Permission Legend Chip ────────────────────────────────────────────────────
+
+class _PermLegendChip extends StatelessWidget {
+  final Color color;
+  final IconData icon;
+  final String label;
+
+  const _PermLegendChip({
+    required this.color,
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+      ],
+    );
+  }
+}
+
+// ─── Permission Row ────────────────────────────────────────────────────────────
+
+class _PermissionRow extends StatelessWidget {
+  final PermissionModel perm;
+  final bool roleHas;
+  final bool? permOverride; // null = inherited, true = explicitly granted, false = explicitly revoked
+  final bool effective;
+  final bool isSaving;
+  final VoidCallback onToggleGrant;
+  final VoidCallback onToggleRevoke;
+
+  const _PermissionRow({
+    required this.perm,
+    required this.roleHas,
+    required this.permOverride,
+    required this.effective,
+    required this.isSaving,
+    required this.onToggleGrant,
+    required this.onToggleRevoke,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasExplicitGrant = permOverride == true;
+    final hasExplicitRevoke = permOverride == false;
+    final isInherited = permOverride == null;
+
+    // Effective state color
+    Color effectiveColor;
+    if (hasExplicitRevoke) {
+      effectiveColor = AppTheme.crimson;
+    } else if (hasExplicitGrant) {
+      effectiveColor = AppTheme.emerald;
+    } else if (roleHas) {
+      effectiveColor = AppTheme.cobalt.withOpacity(0.7);
+    } else {
+      effectiveColor = Colors.grey.shade400;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: hasExplicitGrant
+            ? AppTheme.emerald.withOpacity(0.04)
+            : hasExplicitRevoke
+                ? AppTheme.crimson.withOpacity(0.04)
+                : null,
+        border: Border(
+          top: BorderSide(color: Colors.grey.shade100),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Effective status dot
+          Icon(
+            effective ? Icons.circle : Icons.circle_outlined,
+            size: 8,
+            color: effectiveColor,
+          ),
+          const SizedBox(width: 10),
+          // Permission info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  perm.nameAr,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: hasExplicitGrant || hasExplicitRevoke
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    color: hasExplicitRevoke ? Colors.grey.shade500 : AppTheme.charcoal,
+                    decoration: hasExplicitRevoke ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                Text(
+                  perm.permissionCode,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Override badges
+          if (!isInherited)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: hasExplicitGrant
+                    ? AppTheme.emerald.withOpacity(0.12)
+                    : AppTheme.crimson.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                hasExplicitGrant ? '+ Grant' : '− Revoke',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: hasExplicitGrant ? AppTheme.emerald : AppTheme.crimson,
+                ),
+              ),
+            ),
+          // Role-inherited indicator
+          if (isInherited && roleHas)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTheme.cobalt.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                'Role',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: AppTheme.cobalt.withOpacity(0.8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          // Grant button
+          Tooltip(
+            message: hasExplicitGrant ? 'Remove explicit grant (revert to role)' : 'Explicitly grant this permission',
+            child: InkWell(
+              onTap: isSaving ? null : onToggleGrant,
+              borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  Icons.add_circle_outline,
+                  size: 16,
+                  color: hasExplicitGrant ? AppTheme.emerald : Colors.grey.shade400,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 2),
+          // Revoke button
+          Tooltip(
+            message: hasExplicitRevoke ? 'Remove explicit revocation (revert to role)' : 'Explicitly revoke this permission',
+            child: InkWell(
+              onTap: isSaving ? null : onToggleRevoke,
+              borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  Icons.remove_circle_outline,
+                  size: 16,
+                  color: hasExplicitRevoke ? AppTheme.crimson : Colors.grey.shade400,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

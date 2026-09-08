@@ -53,13 +53,15 @@ class _ImportFileComprehensiveReportScreenState
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
+      if (!ref.read(importFilesProvider).isLoading) {
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
     });
   }
 
   void _onFileSelected(int? val, List<ImportFileModel> files) {
-    if (val == null) return;
-    final file = files.firstWhere((f) => f.importFileId == val);
+    if (val == null || files.isEmpty) return;
+    final file = files.firstWhere((f) => f.importFileId == val, orElse: () => files.first);
     setState(() {
       _selectedFileId = val;
       _selectedFile = file;
@@ -125,7 +127,7 @@ class _ImportFileComprehensiveReportScreenState
                 onPressed: () => ShipmentUpdateDialog.show(
                   context,
                   initialFileId: _selectedFile!.importFileId,
-                  initialFileCode: _selectedFile!.customFileNumber ?? _selectedFile!.importFileCode,
+                  initialFileCode: _selectedFile!.displayName,
                 ),
               ),
             ),
@@ -151,7 +153,7 @@ class _ImportFileComprehensiveReportScreenState
                       labelText: l.compReportSelectFileLabel,
                       items: files.map((f) => SearchableDropdownItem<int>(
                         value: f.importFileId,
-                        label: '${f.customFileNumber ?? f.importFileCode}  |  ${f.supplierName}  |  ${f.currentStage}  |  ${f.status}',
+                        label: '${f.primaryNameWithCode}  |  ${f.supplierName}  |  ${f.currentStage}  |  ${f.status}',
                       )).toList(),
                       onChanged: (val) => _onFileSelected(val, files),
                     ),
@@ -298,9 +300,12 @@ class _ImportFileComprehensiveReportScreenState
               children: [
                 Row(
                   children: [
-                    Text(
-                      file.customFileNumber ?? file.importFileCode,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+                    Flexible(
+                      child: Text(
+                        file.displayName,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     _statusPill(context, file.status),

@@ -71,7 +71,9 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(demurrageProvider.notifier).loadInitialData();
+      if (!ref.read(demurrageProvider).isLoading) {
+        ref.read(demurrageProvider.notifier).loadInitialData();
+      }
       _runQuickSimulation();
     });
   }
@@ -175,7 +177,11 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
     final activeCount = state.trackings.length;
 
     return RefreshIndicator(
-      onRefresh: () => ref.read(demurrageProvider.notifier).loadInitialData(),
+      onRefresh: () async {
+        if (!ref.read(demurrageProvider).isLoading) {
+          await ref.read(demurrageProvider.notifier).loadInitialData();
+        }
+      },
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -221,15 +227,29 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                   children: [
                     Expanded(
                       flex: 3,
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (_) => setState(() {}),
-                        decoration: InputDecoration(
-                          hintText: l10n.searchDemurrageHint,
-                          prefixIcon: const Icon(Icons.search, size: 20),
-                          isDense: true,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
+                      child: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _searchController,
+                        builder: (context, val, _) {
+                          return TextField(
+                            controller: _searchController,
+                            onChanged: (_) => setState(() {}),
+                            decoration: InputDecoration(
+                              hintText: l10n.searchDemurrageHint,
+                              prefixIcon: const Icon(Icons.search, size: 20),
+                              suffixIcon: val.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear, size: 18),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() {});
+                                      },
+                                    )
+                                  : null,
+                              isDense: true,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(width: 16),

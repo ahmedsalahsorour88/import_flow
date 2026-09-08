@@ -150,6 +150,20 @@ void main() {
         ar.cargoShippingStatusLoadingCompleted,
         ar.cargoShippingStatusGatedIn,
         ar.cargoShippingStatusPendingAssignment,
+        ar.cargoShippingAiExtractorBtn,
+        ar.cargoShippingExportManifestBtn,
+        ar.cargoShippingManifestCopySuccess,
+        ar.cargoShippingCopyFieldTooltip,
+        ar.cargoShippingAcidPrefix,
+        ar.cargoShippingManifestHeader,
+        ar.cargoShippingColUnitNumber,
+        ar.cargoShippingColContainerNo,
+        ar.cargoShippingColContainerType,
+        ar.cargoShippingColSealNo,
+        ar.cargoShippingColGrossWeight,
+        ar.cargoShippingColVgmStatus,
+        ar.cargoShippingColVgmRef,
+        ar.cargoShippingColTrackingStatus,
       ];
 
       final List<String> enStrings = [
@@ -292,6 +306,20 @@ void main() {
         en.cargoShippingStatusLoadingCompleted,
         en.cargoShippingStatusGatedIn,
         en.cargoShippingStatusPendingAssignment,
+        en.cargoShippingAiExtractorBtn,
+        en.cargoShippingExportManifestBtn,
+        en.cargoShippingManifestCopySuccess,
+        en.cargoShippingCopyFieldTooltip,
+        en.cargoShippingAcidPrefix,
+        en.cargoShippingManifestHeader,
+        en.cargoShippingColUnitNumber,
+        en.cargoShippingColContainerNo,
+        en.cargoShippingColContainerType,
+        en.cargoShippingColSealNo,
+        en.cargoShippingColGrossWeight,
+        en.cargoShippingColVgmStatus,
+        en.cargoShippingColVgmRef,
+        en.cargoShippingColTrackingStatus,
       ];
 
       expect(arStrings.length, enStrings.length);
@@ -339,6 +367,29 @@ void main() {
       expect(gatedLcl.getLocalizedStatus(ar), 'دخلت الميناء');
       expect(gatedLcl.getLocalizedStatus(en), 'Gated-in at Port');
       expect(gatedLcl.arabicStatusLabel, 'دخلت الميناء');
+    });
+
+    test('Screen 26 Allocations (VGM) anti-stacking and manifest localization', () {
+      // Confirm Arabic has no stacked English words for allocations
+      expect(ar.cargoShippingUploadBlLabel.contains('B/L'), isFalse);
+      expect(ar.cargoShippingUploadBlLabel.contains('PDF'), isFalse);
+      expect(ar.cargoShippingFclLabel.contains('FCL'), isFalse);
+      expect(ar.cargoShippingLclLabel.contains('LCL'), isFalse);
+      expect(ar.cargoShippingContainersHeader.contains('VGM'), isFalse);
+      expect(ar.cargoShippingVgmWeight.contains('VGM'), isFalse);
+
+      // Confirm English has clean professional terms
+      expect(en.cargoShippingUploadBlLabel, 'Upload & Extract Bill of Lading');
+      expect(en.cargoShippingFclLabel, 'Full Container Load (FCL)');
+      expect(en.cargoShippingLclLabel, 'LCL (Less than Container Load - CFS)');
+
+      // Confirm manifest columns and headers
+      expect(ar.cargoShippingManifestHeader, 'بيان تخصيص الحاويات والوزن الإجمالي المعتمد للشحن');
+      expect(en.cargoShippingManifestHeader, 'Container Allocations & Verified Gross Mass (VGM) Manifest');
+      expect(ar.cargoShippingAiExtractorBtn, 'المحلل الذكي للبوالص والفواتير');
+      expect(en.cargoShippingAiExtractorBtn, 'Smart Invoice & B/L Analyzer');
+      expect(ar.cargoShippingExportManifestBtn, 'نسخ بيان الحاويات (TSV)');
+      expect(en.cargoShippingExportManifestBtn, 'Copy Container Manifest (TSV)');
     });
   });
 }

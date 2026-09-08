@@ -56,6 +56,7 @@ final paginatedImportFilesProvider =
 
 class PaginatedImportFilesNotifier extends StateNotifier<PaginatedImportFilesState> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   PaginatedImportFilesNotifier(this._dio) : super(PaginatedImportFilesState()) {
     fetchPage(1);
@@ -68,6 +69,9 @@ class PaginatedImportFilesNotifier extends StateNotifier<PaginatedImportFilesSta
     String? status,
     String? owner,
   }) async {
+    _cancelToken?.cancel('Cancelled by new fetchPage request');
+    _cancelToken = CancelToken();
+
     state = state.copyWith(isLoading: true, error: null);
     try {
       final queryParams = <String, dynamic>{
@@ -83,6 +87,7 @@ class PaginatedImportFilesNotifier extends StateNotifier<PaginatedImportFilesSta
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/import-files/paginated',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final data = response.data;
@@ -98,8 +103,17 @@ class PaginatedImportFilesNotifier extends StateNotifier<PaginatedImportFilesSta
         isLoading: false,
       );
     } catch (e) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = state.copyWith(isLoading: false, error: e.toString());
     }
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('Cancelled on PaginatedImportFilesNotifier dispose');
+    super.dispose();
   }
 
   void nextPage() {
@@ -117,9 +131,16 @@ class PaginatedImportFilesNotifier extends StateNotifier<PaginatedImportFilesSta
 
 class ImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   ImportFilesNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchImportFiles();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('ImportFilesNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchImportFiles({
@@ -130,6 +151,8 @@ class ImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>
     String? status,
     String? owner,
   }) async {
+    _cancelToken?.cancel('Cancelled by new fetchImportFiles request');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{
@@ -144,12 +167,14 @@ class ImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/import-files',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List<dynamic> data = response.data;
       final files = data.map((json) => ImportFileModel.fromJson(json)).toList();
       state = AsyncValue.data(files);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       state = AsyncValue.error(e, stack);
     }
   }

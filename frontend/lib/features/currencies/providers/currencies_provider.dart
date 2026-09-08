@@ -12,12 +12,21 @@ final currenciesProvider =
 
 class CurrenciesNotifier extends StateNotifier<AsyncValue<List<CurrencyModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   CurrenciesNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchCurrencies();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('CurrenciesNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchCurrencies({bool includeInactive = true, String? search}) async {
+    _cancelToken?.cancel('Cancelled by new fetchCurrencies request');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{
@@ -30,11 +39,13 @@ class CurrenciesNotifier extends StateNotifier<AsyncValue<List<CurrencyModel>>> 
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/currencies',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
       final List data = response.data as List;
       final currencies = data.map((json) => CurrencyModel.fromJson(json)).toList();
       state = AsyncValue.data(currencies);
     } catch (err, stack) {
+      if (err is DioException && CancelToken.isCancel(err)) return;
       state = AsyncValue.error(err, stack);
     }
   }

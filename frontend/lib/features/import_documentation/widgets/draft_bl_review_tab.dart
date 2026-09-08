@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/import_documentation_model.dart';
@@ -68,8 +69,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     super.initState();
     _selectedImportFileId = widget.initialImportFileId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await ref.read(importFilesProvider.notifier).fetchImportFiles();
-      final files = ref.read(importFilesProvider).value ?? [];
+      if (!ref.read(importFilesProvider).isLoading) {
+        await ref.read(importFilesProvider.notifier).fetchImportFiles();
+      }
+      final files = ref.read(importFilesProvider).valueOrNull ?? [];
       if (_selectedImportFileId == null && files.isNotEmpty && mounted) {
         setState(() {
           _selectedImportFileId = files.first.importFileId;
@@ -94,7 +97,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     if (_selectedImportFileId == null) {
       if (!silent) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً'), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.selectImportFileFirst), backgroundColor: Colors.red),
         );
       }
       return;
@@ -156,8 +159,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(res.hasBlockingMismatch
-                ? '⚠️ تم استخراج ومطابقة المسودة: يوجد ${res.openDiscrepanciesCount} اختلاف يجب تعديلهم'
-                : '✔ تمت المطابقة بنجاح: مسودة البوليصة مطابقة تماماً لبيانات المنظومة'),
+                ? context.l10n.draftBlComparisonMismatch(res.openDiscrepanciesCount)
+                : context.l10n.draftBlComparisonMatchSuccess),
             backgroundColor: res.hasBlockingMismatch ? Colors.orange : Colors.green,
           ),
         );
@@ -165,7 +168,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     } catch (e) {
       if (mounted && !silent) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء المقارنة: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.draftBlComparisonError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -213,7 +216,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       if (file.bytes == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تعذر قراءة بيانات الملف المختار'), backgroundColor: Colors.red),
+            SnackBar(content: Text(context.l10n.draftBlFileReadError), backgroundColor: Colors.red),
           );
         }
         return;
@@ -257,7 +260,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         if (missingCritical.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('⚠️ تم الاستخراج من (${file.name}) مع وجود حقول حرجة تحتاج تأكيدك ومراجعتك اليدوية'),
+              content: Text(context.l10n.draftBlExtractedWithCritical(file.name)),
               backgroundColor: Colors.amber.shade900,
               duration: const Duration(seconds: 4),
             ),
@@ -265,7 +268,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✅ تم بنجاح استخراج بيانات المسودة من ملف (${file.name}) وتعبئة حقول المراجعة'),
+              content: Text(context.l10n.draftBlExtractedSuccess(file.name)),
               backgroundColor: Colors.green,
             ),
           );
@@ -274,7 +277,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('حدث خطأ أثناء استخراج الملف: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.draftBlExtractionError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -325,13 +328,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✔ تم حفظ جلسة مراجعة درافت البوليصة بنجاح'), backgroundColor: Colors.green),
+          SnackBar(content: Text(context.l10n.draftBlSessionSavedSuccess), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء حفظ الجلسة: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.draftBlSessionSaveError), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -419,24 +422,24 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       if (mounted) {
         if (updated.stage == 'Stage 5: Final') {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('🎉 تم اكتمال الاعتماد الثنائي (Dual Approval) وتثبيت درافت البوليصة كـ Final معتمدة'), backgroundColor: Colors.green),
+            SnackBar(content: Text(context.l10n.draftBlDualApprovalCompleted), backgroundColor: Colors.green),
           );
           setState(() => _activeStep = 4);
         } else if (action == 'Rejected') {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('⚠️ تم رفض المسودة وإعادتها لمرحلة التعديل (Revision Required)'), backgroundColor: Colors.red),
+            SnackBar(content: Text(context.l10n.draftBlRevisionRequiredAlert), backgroundColor: Colors.red),
           );
           setState(() => _activeStep = 1);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('✔ تم تسجيل اعتماد $role بنجاح، في انتظار الاعتماد الآخر'), backgroundColor: Colors.blue),
+            SnackBar(content: Text(context.l10n.draftBlRoleApprovalRegistered(role)), backgroundColor: Colors.blue),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء الاعتماد: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.draftBlApprovalError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -445,9 +448,38 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   }
 
   @override
+  void dispose() {
+    _rawTextCtrl.dispose();
+    _draftBlNumberCtrl.dispose();
+    _bookingNoCtrl.dispose();
+    _shipperCtrl.dispose();
+    _consigneeCtrl.dispose();
+    _notifyPartyCtrl.dispose();
+    _shippingLineCtrl.dispose();
+    _vesselNameCtrl.dispose();
+    _voyageCtrl.dispose();
+    _polCtrl.dispose();
+    _podCtrl.dispose();
+    _freightTermsCtrl.dispose();
+    _placeOfDeliveryCtrl.dispose();
+    _goodsDescCtrl.dispose();
+    _grossWeightCtrl.dispose();
+    _netWeightCtrl.dispose();
+    _cbmCtrl.dispose();
+    _containerNoCtrl.dispose();
+    _sealNoCtrl.dispose();
+    _packagesCountCtrl.dispose();
+    _importerApproverCtrl.dispose();
+    _importerNotesCtrl.dispose();
+    _brokerApproverCtrl.dispose();
+    _brokerNotesCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
-    final allReviews = ref.watch(draftBLReviewsProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final allReviews = ref.watch(draftBLReviewsProvider).valueOrNull ?? [];
 
     return Column(
       children: [
@@ -582,7 +614,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               } catch (e) {
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('خطأ أثناء تصدير PDF: $e'), backgroundColor: Colors.red),
+                                    SnackBar(content: Text(context.l10n.draftBlPdfExportError(e.toString())), backgroundColor: Colors.red),
                                   );
                                 }
                               }
@@ -606,13 +638,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 );
                                 if (mounted && res != null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('✔ تم تصدير مسودة البوليصة بصيغة Excel / CSV بنجاح ($res)'), backgroundColor: Colors.green),
+                                    SnackBar(content: Text(context.l10n.excelExportSuccess(res)), backgroundColor: Colors.green),
                                   );
                                 }
                               } catch (e) {
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('خطأ أثناء تصدير Excel: $e'), backgroundColor: Colors.red),
+                                    SnackBar(content: Text(context.l10n.excelExportError(e.toString())), backgroundColor: Colors.red),
                                   );
                                 }
                               }
@@ -671,11 +703,11 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       child: SearchableDropdownField<int>(
                         value: _selectedImportFileId,
                         labelText: context.l10n.draftBlSelectImportFileLabel,
-                        searchHintText: 'ابحث برقم الملف أو كود الشحنة...',
+                        searchHintText: context.l10n.searchFileOrShipmentHint,
                         items: importFiles
                             .map((f) => SearchableDropdownItem<int>(
                                   value: f.importFileId,
-                                  label: '${f.importFileCode} - ${f.companyName} (${f.supplierName})',
+                                  label: '${f.primaryNameWithCode} - ${f.companyName} (${f.supplierName})',
                                 ))
                             .toList(),
                         onChanged: (v) {
@@ -1128,8 +1160,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     spacing: 12,
                     runSpacing: 12,
                     children: [
-                      _buildSummaryBox(context.l10n.draftBlSummaryShipper, sys['shipper'] ?? 'غير محدد', Icons.business, Colors.indigo, flex: 2),
-                      _buildSummaryBox(context.l10n.draftBlSummaryConsignee, sys['consignee'] ?? 'غير محدد', Icons.account_balance, Colors.blue, flex: 2),
+                      _buildSummaryBox(context.l10n.draftBlSummaryShipper, sys['shipper'] ?? context.l10n.unspecified, Icons.business, Colors.indigo, flex: 2),
+                      _buildSummaryBox(context.l10n.draftBlSummaryConsignee, sys['consignee'] ?? context.l10n.unspecified, Icons.account_balance, Colors.blue, flex: 2),
                       _buildSummaryBox(context.l10n.draftBlSummaryNotifyParty, sys['notify_party'] ?? 'SAME AS CONSIGNEE', Icons.notifications_active, Colors.cyan, flex: 2),
                       _buildSummaryBox(context.l10n.draftBlSummaryVesselVoyage, '${sys['vessel_name'] ?? 'N/A'} - ${sys['voyage_number'] ?? 'N/A'}', Icons.directions_boat, Colors.teal),
                       _buildSummaryBox(context.l10n.draftBlSummaryPorts, '${sys['pol'] ?? 'N/A'} ➔ ${sys['pod'] ?? 'N/A'}', Icons.anchor, Colors.purple),
@@ -1239,7 +1271,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             DataCell(
                               SizedBox(
                                 width: 170,
-                                child: Text(
+                                child: CopyableText(
                                   Localizations.localeOf(context).languageCode == 'ar' ? itm.fieldLabelAr : itm.fieldLabelEn,
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                                 ),
@@ -1249,7 +1281,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                             DataCell(
                               SizedBox(
                                 width: 190,
-                                child: Text(
+                                child: CopyableText(
                                   itm.systemValue?.toString() ?? 'N/A',
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
@@ -1435,7 +1467,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
               children: [
                 Text(title, style: TextStyle(fontSize: 11.5, color: isCritical ? Colors.red.shade900 : Colors.grey.shade700, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 3),
-                Text(
+                CopyableText(
                   value,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
@@ -1455,7 +1487,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   Widget _buildStage2RevisionView(List<dynamic> importFiles) {
     final checklist = _comparisonResult?.checklist ?? [];
     final incorrectItems = checklist.where((c) => c.status == 'Incorrect').toList();
-    final letter = _comparisonResult?.correctionRequestLetter ?? 'لا يوجد خطاب مولد حالياً.';
+    final letter = _comparisonResult?.correctionRequestLetter ?? context.l10n.draftBlNoLetterGeneratedYet;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1472,11 +1504,11 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   child: SearchableDropdownField<int>(
                     value: _selectedImportFileId,
                     labelText: context.l10n.draftBlSelectImportFileLabel,
-                    searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
+                    searchHintText: context.l10n.searchFileOrCompanyHint,
                     items: importFiles
                         .map((f) => SearchableDropdownItem<int>(
                               value: f.importFileId,
-                              label: '${f.importFileCode} - ${f.companyName}',
+                              label: '${f.primaryNameWithCode} - ${f.companyName}',
                             ))
                         .toList(),
                     onChanged: (v) {
@@ -1566,11 +1598,39 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         DataColumn(label: Text(context.l10n.draftBlRevisionColReason)),
                       ],
                       rows: incorrectItems.map((itm) {
+                        final label = Localizations.localeOf(context).languageCode == 'ar' ? itm.fieldLabelAr : itm.fieldLabelEn;
+                        final corr = itm.requiredCorrection ?? 'Update to match system value (${itm.systemValue})';
+                        final resp = itm.responsibleParty == 'Shipping Provider'
+                            ? context.l10n.draftBlPartyShippingLine
+                            : itm.responsibleParty == 'Supplier'
+                                ? context.l10n.draftBlPartySupplier
+                                : itm.responsibleParty == 'Importer'
+                                    ? context.l10n.draftBlPartyImporter
+                                    : context.l10n.draftBlPartyCustomsBroker;
+                        final rsn = itm.reason ?? 'Mismatch with system master record';
+                        final rowSummary = [label, corr, resp, rsn].join('\t');
+
                         return DataRow(cells: [
-                          DataCell(Text(Localizations.localeOf(context).languageCode == 'ar' ? itm.fieldLabelAr : itm.fieldLabelEn, style: const TextStyle(fontWeight: FontWeight.bold))),
-                          DataCell(Text(itm.requiredCorrection ?? 'Update to match system value (${itm.systemValue})', style: const TextStyle(color: Colors.red))),
-                          DataCell(Text(itm.responsibleParty == 'Shipping Provider' ? context.l10n.draftBlPartyShippingLine : itm.responsibleParty == 'Supplier' ? context.l10n.draftBlPartySupplier : itm.responsibleParty == 'Importer' ? context.l10n.draftBlPartyImporter : context.l10n.draftBlPartyCustomsBroker)),
-                          DataCell(Text(itm.reason ?? 'Mismatch with system master record')),
+                          DataCell(CopyableTableCell(
+                            value: label,
+                            rowSummary: rowSummary,
+                            child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          )),
+                          DataCell(CopyableTableCell(
+                            value: corr,
+                            rowSummary: rowSummary,
+                            child: Text(corr, style: const TextStyle(color: Colors.red)),
+                          )),
+                          DataCell(CopyableTableCell(
+                            value: resp,
+                            rowSummary: rowSummary,
+                            child: Text(resp),
+                          )),
+                          DataCell(CopyableTableCell(
+                            value: rsn,
+                            rowSummary: rowSummary,
+                            child: Text(rsn),
+                          )),
                         ]);
                       }).toList(),
                     ),
@@ -1603,12 +1663,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
                         icon: const Icon(Icons.copy, color: Colors.white, size: 16),
                         label: Text(context.l10n.draftBlCopyLetterButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: letter));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(context.l10n.draftBlLetterCopiedSnackbar), backgroundColor: Colors.green),
-                          );
-                        },
+                        onPressed: () => CopyHelper.copy(context, letter),
                       ),
                     ],
                   ),
@@ -1649,11 +1704,11 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   child: SearchableDropdownField<int>(
                     value: _selectedImportFileId,
                     labelText: context.l10n.draftBlSelectImportFileLabel,
-                    searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
+                    searchHintText: context.l10n.searchFileOrCompanyHint,
                     items: importFiles
                         .map((f) => SearchableDropdownItem<int>(
                               value: f.importFileId,
-                              label: '${f.importFileCode} - ${f.companyName}',
+                              label: '${f.primaryNameWithCode} - ${f.companyName}',
                             ))
                         .toList(),
                     onChanged: (v) {
@@ -1771,11 +1826,11 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   child: SearchableDropdownField<int>(
                     value: _selectedImportFileId,
                     labelText: context.l10n.draftBlSelectImportFileLabel,
-                    searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
+                    searchHintText: context.l10n.searchFileOrCompanyHint,
                     items: importFiles
                         .map((f) => SearchableDropdownItem<int>(
                               value: f.importFileId,
-                              label: '${f.importFileCode} - ${f.companyName}',
+                              label: '${f.primaryNameWithCode} - ${f.companyName}',
                             ))
                         .toList(),
                     onChanged: (v) {
@@ -2014,7 +2069,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   onPressed: () {
                     ref.invalidate(draftBLReviewsProvider);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('تم تحديث قائمة السجل النهائي المعتمد بنجاح')),
+                      SnackBar(content: Text(context.l10n.draftBlRegistryUpdatedSuccess)),
                     );
                   },
                 ),
@@ -2104,74 +2159,114 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                         .toString();
 
                     final vesselVoyage = '${r.vesselName ?? "-"} / ${r.voyageNumber ?? "-"}';
+                    final importerApproval = r.importerApprovalStatus == 'Approved' ? context.l10n.approved : r.importerApprovalStatus;
+                    final brokerApproval = r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus;
+                    final statusLabel = r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status;
+                    final rowSummary = [
+                      '#${r.blReviewId}',
+                      blNumber,
+                      r.shippingLine ?? '-',
+                      vesselVoyage,
+                      r.stage,
+                      importerApproval,
+                      brokerApproval,
+                      statusLabel,
+                    ].join('\t');
 
                     return DataRow(cells: [
-                      DataCell(Text('#${r.blReviewId}', style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataCell(CopyableTableCell(
+                        value: '#${r.blReviewId}',
+                        rowSummary: rowSummary,
+                        child: Text('#${r.blReviewId}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      )),
                       DataCell(
-                        InkWell(
-                          onTap: () {
-                            Clipboard.setData(ClipboardData(text: blNumber));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('✔ تم نسخ رقم البوليصة: $blNumber')),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppTheme.cobalt.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.confirmation_number_outlined, size: 14, color: AppTheme.cobalt),
-                                const SizedBox(width: 6),
-                                Text(
-                                  blNumber,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.cobalt,
-                                    fontFamily: 'monospace',
-                                    fontSize: 12.5,
+                        CopyableTableCell(
+                          value: blNumber,
+                          rowSummary: rowSummary,
+                          child: InkWell(
+                            onTap: () => CopyHelper.copy(context, blNumber),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.confirmation_number_outlined, size: 14, color: AppTheme.cobalt),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    blNumber,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.cobalt,
+                                      fontFamily: 'monospace',
+                                      fontSize: 12.5,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 6),
-                                Tooltip(
-                                  message: context.l10n.draftBlCopyBlNumberTooltip,
-                                  child: const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
-                                ),
-                              ],
+                                  const SizedBox(width: 6),
+                                  Tooltip(
+                                    message: context.l10n.draftBlCopyBlNumberTooltip,
+                                    child: const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                      DataCell(Text(r.shippingLine ?? '-', style: const TextStyle(fontWeight: FontWeight.w600))),
-                      DataCell(Text(vesselVoyage, style: const TextStyle(fontSize: 11.5))),
-                      DataCell(Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.blueGrey.shade50,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: Colors.blueGrey.shade200),
-                        ),
-                        child: Text(r.stage, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
+                      DataCell(CopyableTableCell(
+                        value: r.shippingLine ?? '-',
+                        rowSummary: rowSummary,
+                        child: Text(r.shippingLine ?? '-', style: const TextStyle(fontWeight: FontWeight.w600)),
                       )),
-                      DataCell(Text(r.importerApprovalStatus == 'Approved' ? context.l10n.approved : r.importerApprovalStatus, style: TextStyle(color: r.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold))),
-                      DataCell(Text(r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus, style: TextStyle(color: r.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold))),
-                      DataCell(Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: r.status == 'Final Approved' || r.status == 'Approved' ? Colors.green.shade50 : Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: r.status == 'Final Approved' || r.status == 'Approved' ? Colors.green.shade300 : Colors.blue.shade300),
+                      DataCell(CopyableTableCell(
+                        value: vesselVoyage,
+                        rowSummary: rowSummary,
+                        child: Text(vesselVoyage, style: const TextStyle(fontSize: 11.5)),
+                      )),
+                      DataCell(CopyableTableCell(
+                        value: r.stage,
+                        rowSummary: rowSummary,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.blueGrey.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.blueGrey.shade200),
+                          ),
+                          child: Text(r.stage, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
                         ),
-                        child: Text(
-                          r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                            color: r.status == 'Final Approved' || r.status == 'Approved' ? Colors.green.shade900 : Colors.blue.shade900,
+                      )),
+                      DataCell(CopyableTableCell(
+                        value: importerApproval,
+                        rowSummary: rowSummary,
+                        child: Text(importerApproval, style: TextStyle(color: r.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold)),
+                      )),
+                      DataCell(CopyableTableCell(
+                        value: brokerApproval,
+                        rowSummary: rowSummary,
+                        child: Text(brokerApproval, style: TextStyle(color: r.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold)),
+                      )),
+                      DataCell(CopyableTableCell(
+                        value: statusLabel,
+                        rowSummary: rowSummary,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: r.status == 'Final Approved' || r.status == 'Approved' ? Colors.green.shade50 : Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: r.status == 'Final Approved' || r.status == 'Approved' ? Colors.green.shade300 : Colors.blue.shade300),
+                          ),
+                          child: Text(
+                            statusLabel,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                              color: r.status == 'Final Approved' || r.status == 'Approved' ? Colors.green.shade900 : Colors.blue.shade900,
+                            ),
                           ),
                         ),
                       )),
@@ -2189,7 +2284,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                     _activeStep = 3; // Jump to Dual Approval view of this session
                                   });
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('معاينة الجلسة #${r.blReviewId}: $blNumber')),
+                                    SnackBar(content: Text(context.l10n.draftBlPreviewSessionSnack(r.blReviewId, blNumber))),
                                   );
                                 },
                                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -2212,7 +2307,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                   } catch (e) {
                                     if (mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('خطأ في الطباعة: $e'), backgroundColor: Colors.red),
+                                        SnackBar(content: Text(context.l10n.draftBlPrintError(e.toString())), backgroundColor: Colors.red),
                                       );
                                     }
                                   }
@@ -2237,7 +2332,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                   } catch (e) {
                                     if (mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('خطأ في التصدير: $e'), backgroundColor: Colors.red),
+                                        SnackBar(content: Text(context.l10n.draftBlPdfExportError(e.toString())), backgroundColor: Colors.red),
                                       );
                                     }
                                   }

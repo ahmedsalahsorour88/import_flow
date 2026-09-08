@@ -3,11 +3,14 @@ Service Layer & Business Engine for Import Documentation & ACI (Phase 3 - BP-014
 """
 
 import io
+import logging
 import re
 from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+
+logger = logging.getLogger(__name__)
 
 from modules.import_documentation.model import (
     AcidRegistrationSession,
@@ -133,15 +136,18 @@ def enrich_acid_response(db: Session, item: AcidRegistrationSession, import_file
     )
 
 
-def enrich_banking_response(db: Session, item: BankingDocumentSession):
+def enrich_banking_response(db: Session, item: BankingDocumentSession, import_file: Optional[Any] = None):
     import_file_code = None
     importer_name = None
     supplier_name = None
     po_number = None
 
     if item.import_file_id:
-        from modules.import_files.model import ImportFile
-        imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
+        if import_file is not None:
+            imp = import_file
+        else:
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
         if imp:
             import_file_code = imp.import_file_code or imp.custom_file_number
             importer_name = imp.company_name
@@ -157,11 +163,14 @@ def enrich_banking_response(db: Session, item: BankingDocumentSession):
     return res
 
 
-def enrich_shipment_doc_response(db: Session, item: ShipmentDocumentItem):
+def enrich_shipment_doc_response(db: Session, item: ShipmentDocumentItem, import_file: Optional[Any] = None):
     import_file_code = None
     if item.import_file_id:
-        from modules.import_files.model import ImportFile
-        imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
+        if import_file is not None:
+            imp = import_file
+        else:
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
         if imp:
             import_file_code = imp.import_file_code or imp.custom_file_number
 
@@ -1060,7 +1069,7 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
         if lower.endswith(".pdf"):
             import pypdfium2 as pdfium
             pdf = pdfium.PdfDocument(content_bytes)
-            max_pages = min(len(pdf), 50)
+            max_pages = min(len(pdf), 8)
             for i in range(max_pages):
                 page = pdf.get_page(i)
                 pil_img = page.render(scale=1.5).to_pil()

@@ -21,22 +21,33 @@ final allPartnersProvider = StateNotifierProvider<AllPartnersNotifier, AsyncValu
 class AllPartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
   final Ref? ref;
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   AllPartnersNotifier({this.ref, required Dio dio}) : _dio = dio, super(const AsyncValue.loading()) {
     fetchPartners();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('AllPartnersNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchPartners() async {
+    _cancelToken?.cancel('Cancelled by new fetchPartners request');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/external-service-providers',
         queryParameters: {'include_inactive': true},
+        cancelToken: _cancelToken,
       );
       final List data = response.data;
       final list = data.map((json) => PartnerModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       state = AsyncValue.error(e, stack);
     }
   }
@@ -47,12 +58,21 @@ class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
   final Dio _dio;
   final String category;
   final bool showInactive;
+  CancelToken? _cancelToken;
 
   PartnersNotifier({this.ref, required this.category, required this.showInactive, required Dio dio}) : _dio = dio, super(const AsyncValue.loading()) {
     fetchPartners();
   }
 
+  @override
+  void dispose() {
+    _cancelToken?.cancel('PartnersNotifier disposed');
+    super.dispose();
+  }
+
   Future<void> fetchPartners() async {
+    _cancelToken?.cancel('Cancelled by new fetchPartners request');
+    _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
       final queryParams = <String, dynamic>{'include_inactive': showInactive};
@@ -63,11 +83,13 @@ class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/external-service-providers',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
       final List data = response.data;
       final list = data.map((json) => PartnerModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       state = AsyncValue.error(e, stack);
     }
   }

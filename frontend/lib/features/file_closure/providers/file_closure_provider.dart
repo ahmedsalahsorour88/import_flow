@@ -12,9 +12,16 @@ final fileClosureProvider =
 
 class FileClosureNotifier extends StateNotifier<AsyncValue<List<ImportFileClosureModel>>> {
   final Dio _dio;
+  CancelToken? _cancelToken;
 
   FileClosureNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchClosures();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('FileClosureNotifier disposed');
+    super.dispose();
   }
 
   Future<void> fetchClosures({
@@ -22,7 +29,12 @@ class FileClosureNotifier extends StateNotifier<AsyncValue<List<ImportFileClosur
     int? importFileId,
     String? search,
   }) async {
-    state = const AsyncValue.loading();
+    _cancelToken?.cancel('New fetch started');
+    _cancelToken = CancelToken();
+
+    if (!state.hasValue) {
+      state = const AsyncValue.loading();
+    }
     try {
       final queryParams = <String, dynamic>{'include_inactive': includeInactive};
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
@@ -31,12 +43,16 @@ class FileClosureNotifier extends StateNotifier<AsyncValue<List<ImportFileClosur
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/file-closure',
         queryParameters: queryParams,
+        cancelToken: _cancelToken,
       );
 
       final List data = response.data;
       final list = data.map((json) => ImportFileClosureModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
     } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        return;
+      }
       state = AsyncValue.error(e, stack);
     }
   }

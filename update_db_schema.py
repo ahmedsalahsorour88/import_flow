@@ -44,6 +44,12 @@ from modules.cargox.model import CargoXEnvelope, CargoXEnvelopeDocument, CargoXS
 from modules.original_documents_collection.model import OriginalDocumentsCollectionSession
 from modules.cargo_insurance.model import CargoInsuranceCertificate
 from modules.import_requirements.model import ImportRequirementAssessment
+from modules.lifecycle_board.model import (
+    ShipmentStageActivity,
+    StepConfig,
+    StepConfigAuditLog,
+    PendingReferenceRecord,
+)
 
 
 def migrate_db():

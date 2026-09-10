@@ -201,12 +201,79 @@ void main() {
         ar.standardInvoiceNoSessionsFound,
         ar.standardInvoiceSelectFileFirstError,
         ar.standardInvoiceMustProvideOverrideJustification,
+        ar.cargoxExportTsvBtn,
+        ar.cargoxExportExcelBtn,
+        ar.cargoxPrintPdfBtn,
+        ar.cargoxCopyDossierBtn,
+        ar.cargoxCopiedDossierSuccess,
+        ar.cargoxCopiedTsvSuccess,
+        ar.cargoxCopiedExcelSuccess,
+        ar.cargoxExportTsvDialogTitle,
+        ar.cargoxExportExcelDialogTitle,
+        ar.cargoxExportPdfDialogTitle,
+        ar.cargoxAiDocumentExtractionBtn,
+        ar.cargoxDossierHeader,
+        ar.cargoxDossierMetricsTitle,
+        ar.cargoxDossierEnvelopesTitle,
+        ar.cargoxCopiedTxHashSuccess,
+        ar.cargoxCopiedReceiptSuccess,
+        ar.cargoxExtractEngineTitle,
+        ar.cargoxChooseExtractionPathPrompt,
+        ar.cargoxModeConsolidatedTitle,
+        ar.cargoxModeConsolidatedSubtitle,
+        ar.cargoxModeDetailedTitle,
+        ar.cargoxModeDetailedSubtitle,
+        ar.cargoxModePerInvoiceConsolidatedTitle,
+        ar.cargoxModePerInvoiceConsolidatedSubtitle,
+        ar.cargoxModePerInvoiceDetailedTitle,
+        ar.cargoxModePerInvoiceDetailedSubtitle,
+        ar.cargoxLiveItemsPreviewBtn,
+        ar.cargoxLiveItemsPreviewHeader,
+        ar.cargoxAdoptAsCustomsTrackBtn,
+        ar.cargoxDocTypeCommercialInvoice,
+        ar.cargoxDocTypePackingList,
+        ar.cargoxDocTypeDraftBl,
+        ar.cargoxDocTypeCooEur1,
+        ar.cargoxDocTypeCoa,
+        ar.standardInvoiceSessionsExportTsvBtn,
+        ar.standardInvoiceSessionsExportExcelBtn,
+        ar.standardInvoiceSessionsPrintPdfBtn,
+        ar.standardInvoiceSessionsCopyDossierBtn,
+        ar.standardInvoiceSessionsDossierHeader,
+        ar.standardInvoiceManufacturer,
+        ar.standardInvoiceWeightNet,
+        ar.standardInvoiceTabTitle,
+        ar.standardInvoicePackingListTitle,
+        ar.cargoxDownloadZipBtn,
+        ar.customsTrackCustomsStatus,
+        ar.customsTrackStatusSealed,
+        ar.customsTrackNotesAndDeclaration,
+        ar.customsTrackNotesHint,
+        ar.customsTrackSaveBtn,
+        ar.customsTrackUpdateSuccessToast,
+        ar.customsTrackDeleteDialogTitle,
       ];
 
       final latinRegex = RegExp(r'[A-Za-z]');
       for (final str in staticArabicStrings) {
         expect(latinRegex.hasMatch(str), false, reason: 'Arabic string "$str" should not contain Latin characters');
       }
+
+      // Verify parameterized methods produce valid output
+      expect(ar.cargoxCopiedEnvelopeSuccess('ENV-100'), contains('ENV-100'));
+      expect(en.cargoxCopiedEnvelopeSuccess('ENV-100'), contains('ENV-100'));
+      expect(ar.cargoxCopiedAcidSuccess('ACID-100'), contains('ACID-100'));
+      expect(en.cargoxCopiedAcidSuccess('ACID-100'), contains('ACID-100'));
+      expect(ar.cargoxCopiedAttachedDocSuccess('INV.pdf'), contains('INV.pdf'));
+      expect(en.cargoxCopiedAttachedDocSuccess('INV.pdf'), contains('INV.pdf'));
+      expect(ar.standardInvoiceCopiedSessionSuccess('SES-100'), contains('SES-100'));
+      expect(en.standardInvoiceCopiedSessionSuccess('SES-100'), contains('SES-100'));
+      expect(ar.customsTrackEditDialogTitle('TRK-100'), contains('TRK-100'));
+      expect(en.customsTrackEditDialogTitle('TRK-100'), contains('TRK-100'));
+      expect(ar.customsTrackDeleteDialogMessage('TRK-100'), contains('TRK-100'));
+      expect(en.customsTrackDeleteDialogMessage('TRK-100'), contains('TRK-100'));
+      expect(ar.customsTrackDeleteSuccessToast('TRK-100'), contains('TRK-100'));
+      expect(en.customsTrackDeleteSuccessToast('TRK-100'), contains('TRK-100'));
     });
   });
 }

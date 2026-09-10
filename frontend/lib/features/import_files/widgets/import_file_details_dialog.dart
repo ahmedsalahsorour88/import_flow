@@ -12,6 +12,8 @@ import '../models/import_file_model.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../widgets/close_shipment_dialog.dart';
 import '../widgets/freight_rfq_dialog.dart';
+import '../../experience_guide/widgets/smart_shipment_reference_card.dart';
+import '../../experience_guide/widgets/add_guide_entry_dialog.dart';
 
 
 
@@ -910,6 +912,24 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Smart Shipment Experience Guide Card ───────────────────────
+              SmartShipmentReferenceCard(
+                importFileId: file.importFileId,
+                initialHsCode: file.hsCode,
+                initialPod: file.portOfDischarge,
+                onGuidelineAdded: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => AddGuideEntryDialog(
+                      initialHsCode: file.hsCode,
+                      initialDestinationPort: file.portOfDischarge,
+                      initialShippingLine: file.selectedScenario,
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 16),
 

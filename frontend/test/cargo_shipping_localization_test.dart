@@ -164,6 +164,32 @@ void main() {
         ar.cargoShippingColVgmStatus,
         ar.cargoShippingColVgmRef,
         ar.cargoShippingColTrackingStatus,
+        // Screen 52 SLA Tracking getters
+        ar.cargoShippingSlaStageTitle,
+        ar.cargoShippingSlaExportTsvBtn,
+        ar.cargoShippingSlaExportExcelBtn,
+        ar.cargoShippingSlaPrintPdfBtn,
+        ar.cargoShippingSlaCopyDossierBtn,
+        ar.cargoShippingSlaCopyDossierSuccess,
+        ar.cargoShippingSlaDossierHeader,
+        ar.cargoShippingSlaExportTsvDialogTitle,
+        ar.cargoShippingSlaExportExcelDialogTitle,
+        ar.cargoShippingSlaTsvHeaderUnit,
+        ar.cargoShippingSlaTsvHeaderContainerNo,
+        ar.cargoShippingSlaTsvHeaderContainerType,
+        ar.cargoShippingSlaTsvHeaderSealNo,
+        ar.cargoShippingSlaTsvHeaderAssignmentDate,
+        ar.cargoShippingSlaTsvHeaderArrivalDate,
+        ar.cargoShippingSlaTsvHeaderLoadingStartDate,
+        ar.cargoShippingSlaTsvHeaderLoadingEndDate,
+        ar.cargoShippingSlaTsvHeaderPortGateInDate,
+        ar.cargoShippingSlaTsvHeaderSlaStatus,
+        ar.cargoShippingSlaTsvHeaderTrackingStatus,
+        ar.cargoShippingSlaTsvHeaderNotes,
+        ar.cargoShippingSlaSummaryHeader,
+        ar.cargoShippingSlaCopyContainerSuccess,
+        ar.cargoShippingSlaCopySealSuccess,
+        ar.cargoShippingSlaCopyMilestoneSuccess,
       ];
 
       final List<String> enStrings = [
@@ -320,6 +346,32 @@ void main() {
         en.cargoShippingColVgmStatus,
         en.cargoShippingColVgmRef,
         en.cargoShippingColTrackingStatus,
+        // Screen 52 SLA Tracking getters
+        en.cargoShippingSlaStageTitle,
+        en.cargoShippingSlaExportTsvBtn,
+        en.cargoShippingSlaExportExcelBtn,
+        en.cargoShippingSlaPrintPdfBtn,
+        en.cargoShippingSlaCopyDossierBtn,
+        en.cargoShippingSlaCopyDossierSuccess,
+        en.cargoShippingSlaDossierHeader,
+        en.cargoShippingSlaExportTsvDialogTitle,
+        en.cargoShippingSlaExportExcelDialogTitle,
+        en.cargoShippingSlaTsvHeaderUnit,
+        en.cargoShippingSlaTsvHeaderContainerNo,
+        en.cargoShippingSlaTsvHeaderContainerType,
+        en.cargoShippingSlaTsvHeaderSealNo,
+        en.cargoShippingSlaTsvHeaderAssignmentDate,
+        en.cargoShippingSlaTsvHeaderArrivalDate,
+        en.cargoShippingSlaTsvHeaderLoadingStartDate,
+        en.cargoShippingSlaTsvHeaderLoadingEndDate,
+        en.cargoShippingSlaTsvHeaderPortGateInDate,
+        en.cargoShippingSlaTsvHeaderSlaStatus,
+        en.cargoShippingSlaTsvHeaderTrackingStatus,
+        en.cargoShippingSlaTsvHeaderNotes,
+        en.cargoShippingSlaSummaryHeader,
+        en.cargoShippingSlaCopyContainerSuccess,
+        en.cargoShippingSlaCopySealSuccess,
+        en.cargoShippingSlaCopyMilestoneSuccess,
       ];
 
       expect(arStrings.length, enStrings.length);
@@ -355,9 +407,9 @@ void main() {
         trackingStatus: 'ARRIVED_AT_CFS',
       );
 
-      expect(lcl.getLocalizedStatus(ar), 'وصلت لمخزن التجميع (CFS)');
+      expect(lcl.getLocalizedStatus(ar), 'وصلت لمخزن التجميع المشترك');
       expect(lcl.getLocalizedStatus(en), 'Arrived at CFS');
-      expect(lcl.arabicStatusLabel, 'وصلت لمخزن التجميع (CFS)');
+      expect(lcl.arabicStatusLabel, 'وصلت لمخزن التجميع المشترك');
 
       final gatedLcl = LclLoadingTrackingModel(
         shipmentType: 'LCL',
@@ -388,8 +440,60 @@ void main() {
       expect(en.cargoShippingManifestHeader, 'Container Allocations & Verified Gross Mass (VGM) Manifest');
       expect(ar.cargoShippingAiExtractorBtn, 'المحلل الذكي للبوالص والفواتير');
       expect(en.cargoShippingAiExtractorBtn, 'Smart Invoice & B/L Analyzer');
-      expect(ar.cargoShippingExportManifestBtn, 'نسخ بيان الحاويات (TSV)');
+      expect(ar.cargoShippingExportManifestBtn, 'نسخ بيان الحاويات والشحن');
       expect(en.cargoShippingExportManifestBtn, 'Copy Container Manifest (TSV)');
+    });
+
+    test('Screen 52: Cargo Shipping 48h SLA Tracking zero-Latin & anti-stacking test', () {
+      final latinRegex = RegExp(r'[a-zA-Z]');
+
+      final screen52ArStrings = [
+        ar.cargoShippingSlaStageTitle,
+        ar.cargoShippingSlaExportTsvBtn,
+        ar.cargoShippingSlaExportExcelBtn,
+        ar.cargoShippingSlaPrintPdfBtn,
+        ar.cargoShippingSlaCopyDossierBtn,
+        ar.cargoShippingSlaCopyDossierSuccess,
+        ar.cargoShippingSlaDossierHeader,
+        ar.cargoShippingSlaExportTsvDialogTitle,
+        ar.cargoShippingSlaExportExcelDialogTitle,
+        ar.cargoShippingSlaTsvHeaderUnit,
+        ar.cargoShippingSlaTsvHeaderContainerNo,
+        ar.cargoShippingSlaTsvHeaderContainerType,
+        ar.cargoShippingSlaTsvHeaderSealNo,
+        ar.cargoShippingSlaTsvHeaderAssignmentDate,
+        ar.cargoShippingSlaTsvHeaderArrivalDate,
+        ar.cargoShippingSlaTsvHeaderLoadingStartDate,
+        ar.cargoShippingSlaTsvHeaderLoadingEndDate,
+        ar.cargoShippingSlaTsvHeaderPortGateInDate,
+        ar.cargoShippingSlaTsvHeaderSlaStatus,
+        ar.cargoShippingSlaTsvHeaderTrackingStatus,
+        ar.cargoShippingSlaTsvHeaderNotes,
+        ar.cargoShippingSlaSummaryHeader,
+        ar.cargoShippingSlaCopyContainerSuccess,
+        ar.cargoShippingSlaCopySealSuccess,
+        ar.cargoShippingSlaCopyMilestoneSuccess,
+      ];
+
+      for (final s in screen52ArStrings) {
+        expect(
+          latinRegex.hasMatch(s),
+          isFalse,
+          reason: 'Arabic string "$s" contains Latin characters: ${latinRegex.allMatches(s).map((m) => m.group(0)).join(", ")}',
+        );
+      }
+
+      // Verify specific Arabic and English titles
+      expect(ar.cargoShippingSlaStageTitle, 'متابعة حركة الشحن وتحميل وتوريد الحاويات والتتبع الزمني 48 ساعة');
+      expect(en.cargoShippingSlaStageTitle, 'Cargo Shipping Tracking (48h SLA)');
+      expect(ar.cargoShippingSlaExportTsvBtn, 'تصدير جدول نصوص');
+      expect(en.cargoShippingSlaExportTsvBtn, 'Export TSV');
+      expect(ar.cargoShippingSlaExportExcelBtn, 'تصدير جدول إكسيل');
+      expect(en.cargoShippingSlaExportExcelBtn, 'Export Excel');
+      expect(ar.cargoShippingSlaPrintPdfBtn, 'طباعة وحفظ مستند');
+      expect(en.cargoShippingSlaPrintPdfBtn, 'Print & Save Document');
+      expect(ar.cargoShippingSlaCopyDossierBtn, 'نسخ الملخص الشامل');
+      expect(en.cargoShippingSlaCopyDossierBtn, 'Copy SLA Dossier');
     });
   });
 }

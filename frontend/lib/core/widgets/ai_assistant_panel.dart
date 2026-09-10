@@ -2,8 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/providers/ai_assistant_provider.dart';
 import '../../core/theme/app_theme.dart';
+import 'copyable_data_helper.dart';
+import 'shipment_lifecycle_navigator.dart';
 
 /// A persistent floating AI Import Assistant panel that overlays all screens.
 /// Appears as a draggable button that opens a chat panel when tapped.
@@ -23,6 +26,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
   final ScrollController _scrollCtrl = ScrollController();
   final FocusNode _focusNode = FocusNode();
   bool _greetingDismissed = false;
+  bool _isMaximized = false;
 
   @override
   void initState() {
@@ -74,24 +78,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
   }
 
   void _copyToClipboard(String text, String successMsg) {
-    Clipboard.setData(ClipboardData(text: text));
-    if (mounted) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
-              const SizedBox(width: 8),
-              Text(successMsg, style: const TextStyle(fontSize: 12)),
-            ],
-          ),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppTheme.charcoal,
-        ),
-      );
-    }
+    CopyHelper.copy(context, text, customMessage: successMsg);
   }
 
   // ─── Build ──────────────────────────────────────────────────────────────────
@@ -130,7 +117,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
           Positioned(
             bottom: 80,
             right: 16,
-            child: _buildGreetingBubble(),
+            child: _buildGreetingBubble(state),
           ),
 
         // ── Floating Button (Orange circular button with chat icon) ──────────
@@ -145,104 +132,113 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
 
   // ─── Greeting Bubble ────────────────────────────────────────────────────────
 
-  Widget _buildGreetingBubble() {
+  Widget _buildGreetingBubble(AiAssistantState state) {
+    final isAr = state.isArabic;
+    final l = context.l10n;
     return Material(
       color: Colors.transparent,
-      child: Container(
-        width: 230,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.12),
-              blurRadius: 18,
-              offset: const Offset(0, 4),
-            ),
-          ],
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Hello',
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
-                  ),
+      child: Directionality(
+        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+        child: SelectionArea(
+          child: Container(
+            width: 230,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.12),
+                  blurRadius: 18,
+                  offset: const Offset(0, 4),
                 ),
+              ],
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      isAr ? l.aiAssistantGreetingTitle : 'Hello',
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => setState(() => _greetingDismissed = true),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2.0),
+                        child: Icon(Icons.close, size: 14, color: Colors.grey.shade400),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
                 InkWell(
-                  onTap: () => setState(() => _greetingDismissed = true),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(2.0),
-                    child: Icon(Icons.close, size: 14, color: Colors.grey.shade400),
+                  onTap: _togglePanel,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isAr ? l.aiAssistantGreetingBody : 'Here to help - Feedback,\nChat.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: Colors.grey.shade700,
+                          height: 1.35,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.emerald,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              isAr ? l.aiAssistantOnlineStatus : 'Import Assistant Online',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.cobalt,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            InkWell(
-              onTap: _togglePanel,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Here to help - Feedback,\nChat.',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: Colors.grey.shade700,
-                      height: 1.35,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: AppTheme.emerald,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      const Flexible(
-                        child: Text(
-                          'مساعد الاستيراد الذكي متصل',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.cobalt,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-
   // ─── Floating Button ────────────────────────────────────────────────────────
 
   Widget _buildFloatingButton(AiAssistantState state) {
+    final l = context.l10n;
     return Tooltip(
-      message: state.isPanelOpen ? 'إغلاق المساعد الذكي' : 'مساعد الاستيراد الذكي — AI',
+      message: state.isPanelOpen
+          ? l.aiAssistantCloseTooltip
+          : l.aiAssistantOpenTooltip,
       preferBelow: false,
       child: GestureDetector(
         onTap: _togglePanel,
@@ -310,32 +306,58 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
   // ─── Chat Panel ─────────────────────────────────────────────────────────────
 
   Widget _buildChatPanel(AiAssistantState state) {
-    return Container(
-      width: 360,
-      height: 520,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          children: [
-            _buildPanelHeader(state),
-            Expanded(
-              child: state.hasApiKey
-                  ? _buildMessageList(state)
-                  : _buildApiKeySetup(),
+    final screenSize = MediaQuery.of(context).size;
+    final availableWidth = (screenSize.width - 32).clamp(360.0, 3000.0);
+    final availableHeight = (screenSize.height - 96).clamp(420.0, 3000.0);
+
+    final targetWidth = _isMaximized
+        ? (screenSize.width * 0.58).clamp(650.0, 920.0)
+        : (screenSize.width * 0.42).clamp(480.0, 620.0);
+    final targetHeight = _isMaximized
+        ? (screenSize.height * 0.90).clamp(600.0, 1050.0)
+        : (screenSize.height * 0.82).clamp(520.0, 850.0);
+
+    final panelWidth = targetWidth > availableWidth ? availableWidth : targetWidth;
+    final panelHeight = targetHeight > availableHeight ? availableHeight : targetHeight;
+
+    return Directionality(
+      textDirection: state.isArabic ? TextDirection.rtl : TextDirection.ltr,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        width: panelWidth,
+        height: panelHeight,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
             ),
-            if (state.hasApiKey) _buildInputBar(state),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: SelectionArea(
+            child: Column(
+              children: [
+                _buildPanelHeader(state),
+                if (state.isNavigatorOpen)
+                  ShipmentLifecycleNavigator(
+                    onSendMessage: _sendMessage,
+                  ),
+                Expanded(
+                  child: state.hasApiKey
+                      ? _buildMessageList(state)
+                      : _buildApiKeySetup(state),
+                ),
+                if (state.hasApiKey) _buildActiveContextBadge(state),
+                if (state.hasApiKey) _buildInputBar(state),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -344,6 +366,8 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
   // ─── Panel Header ────────────────────────────────────────────────────────────
 
   Widget _buildPanelHeader(AiAssistantState state) {
+    final isAr = state.isArabic;
+    final l = context.l10n;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -364,18 +388,18 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
             ),
             child: const Icon(Icons.smart_toy_outlined, color: Colors.white, size: 18),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'مساعد الاستيراد الذكي',
+                Text(
+                  isAr ? l.aiAssistantTitle : 'Smart Import Assistant',
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    fontSize: 13.5,
+                    fontSize: 13,
                   ),
                 ),
                 Text(
@@ -383,36 +407,113 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.8),
-                    fontSize: 10.5,
+                    fontSize: 10,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
+          // "My Shipments" / "شحناتي" Lifecycle Navigator Toggle Button
+          IconButton(
+            icon: Icon(
+              state.isNavigatorOpen ? Icons.alt_route_rounded : Icons.alt_route_outlined,
+              color: state.isNavigatorOpen ? Colors.amberAccent : Colors.white,
+              size: 18,
+            ),
+            tooltip: isAr ? l.aiAssistantMyShipmentsTooltip : 'My Shipments (Lifecycle Navigator)',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () => ref.read(aiAssistantProvider.notifier).toggleNavigator(),
+          ),
+          const SizedBox(width: 6),
+          // Language selector toggle pill (Rule 2: Starting default & switcher, Rule 1: Dynamic detection also updates state)
+          Container(
+            height: 24,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildLangBtn('AR', state.isArabic, () {
+                  ref.read(aiAssistantProvider.notifier).setLanguage('ar');
+                }),
+                _buildLangBtn('EN', state.isEnglish, () {
+                  ref.read(aiAssistantProvider.notifier).setLanguage('en');
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Copy full conversation transcript dossier button
+          if (state.hasApiKey && state.messages.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.copy_all_rounded, color: Colors.white70, size: 16),
+              tooltip: isAr ? l.aiAssistantCopyTranscriptTooltip : 'Copy full conversation transcript',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () {
+                final buffer = StringBuffer();
+                buffer.writeln(isAr ? l.aiAssistantTitle : 'Smart Import Assistant');
+                if (state.hasActiveContext) {
+                  buffer.writeln(state.activeContext!.displayText(state.activeLanguage));
+                }
+                buffer.writeln('========================================');
+                for (final msg in state.messages) {
+                  final sender = msg.sender == MessageSender.user
+                      ? (isAr ? 'المستخدم' : 'User')
+                      : (isAr ? 'المساعد الذكي' : 'Assistant');
+                  buffer.writeln('[$sender]:\n${msg.text}\n');
+                }
+                CopyHelper.copy(
+                  context,
+                  buffer.toString().trim(),
+                  customMessage: isAr ? l.aiAssistantTranscriptCopied : 'Full conversation copied to clipboard',
+                );
+              },
+            ),
+          const SizedBox(width: 4),
           // Clear chat
           if (state.hasApiKey && state.messages.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.refresh_rounded, color: Colors.white70, size: 16),
-              tooltip: 'مسح المحادثة',
+              tooltip: isAr ? l.aiAssistantClearChatTooltip : 'Clear Chat',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               onPressed: () => ref.read(aiAssistantProvider.notifier).clearChat(),
             ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           // API Key settings
           IconButton(
             icon: const Icon(Icons.key_outlined, color: Colors.white70, size: 16),
-            tooltip: 'إعدادات API Key',
+            tooltip: isAr ? l.aiAssistantApiKeySettingsTooltip : 'API Key Settings',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             onPressed: () => _showApiKeyDialog(state.apiKey),
           ),
           const SizedBox(width: 4),
+          // Maximize / Restore
+          IconButton(
+            icon: Icon(
+              _isMaximized ? Icons.close_fullscreen_rounded : Icons.open_in_full_rounded,
+              color: Colors.white70,
+              size: 16,
+            ),
+            tooltip: _isMaximized
+                ? (isAr ? l.aiAssistantRestoreTooltip : 'Restore size')
+                : (isAr ? l.aiAssistantExpandTooltip : 'Expand chat window'),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () => setState(() => _isMaximized = !_isMaximized),
+          ),
+          const SizedBox(width: 2),
           // Close
           IconButton(
             icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 16),
-            tooltip: 'إغلاق',
+            tooltip: isAr ? l.aiAssistantCloseTooltip : 'Close',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             onPressed: _togglePanel,
@@ -422,11 +523,163 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
     );
   }
 
+  // ─── Active Context Badge ───────────────────────────────────────────────────
+
+  Widget _buildActiveContextBadge(AiAssistantState state) {
+    if (!state.hasActiveContext) return const SizedBox.shrink();
+    final ctx = state.activeContext!;
+    final isAr = state.isArabic;
+    final l = context.l10n;
+    final displayText = ctx.displayText(isAr ? 'ar' : 'en');
+    final stepLabel = ctx.stepName(isAr ? 'ar' : 'en');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        border: Border(
+          top: BorderSide(color: Colors.blueGrey.shade100, width: 1),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.circle, color: AppTheme.cobalt, size: 8),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  displayText,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.charcoal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 14, color: AppTheme.cobalt),
+                tooltip: isAr ? l.aiLifecycleCopySummaryTooltip : 'Copy context summary',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () => CopyHelper.copy(
+                  context,
+                  displayText,
+                  customMessage: isAr ? l.aiLifecycleSummaryCopied : 'Context copied to clipboard',
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, size: 14, color: Colors.grey),
+                tooltip: isAr ? l.aiAssistantClearContextTooltip : 'Clear active context',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () => ref.read(aiAssistantProvider.notifier).clearActiveContext(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              _buildContextShortcut(
+                label: isAr ? l.aiAssistantViewDataShortcut : 'View Data',
+                icon: Icons.bar_chart_rounded,
+                onTap: () => _sendMessage(
+                  isAr
+                      ? 'اعرض بيانات وموقف مرحلة ($stepLabel) لشحنة ${ctx.displayText("ar")}.'
+                      : 'Show data and status of phase ($stepLabel) for shipment ${ctx.displayText("en")}.',
+                ),
+              ),
+              const SizedBox(width: 4),
+              _buildContextShortcut(
+                label: isAr ? l.aiAssistantUpdateDataShortcut : 'Update Data',
+                icon: Icons.edit_note_rounded,
+                onTap: () => _sendMessage(
+                  isAr
+                      ? 'أريد تحديث وتسجيل بيانات مرحلة ($stepLabel) لشحنة ${ctx.displayText("ar")}.'
+                      : 'I want to update and record data for phase ($stepLabel) of shipment ${ctx.displayText("en")}.',
+                ),
+              ),
+              const SizedBox(width: 4),
+              _buildContextShortcut(
+                label: isAr ? l.aiAssistantAskAboutStepShortcut : 'Ask about Step',
+                icon: Icons.help_outline_rounded,
+                onTap: () => _sendMessage(
+                  isAr
+                      ? 'ما هي المتطلبات والمستندات اللازمة لإنجاز مرحلة ($stepLabel)؟'
+                      : 'What are the requirements and documents needed to complete ($stepLabel)?',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContextShortcut({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 11, color: AppTheme.cobalt),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.charcoal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLangBtn(String label, bool isSelected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: isSelected ? AppTheme.cobalt : Colors.white.withOpacity(0.9),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ─── Message List ───────────────────────────────────────────────────────────
 
   Widget _buildMessageList(AiAssistantState state) {
     if (state.messages.isEmpty) {
-      return _buildWelcomeScreen();
+      return _buildWelcomeScreen(state);
     }
 
     return SelectionArea(
@@ -438,57 +691,90 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
           if (i == state.messages.length) {
             return _buildTypingIndicator();
           }
-          return _buildMessageBubble(state.messages[i]);
+          return _buildMessageBubble(state.messages[i], state);
         },
       ),
     );
   }
 
-  Widget _buildWelcomeScreen() {
+  Widget _buildWelcomeScreen(AiAssistantState state) {
+    final l = context.l10n;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 4),
-          Text(
-            'اقتراحات سريعة',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade600,
-            ),
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, size: 14, color: AppTheme.cobalt),
+              const SizedBox(width: 6),
+              Text(
+                state.isArabic ? l.aiAssistantQuickSuggestionsTitle : 'Categorized Quick Suggestions',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.charcoal,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: kQuickSuggestions.map((s) => _buildSuggestionChip(s)).toList(),
-          ),
+          ...kCategorizedQuickSuggestions.map((cat) => _buildCategorySection(cat, state)),
         ],
       ),
     );
   }
 
-  Widget _buildSuggestionChip(QuickSuggestion s) {
+  Widget _buildCategorySection(QuickSuggestionCategory cat, AiAssistantState state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 6),
+          child: Row(
+            children: [
+              Icon(cat.icon, size: 13, color: Colors.grey.shade600),
+              const SizedBox(width: 5),
+              Text(
+                cat.title(state.activeLanguage),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: cat.items.map((item) => _buildBilingualSuggestionChip(item, state)).toList(),
+        ),
+        const SizedBox(height: 6),
+      ],
+    );
+  }
+
+  Widget _buildBilingualSuggestionChip(BilingualQuickSuggestion item, AiAssistantState state) {
     return GestureDetector(
-      onTap: () => _sendMessage(s.prompt),
+      onTap: () => _sendMessage(item.prompt(state.activeLanguage)),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
         decoration: BoxDecoration(
-          color: AppTheme.cobalt.withOpacity(0.07),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+          color: AppTheme.cobalt.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.cobalt.withOpacity(0.22)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(s.icon, size: 13, color: AppTheme.cobalt),
+            Icon(item.icon, size: 12, color: AppTheme.cobalt),
             const SizedBox(width: 5),
             Text(
-              s.label,
+              item.label(state.activeLanguage),
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.cobalt,
               ),
@@ -499,9 +785,11 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage msg) {
+  Widget _buildMessageBubble(ChatMessage msg, AiAssistantState state) {
     final isUser = msg.sender == MessageSender.user;
     final isSystem = msg.sender == MessageSender.system;
+    final isAr = state.isArabic;
+    final l = context.l10n;
 
     if (isSystem) {
       return Container(
@@ -533,10 +821,13 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
             ),
             IconButton(
               icon: const Icon(Icons.copy_rounded, size: 14, color: Colors.grey),
-              tooltip: 'نسخ الإشعار',
+              tooltip: isAr ? l.aiAssistantCopyNotificationTooltip : 'Copy notification',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              onPressed: () => _copyToClipboard(msg.text, 'تم نسخ الإشعار ✅'),
+              onPressed: () => _copyToClipboard(
+                msg.text,
+                isAr ? l.aiAssistantNotificationCopied : 'Notification copied ✅',
+              ),
             ),
           ],
         ),
@@ -576,16 +867,26 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
           crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              msg.text,
-              style: TextStyle(
-                fontSize: 12.5,
-                color: isUser
-                    ? Colors.white
-                    : (msg.isError ? AppTheme.crimson : AppTheme.charcoal),
-                height: 1.45,
-              ),
-            ),
+            if (isUser)
+              Text(
+                msg.text,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: Colors.white,
+                  height: 1.45,
+                ),
+              )
+            else if (msg.isError)
+              Text(
+                msg.text,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: AppTheme.crimson,
+                  height: 1.45,
+                ),
+              )
+            else
+              _buildAssistantResponseContent(msg.text, state.isArabic),
             const SizedBox(height: 4),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -594,7 +895,9 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
                   borderRadius: BorderRadius.circular(4),
                   onTap: () => _copyToClipboard(
                     msg.text,
-                    isUser ? 'تم نسخ رسالتك ✅' : 'تم نسخ رد المساعد ✅',
+                    isUser
+                        ? (isAr ? l.aiAssistantUserMessageCopied : 'Your message copied ✅')
+                        : (isAr ? l.aiAssistantAssistantMessageCopied : 'Assistant response copied ✅'),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -608,7 +911,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
                         ),
                         const SizedBox(width: 3),
                         Text(
-                          'نسخ',
+                          isAr ? 'نسخ' : 'Copy',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
@@ -624,8 +927,8 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
                   InkWell(
                     borderRadius: BorderRadius.circular(4),
                     onTap: () {
-                      final state = ref.read(aiAssistantProvider);
-                      final lastUserMsg = state.messages
+                      final currState = ref.read(aiAssistantProvider);
+                      final lastUserMsg = currState.messages
                           .lastWhere((m) => m.sender == MessageSender.user, orElse: () => msg);
                       if (lastUserMsg.sender == MessageSender.user) {
                         _sendMessage(lastUserMsg.text);
@@ -643,7 +946,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
                           ),
                           const SizedBox(width: 3),
                           Text(
-                            'إعادة المحاولة',
+                            isAr ? l.aiAssistantRetry : 'Retry',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
@@ -660,6 +963,350 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildInlineFormattedText(String text, TextStyle baseStyle) {
+    if (!text.contains('**')) {
+      return Text(text, style: baseStyle);
+    }
+    final spans = <TextSpan>[];
+    final parts = text.split('**');
+    for (int i = 0; i < parts.length; i++) {
+      if (parts[i].isEmpty) continue;
+      if (i % 2 == 1) {
+        spans.add(TextSpan(
+          text: parts[i],
+          style: baseStyle.copyWith(fontWeight: FontWeight.bold),
+        ));
+      } else {
+        spans.add(TextSpan(text: parts[i], style: baseStyle));
+      }
+    }
+    return Text.rich(
+      TextSpan(children: spans),
+    );
+  }
+
+  Widget _buildAssistantResponseContent(String text, bool isAr) {
+    final lines = text.split('\n');
+    final List<Widget> widgets = [];
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i].trimRight();
+      if (line.trim().isEmpty) {
+        widgets.add(const SizedBox(height: 5));
+        continue;
+      }
+
+      final trimmed = line.trim();
+
+      // 1. Overdue Summary Alert (e.g. ⚠️ 4 مهام متأخرة منذ ...)
+      if (trimmed.startsWith('⚠️') &&
+          (trimmed.contains('متأخرة') || trimmed.contains('overdue'))) {
+        widgets.add(
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.crimsonLight,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.crimsonBorder),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Icon(Icons.warning_amber_rounded, size: 16, color: AppTheme.crimson),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    trimmed.replaceFirst(RegExp(r'^⚠️\s*'), ''),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.crimson,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        continue;
+      }
+
+      // 2. Duplicate Warning Alert Pill (e.g. ⚠️ يبدو تكرار...)
+      if (trimmed.startsWith('⚠️') &&
+          (trimmed.contains('تكرار') || trimmed.contains('duplicate'))) {
+        widgets.add(
+          Container(
+            margin: const EdgeInsets.only(top: 2, bottom: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.copy_rounded, size: 13, color: Color(0xFFB45309)),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    trimmed.replaceFirst(RegExp(r'^⚠️\s*'), ''),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFB45309),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        continue;
+      }
+
+      // 3. Completion rate / visual progress bar line
+      if (trimmed.contains('نسبة الإنجاز:') || trimmed.contains('Completion Rate:')) {
+        widgets.add(
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Text(
+              trimmed,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.charcoal,
+              ),
+            ),
+          ),
+        );
+        continue;
+      }
+
+      // 4. Section headers (متأخرة: / مستحقة اليوم: / قادمة:)
+      if (trimmed == 'متأخرة:' ||
+          trimmed == '**متأخرة:**' ||
+          trimmed.toLowerCase() == 'overdue:' ||
+          trimmed.toLowerCase() == '**overdue:**') {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 3),
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(color: AppTheme.crimson, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isAr ? 'المهام المتأخرة:' : 'Overdue Tasks:',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.crimson,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        continue;
+      }
+      if (trimmed == 'مستحقة اليوم:' ||
+          trimmed == '**مستحقة اليوم:**' ||
+          trimmed.toLowerCase() == 'due today:' ||
+          trimmed.toLowerCase() == '**due today:**') {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 3),
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(color: AppTheme.orange, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isAr ? 'مستحقة اليوم:' : 'Due Today:',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.orange,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        continue;
+      }
+      if (trimmed == 'قادمة:' ||
+          trimmed == '**قادمة:**' ||
+          trimmed.toLowerCase() == 'upcoming:' ||
+          trimmed.toLowerCase() == '**upcoming:**') {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 3),
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(color: AppTheme.cobalt, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isAr ? 'المهام القادمة:' : 'Upcoming Tasks:',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.cobalt,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        continue;
+      }
+
+      // 5. Individual Priority Task Rows (🔴, 🟠, 🟡, 🟢, ✅)
+      if (trimmed.startsWith('🔴') ||
+          trimmed.startsWith('🟠') ||
+          trimmed.startsWith('🟡') ||
+          trimmed.startsWith('🟢') ||
+          trimmed.startsWith('✅')) {
+        final Color cardBg;
+        final Color cardBorder;
+        final String icon;
+        if (trimmed.startsWith('🔴')) {
+          cardBg = const Color(0xFFFFF5F5);
+          cardBorder = const Color(0xFFFFD1D1);
+          icon = '🔴';
+        } else if (trimmed.startsWith('🟠')) {
+          cardBg = const Color(0xFFFFF9F2);
+          cardBorder = const Color(0xFFFFE0B2);
+          icon = '🟠';
+        } else if (trimmed.startsWith('🟡')) {
+          cardBg = const Color(0xFFFFFDE7);
+          cardBorder = const Color(0xFFFFF59D);
+          icon = '🟡';
+        } else {
+          cardBg = AppTheme.emeraldLight;
+          cardBorder = AppTheme.emeraldBorder;
+          icon = trimmed.startsWith('✅') ? '✅' : '🟢';
+        }
+
+        final contentText = trimmed.substring(icon.length).trim();
+
+        widgets.add(
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 2.5),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: cardBorder),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Text(icon, style: const TextStyle(fontSize: 12)),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _buildInlineFormattedText(
+                    contentText,
+                    const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.charcoal,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        continue;
+      }
+
+      // 6. Action Callout Box (المطلوب منك الآن: / What is needed now:)
+      if (trimmed.startsWith('المطلوب منك الآن:') ||
+          trimmed.startsWith('What is needed now:')) {
+        widgets.add(
+          Container(
+            margin: const EdgeInsets.only(top: 8, bottom: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFBFDBFE), width: 1.2),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: Icon(Icons.touch_app_rounded, size: 16, color: AppTheme.cobalt),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _buildInlineFormattedText(
+                    trimmed,
+                    const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E3A8A),
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        continue;
+      }
+
+      // 7. General text line
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 1.5),
+          child: _buildInlineFormattedText(
+            trimmed,
+            const TextStyle(
+              fontSize: 12.5,
+              color: AppTheme.charcoal,
+              height: 1.45,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: widgets,
     );
   }
 
@@ -708,6 +1355,8 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
   // ─── Input Bar ──────────────────────────────────────────────────────────────
 
   Widget _buildInputBar(AiAssistantState state) {
+    final isAr = state.isArabic;
+    final l = context.l10n;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
@@ -723,21 +1372,23 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
               enabled: !state.isLoading,
               maxLines: 3,
               minLines: 1,
-              textDirection: TextDirection.rtl,
+              textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
               contextMenuBuilder: (context, editableTextState) {
                 return AdaptiveTextSelectionToolbar.editableText(
                   editableTextState: editableTextState,
                 );
               },
               decoration: InputDecoration(
-                hintText: 'اسألني عن الاستيراد، الجمارك، الشحن...',
+                hintText: isAr
+                    ? l.aiAssistantInputHint
+                    : 'Ask about imports, customs, freight, tasks...',
                 hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
                 filled: true,
                 fillColor: Colors.grey.shade50,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.paste_rounded, size: 18, color: AppTheme.cobalt),
-                  tooltip: 'لصق من الحافظة',
+                  tooltip: isAr ? l.aiAssistantPasteTooltip : 'Paste from clipboard',
                   onPressed: state.isLoading
                       ? null
                       : () async {
@@ -784,25 +1435,31 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
             ),
           ),
           const SizedBox(width: 6),
-          GestureDetector(
-            onTap: state.isLoading ? null : () => _sendMessage(_inputCtrl.text),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: state.isLoading ? Colors.grey.shade300 : AppTheme.cobalt,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: state.isLoading
-                  ? const Center(
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+          Tooltip(
+            message: isAr ? l.aiAssistantSendTooltip : 'Send',
+            child: GestureDetector(
+              onTap: state.isLoading ? null : () => _sendMessage(_inputCtrl.text),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: state.isLoading ? Colors.grey.shade300 : AppTheme.cobalt,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: state.isLoading
+                    ? const Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        ),
+                      )
+                    : Transform.rotate(
+                        angle: isAr ? 3.14159 : 0.0,
+                        child: const Icon(Icons.send_rounded, color: Colors.white, size: 17),
                       ),
-                    )
-                  : const Icon(Icons.send_rounded, color: Colors.white, size: 17),
+              ),
             ),
           ),
         ],
@@ -812,73 +1469,85 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
 
   // ─── API Key Setup ──────────────────────────────────────────────────────────
 
-  Widget _buildApiKeySetup() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.cobalt.withOpacity(0.07),
-              shape: BoxShape.circle,
+  Widget _buildApiKeySetup(AiAssistantState state) {
+    final isAr = state.isArabic;
+    final l = context.l10n;
+    return SelectionArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.cobalt.withOpacity(0.07),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.key_rounded, color: AppTheme.cobalt, size: 32),
             ),
-            child: const Icon(Icons.key_rounded, color: AppTheme.cobalt, size: 32),
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'فعّل المساعد الذكي',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'أدخل Gemini API Key الخاص بك لبدء الدردشة مع مساعد الاستيراد الذكي.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.5),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () => _showApiKeyDialog(AiAssistantNotifier.defaultApiKey),
-            icon: const Icon(Icons.key_outlined, size: 16),
-            label: const Text('إدخال API Key'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.cobalt,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            const SizedBox(height: 14),
+            Text(
+              isAr ? l.aiAssistantActivateTitle : 'Activate AI Assistant',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
             ),
-          ),
-          const SizedBox(height: 10),
-          TextButton.icon(
-            onPressed: () async {
-              const url = 'https://aistudio.google.com/app/apikey';
-              await Clipboard.setData(const ClipboardData(text: url));
-              try {
-                if (Platform.isWindows) {
-                  await Process.run('cmd', ['/c', 'start', '', url.replaceAll('&', '^&')], runInShell: true);
-                } else if (Platform.isMacOS) {
-                  await Process.run('open', [url]);
-                } else if (Platform.isLinux) {
-                  await Process.run('xdg-open', [url]);
+            const SizedBox(height: 8),
+            Text(
+              isAr
+                  ? l.aiAssistantActivateDesc
+                  : 'Enter your Gemini API Key to start chatting with the smart import assistant.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => _showApiKeyDialog(AiAssistantNotifier.defaultApiKey),
+              icon: const Icon(Icons.key_outlined, size: 16),
+              label: Text(isAr ? l.aiAssistantEnterApiKey : 'Enter API Key'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.cobalt,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: () async {
+                const url = 'https://aistudio.google.com/app/apikey';
+                await Clipboard.setData(const ClipboardData(text: url));
+                try {
+                  if (Platform.isWindows) {
+                    await Process.run('cmd', ['/c', 'start', '', url.replaceAll('&', '^&')], runInShell: true);
+                  } else if (Platform.isMacOS) {
+                    await Process.run('open', [url]);
+                  } else if (Platform.isLinux) {
+                    await Process.run('xdg-open', [url]);
+                  }
+                } catch (_) {}
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        isAr
+                            ? l.aiAssistantCopiedUrlSuccess
+                            : 'Opened Google AI Studio in browser and copied URL to clipboard',
+                      ),
+                      backgroundColor: AppTheme.cobalt,
+                      duration: const Duration(seconds: 4),
+                    ),
+                  );
                 }
-              } catch (_) {}
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('تم فتح صفحة Google AI Studio في المتصفح ونسخ الرابط للحافظة'),
-                    backgroundColor: AppTheme.cobalt,
-                    duration: Duration(seconds: 4),
-                  ),
-                );
-              }
-            },
-            icon: Icon(Icons.open_in_new, size: 13, color: Colors.grey.shade600),
-            label: Text(
-              'احصل على API Key من Google AI Studio (اضغط للفتح)',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600, decoration: TextDecoration.underline),
+              },
+              icon: Icon(Icons.open_in_new, size: 13, color: Colors.grey.shade600),
+              label: Text(
+                isAr
+                    ? l.aiAssistantGetApiKeyLabel
+                    : 'Get API Key from Google AI Studio (Click to open)',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600, decoration: TextDecoration.underline),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -886,113 +1555,121 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
   // ─── API Key Dialog ─────────────────────────────────────────────────────────
 
   void _showApiKeyDialog(String? currentKey) {
+    final state = ref.read(aiAssistantProvider);
+    final isAr = state.isArabic;
+    final l = context.l10n;
     final effectiveKey = (currentKey != null && currentKey.isNotEmpty)
         ? currentKey
-        : (ref.read(aiAssistantProvider).apiKey ?? AiAssistantNotifier.defaultApiKey);
+        : (state.apiKey ?? AiAssistantNotifier.defaultApiKey);
     final ctrl = TextEditingController(text: effectiveKey);
     bool obscure = true;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.key_rounded, color: AppTheme.cobalt, size: 20),
-              SizedBox(width: 10),
-              Text('Gemini API Key'),
-            ],
-          ),
-          content: SizedBox(
-            width: 380,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+        builder: (ctx, setLocal) => Directionality(
+          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+          child: AlertDialog(
+            title: Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'احصل على المفتاح مجاناً من Google AI Studio:',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: () async {
-                        const url = 'https://aistudio.google.com/app/apikey';
-                        await Clipboard.setData(const ClipboardData(text: url));
-                        try {
-                          if (Platform.isWindows) {
-                            await Process.run('cmd', ['/c', 'start', '', url.replaceAll('&', '^&')], runInShell: true);
-                          }
-                        } catch (_) {}
-                      },
-                      icon: const Icon(Icons.open_in_new, size: 12),
-                      label: const Text('فتح الرابط', style: TextStyle(fontSize: 11)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: ctrl,
-                  obscureText: obscure,
-                  contextMenuBuilder: (context, editableTextState) {
-                    return AdaptiveTextSelectionToolbar.editableText(
-                      editableTextState: editableTextState,
-                    );
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'API Key',
-                    hintText: 'AIzaSy...',
-                    prefixIcon: const Icon(Icons.vpn_key_outlined, size: 18),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        size: 16,
-                      ),
-                      onPressed: () => setLocal(() => obscure = !obscure),
-                    ),
-                  ),
-                ),
-                if (currentKey != null || ref.read(aiAssistantProvider).hasApiKey) ...[
-                  const SizedBox(height: 12),
+                const Icon(Icons.key_rounded, color: AppTheme.cobalt, size: 20),
+                const SizedBox(width: 10),
+                Text(isAr ? l.aiAssistantApiKeyDialogTitle : 'Gemini API Key'),
+              ],
+            ),
+            content: SizedBox(
+              width: 380,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 14),
-                      const SizedBox(width: 6),
-                      Text(
-                        'مفتاح API نشط ومثبت',
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      Expanded(
+                        child: Text(
+                          isAr
+                              ? 'احصل على المفتاح مجاناً من المنصة الرسمية:'
+                              : 'Get free API key from Google AI Studio:',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () async {
+                          const url = 'https://aistudio.google.com/app/apikey';
+                          await Clipboard.setData(const ClipboardData(text: url));
+                          try {
+                            if (Platform.isWindows) {
+                              await Process.run('cmd', ['/c', 'start', '', url.replaceAll('&', '^&')], runInShell: true);
+                            }
+                          } catch (_) {}
+                        },
+                        icon: const Icon(Icons.open_in_new, size: 12),
+                        label: Text(isAr ? l.aiAssistantOpenLink : 'Open Link', style: const TextStyle(fontSize: 11)),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: ctrl,
+                    obscureText: obscure,
+                    contextMenuBuilder: (context, editableTextState) {
+                      return AdaptiveTextSelectionToolbar.editableText(
+                        editableTextState: editableTextState,
+                      );
+                    },
+                    decoration: InputDecoration(
+                      labelText: isAr ? l.aiAssistantApiKeyFieldLabel : 'API Key',
+                      hintText: 'AIzaSy...',
+                      prefixIcon: const Icon(Icons.vpn_key_outlined, size: 18),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          size: 16,
+                        ),
+                        onPressed: () => setLocal(() => obscure = !obscure),
+                      ),
+                    ),
+                  ),
+                  if (currentKey != null || state.hasApiKey) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 14),
+                        const SizedBox(width: 6),
+                        Text(
+                          isAr ? l.aiAssistantApiKeyActiveStatus : 'Active and configured API key',
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          actions: [
-            if (currentKey != null || ref.read(aiAssistantProvider).hasApiKey)
+            actions: [
+              if (currentKey != null || state.hasApiKey)
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    ref.read(aiAssistantProvider.notifier).clearApiKey();
+                  },
+                  style: TextButton.styleFrom(foregroundColor: AppTheme.crimson),
+                  child: Text(isAr ? l.aiAssistantDisableKey : 'Disable Key'),
+                ),
               TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(isAr ? l.aiAssistantCancel : 'Cancel'),
+              ),
+              ElevatedButton(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  ref.read(aiAssistantProvider.notifier).clearApiKey();
+                  ref.read(aiAssistantProvider.notifier).saveApiKey(ctrl.text);
                 },
-                style: TextButton.styleFrom(foregroundColor: AppTheme.crimson),
-                child: const Text('تعطيل المفتاح'),
+                child: Text(isAr ? l.aiAssistantSaveAndActivate : 'Save & Activate'),
               ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('إلغاء'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                ref.read(aiAssistantProvider.notifier).saveApiKey(ctrl.text);
-              },
-              child: const Text('حفظ وتفعيل'),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -213,7 +213,123 @@ void main() {
       expect(en.authorizedAgencyLabel('SGS'), contains('Authorized Agency: SGS'));
 
       expect(ar.confirmDeleteInspSessionContent('INSP-01', 'CERT-99'), contains('INSP-01'));
-      expect(ar.confirmDeleteInspSessionContent('INSP-01', 'CERT-99'), contains('CERT-99'));
+      expect(en.confirmDeleteInspSessionContent('INSP-01', 'CERT-99'), contains('CERT-99'));
+    });
+
+    test('Screen 53 export actions, dialog titles, and copy notifications are properly localized', () {
+      expect(ar.exportTsvBtn, contains('تصدير'));
+      expect(en.exportTsvBtn, contains('TSV'));
+
+      expect(ar.copyDossierBtn, contains('نسخ دوسيه الفحص الشامل'));
+      expect(en.copyDossierBtn, contains('Copy Full Dossier'));
+
+      expect(ar.copiedInspectionTsvSuccess, contains('جدول نصوص الفحص'));
+      expect(en.copiedInspectionTsvSuccess, contains('TSV'));
+
+      expect(ar.copiedInspectionExcelSuccess, contains('جدول البيانات'));
+      expect(en.copiedInspectionExcelSuccess, contains('spreadsheet'));
+
+      expect(ar.copiedDossierSuccess, contains('دوسيه الفحص الشامل'));
+      expect(en.copiedDossierSuccess, contains('dossier'));
+
+      expect(ar.exportTsvDialogTitle, contains('حفظ جدول نصوص فحص الشحنة'));
+      expect(en.exportTsvDialogTitle, contains('TSV'));
+
+      expect(ar.exportExcelDialogTitle, contains('جدول بيانات فحص الشحنة'));
+      expect(en.exportExcelDialogTitle, contains('Spreadsheet'));
+
+      expect(ar.exportPdfDialogTitle, contains('حفظ مسودة شهادة الفحص والمطابقة'));
+      expect(en.exportPdfDialogTitle, contains('PDF'));
+
+      expect(ar.cocNoPrefix(''), contains('رقم الشهادة:'));
+      expect(en.cocNoPrefix(''), contains('COC NO'));
+
+      expect(ar.acidNoPrefix(''), contains('رقم القيد الجمركي:'));
+      expect(en.acidNoPrefix(''), contains('ACID NO'));
+
+      expect(ar.certHeaderCocVoc, contains('شهادة المطابقة النوعية والتفتيش الفني'));
+      expect(en.certHeaderCocVoc, contains('CERTIFICATE OF CONFORMITY'));
+
+      expect(ar.noticeBannerDraftConfirm, contains('مسودة للتحقق'));
+      expect(en.noticeBannerDraftConfirm, contains('DRAFT VERIFICATION'));
+    });
+
+    test('Zero Latin characters in Screen 53 Arabic UI getters and labels', () {
+      final latinPattern = RegExp(r'[a-zA-Z]');
+      final List<String> arabicGetters = [
+        ar.inspStepRequirements,
+        ar.inspStepDraftInput,
+        ar.inspStepDiscrepancyMatrix,
+        ar.inspStepRegistry,
+        ar.inspRequirementsHeader,
+        ar.selectInspectionFileLabel,
+        ar.inspectionCertTypeLabel,
+        ar.optInspectionCoc,
+        ar.optInspectionCoa,
+        ar.optInspectionVoc,
+        ar.optInspectionPsi,
+        ar.inspectionAgencyLabel,
+        ar.openInspectionPreviewBtn,
+        ar.nextInspectionInputBtn,
+        ar.inspDraftInputHeader,
+        ar.runInspectionComparisonBtn,
+        ar.linkedInspectionFileLabel,
+        ar.certNumberFieldLabel,
+        ar.regulatoryAuthorityFieldLabel,
+        ar.inspectedInvoiceNumberFieldLabel,
+        ar.exporterShipperFieldLabel,
+        ar.importerApplicantFieldLabel,
+        ar.standardSpecFieldLabel,
+        ar.acidNumberFieldLabel,
+        ar.countryOfOriginFieldLabel,
+        ar.smartUploadInspectionBtn,
+        ar.rawTextInspectionHeader,
+        ar.smartExtractFromTextBtn,
+        ar.hasCriticalMismatchStatus,
+        ar.hasMinorDiscrepanciesStatus,
+        ar.inspectionConforms100Status,
+        ar.colInspField,
+        ar.colInspSystemValue,
+        ar.colInspDraftValue,
+        ar.colInspMatchStatus,
+        ar.colInspDetails,
+        ar.inspOverrideReasonBoxTitle,
+        ar.approveAndSaveWithReasonBtn,
+        ar.returnToEditAndContactSupplierBtn,
+        ar.startNewInspReviewBtn,
+        ar.colInspSessionCode,
+        ar.colInspCertType,
+        ar.colInspAgency,
+        ar.colInspCertNo,
+        ar.colInspStatus,
+        ar.colInspCreatedAt,
+        ar.colInspActions,
+        ar.egyptVerificationOfConformityHeader,
+        ar.importerCellLabel,
+        ar.exporterCellLabel,
+        ar.countryOfOriginHeader,
+        ar.hsCodesHeader,
+        ar.commercialInvoicesHeader,
+        ar.egyptianMandatoryStandardsHeader,
+        ar.conformityAssessmentResultConforming,
+        ar.egyptianCustomsComplianceHeader,
+        ar.exportTsvBtn,
+        ar.copyDossierBtn,
+        ar.copiedInspectionTsvSuccess,
+        ar.copiedInspectionExcelSuccess,
+        ar.copiedDossierSuccess,
+        ar.exportTsvDialogTitle,
+        ar.exportExcelDialogTitle,
+        ar.exportPdfDialogTitle,
+        ar.cocNoPrefix(''),
+        ar.acidNoPrefix(''),
+        ar.certHeaderCocVoc,
+        ar.noticeBannerDraftConfirm,
+      ];
+
+      for (final val in arabicGetters) {
+        expect(latinPattern.hasMatch(val), isFalse, reason: 'Arabic getter "$val" must not contain Latin characters');
+      }
     });
   });
 }

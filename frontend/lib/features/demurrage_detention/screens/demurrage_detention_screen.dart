@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/adaptive_tab_scaffold.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/demurrage_model.dart';
 import '../providers/demurrage_provider.dart';
 import '../widgets/dual_clock_radar_dialog.dart';
+import '../widgets/freight_data_monitor_dialog.dart';
 
 class DemurrageDetentionScreen extends ConsumerStatefulWidget {
   const DemurrageDetentionScreen({super.key});
@@ -111,6 +115,127 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
 
   String _formatDate(DateTime dt) => dt.toIso8601String().split('T').first;
 
+  void _copyTrackingsTsv(List<DemurrageTrackingModel> trackings) {
+    final l10n = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final headers = [
+      l10n.demurrageTsvHeaderTrackingCode,
+      l10n.demurrageTsvHeaderBlNumber,
+      l10n.demurrageTsvHeaderCarrier,
+      l10n.demurrageTsvHeaderPort,
+      l10n.demurrageTsvHeaderDischargeDate,
+      l10n.demurrageTsvHeaderGateOutDate,
+      l10n.demurrageTsvHeaderEmptyReturnDate,
+      l10n.demurrageTsvHeaderContainersCount,
+      l10n.demurrageTsvHeaderTotalDemurrageFx,
+      l10n.demurrageTsvHeaderTotalDetentionFx,
+      l10n.demurrageTsvHeaderTotalStorageEgp,
+      l10n.demurrageTsvHeaderCurrency,
+      l10n.demurrageTsvHeaderExchangeRate,
+      l10n.demurrageTsvHeaderTotalCostEgp,
+      l10n.demurrageTsvHeaderStatus,
+      l10n.demurrageTsvHeaderPushedSettlement,
+    ];
+
+    final buffer = StringBuffer();
+    buffer.writeln(headers.join('\t'));
+    for (final t in trackings) {
+      final row = [
+        t.trackingCode,
+        t.billOfLadingNo,
+        t.carrierName,
+        t.portName,
+        t.dischargeDate,
+        t.gateOutDate ?? (isAr ? 'لم تخرج بعد' : 'Not Gated Out'),
+        t.emptyReturnDate ?? (isAr ? 'لم تُعد بعد' : 'Not Returned'),
+        t.containers.length.toString(),
+        t.totalDemurrageFx.toStringAsFixed(2),
+        t.totalDetentionFx.toStringAsFixed(2),
+        t.totalStorageEgp.toStringAsFixed(2),
+        t.currency,
+        t.exchangeRate.toStringAsFixed(2),
+        t.totalCostEgp.toStringAsFixed(2),
+        t.status,
+        t.isPushedToSettlement ? (isAr ? 'نعم' : 'Yes') : (isAr ? 'لا' : 'No'),
+      ];
+      buffer.writeln(row.join('\t'));
+    }
+
+    CopyHelper.copy(
+      context,
+      buffer.toString(),
+      customMessage: l10n.demurrageExportTsvSuccess,
+    );
+  }
+
+  void _copySimulationBreakdownTsv(DemurrageSimulationResultModel res) {
+    final l10n = context.l10n;
+    final headers = [
+      l10n.colCategory,
+      l10n.colConsumedDays,
+      l10n.colFreeDays,
+      l10n.colOverdueDays,
+      l10n.colFeeAmount,
+    ];
+
+    final buffer = StringBuffer();
+    buffer.writeln(headers.join('\t'));
+    for (final b in res.breakdownDetails) {
+      final cat = l10n.demurrageCategoryLabel(b['category']);
+      final feeStr = b['currency'] == 'EGP'
+          ? l10n.egpCurrencyAmount((b['fee_egp'] ?? 0).toString())
+          : '${b['fee_fx']} ${b['currency']}';
+      final row = [
+        cat,
+        l10n.daysCountFormatted(b['days_consumed'] ?? 0),
+        l10n.daysCountFormatted(b['free_days'] ?? 0),
+        l10n.daysCountFormatted(b['days_overdue'] ?? 0),
+        feeStr,
+      ];
+      buffer.writeln(row.join('\t'));
+    }
+
+    CopyHelper.copy(
+      context,
+      buffer.toString(),
+      customMessage: l10n.simBreakdownCopyTsvSuccess,
+    );
+  }
+
+  void _copyPoliciesTsv(List<DemurragePolicyModel> policies) {
+    final l10n = context.l10n;
+    final headers = [
+      l10n.policiesTsvHeaderCarrier,
+      l10n.policiesTsvHeaderContainerType,
+      l10n.policiesTsvHeaderDemurrageFreeDays,
+      l10n.policiesTsvHeaderDetentionFreeDays,
+      l10n.policiesTsvHeaderPortStorageFreeDays,
+      l10n.policiesTsvHeaderDailyStorageRateEgp,
+      l10n.policiesTsvHeaderCurrency,
+    ];
+
+    final buffer = StringBuffer();
+    buffer.writeln(headers.join('\t'));
+    for (final p in policies) {
+      final row = [
+        p.carrierName,
+        p.containerType,
+        p.demurrageFreeDays.toString(),
+        p.detentionFreeDays.toString(),
+        p.portStorageFreeDays.toString(),
+        p.portStorageDailyRateEgp.toStringAsFixed(2),
+        p.currency,
+      ];
+      buffer.writeln(row.join('\t'));
+    }
+
+    CopyHelper.copy(
+      context,
+      buffer.toString(),
+      customMessage: l10n.policiesExportTsvSuccess,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -130,32 +255,40 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
           ],
         ),
         backgroundColor: AppTheme.charcoal,
-        actions: const [
-          BackToDashboardButton(),
-          SizedBox(width: 12),
+        actions: [
+          IconButton(
+            tooltip: l10n.freightDataLaunchConnectorTooltip,
+            icon: const Icon(Icons.cloud_sync_outlined, color: Colors.white),
+            onPressed: () => showFreightDataMonitorDialog(context, ref),
+          ),
+          const BackToDashboardButton(),
+          const SizedBox(width: 12),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppTheme.cobalt,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: [
-            Tab(icon: const Icon(Icons.list_alt_rounded), text: l10n.containerTrackingsTab),
-            Tab(icon: const Icon(Icons.calculate_outlined), text: l10n.simulatorAndTierCalcTab),
-            Tab(icon: const Icon(Icons.policy_outlined), text: l10n.carrierTariffPoliciesTab),
-          ],
-        ),
       ),
-      body: state.isLoading && state.trackings.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildTrackingsTab(state),
-                _buildSimulatorTab(state),
-                _buildPoliciesTab(state),
-              ],
-            ),
+      body: SelectionArea(
+        child: state.isLoading && state.trackings.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : AdaptiveTabScaffold(
+                controller: _tabController,
+                tabs: [
+                  AdaptiveTabItem(
+                    icon: Icons.list_alt_rounded,
+                    label: l10n.containerTrackingsTab,
+                    content: _buildTrackingsTab(state),
+                  ),
+                  AdaptiveTabItem(
+                    icon: Icons.calculate_outlined,
+                    label: l10n.simulatorAndTierCalcTab,
+                    content: _buildSimulatorTab(state),
+                  ),
+                  AdaptiveTabItem(
+                    icon: Icons.policy_outlined,
+                    label: l10n.carrierTariffPoliciesTab,
+                    content: _buildPoliciesTab(state),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 
@@ -252,7 +385,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                         },
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
                       child: SearchableDropdownField<String>(
@@ -268,7 +401,49 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                         onChanged: (v) => setState(() => _selectedStatusFilter = v ?? 'All'),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      onPressed: filteredTrackings.isEmpty ? null : () => _copyTrackingsTsv(filteredTrackings),
+                      icon: const Icon(Icons.copy_all_rounded, size: 16),
+                      label: Text(l10n.demurrageExportTsvBtn),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: filteredTrackings.isEmpty
+                          ? null
+                          : () => MasterDataExportService.exportDemurrageTrackingsToExcel(
+                                context,
+                                filteredTrackings,
+                                isAr: Localizations.localeOf(context).languageCode == 'ar',
+                              ),
+                      icon: const Icon(Icons.table_chart_outlined, size: 16),
+                      label: Text(l10n.demurrageExportExcelBtn),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: filteredTrackings.isEmpty
+                          ? null
+                          : () => MasterDataExportService.printOrSaveDemurrageTrackingsListPdf(
+                                context,
+                                filteredTrackings,
+                                isAr: Localizations.localeOf(context).languageCode == 'ar',
+                              ),
+                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                      label: Text(l10n.demurrageExportPdfBtn),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     ElevatedButton.icon(
                       onPressed: () => _showAddTrackingDialog(context),
                       icon: const Icon(Icons.add, color: Colors.white),
@@ -378,21 +553,49 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.charcoal.withOpacity(0.1),
+                    Tooltip(
+                      message: l10n.demurrageCopyFieldTooltip,
+                      child: InkWell(
                         borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        item.trackingCode,
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                        onTap: () => CopyHelper.copy(context, item.trackingCode),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.charcoal.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                item.trackingCode,
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(Icons.copy_rounded, size: 12, color: AppTheme.charcoal.withOpacity(0.6)),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Text(
-                      l10n.billOfLadingLabel(item.billOfLadingNo),
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    Tooltip(
+                      message: l10n.demurrageCopyFieldTooltip,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(4),
+                        onTap: () => CopyHelper.copy(context, item.billOfLadingNo),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              l10n.billOfLadingLabel(item.billOfLadingNo),
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(Icons.copy_rounded, size: 14, color: Colors.grey.shade500),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Text('(${item.carrierName} - ${item.portName})', style: TextStyle(color: Colors.grey.shade600)),
@@ -441,6 +644,25 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 OutlinedButton.icon(
+                  onPressed: () {
+                    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                    final summary = MasterDataExportService.generateDemurrageTrackingWhatsAppText(item, isAr: isAr);
+                    CopyHelper.copy(context, summary, customMessage: l10n.demurrageCopySummarySuccess);
+                  },
+                  icon: const Icon(Icons.copy_rounded, size: 16),
+                  label: Text(l10n.demurrageCopySummaryBtn),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                    MasterDataExportService.printOrSaveDemurrageTrackingSlipPdf(context, item, isAr: isAr);
+                  },
+                  icon: const Icon(Icons.print_outlined, size: 16),
+                  label: Text(l10n.demurragePrintSlipTooltip),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
                   onPressed: () => showDualClockRadarDialog(
                     context,
                     ref,
@@ -449,7 +671,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                     carrierName: item.carrierName,
                   ),
                   icon: const Icon(Icons.speed_rounded, color: AppTheme.cobalt, size: 16),
-                  label: const Text('رادار الأرضيات والغرامات (Dual Clock)', style: TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                  label: Text(l10n.dualClockRadarBtn, style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(side: const BorderSide(color: AppTheme.cobalt)),
                 ),
                 const SizedBox(width: 8),
@@ -561,7 +783,15 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           Expanded(
                             child: TextFormField(
                               initialValue: _simContainersCount.toString(),
-                              decoration: InputDecoration(labelText: l10n.containersCountFieldLabel, border: const OutlineInputBorder()),
+                              decoration: InputDecoration(
+                                labelText: l10n.containersCountFieldLabel,
+                                border: const OutlineInputBorder(),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  tooltip: l10n.demurrageCopyFieldTooltip,
+                                  onPressed: () => CopyHelper.copy(context, _simContainersCount.toString()),
+                                ),
+                              ),
                               keyboardType: TextInputType.number,
                               validator: (v) => (int.tryParse(v ?? '') ?? 0) <= 0 ? l10n.requiredFieldValidation : null,
                               onChanged: (v) {
@@ -574,7 +804,15 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           Expanded(
                             child: TextFormField(
                               initialValue: _simExchangeRate.toString(),
-                              decoration: InputDecoration(labelText: l10n.exchangeRateFieldLabel, border: const OutlineInputBorder()),
+                              decoration: InputDecoration(
+                                labelText: l10n.exchangeRateFieldLabel,
+                                border: const OutlineInputBorder(),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  tooltip: l10n.demurrageCopyFieldTooltip,
+                                  onPressed: () => CopyHelper.copy(context, _simExchangeRate.toString()),
+                                ),
+                              ),
                               keyboardType: TextInputType.number,
                               validator: (v) => (double.tryParse(v ?? '') ?? 0) <= 0 ? l10n.requiredFieldValidation : null,
                               onChanged: (v) {
@@ -593,7 +831,15 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           Expanded(
                             child: TextFormField(
                               initialValue: _simDemFreeDays.toString(),
-                              decoration: InputDecoration(labelText: l10n.portDemurrageFreeDaysLabel, border: const OutlineInputBorder()),
+                              decoration: InputDecoration(
+                                labelText: l10n.portDemurrageFreeDaysLabel,
+                                border: const OutlineInputBorder(),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  tooltip: l10n.demurrageCopyFieldTooltip,
+                                  onPressed: () => CopyHelper.copy(context, _simDemFreeDays.toString()),
+                                ),
+                              ),
                               keyboardType: TextInputType.number,
                               onChanged: (v) {
                                 _simDemFreeDays = int.tryParse(v) ?? 14;
@@ -605,7 +851,15 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           Expanded(
                             child: TextFormField(
                               initialValue: _simDetFreeDays.toString(),
-                              decoration: InputDecoration(labelText: l10n.emptyReturnFreeDaysLabel, border: const OutlineInputBorder()),
+                              decoration: InputDecoration(
+                                labelText: l10n.emptyReturnFreeDaysLabel,
+                                border: const OutlineInputBorder(),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  tooltip: l10n.demurrageCopyFieldTooltip,
+                                  onPressed: () => CopyHelper.copy(context, _simDetFreeDays.toString()),
+                                ),
+                              ),
                               keyboardType: TextInputType.number,
                               onChanged: (v) {
                                 _simDetFreeDays = int.tryParse(v) ?? 7;
@@ -731,150 +985,212 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
             flex: 6,
             child: res == null
                 ? Center(child: Text(l10n.initializingSimulationResults))
-                : Column(
-                    children: [
-                      // Status Badge Alert
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: _getStatusBadgeColor(res.statusBadge).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: _getStatusBadgeColor(res.statusBadge)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              res.statusBadge == 'SAFE'
-                                   ? Icons.check_circle_outline
-                                  : Icons.warning_amber_rounded,
-                              color: _getStatusBadgeColor(res.statusBadge),
-                              size: 28,
+                : Builder(
+                    builder: (context) {
+                      final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                      String countdownText = res.countdownSummaryAr;
+                      if (!isAr) {
+                        if (res.statusBadge == 'SAFE') {
+                          final daysLeft = res.demurrageFreeDays - res.demurrageDaysConsumed;
+                          countdownText = 'Free time active: $daysLeft days remaining without penalties (until ${res.demurrageExpiryDate}).';
+                        } else if (res.statusBadge == 'WARNING') {
+                          final daysLeft = res.demurrageFreeDays - res.demurrageDaysConsumed;
+                          countdownText = 'Warning: Only $daysLeft days remaining before demurrage charges begin (${res.demurrageExpiryDate}).';
+                        } else if (res.statusBadge == 'DEMURRAGE_INCURRED') {
+                          countdownText = 'Demurrage charges incurred: ${res.demurrageDaysOverdue} days overdue.';
+                        } else if (res.statusBadge == 'DETENTION_INCURRED') {
+                          countdownText = 'Detention charges incurred: ${res.detentionDaysOverdue} days overdue.';
+                        } else {
+                          countdownText = 'Free time expired: ${res.demurrageDaysOverdue} days demurrage + ${res.detentionDaysOverdue} days detention overdue.';
+                        }
+                      }
+
+                      return Column(
+                        children: [
+                          // Status Badge Alert
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: _getStatusBadgeColor(res.statusBadge).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: _getStatusBadgeColor(res.statusBadge)),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                res.countdownSummaryAr,
-                                style: TextStyle(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  res.statusBadge == 'SAFE'
+                                       ? Icons.check_circle_outline
+                                       : Icons.warning_amber_rounded,
                                   color: _getStatusBadgeColor(res.statusBadge),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  size: 28,
                                 ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Tooltip(
+                                    message: l10n.demurrageCopyFieldTooltip,
+                                    child: InkWell(
+                                      onTap: () => CopyHelper.copy(context, countdownText),
+                                      child: Text(
+                                        countdownText,
+                                        style: TextStyle(
+                                          color: _getStatusBadgeColor(res.statusBadge),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Cost Summary Card
+                          Card(
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(l10n.totalDemurrageCostSummaryTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildCostMetricCard(
+                                          l10n.demurrageFeeMetric,
+                                          '${res.demurrageFeeFx.toStringAsFixed(2)} \$',
+                                          l10n.daysOverdueFormatted(res.demurrageDaysOverdue),
+                                          AppTheme.crimson,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _buildCostMetricCard(
+                                          l10n.detentionFeeMetric,
+                                          '${res.detentionFeeFx.toStringAsFixed(2)} \$',
+                                          l10n.daysOverdueFormatted(res.detentionDaysOverdue),
+                                          AppTheme.orange,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _buildCostMetricCard(
+                                          l10n.portStorageFeeMetric,
+                                          l10n.egpCurrencyAmount(res.storageFeeEgp.toStringAsFixed(2)),
+                                          l10n.daysOverdueFormatted(res.storageDaysOverdue),
+                                          AppTheme.cobalt,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 32),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(l10n.totalDueComprehensiveCost, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                      Text(
+                                        l10n.egpCurrencyAmount(res.totalCostEgp.toStringAsFixed(2)),
+                                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.crimson),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Cost Summary Card
-                      Card(
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: Colors.grey.shade200),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(l10n.totalDemurrageCostSummaryTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildCostMetricCard(
-                                      l10n.demurrageFeeMetric,
-                                      '${res.demurrageFeeFx.toStringAsFixed(2)} \$',
-                                      l10n.daysOverdueFormatted(res.demurrageDaysOverdue),
-                                      AppTheme.crimson,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildCostMetricCard(
-                                      l10n.detentionFeeMetric,
-                                      '${res.detentionFeeFx.toStringAsFixed(2)} \$',
-                                      l10n.daysOverdueFormatted(res.detentionDaysOverdue),
-                                      AppTheme.orange,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildCostMetricCard(
-                                      l10n.portStorageFeeMetric,
-                                      l10n.egpCurrencyAmount(res.storageFeeEgp.toStringAsFixed(2)),
-                                      l10n.daysOverdueFormatted(res.storageDaysOverdue),
-                                      AppTheme.cobalt,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const Divider(height: 32),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(l10n.totalDueComprehensiveCost, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                  Text(
-                                    l10n.egpCurrencyAmount(res.totalCostEgp.toStringAsFixed(2)),
-                                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.crimson),
-                                  ),
-                                ],
-                              ),
-                            ],
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+                          const SizedBox(height: 16),
 
-                      // Itemized Breakdown Table
-                      Card(
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: Colors.grey.shade200),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(l10n.tieredBreakdownTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 12),
-                              DataTable(
-                                columns: [
-                                  DataColumn(label: Text(l10n.colCategory)),
-                                  DataColumn(label: Text(l10n.colConsumedDays)),
-                                  DataColumn(label: Text(l10n.colFreeDays)),
-                                  DataColumn(label: Text(l10n.colOverdueDays)),
-                                  DataColumn(label: Text(l10n.colFeeAmount)),
-                                ],
-                                rows: res.breakdownDetails.map((b) {
-                                  final cat = l10n.demurrageCategoryLabel(b['category']);
-                                  final feeStr = b['currency'] == 'EGP'
-                                      ? l10n.egpCurrencyAmount((b['fee_egp'] ?? 0).toString())
-                                      : '${b['fee_fx']} ${b['currency']}';
-                                  return DataRow(cells: [
-                                    DataCell(Text(cat, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                    DataCell(Text(l10n.daysCountFormatted(b['days_consumed'] ?? 0))),
-                                    DataCell(Text(l10n.daysCountFormatted(b['free_days'] ?? 0))),
-                                    DataCell(Text(l10n.daysCountFormatted(b['days_overdue'] ?? 0))),
-                                    DataCell(Text(
-                                      feeStr,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: (b['days_overdue'] ?? 0) > 0 ? AppTheme.crimson : AppTheme.emerald,
+                          // Itemized Breakdown Table
+                          Card(
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(l10n.tieredBreakdownTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      TextButton.icon(
+                                        onPressed: () => _copySimulationBreakdownTsv(res),
+                                        icon: const Icon(Icons.copy_all_rounded, size: 16),
+                                        label: Text(l10n.simBreakdownCopyTsvBtn),
                                       ),
-                                    )),
-                                  ]);
-                                }).toList(),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  DataTable(
+                                    columns: [
+                                      DataColumn(label: Text(l10n.colCategory)),
+                                      DataColumn(label: Text(l10n.colConsumedDays)),
+                                      DataColumn(label: Text(l10n.colFreeDays)),
+                                      DataColumn(label: Text(l10n.colOverdueDays)),
+                                      DataColumn(label: Text(l10n.colFeeAmount)),
+                                    ],
+                                    rows: res.breakdownDetails.map((b) {
+                                      final cat = l10n.demurrageCategoryLabel(b['category']);
+                                      final feeStr = b['currency'] == 'EGP'
+                                          ? l10n.egpCurrencyAmount((b['fee_egp'] ?? 0).toString())
+                                          : '${b['fee_fx']} ${b['currency']}';
+                                      final consumedStr = l10n.daysCountFormatted(b['days_consumed'] ?? 0);
+                                      final freeStr = l10n.daysCountFormatted(b['free_days'] ?? 0);
+                                      final overdueStr = l10n.daysCountFormatted(b['days_overdue'] ?? 0);
+                                      final rowSummary = '$cat | $consumedStr | $freeStr | $overdueStr | $feeStr';
+                                      return DataRow(cells: [
+                                        DataCell(CopyableTableCell(
+                                          value: cat,
+                                          rowSummary: rowSummary,
+                                          child: Text(cat, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                        )),
+                                        DataCell(CopyableTableCell(
+                                          value: (b['days_consumed'] ?? 0).toString(),
+                                          rowSummary: rowSummary,
+                                          child: Text(consumedStr),
+                                        )),
+                                        DataCell(CopyableTableCell(
+                                          value: (b['free_days'] ?? 0).toString(),
+                                          rowSummary: rowSummary,
+                                          child: Text(freeStr),
+                                        )),
+                                        DataCell(CopyableTableCell(
+                                          value: (b['days_overdue'] ?? 0).toString(),
+                                          rowSummary: rowSummary,
+                                          child: Text(overdueStr),
+                                        )),
+                                        DataCell(CopyableTableCell(
+                                          value: feeStr,
+                                          rowSummary: rowSummary,
+                                          child: Text(
+                                            feeStr,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: (b['days_overdue'] ?? 0) > 0 ? AppTheme.crimson : AppTheme.emerald,
+                                            ),
+                                          ),
+                                        )),
+                                      ]);
+                                    }).toList(),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
+                        ],
+                      );
+                    },
                   ),
           ),
         ],
@@ -942,11 +1258,33 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                   Text(l10n.carrierTariffPoliciesSubtitle, style: const TextStyle(color: Colors.grey)),
                 ],
               ),
-              ElevatedButton.icon(
-                onPressed: () => _showAddPolicyDialog(context),
-                icon: const Icon(Icons.add, color: Colors.white),
-                label: Text(l10n.addCarrierPolicyBtn, style: const TextStyle(color: Colors.white)),
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: state.policies.isEmpty ? null : () => _copyPoliciesTsv(state.policies),
+                    icon: const Icon(Icons.copy_all_rounded, size: 16),
+                    label: Text(l10n.policiesExportTsvBtn),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: state.policies.isEmpty
+                        ? null
+                        : () => MasterDataExportService.exportDemurragePoliciesToExcel(
+                              context,
+                              state.policies,
+                              isAr: Localizations.localeOf(context).languageCode == 'ar',
+                            ),
+                    icon: const Icon(Icons.table_chart_outlined, size: 16),
+                    label: Text(l10n.demurrageExportExcelBtn),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: () => _showAddPolicyDialog(context),
+                    icon: const Icon(Icons.add, color: Colors.white),
+                    label: Text(l10n.addCarrierPolicyBtn, style: const TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                  ),
+                ],
               ),
             ],
           ),
@@ -983,7 +1321,38 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                               '${p.carrierName} - ${p.containerType}',
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                             ),
-                            Text(l10n.currencyLabelFormatted(p.currency), style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Row(
+                              children: [
+                                Text(l10n.currencyLabelFormatted(p.currency), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.copy_outlined, size: 16),
+                                  tooltip: l10n.policyCopySummaryBtn,
+                                  onPressed: () {
+                                    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                                    final buffer = StringBuffer();
+                                    if (isAr) {
+                                      buffer.writeln('الخط الملاحي:\t${p.carrierName}');
+                                      buffer.writeln('نوع الحاوية:\t${p.containerType}');
+                                      buffer.writeln('سماح الأرضيات:\t${p.demurrageFreeDays} يوم');
+                                      buffer.writeln('سماح الفارغ:\t${p.detentionFreeDays} يوم');
+                                      buffer.writeln('سماح التخزين:\t${p.portStorageFreeDays} يوم');
+                                      buffer.writeln('رسم التخزين اليومي:\t${p.portStorageDailyRateEgp} ج.م');
+                                      buffer.writeln('العملة:\t${p.currency}');
+                                    } else {
+                                      buffer.writeln('Carrier:\t${p.carrierName}');
+                                      buffer.writeln('Container Type:\t${p.containerType}');
+                                      buffer.writeln('Demurrage Free Days:\t${p.demurrageFreeDays} days');
+                                      buffer.writeln('Detention Free Days:\t${p.detentionFreeDays} days');
+                                      buffer.writeln('Storage Free Days:\t${p.portStorageFreeDays} days');
+                                      buffer.writeln('Daily Storage Rate:\t${p.portStorageDailyRateEgp} EGP');
+                                      buffer.writeln('Currency:\t${p.currency}');
+                                    }
+                                    CopyHelper.copy(context, buffer.toString(), customMessage: l10n.policyCopySummarySuccess);
+                                  },
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                         const Divider(height: 20),
@@ -1025,85 +1394,87 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(l10n.addTrackingDialogTitle),
-          content: SizedBox(
-            width: 550,
-            child: Form(
-              key: formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SearchableDropdownField<String>(
-                      labelText: l10n.shippingLineFieldLabel,
-                      value: carrier,
-                      items: _carriersList
-                          .map((c) => SearchableDropdownItem(value: c, label: c))
-                          .toList(),
-                      onChanged: (c) => setDialogState(() => carrier = c ?? carrier),
-                    ),
-                    const SizedBox(height: 12),
-                    SearchableDropdownField<String>(
-                      labelText: l10n.arrivalPortFieldLabel,
-                      value: port,
-                      items: _portsList
-                          .map((p) => SearchableDropdownItem(value: p, label: p))
-                          .toList(),
-                      onChanged: (p) => setDialogState(() => port = p ?? port),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      decoration: InputDecoration(labelText: l10n.blNumberFieldLabel, border: const OutlineInputBorder()),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? l10n.requiredFieldValidation : null,
-                      onSaved: (v) => blNo = v ?? '',
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: TextFormField(
-                            decoration: InputDecoration(labelText: l10n.containerNumberFieldLabel, border: const OutlineInputBorder()),
-                            validator: (v) => (v == null || v.trim().isEmpty) ? l10n.requiredFieldValidation : null,
-                            onSaved: (v) => cNo = v ?? '',
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: SearchableDropdownField<String>(
-                            labelText: l10n.containerTypeFieldLabel,
-                            value: cType,
-                            items: _containerTypesList
-                                .map((t) => SearchableDropdownItem(value: t, label: t))
-                                .toList(),
-                            onChanged: (t) => setDialogState(() => cType = t ?? cType),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    ListTile(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(color: Colors.grey.shade300),
+          content: SelectionArea(
+            child: SizedBox(
+              width: 550,
+              child: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SearchableDropdownField<String>(
+                        labelText: l10n.shippingLineFieldLabel,
+                        value: carrier,
+                        items: _carriersList
+                            .map((c) => SearchableDropdownItem(value: c, label: c))
+                            .toList(),
+                        onChanged: (c) => setDialogState(() => carrier = c ?? carrier),
                       ),
-                      leading: const Icon(Icons.calendar_today, color: AppTheme.cobalt),
-                      title: Text(l10n.portDischargeDateTile),
-                      subtitle: Text(_formatDate(dischargeDate), style: const TextStyle(fontWeight: FontWeight.bold)),
-                      trailing: const Icon(Icons.edit, size: 18),
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: dischargeDate,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2030),
-                        );
-                        if (picked != null) {
-                          setDialogState(() => dischargeDate = picked);
-                        }
-                      },
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      SearchableDropdownField<String>(
+                        labelText: l10n.arrivalPortFieldLabel,
+                        value: port,
+                        items: _portsList
+                            .map((p) => SearchableDropdownItem(value: p, label: p))
+                            .toList(),
+                        onChanged: (p) => setDialogState(() => port = p ?? port),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        decoration: InputDecoration(labelText: l10n.blNumberFieldLabel, border: const OutlineInputBorder()),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? l10n.requiredFieldValidation : null,
+                        onSaved: (v) => blNo = v ?? '',
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              decoration: InputDecoration(labelText: l10n.containerNumberFieldLabel, border: const OutlineInputBorder()),
+                              validator: (v) => (v == null || v.trim().isEmpty) ? l10n.requiredFieldValidation : null,
+                              onSaved: (v) => cNo = v ?? '',
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: SearchableDropdownField<String>(
+                              labelText: l10n.containerTypeFieldLabel,
+                              value: cType,
+                              items: _containerTypesList
+                                  .map((t) => SearchableDropdownItem(value: t, label: t))
+                                  .toList(),
+                              onChanged: (t) => setDialogState(() => cType = t ?? cType),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ListTile(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        leading: const Icon(Icons.calendar_today, color: AppTheme.cobalt),
+                        title: Text(l10n.portDischargeDateTile),
+                        subtitle: Text(_formatDate(dischargeDate), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        trailing: const Icon(Icons.edit, size: 18),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: dischargeDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2030),
+                          );
+                          if (picked != null) {
+                            setDialogState(() => dischargeDate = picked);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1162,51 +1533,53 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(l10n.updateTrackingDatesDialogTitle(item.trackingCode)),
-          content: SizedBox(
-            width: 450,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(color: Colors.grey.shade300),
+          content: SelectionArea(
+            child: SizedBox(
+              width: 450,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    leading: const Icon(Icons.output, color: AppTheme.orange),
+                    title: Text(l10n.gateOutDateTile),
+                    subtitle: Text(gateOut != null ? _formatDate(gateOut!) : l10n.notRecordedOption),
+                    trailing: const Icon(Icons.edit, size: 18),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: gateOut ?? discharge,
+                        firstDate: discharge,
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) setDialogState(() => gateOut = picked);
+                    },
                   ),
-                  leading: const Icon(Icons.output, color: AppTheme.orange),
-                  title: Text(l10n.gateOutDateTile),
-                  subtitle: Text(gateOut != null ? _formatDate(gateOut!) : l10n.notRecordedOption),
-                  trailing: const Icon(Icons.edit, size: 18),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: gateOut ?? discharge,
-                      firstDate: discharge,
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) setDialogState(() => gateOut = picked);
-                  },
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(color: Colors.grey.shade300),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    leading: const Icon(Icons.keyboard_return, color: AppTheme.emerald),
+                    title: Text(l10n.emptyReturnDateTile),
+                    subtitle: Text(emptyReturn != null ? _formatDate(emptyReturn!) : l10n.notRecordedOption),
+                    trailing: const Icon(Icons.edit, size: 18),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: emptyReturn ?? (gateOut ?? discharge),
+                        firstDate: gateOut ?? discharge,
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) setDialogState(() => emptyReturn = picked);
+                    },
                   ),
-                  leading: const Icon(Icons.keyboard_return, color: AppTheme.emerald),
-                  title: Text(l10n.emptyReturnDateTile),
-                  subtitle: Text(emptyReturn != null ? _formatDate(emptyReturn!) : l10n.notRecordedOption),
-                  trailing: const Icon(Icons.edit, size: 18),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: emptyReturn ?? (gateOut ?? discharge),
-                      firstDate: gateOut ?? discharge,
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) setDialogState(() => emptyReturn = picked);
-                  },
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           actions: [
@@ -1275,75 +1648,77 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(l10n.addPolicyDialogTitle),
-          content: SizedBox(
-            width: 500,
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SearchableDropdownField<String>(
-                    labelText: l10n.shippingLineFieldLabel,
-                    value: carrier,
-                    items: _carriersList
-                        .map((c) => SearchableDropdownItem(value: c, label: c))
-                        .toList(),
-                    onChanged: (c) => setDialogState(() => carrier = c ?? carrier),
-                  ),
-                  const SizedBox(height: 12),
-                  SearchableDropdownField<String>(
-                    labelText: l10n.containerTypeFieldLabel,
-                    value: cType,
-                    items: _containerTypesList
-                        .map((t) => SearchableDropdownItem(value: t, label: t))
-                        .toList(),
-                    onChanged: (t) => setDialogState(() => cType = t ?? cType),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          initialValue: demFree.toString(),
-                          decoration: InputDecoration(labelText: l10n.demurrageFreeDaysFieldLabel, border: const OutlineInputBorder()),
-                          keyboardType: TextInputType.number,
-                          onSaved: (v) => demFree = int.tryParse(v ?? '') ?? 14,
+          content: SelectionArea(
+            child: SizedBox(
+              width: 500,
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SearchableDropdownField<String>(
+                      labelText: l10n.shippingLineFieldLabel,
+                      value: carrier,
+                      items: _carriersList
+                          .map((c) => SearchableDropdownItem(value: c, label: c))
+                          .toList(),
+                      onChanged: (c) => setDialogState(() => carrier = c ?? carrier),
+                    ),
+                    const SizedBox(height: 12),
+                    SearchableDropdownField<String>(
+                      labelText: l10n.containerTypeFieldLabel,
+                      value: cType,
+                      items: _containerTypesList
+                          .map((t) => SearchableDropdownItem(value: t, label: t))
+                          .toList(),
+                      onChanged: (t) => setDialogState(() => cType = t ?? cType),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: demFree.toString(),
+                            decoration: InputDecoration(labelText: l10n.demurrageFreeDaysFieldLabel, border: const OutlineInputBorder()),
+                            keyboardType: TextInputType.number,
+                            onSaved: (v) => demFree = int.tryParse(v ?? '') ?? 14,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          initialValue: detFree.toString(),
-                          decoration: InputDecoration(labelText: l10n.detentionFreeDaysFieldLabel, border: const OutlineInputBorder()),
-                          keyboardType: TextInputType.number,
-                          onSaved: (v) => detFree = int.tryParse(v ?? '') ?? 7,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: detFree.toString(),
+                            decoration: InputDecoration(labelText: l10n.detentionFreeDaysFieldLabel, border: const OutlineInputBorder()),
+                            keyboardType: TextInputType.number,
+                            onSaved: (v) => detFree = int.tryParse(v ?? '') ?? 7,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          initialValue: storFree.toString(),
-                          decoration: InputDecoration(labelText: l10n.portStorageFreeDaysFieldLabel, border: const OutlineInputBorder()),
-                          keyboardType: TextInputType.number,
-                          onSaved: (v) => storFree = int.tryParse(v ?? '') ?? 5,
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: storFree.toString(),
+                            decoration: InputDecoration(labelText: l10n.portStorageFreeDaysFieldLabel, border: const OutlineInputBorder()),
+                            keyboardType: TextInputType.number,
+                            onSaved: (v) => storFree = int.tryParse(v ?? '') ?? 5,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          initialValue: storRate.toString(),
-                          decoration: InputDecoration(labelText: l10n.dailyStorageRateEgpFieldLabel, border: const OutlineInputBorder()),
-                          keyboardType: TextInputType.number,
-                          onSaved: (v) => storRate = double.tryParse(v ?? '') ?? 250.0,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: storRate.toString(),
+                            decoration: InputDecoration(labelText: l10n.dailyStorageRateEgpFieldLabel, border: const OutlineInputBorder()),
+                            keyboardType: TextInputType.number,
+                            onSaved: (v) => storRate = double.tryParse(v ?? '') ?? 250.0,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

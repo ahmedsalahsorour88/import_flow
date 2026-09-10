@@ -7,6 +7,8 @@ import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/services/master_data_export_service.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/currency_model.dart';
 
 import '../providers/currencies_provider.dart';
@@ -39,6 +41,61 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _copyCurrenciesTsv(BuildContext context) {
+    final l10n = context.l10n;
+    final currencies = ref.read(currenciesProvider).value ?? [];
+    if (currencies.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.noCurrenciesFound), backgroundColor: AppTheme.crimson),
+      );
+      return;
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln([
+      l10n.currenciesTsvHeaderIsoCode,
+      l10n.currenciesTsvHeaderName,
+      l10n.currenciesTsvHeaderSymbol,
+      l10n.currenciesTsvHeaderIsBase,
+      l10n.currenciesTsvHeaderCommercialRate,
+      l10n.currenciesTsvHeaderCustomsRate,
+      l10n.currenciesTsvHeaderStatus,
+      l10n.currenciesTsvHeaderDecimals,
+    ].join('\t'));
+
+    for (final c in currencies) {
+      buffer.writeln(_buildCurrencyRowSummary(l10n, c));
+    }
+
+    CopyHelper.copy(
+      context,
+      buffer.toString(),
+      customMessage: l10n.currenciesExportTsvSuccess,
+    );
+  }
+
+  String _buildCurrencyRowSummary(AppLocalizations l10n, CurrencyModel c) {
+    final statusStr = c.isActive ? l10n.statusActive : l10n.statusInactive;
+    final isBaseStr = c.isBaseCurrency ? l10n.baseCurrencyRateLabel : (c.isActive ? l10n.statusActive : l10n.statusInactive);
+    final commRateStr = c.isBaseCurrency
+        ? '1.0000'
+        : (c.latestCommercialRate != null ? c.latestCommercialRate!.toStringAsFixed(4) : l10n.rateNotSet);
+    final custRateStr = c.isBaseCurrency
+        ? '1.0000'
+        : (c.latestCustomsRate != null ? c.latestCustomsRate!.toStringAsFixed(4) : l10n.rateNotSet);
+    return '${c.currencyCode}\t${c.currencyName}\t${c.currencySymbol}\t$isBaseStr\t$commRateStr\t$custRateStr\t$statusStr\t${c.decimalPlaces}';
+  }
+
+  void _copySingleCurrencySummary(BuildContext context, CurrencyModel c) {
+    final l10n = context.l10n;
+    final summary = _buildCurrencyRowSummary(l10n, c);
+    CopyHelper.copy(
+      context,
+      summary,
+      customMessage: l10n.currencyCopySummarySuccess,
+    );
   }
 
   Future<void> _syncOfficialCustomsExchangeRates(BuildContext context) async {
@@ -79,126 +136,144 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Title & Actions
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 16,
-              runSpacing: 12,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.currenciesScreenTitle,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.charcoal,
+      body: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Title & Actions
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 16,
+                runSpacing: 12,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.currenciesScreenTitle,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.charcoal,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.currenciesScreenSubtitle,
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-                  ],
-                ),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    const BackToDashboardButton(),
-                    ElevatedButton.icon(
-                      onPressed: () => _showCurrencyConverterDialog(context),
-                      icon: const Icon(Icons.currency_exchange, size: 18),
-                      label: Text(l10n.liveCurrencyConverterBtn),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      const SizedBox(height: 4),
+                      Text(
+                        l10n.currenciesScreenSubtitle,
+                        style: const TextStyle(fontSize: 13, color: Colors.grey),
                       ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () => _showGainLossCalculatorDialog(context),
-                      icon: const Icon(Icons.trending_up, size: 18),
-                      label: Text(l10n.currencyGainLossBtn),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.orange,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ],
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      const BackToDashboardButton(),
+                      ElevatedButton.icon(
+                        onPressed: () => _copyCurrenciesTsv(context),
+                        icon: const Icon(Icons.table_chart_outlined, size: 18),
+                        label: Text(l10n.currenciesExportTsvBtn),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
                       ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () => _syncOfficialCustomsExchangeRates(context),
-                      icon: const Icon(Icons.sync, size: 18),
-                      label: Text(l10n.syncOfficialCustomsRatesBtn),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.charcoal,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ElevatedButton.icon(
+                        onPressed: () => _showCurrencyConverterDialog(context),
+                        icon: const Icon(Icons.currency_exchange, size: 18),
+                        label: Text(l10n.liveCurrencyConverterBtn),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
                       ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => const WhatIfSimulatorDialog(),
-                        );
-                      },
-                      icon: const Icon(Icons.analytics_outlined, size: 18),
-                      label: Text(l10n.whatIfSimulatorBtn),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.crimson,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ElevatedButton.icon(
+                        onPressed: () => _showGainLossCalculatorDialog(context),
+                        icon: const Icon(Icons.trending_up, size: 18),
+                        label: Text(l10n.currencyGainLossBtn),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.orange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
                       ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () => _showAddRateDialog(context),
-                      icon: const Icon(Icons.rate_review, size: 18),
-                      label: Text(l10n.updateExchangeRatesBtn),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ElevatedButton.icon(
+                        onPressed: () => _syncOfficialCustomsExchangeRates(context),
+                        icon: const Icon(Icons.sync, size: 18),
+                        label: Text(l10n.syncOfficialCustomsRatesBtn),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.charcoal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
                       ),
-                    ),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => const WhatIfSimulatorDialog(),
+                          );
+                        },
+                        icon: const Icon(Icons.analytics_outlined, size: 18),
+                        label: Text(l10n.whatIfSimulatorBtn),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.crimson,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () => _showAddRateDialog(context),
+                        icon: const Icon(Icons.rate_review, size: 18),
+                        label: Text(l10n.updateExchangeRatesBtn),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.emerald,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
 
-                    ElevatedButton.icon(
-                      onPressed: () => _showCurrencyDialog(context),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: Text(l10n.addCurrencyBtn),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.charcoal,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ElevatedButton.icon(
+                        onPressed: () => _showCurrencyDialog(context),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: Text(l10n.addCurrencyBtn),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.charcoal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                    ],
+                  ),
+                ],
+              ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Data Actions Toolbar
-            MasterDataToolbarWidget(
-              moduleEndpoint: 'currencies',
-              title: 'Currencies',
-              onRefreshNeeded: () => ref.read(currenciesProvider.notifier).fetchCurrencies(),
-            ),
+              // Data Actions Toolbar
+              MasterDataToolbarWidget(
+                moduleEndpoint: 'currencies',
+                title: 'Currencies',
+                onRefreshNeeded: () => ref.read(currenciesProvider.notifier).fetchCurrencies(),
+                onExportExcel: () {
+                  final currencies = ref.read(currenciesProvider).value ?? [];
+                  if (currencies.isNotEmpty) {
+                    MasterDataExportService.exportCurrenciesToExcel(context, currencies);
+                  }
+                },
+              ),
 
             const SizedBox(height: 16),
 
@@ -304,19 +379,19 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                           scrollDirection: Axis.horizontal,
                           child: ConstrainedBox(
                             constraints: BoxConstraints(
-                              minWidth: MediaQuery.of(context).size.width > 1100
+                              minWidth: MediaQuery.of(context).size.width > 1150
                                   ? MediaQuery.of(context).size.width - 300
-                                  : 900,
+                                  : 1050,
                             ),
                             child: Table(
                               columnWidths: const {
-                                0: FixedColumnWidth(100),
+                                0: FixedColumnWidth(110),
                                 1: FlexColumnWidth(3),
                                 2: FixedColumnWidth(90),
                                 3: FlexColumnWidth(2.5),
                                 4: FlexColumnWidth(2.5),
-                                5: FixedColumnWidth(85),
-                                6: FixedColumnWidth(150),
+                                5: FixedColumnWidth(90),
+                                6: FixedColumnWidth(190),
                               },
                               children: [
                                 // Header
@@ -350,6 +425,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                   final c = entry.value;
                                   final isEven = entry.key % 2 == 0;
                                   final isActive = c.isActive;
+                                  final rowSummary = _buildCurrencyRowSummary(l10n, c);
 
                                   return TableRow(
                                     decoration: BoxDecoration(
@@ -358,20 +434,42 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                     children: [
                                       // ISO Code
                                       _cell(
+                                        value: c.currencyCode,
+                                        rowSummary: rowSummary,
                                         child: Row(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: (c.isBaseCurrency ? AppTheme.emerald : AppTheme.cobalt).withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
+                                            InkWell(
+                                              onTap: () => CopyHelper.copy(
+                                                context,
                                                 c.currencyCode,
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                  color: c.isBaseCurrency ? AppTheme.emerald : AppTheme.cobalt,
+                                                customMessage: '${l10n.currencyCodeBadgeLabel}: ${c.currencyCode}',
+                                              ),
+                                              borderRadius: BorderRadius.circular(4),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: (c.isBaseCurrency ? AppTheme.emerald : AppTheme.cobalt).withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      c.currencyCode,
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 12,
+                                                        color: c.isBaseCurrency ? AppTheme.emerald : AppTheme.cobalt,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Icon(
+                                                      Icons.copy_rounded,
+                                                      size: 11,
+                                                      color: (c.isBaseCurrency ? AppTheme.emerald : AppTheme.cobalt).withOpacity(0.7),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
                                             ),
@@ -389,6 +487,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
 
                                       // Currency Name
                                       _cell(
+                                        value: c.currencyName,
+                                        rowSummary: rowSummary,
                                         child: InkWell(
                                           onTap: () => _showCurrencyRateHistoryDialog(context, ref, c),
                                           borderRadius: BorderRadius.circular(6),
@@ -425,6 +525,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
 
                                       // Symbol
                                       _cell(
+                                        value: c.currencySymbol,
+                                        rowSummary: rowSummary,
                                         child: Text(
                                           c.currencySymbol,
                                           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
@@ -433,11 +535,19 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
 
                                       // Commercial Rate
                                       _cell(
+                                        value: c.isBaseCurrency
+                                            ? '1.0000'
+                                            : (c.latestCommercialRate != null
+                                                ? c.latestCommercialRate!.toStringAsFixed(4)
+                                                : l10n.rateNotSet),
+                                        rowSummary: rowSummary,
                                         child: c.isBaseCurrency
-                                            ? Text(l10n.baseCurrencyRateLabel, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))
+                                            ? Text(l10n.baseCurrencyRateLabel,
+                                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))
                                             : Text(
                                                 c.latestCommercialRate != null
-                                                    ? l10n.rateToEgpFormatted(c.currencyCode, c.latestCommercialRate!.toStringAsFixed(4))
+                                                    ? l10n.rateToEgpFormatted(
+                                                        c.currencyCode, c.latestCommercialRate!.toStringAsFixed(4))
                                                     : l10n.rateNotSet,
                                                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                               ),
@@ -445,11 +555,19 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
 
                                       // Customs Rate
                                       _cell(
+                                        value: c.isBaseCurrency
+                                            ? '1.0000'
+                                            : (c.latestCustomsRate != null
+                                                ? c.latestCustomsRate!.toStringAsFixed(4)
+                                                : l10n.rateNotSet),
+                                        rowSummary: rowSummary,
                                         child: c.isBaseCurrency
-                                            ? Text(l10n.baseCurrencyRateLabel, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))
+                                            ? Text(l10n.baseCurrencyRateLabel,
+                                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))
                                             : Text(
                                                 c.latestCustomsRate != null
-                                                    ? l10n.rateToEgpFormatted(c.currencyCode, c.latestCustomsRate!.toStringAsFixed(4))
+                                                    ? l10n.rateToEgpFormatted(
+                                                        c.currencyCode, c.latestCustomsRate!.toStringAsFixed(4))
                                                     : l10n.rateNotSet,
                                                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange),
                                               ),
@@ -457,6 +575,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
 
                                       // Status
                                       _cell(
+                                        value: isActive ? l10n.statusActive : l10n.statusInactive,
+                                        rowSummary: rowSummary,
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
@@ -476,45 +596,50 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
 
                                       // Actions
                                       _cell(
-                                        child: RowActionsPill(
-                                          onView: () => _showCurrencyRateHistoryDialog(context, ref, c),
-                                          onEdit: () => _showCurrencyDialog(context, currency: c),
-                                          onPrint: () {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(
-                                                content: Text(l10n.printCurrencyDetailsSnack(c.currencyCode, c.currencyName)),
-                                                backgroundColor: AppTheme.charcoal,
-                                                duration: const Duration(seconds: 2),
-                                              ),
-                                            );
-                                          },
-                                          onDelete: c.isBaseCurrency
-                                              ? null
-                                              : () async {
-                                                  final confirm = await showDialog<bool>(
-                                                    context: context,
-                                                    builder: (ctx) => AlertDialog(
-                                                      title: Text(l10n.confirmActionTitle),
-                                                      content: Text(isActive
-                                                          ? l10n.confirmDeactivateCurrency(c.currencyCode, c.currencyName)
-                                                          : l10n.confirmActivateCurrency(c.currencyCode, c.currencyName)),
-                                                      actions: [
-                                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                                                        ElevatedButton(
-                                                          onPressed: () => Navigator.pop(ctx, true),
-                                                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                                        value: c.currencyCode,
+                                        rowSummary: rowSummary,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(Icons.copy_all_rounded, size: 17, color: AppTheme.charcoal),
+                                              tooltip: l10n.currencyCopySummaryBtn,
+                                              onPressed: () => _copySingleCurrencySummary(context, c),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            RowActionsPill(
+                                              onView: () => _showCurrencyRateHistoryDialog(context, ref, c),
+                                              onEdit: () => _showCurrencyDialog(context, currency: c),
+                                              onPrint: () => MasterDataExportService.printOrSaveCurrencyPdf(c),
+                                              onDelete: c.isBaseCurrency
+                                                  ? null
+                                                  : () async {
+                                                      final confirm = await showDialog<bool>(
+                                                        context: context,
+                                                        builder: (ctx) => AlertDialog(
+                                                          title: Text(l10n.confirmActionTitle),
+                                                          content: Text(isActive
+                                                              ? l10n.confirmDeactivateCurrency(c.currencyCode, c.currencyName)
+                                                              : l10n.confirmActivateCurrency(c.currencyCode, c.currencyName)),
+                                                          actions: [
+                                                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+                                                            ElevatedButton(
+                                                              onPressed: () => Navigator.pop(ctx, true),
+                                                              style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                                              child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                                                            ),
+                                                          ],
                                                         ),
-                                                      ],
-                                                    ),
-                                                  );
-                                                  if (confirm == true && c.currencyId != null) {
-                                                    ref.read(currenciesProvider.notifier).toggleActive(c.currencyId!, isActive);
-                                                  }
-                                                },
-                                          deleteTooltip: c.isBaseCurrency
-                                              ? l10n.cannotDeactivateBaseCurrencyTooltip
-                                              : (isActive ? l10n.deactivateCurrencyTooltip : l10n.activateCurrencyTooltip),
+                                                      );
+                                                      if (confirm == true && c.currencyId != null) {
+                                                        ref.read(currenciesProvider.notifier).toggleActive(c.currencyId!, isActive);
+                                                      }
+                                                    },
+                                              deleteTooltip: c.isBaseCurrency
+                                                  ? l10n.cannotDeactivateBaseCurrencyTooltip
+                                                  : (isActive ? l10n.deactivateCurrencyTooltip : l10n.activateCurrencyTooltip),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
@@ -607,12 +732,22 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _cell({required Widget child}) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Align(alignment: Alignment.centerLeft, child: child),
+  Widget _cell({
+    required Widget child,
+    required String value,
+    String? rowSummary,
+  }) =>
+      CopyableTableCell(
+        value: value,
+        rowSummary: rowSummary,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Align(alignment: Alignment.centerLeft, child: child),
+        ),
       );
 
   void _showCurrencyDialog(BuildContext context, {CurrencyModel? currency}) {
@@ -631,50 +766,73 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
           title: Text(currency == null
               ? l10n.addCurrencyDialogTitle
               : l10n.editCurrencyDialogTitle(currency.currencyCode)),
-          content: SizedBox(
-            width: 400,
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: codeCtrl,
-                    enabled: currency == null,
-                    maxLength: 3,
-                    decoration: InputDecoration(
-                      labelText: l10n.isoCodeLabel,
-                      hintText: l10n.isoCodeHint,
+          content: SelectionArea(
+            child: SizedBox(
+              width: 400,
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: codeCtrl,
+                      enabled: currency == null,
+                      maxLength: 3,
+                      decoration: InputDecoration(
+                        labelText: l10n.isoCodeLabel,
+                        hintText: l10n.isoCodeHint,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy, size: 16),
+                          tooltip: l10n.currencyCopyFieldTooltip,
+                          onPressed: () => CopyHelper.copy(context, codeCtrl.text),
+                        ),
+                      ),
+                      validator: (v) => v == null || v.trim().length != 3
+                          ? l10n.isoCodeLengthError
+                          : null,
                     ),
-                    validator: (v) => v == null || v.trim().length != 3
-                        ? l10n.isoCodeLengthError
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: nameCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.currencyNameLabel,
-                      hintText: l10n.currencyNameHint,
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.currencyNameLabel,
+                        hintText: l10n.currencyNameHint,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy, size: 16),
+                          tooltip: l10n.currencyCopyFieldTooltip,
+                          onPressed: () => CopyHelper.copy(context, nameCtrl.text),
+                        ),
+                      ),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? l10n.requiredField : null,
                     ),
-                    validator: (v) =>
-                        v == null || v.trim().isEmpty ? l10n.requiredField : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: symbolCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.currencySymbolLabel,
-                      hintText: l10n.currencySymbolHint,
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: symbolCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.currencySymbolLabel,
+                        hintText: l10n.currencySymbolHint,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy, size: 16),
+                          tooltip: l10n.currencyCopyFieldTooltip,
+                          onPressed: () => CopyHelper.copy(context, symbolCtrl.text),
+                        ),
+                      ),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? l10n.requiredField : null,
                     ),
-                    validator: (v) =>
-                        v == null || v.trim().isEmpty ? l10n.requiredField : null,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
           actions: [
+            if (currency != null)
+              IconButton(
+                icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson),
+                tooltip: l10n.exportCurrencyPdfBtn,
+                onPressed: () => MasterDataExportService.printOrSaveCurrencyPdf(currency),
+              ),
             TextButton(
               onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
               child: Text(l10n.cancel),
@@ -794,71 +952,87 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
       context: context,
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: 850,
-          constraints: const BoxConstraints(maxHeight: 720),
-          padding: const EdgeInsets.all(24),
-          child: FutureBuilder<CurrencyModel?>(
-            future: ref.read(currenciesProvider.notifier).fetchCurrencyHistory(initialCurrency.currencyId!),
-            builder: (context, snapshot) {
-              final currency = snapshot.data ?? initialCurrency;
-              final isLoading = snapshot.connectionState == ConnectionState.waiting;
-              final rates = currency.exchangeRates ?? [];
+        child: SelectionArea(
+          child: Container(
+            width: 850,
+            constraints: const BoxConstraints(maxHeight: 720),
+            padding: const EdgeInsets.all(24),
+            child: FutureBuilder<CurrencyModel?>(
+              future: ref.read(currenciesProvider.notifier).fetchCurrencyHistory(initialCurrency.currencyId!),
+              builder: (context, snapshot) {
+                final currency = snapshot.data ?? initialCurrency;
+                final isLoading = snapshot.connectionState == ConnectionState.waiting;
+                final rates = currency.exchangeRates ?? [];
 
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Dialog Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: (currency.isBaseCurrency ? AppTheme.emerald : AppTheme.cobalt),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '${currency.currencyCode} (${currency.currencySymbol})',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Dialog Header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: (currency.isBaseCurrency ? AppTheme.emerald : AppTheme.cobalt),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l10n.exchangeRateHistoryTitle(currency.currencyName),
+                              child: Text(
+                                '${currency.currencyCode} (${currency.currencySymbol})',
                                 style: const TextStyle(
-                                  fontSize: 17,
+                                  color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  color: AppTheme.charcoal,
+                                  fontSize: 16,
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                currency.isBaseCurrency
-                                    ? l10n.baseCurrencySystemDesc
-                                    : l10n.rateHistorySubtitle,
-                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.grey),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l10n.exchangeRateHistoryTitle(currency.currencyName),
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.charcoal,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  currency.isBaseCurrency
+                                      ? l10n.baseCurrencySystemDesc
+                                      : l10n.rateHistorySubtitle,
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson),
+                              tooltip: l10n.exportCurrencyPdfBtn,
+                              onPressed: () => MasterDataExportService.printOrSaveCurrencyPdf(currency),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.copy_all_rounded, color: AppTheme.charcoal),
+                              tooltip: l10n.currencyCopySummaryBtn,
+                              onPressed: () => _copySingleCurrencySummary(context, currency),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.grey),
+                              onPressed: () => Navigator.pop(ctx),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   const Divider(height: 24, thickness: 1),
 
                   // Top Stats Cards
@@ -1129,8 +1303,9 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showAddRateDialog(BuildContext context, {int? preSelectedCurrencyId}) {
     final l10n = context.l10n;
@@ -1150,73 +1325,85 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(l10n.updateExchangeRatesDialogTitle),
-          content: SizedBox(
-            width: 450,
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SearchableDropdownField<int?>(
-                    value: selectedCurrencyId,
-                    labelText: l10n.selectForeignCurrencyLabel,
-                    searchHintText: l10n.searchCurrenciesHint,
-                    items: currencies
-                        .map((c) => SearchableDropdownItem<int?>(
-                              value: c.currencyId,
-                              label: '${c.currencyCode} — ${c.currencyName} (${c.currencySymbol})',
-                              searchValue: '${c.currencyCode} ${c.currencyName}',
-                            ))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) setDialogState(() => selectedCurrencyId = v);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: commCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: l10n.commercialRateInputLabel,
-                      hintText: l10n.rateInputHint,
+          content: SelectionArea(
+            child: SizedBox(
+              width: 450,
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SearchableDropdownField<int?>(
+                      value: selectedCurrencyId,
+                      labelText: l10n.selectForeignCurrencyLabel,
+                      searchHintText: l10n.searchCurrenciesHint,
+                      items: currencies
+                          .map((c) => SearchableDropdownItem<int?>(
+                                value: c.currencyId,
+                                label: '${c.currencyCode} — ${c.currencyName} (${c.currencySymbol})',
+                                searchValue: '${c.currencyCode} ${c.currencyName}',
+                              ))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setDialogState(() => selectedCurrencyId = v);
+                      },
                     ),
-                    validator: (v) {
-                      final n = double.tryParse(v ?? '');
-                      if (n == null || n <= 0) return l10n.enterValidRateError;
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: custCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: l10n.customsRateInputLabel,
-                      hintText: l10n.rateInputHint,
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: commCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: l10n.commercialRateInputLabel,
+                        hintText: l10n.rateInputHint,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy, size: 16),
+                          tooltip: l10n.currencyCopyFieldTooltip,
+                          onPressed: () => CopyHelper.copy(context, commCtrl.text),
+                        ),
+                      ),
+                      validator: (v) {
+                        final n = double.tryParse(v ?? '');
+                        if (n == null || n <= 0) return l10n.enterValidRateError;
+                        return null;
+                      },
                     ),
-                    validator: (v) {
-                      final n = double.tryParse(v ?? '');
-                      if (n == null || n <= 0) return l10n.enterValidRateError;
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  ListTile(
-                    title: Text(l10n.effectiveDateLabel(selectedDate.toIso8601String().split('T').first)),
-                    trailing: const Icon(Icons.calendar_today, color: AppTheme.cobalt),
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2030),
-                      );
-                      if (picked != null) {
-                        setDialogState(() => selectedDate = picked);
-                      }
-                    },
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: custCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: l10n.customsRateInputLabel,
+                        hintText: l10n.rateInputHint,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy, size: 16),
+                          tooltip: l10n.currencyCopyFieldTooltip,
+                          onPressed: () => CopyHelper.copy(context, custCtrl.text),
+                        ),
+                      ),
+                      validator: (v) {
+                        final n = double.tryParse(v ?? '');
+                        if (n == null || n <= 0) return l10n.enterValidRateError;
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      title: Text(l10n.effectiveDateLabel(selectedDate.toIso8601String().split('T').first)),
+                      trailing: const Icon(Icons.calendar_today, color: AppTheme.cobalt),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null) {
+                          setDialogState(() => selectedDate = picked);
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1289,141 +1476,164 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
               Text(l10n.liveCurrencyConverterDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
-          content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.liveCurrencyConverterDialogSubtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: amountCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(
-                        labelText: l10n.amountToConvertLabel,
-                        hintText: l10n.amountToConvertHint,
-                        border: const OutlineInputBorder(),
-                      ),
-                      validator: (v) {
-                        final val = double.tryParse(v ?? '');
-                        if (val == null || val <= 0) return l10n.enterValidAmountError;
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: fromCurr,
-                            decoration: InputDecoration(labelText: l10n.fromCurrencyLabel, border: const OutlineInputBorder()),
-                            items: const [
-                              DropdownMenuItem(value: 'USD', child: Text('USD')),
-                              DropdownMenuItem(value: 'EUR', child: Text('EUR')),
-                              DropdownMenuItem(value: 'GBP', child: Text('GBP')),
-                              DropdownMenuItem(value: 'CNY', child: Text('CNY')),
-                              DropdownMenuItem(value: 'SAR', child: Text('SAR')),
-                              DropdownMenuItem(value: 'AED', child: Text('AED')),
-                              DropdownMenuItem(value: 'EGP', child: Text('EGP')),
-                            ],
-                            onChanged: (v) => setSheetState(() => fromCurr = v!),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: toCurr,
-                            decoration: InputDecoration(labelText: l10n.toCurrencyLabel, border: const OutlineInputBorder()),
-                            items: const [
-                              DropdownMenuItem(value: 'EGP', child: Text('EGP')),
-                              DropdownMenuItem(value: 'USD', child: Text('USD')),
-                              DropdownMenuItem(value: 'EUR', child: Text('EUR')),
-                              DropdownMenuItem(value: 'GBP', child: Text('GBP')),
-                              DropdownMenuItem(value: 'CNY', child: Text('CNY')),
-                            ],
-                            onChanged: (v) => setSheetState(() => toCurr = v!),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: rateType,
-                      decoration: InputDecoration(labelText: l10n.appliedRateTypeLabel, border: const OutlineInputBorder()),
-                      items: [
-                        DropdownMenuItem(value: 'commercial', child: Text(l10n.rateTypeCommercialOption)),
-                        DropdownMenuItem(value: 'customs', child: Text(l10n.rateTypeCustomsOption)),
-                      ],
-                      onChanged: (v) => setSheetState(() => rateType = v!),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(45),
-                      ),
-                      onPressed: isLoading
-                          ? null
-                          : () async {
-                              if (formKey.currentState!.validate()) {
-                                setSheetState(() => isLoading = true);
-                                final res = await ref.read(currenciesProvider.notifier).convertCurrency(
-                                      amount: double.parse(amountCtrl.text.trim()),
-                                      fromCurrency: fromCurr,
-                                      toCurrency: toCurr,
-                                      rateType: rateType,
-                                    );
-                                setSheetState(() {
-                                  resultData = res;
-                                  isLoading = false;
-                                });
-                              }
-                            },
-                      icon: isLoading
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.calculate, color: Colors.white),
-                      label: Text(l10n.convertCurrencyNowBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    if (resultData != null) ...[
+          content: SelectionArea(
+            child: SizedBox(
+              width: 480,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l10n.liveCurrencyConverterDialogSubtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                       const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                      TextFormField(
+                        controller: amountCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          labelText: l10n.amountToConvertLabel,
+                          hintText: l10n.amountToConvertHint,
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy, size: 16),
+                            tooltip: l10n.currencyCopyFieldTooltip,
+                            onPressed: () => CopyHelper.copy(context, amountCtrl.text),
+                          ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(l10n.convertedAmountLabel, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                Text(
-                                  '${resultData!['converted_amount']} ${resultData!['to_currency_code']}',
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                ),
-                              ],
-                            ),
-                            const Divider(height: 14),
-                            Text(l10n.appliedRatePrefix(resultData!['applied_rate']), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
-                            Text(l10n.baseEgpEquivalentPrefix(resultData!['base_currency_equivalent_egp']), style: const TextStyle(fontSize: 12)),
-                            if (resultData!['summary_ar'] != null && Localizations.localeOf(context).languageCode == 'ar') ...[
-                              const SizedBox(height: 6),
-                              Text(resultData!['summary_ar'] ?? '', style: const TextStyle(fontSize: 11, color: AppTheme.charcoal)),
-                            ],
-                          ],
-                        ),
+                        validator: (v) {
+                          final val = double.tryParse(v ?? '');
+                          if (val == null || val <= 0) return l10n.enterValidAmountError;
+                          return null;
+                        },
                       ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: fromCurr,
+                              decoration: InputDecoration(labelText: l10n.fromCurrencyLabel, border: const OutlineInputBorder()),
+                              items: const [
+                                DropdownMenuItem(value: 'USD', child: Text('USD')),
+                                DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                                DropdownMenuItem(value: 'GBP', child: Text('GBP')),
+                                DropdownMenuItem(value: 'CNY', child: Text('CNY')),
+                                DropdownMenuItem(value: 'SAR', child: Text('SAR')),
+                                DropdownMenuItem(value: 'AED', child: Text('AED')),
+                                DropdownMenuItem(value: 'EGP', child: Text('EGP')),
+                              ],
+                              onChanged: (v) => setSheetState(() => fromCurr = v!),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: toCurr,
+                              decoration: InputDecoration(labelText: l10n.toCurrencyLabel, border: const OutlineInputBorder()),
+                              items: const [
+                                DropdownMenuItem(value: 'EGP', child: Text('EGP')),
+                                DropdownMenuItem(value: 'USD', child: Text('USD')),
+                                DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                                DropdownMenuItem(value: 'GBP', child: Text('GBP')),
+                                DropdownMenuItem(value: 'CNY', child: Text('CNY')),
+                              ],
+                              onChanged: (v) => setSheetState(() => toCurr = v!),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: rateType,
+                        decoration: InputDecoration(labelText: l10n.appliedRateTypeLabel, border: const OutlineInputBorder()),
+                        items: [
+                          DropdownMenuItem(value: 'commercial', child: Text(l10n.rateTypeCommercialOption)),
+                          DropdownMenuItem(value: 'customs', child: Text(l10n.rateTypeCustomsOption)),
+                        ],
+                        onChanged: (v) => setSheetState(() => rateType = v!),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(45),
+                        ),
+                        onPressed: isLoading
+                            ? null
+                            : () async {
+                                if (formKey.currentState!.validate()) {
+                                  setSheetState(() => isLoading = true);
+                                  final res = await ref.read(currenciesProvider.notifier).convertCurrency(
+                                        amount: double.parse(amountCtrl.text.trim()),
+                                        fromCurrency: fromCurr,
+                                        toCurrency: toCurr,
+                                        rateType: rateType,
+                                      );
+                                  setSheetState(() {
+                                    resultData = res;
+                                    isLoading = false;
+                                  });
+                                }
+                              },
+                        icon: isLoading
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.calculate, color: Colors.white),
+                        label: Text(l10n.convertCurrencyNowBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      if (resultData != null) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cobalt.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(l10n.convertedAmountLabel, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '${resultData!['converted_amount']} ${resultData!['to_currency_code']}',
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      IconButton(
+                                        icon: const Icon(Icons.copy_rounded, size: 17, color: AppTheme.cobalt),
+                                        tooltip: l10n.copyValue,
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () => CopyHelper.copy(
+                                          context,
+                                          '${resultData!['converted_amount']} ${resultData!['to_currency_code']}',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 14),
+                              Text(l10n.appliedRatePrefix(resultData!['applied_rate']), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 4),
+                              Text(l10n.baseEgpEquivalentPrefix(resultData!['base_currency_equivalent_egp']), style: const TextStyle(fontSize: 12)),
+                              if (resultData!['summary_ar'] != null && Localizations.localeOf(context).languageCode == 'ar') ...[
+                                const SizedBox(height: 6),
+                                Text(resultData!['summary_ar'] ?? '', style: const TextStyle(fontSize: 11, color: AppTheme.charcoal)),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -1465,161 +1675,209 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
               Text(l10n.fxGainLossDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
-          content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.fxGainLossDialogSubtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: TextFormField(
-                            controller: amountCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: InputDecoration(labelText: l10n.foreignAmountLabel, border: const OutlineInputBorder()),
-                            validator: (v) {
-                              final val = double.tryParse(v ?? '');
-                              if (val == null || val <= 0) return l10n.enterValidAmountError;
-                              return null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: currencyCode,
-                            decoration: InputDecoration(labelText: l10n.currencyLabel, border: const OutlineInputBorder()),
-                            items: const [
-                              DropdownMenuItem(value: 'USD', child: Text('USD')),
-                              DropdownMenuItem(value: 'EUR', child: Text('EUR')),
-                              DropdownMenuItem(value: 'GBP', child: Text('GBP')),
-                              DropdownMenuItem(value: 'CNY', child: Text('CNY')),
-                            ],
-                            onChanged: (v) => setSheetState(() => currencyCode = v!),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: initialRateCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: InputDecoration(labelText: l10n.initialRateLabel, hintText: l10n.initialRateHint, border: const OutlineInputBorder()),
-                            validator: (v) {
-                              final val = double.tryParse(v ?? '');
-                              if (val == null || val <= 0) return l10n.enterValidRateError;
-                              return null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextFormField(
-                            controller: settlementRateCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: InputDecoration(labelText: l10n.settlementRateLabel, hintText: l10n.settlementRateHint, border: const OutlineInputBorder()),
-                            validator: (v) {
-                              final val = double.tryParse(v ?? '');
-                              if (val == null || val <= 0) return l10n.enterValidRateError;
-                              return null;
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.orange,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(45),
-                      ),
-                      onPressed: isLoading
-                          ? null
-                          : () async {
-                              if (formKey.currentState!.validate()) {
-                                setSheetState(() => isLoading = true);
-                                final res = await ref.read(currenciesProvider.notifier).calculateGainLoss(
-                                      foreignAmount: double.parse(amountCtrl.text.trim()),
-                                      currencyCode: currencyCode,
-                                      initialRate: double.parse(initialRateCtrl.text.trim()),
-                                      settlementRate: double.parse(settlementRateCtrl.text.trim()),
-                                    );
-                                setSheetState(() {
-                                  resultData = res;
-                                  isLoading = false;
-                                });
-                              }
-                            },
-                      icon: isLoading
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.analytics, color: Colors.white),
-                      label: Text(l10n.calculateGainLossBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    if (resultData != null) ...[
+          content: SelectionArea(
+            child: SizedBox(
+              width: 480,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l10n.fxGainLossDialogSubtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                       const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: (resultData!['is_gain'] as bool) ? AppTheme.emerald.withOpacity(0.08) : AppTheme.crimson.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: (resultData!['is_gain'] as bool) ? AppTheme.emerald.withOpacity(0.4) : AppTheme.crimson.withOpacity(0.4),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: (resultData!['is_gain'] as bool) ? AppTheme.emerald : AppTheme.crimson,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    resultData!['status_label'] ?? '',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                  ),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              controller: amountCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                labelText: l10n.foreignAmountLabel,
+                                border: const OutlineInputBorder(),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  tooltip: l10n.currencyCopyFieldTooltip,
+                                  onPressed: () => CopyHelper.copy(context, amountCtrl.text),
                                 ),
-                                Text(
-                                  '${resultData!['variance_egp']} EGP (${resultData!['percentage_change']}%)',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: (resultData!['is_gain'] as bool) ? AppTheme.emerald : AppTheme.crimson,
+                              ),
+                              validator: (v) {
+                                final val = double.tryParse(v ?? '');
+                                if (val == null || val <= 0) return l10n.enterValidAmountError;
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: currencyCode,
+                              decoration: InputDecoration(labelText: l10n.currencyLabel, border: const OutlineInputBorder()),
+                              items: const [
+                                DropdownMenuItem(value: 'USD', child: Text('USD')),
+                                DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                                DropdownMenuItem(value: 'GBP', child: Text('GBP')),
+                                DropdownMenuItem(value: 'CNY', child: Text('CNY')),
+                              ],
+                              onChanged: (v) => setSheetState(() => currencyCode = v!),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: initialRateCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                labelText: l10n.initialRateLabel,
+                                hintText: l10n.initialRateHint,
+                                border: const OutlineInputBorder(),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  tooltip: l10n.currencyCopyFieldTooltip,
+                                  onPressed: () => CopyHelper.copy(context, initialRateCtrl.text),
+                                ),
+                              ),
+                              validator: (v) {
+                                final val = double.tryParse(v ?? '');
+                                if (val == null || val <= 0) return l10n.enterValidRateError;
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextFormField(
+                              controller: settlementRateCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                labelText: l10n.settlementRateLabel,
+                                hintText: l10n.settlementRateHint,
+                                border: const OutlineInputBorder(),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  tooltip: l10n.currencyCopyFieldTooltip,
+                                  onPressed: () => CopyHelper.copy(context, settlementRateCtrl.text),
+                                ),
+                              ),
+                              validator: (v) {
+                                final val = double.tryParse(v ?? '');
+                                if (val == null || val <= 0) return l10n.enterValidRateError;
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.orange,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(45),
+                        ),
+                        onPressed: isLoading
+                            ? null
+                            : () async {
+                                if (formKey.currentState!.validate()) {
+                                  setSheetState(() => isLoading = true);
+                                  final res = await ref.read(currenciesProvider.notifier).calculateGainLoss(
+                                        foreignAmount: double.parse(amountCtrl.text.trim()),
+                                        currencyCode: currencyCode,
+                                        initialRate: double.parse(initialRateCtrl.text.trim()),
+                                        settlementRate: double.parse(settlementRateCtrl.text.trim()),
+                                      );
+                                  setSheetState(() {
+                                    resultData = res;
+                                    isLoading = false;
+                                  });
+                                }
+                              },
+                        icon: isLoading
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.analytics, color: Colors.white),
+                        label: Text(l10n.calculateGainLossBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      if (resultData != null) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: (resultData!['is_gain'] as bool) ? AppTheme.emerald.withOpacity(0.08) : AppTheme.crimson.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: (resultData!['is_gain'] as bool) ? AppTheme.emerald.withOpacity(0.4) : AppTheme.crimson.withOpacity(0.4),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: (resultData!['is_gain'] as bool) ? AppTheme.emerald : AppTheme.crimson,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      resultData!['status_label'] ?? '',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
                                   ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '${resultData!['variance_egp']} EGP (${resultData!['percentage_change']}%)',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                          color: (resultData!['is_gain'] as bool) ? AppTheme.emerald : AppTheme.crimson,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.copy_rounded,
+                                          size: 17,
+                                          color: (resultData!['is_gain'] as bool) ? AppTheme.emerald : AppTheme.crimson,
+                                        ),
+                                        tooltip: l10n.copyValue,
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () => CopyHelper.copy(
+                                          context,
+                                          '${resultData!['variance_egp']} EGP (${resultData!['percentage_change']}%)',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 14),
+                              Text(l10n.initialCostAtBooking(resultData!['initial_amount_egp'], resultData!['initial_rate'])),
+                              const SizedBox(height: 4),
+                              Text(l10n.actualCostAtSettlement(resultData!['settlement_amount_egp'], resultData!['settlement_rate'])),
+                              if (resultData!['summary_ar'] != null && Localizations.localeOf(context).languageCode == 'ar') ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  resultData!['summary_ar'] ?? '',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
                                 ),
                               ],
-                            ),
-                            const Divider(height: 14),
-                            Text(l10n.initialCostAtBooking(resultData!['initial_amount_egp'], resultData!['initial_rate'])),
-                            const SizedBox(height: 4),
-                            Text(l10n.actualCostAtSettlement(resultData!['settlement_amount_egp'], resultData!['settlement_rate'])),
-                            if (resultData!['summary_ar'] != null && Localizations.localeOf(context).languageCode == 'ar') ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                resultData!['summary_ar'] ?? '',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
-                              ),
                             ],
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),

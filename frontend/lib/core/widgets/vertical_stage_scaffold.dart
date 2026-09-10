@@ -136,11 +136,14 @@ class VerticalStageScaffold extends StatelessWidget {
 
                 if (headerActions != null) ...[
                   Flexible(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: headerActions!,
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: headerActions!,
+                        ),
                       ),
                     ),
                   ),

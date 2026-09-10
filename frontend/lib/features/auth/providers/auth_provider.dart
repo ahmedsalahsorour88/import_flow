@@ -71,7 +71,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final defaultUser = UserModel(
           userId: 2,
           username: 'manager',
-          email: 'manager@importflow.com',
+          email: 'manager@sorourlogistics.com',
           fullName: 'General Logistics Manager',
           role: 'MANAGER',
           isActive: true,
@@ -131,7 +131,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       user = UserModel(
         userId: 1,
         username: 'admin',
-        email: 'admin@importflow.com',
+        email: 'admin@sorourlogistics.com',
         fullName: 'System Admin (مدير النظام)',
         role: 'ADMIN',
         isActive: true,
@@ -140,7 +140,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       user = UserModel(
         userId: 2,
         username: 'manager',
-        email: 'manager@importflow.com',
+        email: 'manager@sorourlogistics.com',
         fullName: 'General Logistics Manager (مدير العمليات)',
         role: 'MANAGER',
         isActive: true,
@@ -149,7 +149,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       user = UserModel(
         userId: 3,
         username: 'operator1',
-        email: 'operator1@importflow.com',
+        email: 'operator1@sorourlogistics.com',
         fullName: 'Ahmed Import Specialist (أخصائي استيراد)',
         role: 'OPERATOR',
         isActive: true,

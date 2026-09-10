@@ -100,8 +100,8 @@ void main() {
 
       // Verify title and tabs
       expect(find.textContaining('نتائج الاستخراج — استخراج كامل'), findsOneWidget);
-      expect(find.text('📝 لصق نص / بريد إلكتروني'), findsOneWidget);
-      expect(find.text('📁 رفع ملف / مستند / صورة'), findsOneWidget);
+      expect(find.text('📝 لصق نص أو بريد إلكتروني'), findsOneWidget);
+      expect(find.text('📁 رفع ملف أو مستند أو صورة'), findsOneWidget);
 
       // Tap sample text button
       expect(find.text('📋 تحميل نص تجريبي'), findsOneWidget);
@@ -112,7 +112,7 @@ void main() {
       expect(find.textContaining('USD6760/20GP'), findsOneWidget);
 
       // Switch to OCR tab
-      await tester.tap(find.text('📁 رفع ملف / مستند / صورة'));
+      await tester.tap(find.text('📁 رفع ملف أو مستند أو صورة'));
       await tester.pumpAndSettle();
 
       // Verify OCR drag and drop text

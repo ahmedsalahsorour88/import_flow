@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
-import '../models/warehouse_receiving_model.dart';
 import '../providers/warehouse_receiving_provider.dart';
+import '../services/warehouse_received_report_export_service.dart';
 
 class WarehouseReceivedReportScreen extends ConsumerStatefulWidget {
   final bool isEmbedded;
@@ -41,123 +41,252 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
     final recordsAsync = ref.watch(warehouseReceivingProvider);
 
     final tabs = [
-      const VerticalNavTabItem(
+      VerticalNavTabItem(
         icon: Icons.inventory_2_outlined,
         titleEn: 'Received Shipments Detailed Report',
-        titleAr: 'تقرير الشحنات المستلمة بالمخزن تفصيلي',
+        titleAr: l.whReportTabTitle,
       ),
     ];
 
-    final bodyContent = recordsAsync.when(
+    final bodyContent = SelectionArea(
+      child: recordsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
           child: Text(l.whReportErrorFetchingData(err), style: const TextStyle(color: Colors.red)),
         ),
         data: (records) {
-          // Real received entries expanded from warehouse receiving records
-          final List<Map<String, dynamic>> receivedReportItems = [];
+          final allItems = WarehouseReceivedReportItem.fromReceivingRecords(records);
 
-          // Also map any actual records from the provider
-          for (var r in records) {
-            for (var item in r.grnItems) {
-              receivedReportItems.add({
-                'import_file_code': 'IMP-${r.importFileId}',
-                'po_number': 'PO-MAIN-${r.importFileId}',
-                'container_info': '1 × 40ft HQ (${r.truckPlateNumber ?? "N/A"})',
-                'item_code': item.itemCode,
-                'item_name': item.itemName,
-                'invoiced_qty': item.invoicedQty,
-                'shortage_qty': item.shortageQty,
-                'damaged_qty': item.damagedQty,
-                'samples_qty': 0,
-                'received_qty': item.acceptedQty,
-                'variance_qty': item.acceptedQty - item.invoicedQty,
-                'warehouse_name': r.warehouseName,
-                'arrival_date': r.arrivalDatetime.substring(0, 10),
-                'status': r.status,
-              });
-            }
-          }
-
-          final filtered = receivedReportItems.where((i) {
+          final filtered = allItems.where((i) {
             if (_searchCtrl.text.trim().isEmpty) return true;
             final q = _searchCtrl.text.trim().toLowerCase();
-            return (i['import_file_code'] as String).toLowerCase().contains(q) ||
-                (i['po_number'] as String).toLowerCase().contains(q) ||
-                (i['item_code'] as String).toLowerCase().contains(q) ||
-                (i['item_name'] as String).toLowerCase().contains(q);
+            return i.importFileCode.toLowerCase().contains(q) ||
+                i.poNumber.toLowerCase().contains(q) ||
+                i.itemCode.toLowerCase().contains(q) ||
+                i.itemName.toLowerCase().contains(q) ||
+                i.warehouseName.toLowerCase().contains(q);
           }).toList();
 
-          final totalInvoiced = filtered.fold<int>(0, (s, i) => s + (i['invoiced_qty'] as int));
-          final totalReceived = filtered.fold<int>(0, (s, i) => s + (i['received_qty'] as int));
-          final totalDamaged = filtered.fold<int>(0, (s, i) => s + (i['damaged_qty'] as int));
-          final totalShortage = filtered.fold<int>(0, (s, i) => s + (i['shortage_qty'] as int));
-          final totalSamples = filtered.fold<int>(0, (s, i) => s + (i['samples_qty'] as int));
-          final totalVariance = filtered.fold<int>(0, (s, i) => s + (i['variance_qty'] as int));
+          final totalInvoiced = filtered.fold<int>(0, (s, i) => s + i.invoicedQty);
+          final totalReceived = filtered.fold<int>(0, (s, i) => s + i.receivedQty);
+          final totalDamaged = filtered.fold<int>(0, (s, i) => s + i.damagedQty);
+          final totalShortage = filtered.fold<int>(0, (s, i) => s + i.shortageQty);
+          final totalSamples = filtered.fold<int>(0, (s, i) => s + i.samplesQty);
+          final totalVariance = filtered.fold<int>(0, (s, i) => s + i.varianceQty);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Info Header Card
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.indigo.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.indigo.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.assessment_outlined, color: Colors.indigo, size: 28),
-                      const SizedBox(width: 12),
-                      Expanded(
+                // Info Header Card with Responsive 4-Action Export Toolbar
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 1100;
+                    final exportButtons = Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: isNarrow ? WrapAlignment.start : WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.indigo.shade800,
+                            side: BorderSide(color: Colors.indigo.shade300),
+                          ),
+                          icon: const Icon(Icons.table_chart_outlined, size: 16),
+                          label: Text(l.whReportExportTsvBtn),
+                          onPressed: () => WarehouseReceivedReportExportService.saveReportTsvToFile(
+                            context,
+                            filtered,
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.indigo,
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.file_download_outlined, size: 16),
+                          label: Text(l.whReportExportExcelBtn),
+                          onPressed: () => WarehouseReceivedReportExportService.saveReportCsvToFile(
+                            context,
+                            filtered,
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.indigo.shade800,
+                            side: BorderSide(color: Colors.indigo.shade300),
+                          ),
+                          icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                          label: Text(l.whReportPrintPdfBtn),
+                          onPressed: () => WarehouseReceivedReportExportService.printOrSaveReportPdf(
+                            context,
+                            filtered,
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.indigo.shade800,
+                            side: BorderSide(color: Colors.indigo.shade300),
+                          ),
+                          icon: const Icon(Icons.copy_all_outlined, size: 16),
+                          label: Text(l.whReportCopyDossierBtn),
+                          onPressed: () => WarehouseReceivedReportExportService.copyDossierToClipboard(
+                            context,
+                            filtered,
+                          ),
+                        ),
+                      ],
+                    );
+
+                    if (isNarrow) {
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.indigo.shade200),
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              l.whReportInfoBannerTitle,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                            Row(
+                              children: [
+                                const Icon(Icons.assessment_outlined, color: Colors.indigo, size: 28),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l.whReportInfoBannerTitle,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: AppTheme.charcoal,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        l.whReportInfoBannerSubtitle,
+                                        style: const TextStyle(fontSize: 12, color: Colors.black87),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              l.whReportInfoBannerSubtitle,
-                              style: const TextStyle(fontSize: 12, color: Colors.black87),
-                            ),
+                            const SizedBox(height: 12),
+                            exportButtons,
                           ],
                         ),
+                      );
+                    }
+
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.indigo.shade200),
                       ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
-                        icon: const Icon(Icons.file_download_outlined, size: 16),
-                        label: Text(l.whReportExportExcelBtn),
-                        onPressed: () => _exportWarehouseReceivedReportCsv(context, records),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.assessment_outlined, color: Colors.indigo, size: 28),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l.whReportInfoBannerTitle,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: AppTheme.charcoal,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  l.whReportInfoBannerSubtitle,
+                                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Flexible(
+                            child: exportButtons,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
 
                 // KPI Metrics Bar
                 Row(
                   children: [
-                    Expanded(child: _buildMetricCard(l.whReportKpiInvoicedQty, l.whReportUnitsValue(totalInvoiced), Icons.receipt_long, Colors.blue)),
+                    Expanded(
+                      child: _buildMetricCard(
+                        l.whReportKpiInvoicedQty,
+                        l.whReportUnitsValue(totalInvoiced),
+                        Icons.receipt_long,
+                        Colors.blue,
+                      ),
+                    ),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard(l.whReportKpiReceivedQty, l.whReportUnitsValue(totalReceived), Icons.inventory, AppTheme.emerald)),
+                    Expanded(
+                      child: _buildMetricCard(
+                        l.whReportKpiReceivedQty,
+                        l.whReportUnitsValue(totalReceived),
+                        Icons.inventory,
+                        AppTheme.emerald,
+                      ),
+                    ),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard(l.whReportKpiDamagedQty, l.whReportUnitsValue(totalDamaged), Icons.broken_image, AppTheme.crimson)),
+                    Expanded(
+                      child: _buildMetricCard(
+                        l.whReportKpiDamagedQty,
+                        l.whReportUnitsValue(totalDamaged),
+                        Icons.broken_image,
+                        AppTheme.crimson,
+                      ),
+                    ),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard(l.whReportKpiShortageQty, l.whReportUnitsValue(totalShortage), Icons.remove_circle_outline, AppTheme.orange)),
+                    Expanded(
+                      child: _buildMetricCard(
+                        l.whReportKpiShortageQty,
+                        l.whReportUnitsValue(totalShortage),
+                        Icons.remove_circle_outline,
+                        AppTheme.orange,
+                      ),
+                    ),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard(l.whReportKpiSamplesQty, l.whReportUnitsValue(totalSamples), Icons.science, Colors.purple)),
+                    Expanded(
+                      child: _buildMetricCard(
+                        l.whReportKpiSamplesQty,
+                        l.whReportUnitsValue(totalSamples),
+                        Icons.science,
+                        Colors.purple,
+                      ),
+                    ),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard(l.whReportKpiVarianceQty, '${totalVariance >= 0 ? "+" : ""}${l.whReportUnitsValue(totalVariance)}', Icons.compare_arrows, totalVariance == 0 ? Colors.green : AppTheme.crimson)),
+                    Expanded(
+                      child: _buildMetricCard(
+                        l.whReportKpiVarianceQty,
+                        '${totalVariance >= 0 ? "+" : ""}${l.whReportUnitsValue(totalVariance)}',
+                        Icons.compare_arrows,
+                        totalVariance == 0 ? Colors.green : AppTheme.crimson,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
 
-                // Search Bar
+                // Search Bar with Copy Suffix Button
                 Card(
                   elevation: 2,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -171,15 +300,28 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
                         suffixIcon: ValueListenableBuilder<TextEditingValue>(
                           valueListenable: _searchCtrl,
                           builder: (context, value, _) {
-                            return value.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
-                                    onPressed: () {
-                                      _searchCtrl.clear();
-                                      setState(() {});
-                                    },
-                                  )
-                                : const SizedBox.shrink();
+                            if (value.text.isEmpty) return const SizedBox.shrink();
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.copy_rounded, size: 18),
+                                  tooltip: l.whReportCopyFieldTooltip,
+                                  onPressed: () => CopyHelper.copy(
+                                    context,
+                                    _searchCtrl.text,
+                                    customMessage: l.whReportSearchCopied,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchCtrl.clear();
+                                    setState(() {});
+                                  },
+                                ),
+                              ],
+                            );
                           },
                         ),
                         isDense: true,
@@ -225,68 +367,328 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
                             child: DataTable(
                               headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                               columns: [
-                                DataColumn(label: Text(l.whReportColImportFile, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text(l.whReportColPoNumber, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text(l.whReportColContainerAndTruck, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text(l.whReportColItemAndDescription, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text(l.whReportColInvoicedQty, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text(l.whReportColShortageQty, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text(l.whReportColDamagedQty, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text(l.whReportColSamplesQty, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text(l.whReportColReceivedQty, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text(l.whReportColVarianceQty, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text(l.whReportColReceiptStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(
+                                  label: Text(
+                                    l.whReportColImportFile,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    l.whReportColPoNumber,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    l.whReportColContainerAndTruck,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    l.whReportColItemAndDescription,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    l.whReportColInvoicedQty,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    l.whReportColShortageQty,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    l.whReportColDamagedQty,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    l.whReportColSamplesQty,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    l.whReportColReceivedQty,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    l.whReportColVarianceQty,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    l.whReportColReceiptStatus,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    l.whReportColActions,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
                               ],
                               rows: filtered.map((item) {
-                                final variance = item['variance_qty'] as int;
+                                final variance = item.varianceQty;
+                                final rowSummary = item.toRowSummary(l);
+
                                 return DataRow(cells: [
+                                  // 1. Import File Code (Clickable Copy Badge)
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.charcoal.withOpacity(0.08),
+                                    CopyableTableCell(
+                                      value: item.importFileCode,
+                                      rowSummary: rowSummary,
+                                      child: InkWell(
+                                        onTap: () => CopyHelper.copy(
+                                          context,
+                                          item.importFileCode,
+                                          customMessage: l.whReportCopyBadgeSuccess(
+                                            l.whReportColImportFile,
+                                            item.importFileCode,
+                                          ),
+                                        ),
                                         borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(item['import_file_code'], style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
-                                    ),
-                                  ),
-                                  DataCell(Text(item['po_number'], style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                  DataCell(Text(item['container_info'])),
-                                  DataCell(
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(item['item_code'], style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 11)),
-                                        Text(item['item_name'], style: const TextStyle(fontSize: 12)),
-                                      ],
-                                    ),
-                                  ),
-                                  DataCell(Text('${item['invoiced_qty']}', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                  DataCell(Text('${item['shortage_qty']}', style: TextStyle(color: item['shortage_qty'] > 0 ? AppTheme.orange : Colors.black87, fontWeight: FontWeight.bold))),
-                                  DataCell(Text('${item['damaged_qty']}', style: TextStyle(color: item['damaged_qty'] > 0 ? AppTheme.crimson : Colors.black87, fontWeight: FontWeight.bold))),
-                                  DataCell(Text('${item['samples_qty']}', style: TextStyle(color: item['samples_qty'] > 0 ? Colors.purple : Colors.black87, fontWeight: FontWeight.bold))),
-                                  DataCell(Text('${item['received_qty']}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
-                                  DataCell(
-                                    Text(
-                                      '${variance >= 0 ? "+" : ""}$variance',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: variance == 0 ? Colors.green : (variance < 0 ? AppTheme.crimson : Colors.blue),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.charcoal.withOpacity(0.08),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                item.importFileCode,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppTheme.charcoal,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              const Icon(Icons.copy, size: 12, color: AppTheme.charcoal),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
+
+                                  // 2. PO Number (Clickable Copy Badge)
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.shade50,
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: Colors.green.shade300),
+                                    CopyableTableCell(
+                                      value: item.poNumber,
+                                      rowSummary: rowSummary,
+                                      child: InkWell(
+                                        onTap: () => CopyHelper.copy(
+                                          context,
+                                          item.poNumber,
+                                          customMessage: l.whReportCopyBadgeSuccess(
+                                            l.whReportColPoNumber,
+                                            item.poNumber,
+                                          ),
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              item.poNumber,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme.cobalt,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
+                                          ],
+                                        ),
                                       ),
+                                    ),
+                                  ),
+
+                                  // 3. Container & Truck Info
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: item.containerInfo,
+                                      rowSummary: rowSummary,
+                                      child: Text(item.containerInfo),
+                                    ),
+                                  ),
+
+                                  // 4. Item Code & Description (Clickable Code Copy Badge)
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: '${item.itemCode} - ${item.itemName}',
+                                      rowSummary: rowSummary,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          InkWell(
+                                            onTap: () => CopyHelper.copy(
+                                              context,
+                                              item.itemCode,
+                                              customMessage: l.whReportCopyBadgeSuccess(
+                                                l.whReportColItemAndDescription,
+                                                item.itemCode,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  item.itemCode,
+                                                  style: const TextStyle(
+                                                    fontFamily: 'monospace',
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                const Icon(Icons.copy, size: 10, color: Colors.grey),
+                                              ],
+                                            ),
+                                          ),
+                                          Text(item.itemName, style: const TextStyle(fontSize: 12)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 5. Invoiced Qty
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: '${item.invoicedQty}',
+                                      rowSummary: rowSummary,
                                       child: Text(
-                                        l.whReportStatusApprovedAndReceived,
-                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
+                                        '${item.invoicedQty}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 6. Shortage Qty
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: '${item.shortageQty}',
+                                      rowSummary: rowSummary,
+                                      child: Text(
+                                        '${item.shortageQty}',
+                                        style: TextStyle(
+                                          color: item.shortageQty > 0 ? AppTheme.orange : Colors.black87,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 7. Damaged Qty
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: '${item.damagedQty}',
+                                      rowSummary: rowSummary,
+                                      child: Text(
+                                        '${item.damagedQty}',
+                                        style: TextStyle(
+                                          color: item.damagedQty > 0 ? AppTheme.crimson : Colors.black87,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 8. Samples Qty
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: '${item.samplesQty}',
+                                      rowSummary: rowSummary,
+                                      child: Text(
+                                        '${item.samplesQty}',
+                                        style: TextStyle(
+                                          color: item.samplesQty > 0 ? Colors.purple : Colors.black87,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 9. Received Qty
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: '${item.receivedQty}',
+                                      rowSummary: rowSummary,
+                                      child: Text(
+                                        '${item.receivedQty}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.emerald,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 10. Variance Qty
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: '${variance >= 0 ? "+" : ""}$variance',
+                                      rowSummary: rowSummary,
+                                      child: Text(
+                                        '${variance >= 0 ? "+" : ""}$variance',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: variance == 0
+                                              ? Colors.green
+                                              : (variance < 0 ? AppTheme.crimson : Colors.blue),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 11. Receipt Status
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: l.whReportStatusApprovedAndReceived,
+                                      rowSummary: rowSummary,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.shade50,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: Colors.green.shade300),
+                                        ),
+                                        child: Text(
+                                          l.whReportStatusApprovedAndReceived,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 12. Quick Row Copy Action
+                                  DataCell(
+                                    IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 18, color: AppTheme.cobalt),
+                                      tooltip: l.whReportCopyRowSummaryBtn,
+                                      onPressed: () => CopyHelper.copy(
+                                        context,
+                                        rowSummary,
+                                        customMessage: l.whReportCopyRowSummarySuccess,
                                       ),
                                     ),
                                   ),
@@ -302,7 +704,8 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
             ),
           );
         },
-      );
+      ),
+    );
 
     if (widget.isEmbedded) {
       return bodyContent;
@@ -311,7 +714,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
     return VerticalStageScaffold(
       stageCode: 'GRN-REP',
       titleEn: 'Warehouse Received Shipments & Audit Report',
-      titleAr: 'تقرير الشحنات المستلمة بالمخزن تفصيلي ومطابقة الفروق',
+      titleAr: l.whReportScaffoldTitle,
       headerIcon: Icons.inventory_2_outlined,
       headerColor: AppTheme.cobalt,
       tabs: tabs,
@@ -354,48 +757,4 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
       ),
     );
   }
-
-  Future<void> _exportWarehouseReceivedReportCsv(BuildContext context, List<WarehouseReceivingModel> records) async {
-    final buffer = StringBuffer();
-    buffer.write('\uFEFF');
-    buffer.writeln('Sorour Logistics ERP — تقرير الشحنات المستلمة بالمخزن ومطابقة الفروق تفصيلي (Warehouse GRN Audit Report)');
-    buffer.writeln('تاريخ التصدير,${DateTime.now().toIso8601String().split('T')[0]}');
-    buffer.writeln('');
-    buffer.writeln('رقم إذن الاستلام (GRN),المستودع,تاريخ ووقت الوصول,رقم الشاحنة,اسم السائق,رقم الرصاصة,سلامة الرصاص,إجمالي الفاتورة,إجمالي المستلم السليم,إجمالي العجز,إجمالي التالف,نوع الفارق,حالة الشحنة,اسم الفاحص');
-
-    for (final r in records) {
-      buffer.writeln(
-        '${r.grnCode},'
-        '"${r.warehouseName.replaceAll('"', '""')}",'
-        '${r.arrivalDatetime},'
-        '"${(r.truckPlateNumber ?? "-").replaceAll('"', '""')}",'
-        '"${(r.driverName ?? "-").replaceAll('"', '""')}",'
-        '"${(r.sealNumber ?? "-").replaceAll('"', '""')}",'
-        '${r.sealIntact ? "سليم" : "غير سليم"},'
-        '${r.totalInvoicedQty},'
-        '${r.totalAcceptedQty},'
-        '${r.totalShortageQty},'
-        '${r.totalDamagedQty},'
-        '"${r.discrepancyType}",'
-        '"${r.status}",'
-        '"${r.inspectorName.replaceAll('"', '""')}"',
-      );
-
-      if (r.grnItems.isNotEmpty) {
-        for (final item in r.grnItems) {
-          buffer.writeln('  -> صنف تفصيلي,كود: ${item.itemCode},اسم: "${item.itemName.replaceAll('"', '""')}",فاتورة: ${item.invoicedQty},سليم: ${item.acceptedQty},عجز: ${item.shortageQty},تالف: ${item.damagedQty},حجر صحي: ${item.quarantineFlag ? "نعم" : "لا"}');
-        }
-      }
-    }
-
-    final filename = 'Phase6_Warehouse_Received_Report_${DateTime.now().millisecondsSinceEpoch}.csv';
-    await FileSaveHelper.saveText(
-      context: context,
-      textContent: buffer.toString(),
-      defaultFileName: filename,
-      dialogTitle: 'حفظ تقرير استلام المخزن بصيغة Excel / CSV',
-      allowedExtensions: ['csv', 'xlsx'],
-    );
-  }
 }
-

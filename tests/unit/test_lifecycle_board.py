@@ -109,6 +109,19 @@ def test_skip_step_service(db_session):
         status="In-Progress",
     )
 
+    # Configure STEP_06 as skippable per Section 10
+    from modules.lifecycle_board.schemas import StepConfigUpdateRequest
+    service.update_step_config_service(
+        db_session,
+        step_code="STEP_06",
+        payload=StepConfigUpdateRequest(
+            skip_policy="single_approval",
+            approver_roles=["Manager"],
+            justification="Allow CIF shipment freight skip per SLA",
+        ),
+        current_user_role="MANAGER",
+    )
+
     # Skip step 6 because terms are CIF (freight handled by supplier) and advance to STEP_08 (Draft Docs Review)
     skip_payload = SkipStepPayload(
         import_file_code="IMP-2026-0001",
@@ -116,7 +129,7 @@ def test_skip_step_service(db_session):
         skip_reason="شحنة بنظام CIF - النولون مسدد ومحجوز من المورد الأجنبي",
         next_step_codes=["STEP_08"],
     )
-    res = service.skip_step_service(db_session, skip_payload)
+    res = service.skip_step_service(db_session, skip_payload, current_user_role="MANAGER")
     assert res["skipped_step"] == "STEP_06"
     assert res["activated_steps"] == ["STEP_08"]
 

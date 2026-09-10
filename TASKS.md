@@ -75,3 +75,16 @@
 - [x] **Screen 64:** `InboundWarehouseHubScreen` (Warehouse Shipments Report) — تقرير الشحنات المستلمة بالمخازن (done)
 - [x] **Screen 65:** `CargoInsuranceScreen` — وثائق وتأمين الشحنات البحرية والجوية (done)
 - [x] **Screen 66:** `UsersManagementScreen` — إدارة المستخدمين وصلاحيات RBAC (done)
+- [x] **Screen 67:** `StepConfigManagementScreen` — إدارة حوكمة وتخطي خطوات دورة حياة الاستيراد (done)
+
+---
+
+## 🚀 مسار التطويرات اللوجستية والربط الحكومي المتقدم (Advanced Logistics & AI Stream)
+
+- [x] **AI-ROUTE-006:** `Route & Supplier Intelligence Card` — بطاقة ذكاء المسار والمورد والتاريخ التفاوضي ونسب تغير الأسعار وزمن الرحلة (done)
+- [x] **AI-BENCH-007:** `Freight Forwarder Benchmark Engine` — محرك مفاضلة وترتيب عروض الشحن بالأوزان المعتمدة وتفصيل درجات المعايير (done)
+- [x] **INT-EMAIL-010:** `Smart Email Listener` — قارئ ومستخلص إشعارات الوصول وتوليد مهام السداد التلقائية (done)
+- [x] **AI-DRAFT-014:** `AI Formal Letter Drafting` — المولد التلقائي للإيميلات والخطابات الرسمية الأربعة (تمديد سماح، تفويض بنكي، نموذج 4، تفويض مستخلص) (done)
+- [x] **LOG-KPIS-005:** `Logistics KPI Scorecard` — بطاقة تقييم ومؤشرات أداء الشركاء اللوجستيين والموردين (الالتزام الزمني، دقة المستندات، الجاهزية CRD) (done)
+- [x] **INT-DATA-015:** `Free Freight & Demurrage Data Connector` — ربط مصادر بيانات الشحن البحري المجانية (shaq-freight + ShippingRates.org) وجداول غرامات التوكيل الملاحي والمؤشر الأسبوعي SFX (done)
+

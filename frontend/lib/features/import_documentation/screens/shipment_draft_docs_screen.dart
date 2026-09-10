@@ -13,6 +13,7 @@ import '../widgets/inspection_review_tab.dart';
 import '../widgets/invoice_bl_matcher_tab.dart';
 import '../widgets/po_reconciliation_tab.dart';
 import '../../cargo_insurance/screens/cargo_insurance_screen.dart';
+import '../widgets/formal_letter_generator_dialog.dart';
 
 
 class ShipmentDraftDocsScreen extends ConsumerStatefulWidget {
@@ -134,6 +135,17 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
       selectedImportFileId: _selectedImportFileId,
       onShipmentStatusChanged: _refreshData,
       headerActions: [
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.white,
+            foregroundColor: AppTheme.charcoal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          onPressed: () => FormalLetterGeneratorDialog.show(context, importFileId: _selectedImportFileId),
+          icon: const Icon(Icons.description, size: 16, color: AppTheme.cobalt),
+          label: Text(context.l10n.formalLetterDialogTitle),
+        ),
+        const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
           tooltip: context.l10n.refresh,

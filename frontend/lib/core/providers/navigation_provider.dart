@@ -32,6 +32,7 @@ import '../../features/suppliers/providers/suppliers_provider.dart';
 import '../../features/transport_locations/providers/transport_locations_provider.dart';
 import '../../features/warehouse_receiving/providers/warehouse_receiving_provider.dart';
 import '../../features/warehouse_receiving/providers/goods_in_transit_provider.dart';
+import '../../features/lifecycle_board/providers/step_config_provider.dart';
 
 // ============================================================
 // Navigation Index Provider
@@ -94,9 +95,11 @@ import '../../features/warehouse_receiving/providers/goods_in_transit_provider.d
 //  63 = GoodsInTransitScreen
 //  64 = WarehouseReceivedReportScreen
 //  65 = CargoInsuranceScreen
+//  66 = UsersManagementScreen
+//  67 = StepConfigManagementScreen (Addendum: Section 10)
 // ============================================================
 
-const int _totalScreens = 67; // indices 0–66
+const int _totalScreens = 68; // indices 0–67
 
 
 final navigationIndexProvider = StateProvider<int>((ref) => 0);
@@ -176,6 +179,7 @@ _ScreenTabInfo _getScreenTabInfo(int index) {
     case 59: return const _ScreenTabInfo('Production Sync', Icons.sync_alt_rounded);
     case 65: return const _ScreenTabInfo('تأمين الشحن البحري', Icons.shield_outlined);
     case 66: return const _ScreenTabInfo('إدارة المستخدمين', Icons.manage_accounts_rounded);
+    case 67: return const _ScreenTabInfo('إعدادات تصنيف المراحل', Icons.admin_panel_settings_rounded);
     default: return _ScreenTabInfo('شاشة $index', Icons.tab_outlined);
   }
 }
@@ -331,6 +335,9 @@ void _liveRefreshScreenData(WidgetRef ref, int index) {
       break;
     case 65:
       ref.read(cargoInsuranceProvider.notifier).fetchCertificates();
+      break;
+    case 67:
+      ref.read(stepConfigProvider.notifier).fetchConfigs();
       break;
 
     default:

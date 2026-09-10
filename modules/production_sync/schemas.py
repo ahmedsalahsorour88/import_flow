@@ -92,7 +92,7 @@ class RemoteUpdateCheckResponseSchema(BaseModel):
 
 
 class SystemVersionInfoSchema(BaseModel):
-    system_name: str = "ImportFlow ERP - Sorour Logistics"
+    system_name: str = "Sorour Logistics ERP"
     version: str = "1.0.55"
     build_number: int = 56
     release_date: Optional[str] = None

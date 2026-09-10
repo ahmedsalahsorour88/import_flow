@@ -172,6 +172,52 @@ void main() {
       expect(en.smartTaskReminderTypeLabel('ETA Arrival'), equals('Shipment ETA Arrival'));
       expect(ar.smartTaskReminderTypeLabel('Bank Form 4'), equals('نموذج 4 البنكي'));
       expect(en.smartTaskReminderTypeLabel('Bank Form 4'), equals('Bank Form 4'));
+
+      // Export, Copy and TSV getters
+      expect(ar.smartTasksExportTsvBtn, isNotEmpty);
+      expect(en.smartTasksExportTsvBtn, isNotEmpty);
+      expect(ar.smartTasksExportTsvSuccess, isNotEmpty);
+      expect(en.smartTasksExportTsvSuccess, isNotEmpty);
+      expect(ar.smartTasksExportPdfBtn, isNotEmpty);
+      expect(en.smartTasksExportPdfBtn, isNotEmpty);
+      expect(ar.smartTasksExportExcelBtn, isNotEmpty);
+      expect(en.smartTasksExportExcelBtn, isNotEmpty);
+      expect(ar.smartTaskCopySummaryBtn, isNotEmpty);
+      expect(en.smartTaskCopySummaryBtn, isNotEmpty);
+      expect(ar.smartTaskCopySummarySuccess, isNotEmpty);
+      expect(en.smartTaskCopySummarySuccess, isNotEmpty);
+      expect(ar.smartTaskPrintPdfTooltip, isNotEmpty);
+      expect(en.smartTaskPrintPdfTooltip, isNotEmpty);
+      expect(ar.smartTaskShareWhatsappTooltip, isNotEmpty);
+      expect(en.smartTaskShareWhatsappTooltip, isNotEmpty);
+      expect(ar.smartTaskCodeBadgeLabel, isNotEmpty);
+      expect(en.smartTaskCodeBadgeLabel, isNotEmpty);
+      expect(ar.smartTaskImportFileBadgeLabel, isNotEmpty);
+      expect(en.smartTaskImportFileBadgeLabel, isNotEmpty);
+      expect(ar.smartTaskCopyFieldTooltip, isNotEmpty);
+      expect(en.smartTaskCopyFieldTooltip, isNotEmpty);
+
+      // TSV Headers
+      expect(ar.smartTasksTsvHeaderCode, isNotEmpty);
+      expect(en.smartTasksTsvHeaderCode, isNotEmpty);
+      expect(ar.smartTasksTsvHeaderType, isNotEmpty);
+      expect(en.smartTasksTsvHeaderType, isNotEmpty);
+      expect(ar.smartTasksTsvHeaderTitle, isNotEmpty);
+      expect(en.smartTasksTsvHeaderTitle, isNotEmpty);
+      expect(ar.smartTasksTsvHeaderShipment, isNotEmpty);
+      expect(en.smartTasksTsvHeaderShipment, isNotEmpty);
+      expect(ar.smartTasksTsvHeaderPriority, isNotEmpty);
+      expect(en.smartTasksTsvHeaderPriority, isNotEmpty);
+      expect(ar.smartTasksTsvHeaderReminder, isNotEmpty);
+      expect(en.smartTasksTsvHeaderReminder, isNotEmpty);
+      expect(ar.smartTasksTsvHeaderDueDate, isNotEmpty);
+      expect(en.smartTasksTsvHeaderDueDate, isNotEmpty);
+      expect(ar.smartTasksTsvHeaderStatus, isNotEmpty);
+      expect(en.smartTasksTsvHeaderStatus, isNotEmpty);
+      expect(ar.smartTasksTsvHeaderAssignedUser, isNotEmpty);
+      expect(en.smartTasksTsvHeaderAssignedUser, isNotEmpty);
+      expect(ar.smartTasksTsvHeaderDescription, isNotEmpty);
+      expect(en.smartTasksTsvHeaderDescription, isNotEmpty);
     });
 
     test('Arabic strings should not contain English or Latin characters', () {
@@ -228,6 +274,28 @@ void main() {
       expect(latinPattern.hasMatch(ar.smartTaskBtnSave), isFalse);
       expect(latinPattern.hasMatch(ar.smartTaskSuccessUpdated), isFalse);
       expect(latinPattern.hasMatch(ar.smartTaskSuccessCreated), isFalse);
+
+      expect(latinPattern.hasMatch(ar.smartTasksExportTsvBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTasksExportTsvSuccess), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTasksExportPdfBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTasksExportExcelBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTaskCopySummaryBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTaskCopySummarySuccess), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTaskPrintPdfTooltip), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTaskShareWhatsappTooltip), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTaskCodeBadgeLabel), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTaskImportFileBadgeLabel), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTaskCopyFieldTooltip), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTasksTsvHeaderCode), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTasksTsvHeaderType), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTasksTsvHeaderTitle), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTasksTsvHeaderShipment), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTasksTsvHeaderPriority), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTasksTsvHeaderReminder), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTasksTsvHeaderDueDate), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTasksTsvHeaderStatus), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTasksTsvHeaderAssignedUser), isFalse);
+      expect(latinPattern.hasMatch(ar.smartTasksTsvHeaderDescription), isFalse);
 
       expect(latinPattern.hasMatch(ar.smartTaskPriorityLabel('critical')), isFalse);
       expect(latinPattern.hasMatch(ar.smartTaskStatusLabel('completed')), isFalse);
@@ -288,6 +356,28 @@ void main() {
       expect(arabicPattern.hasMatch(en.smartTaskBtnSave), isFalse);
       expect(arabicPattern.hasMatch(en.smartTaskSuccessUpdated), isFalse);
       expect(arabicPattern.hasMatch(en.smartTaskSuccessCreated), isFalse);
+
+      expect(arabicPattern.hasMatch(en.smartTasksExportTsvBtn), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTasksExportTsvSuccess), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTasksExportPdfBtn), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTasksExportExcelBtn), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTaskCopySummaryBtn), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTaskCopySummarySuccess), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTaskPrintPdfTooltip), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTaskShareWhatsappTooltip), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTaskCodeBadgeLabel), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTaskImportFileBadgeLabel), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTaskCopyFieldTooltip), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTasksTsvHeaderCode), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTasksTsvHeaderType), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTasksTsvHeaderTitle), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTasksTsvHeaderShipment), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTasksTsvHeaderPriority), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTasksTsvHeaderReminder), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTasksTsvHeaderDueDate), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTasksTsvHeaderStatus), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTasksTsvHeaderAssignedUser), isFalse);
+      expect(arabicPattern.hasMatch(en.smartTasksTsvHeaderDescription), isFalse);
     });
 
     final sampleTasks = [

@@ -126,6 +126,8 @@ class BrokerPriceListModel {
   final int version;
   final bool isActive;
   final String? notes;
+  final int? clonedFromId;
+  final String? clonedFromCode;
   final List<BrokerPriceListItemModel> items;
 
   BrokerPriceListModel({
@@ -140,6 +142,8 @@ class BrokerPriceListModel {
     this.version = 1,
     this.isActive = true,
     this.notes,
+    this.clonedFromId,
+    this.clonedFromCode,
     this.items = const [],
   });
 
@@ -156,6 +160,8 @@ class BrokerPriceListModel {
       version: json['version'] ?? 1,
       isActive: json['is_active'] ?? true,
       notes: json['notes'],
+      clonedFromId: json['cloned_from_id'],
+      clonedFromCode: json['cloned_from_code'],
       items: (json['items'] as List<dynamic>?)
               ?.map((i) => BrokerPriceListItemModel.fromJson(i))
               .toList() ??
@@ -173,6 +179,8 @@ class BrokerPriceListModel {
       if (portName != null) 'port_name': portName,
       'effective_from': effectiveFrom,
       if (effectiveTo != null) 'effective_to': effectiveTo,
+      if (clonedFromId != null) 'cloned_from_id': clonedFromId,
+      if (clonedFromCode != null) 'cloned_from_code': clonedFromCode,
       'version': version,
       'is_active': isActive,
       if (notes != null) 'notes': notes,
@@ -399,6 +407,8 @@ class CustomsConsultationModel {
   final double totalBrokerFeesEgp;
   final String? notes;
   final bool isActive;
+  final int? clonedFromId;
+  final String? clonedFromCode;
   final String createdAt;
   final String updatedAt;
   final String? importFileCode;
@@ -427,6 +437,8 @@ class CustomsConsultationModel {
     this.totalBrokerFeesEgp = 0.0,
     this.notes,
     this.isActive = true,
+    this.clonedFromId,
+    this.clonedFromCode,
     required this.createdAt,
     required this.updatedAt,
     this.importFileCode,
@@ -457,6 +469,8 @@ class CustomsConsultationModel {
       totalBrokerFeesEgp: (json['total_broker_fees_egp'] as num?)?.toDouble() ?? 0.0,
       notes: json['notes'],
       isActive: json['is_active'] ?? true,
+      clonedFromId: json['cloned_from_id'],
+      clonedFromCode: json['cloned_from_code'],
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
       importFileCode: json['import_file_code'],
@@ -494,6 +508,8 @@ class CustomsConsultationModel {
       'total_broker_fees_egp': totalBrokerFeesEgp,
       'notes': notes,
       'is_active': isActive,
+      if (clonedFromId != null) 'cloned_from_id': clonedFromId,
+      if (clonedFromCode != null) 'cloned_from_code': clonedFromCode,
       'checklist_items': checklistItems.map((item) => item.toJson()).toList(),
       'broker_quote_items': brokerQuoteItems.map((item) => item.toJson()).toList(),
     };
@@ -683,5 +699,75 @@ class CustomsRecalculationResponseModel {
           [],
     );
   }
+}
+
+class CustomsItemCalcRow {
+  final String hsCode;
+  final String description;
+  final double qty;
+  final String unit;
+  final double foreignPrice;
+  final double fobEgp;
+  final double freightEgp;
+  final double insuranceEgp;
+  final double cifEgp;
+  final double dutyRate;
+  final double baseDutyRate;
+  final double dutyAmountEgp;
+  final double vatRate;
+  final double vatBaseEgp;
+  final double vatAmountEgp;
+  final double scheduleTaxRate;
+  final double scheduleTaxAmountEgp;
+  final double developmentFeeRate;
+  final double developmentFeeAmountEgp;
+  final double customsServiceFeeRate;
+  final double customsServiceFeeAmountEgp;
+  final double totalTaxesAndDutiesEgp;
+  final bool requiresCoo;
+  final bool requiresInspection;
+  final bool requiresAcid;
+  final String? regulatoryAuthority;
+  final String? priorApprovalNote;
+  final String? countryOfOrigin;
+  final String? appliedAgreementName;
+  final bool hasExemption;
+  final String? exemptionConditionsNote;
+  final String? requiredDocument;
+
+  CustomsItemCalcRow({
+    required this.hsCode,
+    required this.description,
+    required this.qty,
+    required this.unit,
+    required this.foreignPrice,
+    required this.fobEgp,
+    required this.freightEgp,
+    required this.insuranceEgp,
+    required this.cifEgp,
+    required this.dutyRate,
+    required this.baseDutyRate,
+    required this.dutyAmountEgp,
+    required this.vatRate,
+    required this.vatBaseEgp,
+    required this.vatAmountEgp,
+    required this.scheduleTaxRate,
+    required this.scheduleTaxAmountEgp,
+    required this.developmentFeeRate,
+    required this.developmentFeeAmountEgp,
+    required this.customsServiceFeeRate,
+    required this.customsServiceFeeAmountEgp,
+    required this.totalTaxesAndDutiesEgp,
+    required this.requiresCoo,
+    required this.requiresInspection,
+    required this.requiresAcid,
+    this.regulatoryAuthority,
+    this.priorApprovalNote,
+    this.countryOfOrigin,
+    this.appliedAgreementName,
+    this.hasExemption = false,
+    this.exemptionConditionsNote,
+    this.requiredDocument,
+  });
 }
 

@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -410,11 +410,79 @@ def reopen_shipment_service(
 
     return repo.update_import_file(db, import_file_id, update_dict)
 
-def get_all_import_files_service(db: Session, include_inactive: bool = False, search: Optional[str] = None, company_id: Optional[int] = None, supplier_id: Optional[int] = None, status: Optional[str] = None, owner: Optional[str] = None):
-    return repo.get_all_import_files(db, include_inactive=include_inactive, search=search, company_id=company_id, supplier_id=supplier_id, status=status, owner=owner)
+def get_all_import_files_service(
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    company_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    owner: Optional[str] = None,
+    hs_code: Optional[str] = None,
+    incoterm_code: Optional[str] = None,
+    port_of_loading: Optional[str] = None,
+    port_of_discharge: Optional[str] = None,
+    shipment_mode: Optional[str] = None,
+    carrier: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+):
+    return repo.get_all_import_files(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        company_id=company_id,
+        supplier_id=supplier_id,
+        status=status,
+        owner=owner,
+        hs_code=hs_code,
+        incoterm_code=incoterm_code,
+        port_of_loading=port_of_loading,
+        port_of_discharge=port_of_discharge,
+        shipment_mode=shipment_mode,
+        carrier=carrier,
+        date_from=date_from,
+        date_to=date_to,
+    )
 
-def get_paginated_import_files_service(db: Session, page: int = 1, page_size: int = 50, include_inactive: bool = False, search: Optional[str] = None, company_id: Optional[int] = None, supplier_id: Optional[int] = None, status: Optional[str] = None, owner: Optional[str] = None):
-    return repo.get_paginated_import_files(db, include_inactive=include_inactive, search=search, company_id=company_id, supplier_id=supplier_id, status=status, owner=owner, page=page, page_size=page_size)
+def get_paginated_import_files_service(
+    db: Session,
+    page: int = 1,
+    page_size: int = 50,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    company_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    owner: Optional[str] = None,
+    hs_code: Optional[str] = None,
+    incoterm_code: Optional[str] = None,
+    port_of_loading: Optional[str] = None,
+    port_of_discharge: Optional[str] = None,
+    shipment_mode: Optional[str] = None,
+    carrier: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+):
+    return repo.get_paginated_import_files(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        company_id=company_id,
+        supplier_id=supplier_id,
+        status=status,
+        owner=owner,
+        hs_code=hs_code,
+        incoterm_code=incoterm_code,
+        port_of_loading=port_of_loading,
+        port_of_discharge=port_of_discharge,
+        shipment_mode=shipment_mode,
+        carrier=carrier,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        page_size=page_size,
+    )
 
 def get_operational_dashboard_data_service(db: Session, phase: Optional[str] = None, priority: Optional[str] = None, broker_id: Optional[int] = None, broker_name: Optional[str] = None, search: Optional[str] = None):
     return repo.get_operational_dashboard_data(db, phase=phase, priority=priority, broker_id=broker_id, broker_name=broker_name, search=search)
@@ -901,5 +969,120 @@ def resume_import_file_service(
         pass
 
     return repo.update_import_file(db, import_file_id, update_dict)
+
+
+def clone_import_file_service(
+    db: Session, import_file_id: int, payload: CloneImportFileRequest, current_user: str = "System"
+):
+    """
+    Universal Clone Engine (UX-CLONE-011) — Entity-Level Clone for Import Files.
+    Copies: Company, Supplier, Broker, Ports, Mode, Incoterms, Priority, Category, Invoices & Packing Lists (optional).
+    Mandatory Resets:
+      - import_file_code must be unique (validated).
+      - custom_file_number must be unique or null.
+      - acid_number, form4_no, swift_no, form46_no, b/l numbers -> RESET to None.
+      - is_customs_released = False, customs_released_at = None.
+      - progress_percent = 0.0, current_stage = "Draft", current_module = "Import Documentation".
+      - status = "Draft".
+      - cloned_from_id = original.import_file_id, cloned_from_code = original.import_file_code.
+      - attachments are NOT copied unless explicitly requested.
+    """
+    original = repo.get_import_file_by_id(db, import_file_id)
+    if not original:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ملف الاستيراد الأصلي '{import_file_id}' غير موجود.",
+        )
+
+    # 1. Uniqueness check for target_import_file_code
+    existing_code = repo.get_import_file_by_code(db, payload.target_import_file_code)
+    if existing_code:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"كود ملف الاستيراد '{payload.target_import_file_code}' مستخدم بالفعل.",
+        )
+
+    # 2. Uniqueness check for target_custom_file_number if provided
+    if payload.target_custom_file_number:
+        existing_custom = db.query(ImportFile).filter(
+            ImportFile.custom_file_number == payload.target_custom_file_number
+        ).first()
+        if existing_custom:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"رقم الملف الجمركي المخصص '{payload.target_custom_file_number}' مستخدم بالفعل.",
+            )
+
+    cloned_data = {
+        "import_file_code": payload.target_import_file_code,
+        "custom_file_number": payload.target_custom_file_number,
+        "company_id": original.company_id,
+        "company_name": original.company_name,
+        "supplier_id": original.supplier_id,
+        "supplier_name": original.supplier_name,
+        "broker_id": original.broker_id,
+        "broker_name": original.broker_name,
+        "po_number": None,
+        "po_ids": [],
+        "pi_number": None,
+        "invoices_data": original.invoices_data if payload.copy_invoices_data else [],
+        "packing_lists_data": original.packing_lists_data if payload.copy_packing_lists else [],
+        "invoices_count": len(original.invoices_data) if (payload.copy_invoices_data and original.invoices_data) else 0,
+        "extraction_preference": original.extraction_preference,
+        "project_ids": original.project_ids or [],
+        "project_names": original.project_names,
+        "shipment_mode": original.shipment_mode,
+        "incoterm_code": original.incoterm_code,
+        "priority": original.priority or "High",
+        "shipment_category": original.shipment_category or "New Purchase",
+        "required_eta": None,
+        "file_opening_date": date.today(),
+        "selected_scenario": original.selected_scenario,
+        "pickup_address": original.pickup_address,
+        "hs_code": original.hs_code,
+        "product_category": original.product_category,
+        "port_of_loading": original.port_of_loading,
+        "port_of_discharge": original.port_of_discharge,
+        "cargo_ready_date": None,
+        "target_free_days": original.target_free_days or 21,
+        "service_type_preference": original.service_type_preference or "Direct",
+        "shipping_instructions_notes": original.shipping_instructions_notes,
+        # Mandatory Reset Fields
+        "acid_number": None,
+        "acid_request_date": None,
+        "acid_issue_date": None,
+        "acid_expiry_date": None,
+        "acid_execution_days": None,
+        "is_customs_released": False,
+        "customs_released_at": None,
+        "form4_no": None,
+        "form4_request_date": None,
+        "form4_received_date": None,
+        "form4_execution_days": None,
+        "swift_no": None,
+        "form46_no": None,
+        "estimated_cost": original.estimated_cost,
+        "estimated_cost_currency": original.estimated_cost_currency or "USD",
+        "current_module": "Import Documentation",
+        "current_stage": "Draft",
+        "progress_percent": 0.0,
+        "next_action": "إكمال بيانات الشحنة المستنسخة وفتح إجراءات ACID",
+        "initial_starting_stage": "Draft",
+        "status": "Draft",
+        "owner": original.owner or current_user,
+        "notes": payload.notes or f"مستنسخ من الشحنة: {original.import_file_code}",
+        "is_active": True,
+        "created_by": current_user,
+        "updated_by": current_user,
+        "cloned_from_id": original.import_file_id,
+        "cloned_from_code": original.import_file_code,
+    }
+
+    new_file = ImportFile(**cloned_data)
+    db.add(new_file)
+    db.commit()
+    db.refresh(new_file)
+    return new_file
+
 
 

@@ -172,3 +172,40 @@ class TestPartnerKPIScorecard:
         assert "star_rating" in data
         assert "tier_badge" in data
         assert "executive_summary_ar" in data
+
+    def test_supplier_scorecard_service_and_api(self, client, db_session):
+        from modules.suppliers.model import Supplier
+        from modules.suppliers.service import get_supplier_scorecard_service
+
+        supplier = Supplier(
+            supplier_code="SUP-TEST-999",
+            company_name="Shanghai Machinery Corp",
+            supplier_type="Manufacturer",
+            registration_type="Direct",
+            foreign_exporter_id="EXP-SH-999",
+            foreign_exporter_country="China",
+            foreign_exporter_country_code="CN",
+            address="Pudong, Shanghai",
+            is_active=True,
+        )
+        db_session.add(supplier)
+        db_session.commit()
+        db_session.refresh(supplier)
+
+        # 1. Test Service directly
+        card = get_supplier_scorecard_service(db_session, supplier.supplier_id)
+        assert card is not None
+        assert card.supplier_id == supplier.supplier_id
+        assert card.company_name == "Shanghai Machinery Corp"
+        assert card.quality_score_out_of_100 >= 80.0
+        assert "بطاقة أداء المورد" in card.executive_summary_ar
+
+        # 2. Test API endpoint
+        resp = client.get(f"/api/v1/suppliers/{supplier.supplier_id}/scorecard")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["supplier_id"] == supplier.supplier_id
+        assert data["company_name"] == "Shanghai Machinery Corp"
+        assert data["star_rating"] > 0
+        assert data["tier_badge"] in ["Platinum A+", "Gold A", "Silver B", "Probation C"]
+

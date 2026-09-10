@@ -62,9 +62,13 @@ String _resolveProjectRoot() {
     final userProfile = Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'] ?? '';
     if (userProfile.isNotEmpty) {
       final candidatePaths = [
+        _joinPath(userProfile, 'Desktop', 'SorourLogistics'),
+        _joinPath(userProfile, 'Desktop', 'Sorour_Logistics'),
         _joinPath(userProfile, 'Desktop', 'ImportFlow'),
         _joinPath(userProfile, 'Desktop', 'import_flow'),
+        _joinPath(userProfile, 'Documents', 'SorourLogistics'),
         _joinPath(userProfile, 'Documents', 'ImportFlow'),
+        _joinPath(userProfile, 'SorourLogistics'),
         _joinPath(userProfile, 'ImportFlow'),
       ];
       for (final cand in candidatePaths) {
@@ -77,6 +81,11 @@ String _resolveProjectRoot() {
 
   // 4. Check well-known workspace paths on Windows
   const knownWindowsPaths = [
+    r'F:\SorourLogistics',
+    r'C:\SorourLogistics',
+    r'D:\SorourLogistics',
+    r'E:\SorourLogistics',
+    r'C:\Users\Hp\Desktop\SorourLogistics',
     r'C:\Users\Hp\Desktop\ImportFlow',
     r'C:\ImportFlow',
     r'D:\ImportFlow',

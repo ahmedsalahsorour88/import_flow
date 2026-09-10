@@ -1,117 +1,337 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
+import 'package:frontend/features/financial_settlement/services/landed_cost_comparison_export_service.dart';
 
 void main() {
-  group('Screen 50: Landed Cost Comparison Localization Tests', () {
-    late AppLocalizations ar;
-    late AppLocalizations en;
+  TestWidgetsFlutterBinding.ensureInitialized();
 
-    setUp(() {
-      ar = const AppLocalizationsAr();
-      en = const AppLocalizationsEn();
-    });
+  group('Screen 50: Landed Cost Comparison Localization Tests', () {
+    final ar = AppLocalizationsAr();
+    final en = AppLocalizationsEn();
 
     test('All Screen 50 getters should return non-empty strings in Arabic and English', () {
-      expect(ar.landedCostComparisonTitle('IMP-001'), contains('IMP-001'));
-      expect(en.landedCostComparisonTitle('IMP-001'), contains('IMP-001'));
-      expect(ar.landedCostLoadError('Database Error'), contains('Database Error'));
-      expect(en.landedCostLoadError('Database Error'), contains('Database Error'));
-      expect(ar.noLandedCostDataRegistered, isNotEmpty);
-      expect(en.noLandedCostDataRegistered, isNotEmpty);
-      expect(ar.expenseBreakdownHeader, isNotEmpty);
-      expect(en.expenseBreakdownHeader, isNotEmpty);
-      expect(ar.itemLandedCostHeader, isNotEmpty);
-      expect(en.itemLandedCostHeader, isNotEmpty);
-      expect(ar.estimatedCostHeader, isNotEmpty);
-      expect(en.estimatedCostHeader, isNotEmpty);
-      expect(ar.actualCostHeader, isNotEmpty);
-      expect(en.actualCostHeader, isNotEmpty);
-      expect(ar.fobValueCardTitle, isNotEmpty);
-      expect(en.fobValueCardTitle, isNotEmpty);
-      expect(ar.totalExpensesCardTitle, isNotEmpty);
-      expect(en.totalExpensesCardTitle, isNotEmpty);
-      expect(ar.totalLandedCostCardTitle, isNotEmpty);
-      expect(en.totalLandedCostCardTitle, isNotEmpty);
-      expect(ar.estAbbreviation, isNotEmpty);
-      expect(en.estAbbreviation, isNotEmpty);
-      expect(ar.actAbbreviation, isNotEmpty);
-      expect(en.actAbbreviation, isNotEmpty);
-      expect(ar.colExpenseCategory, isNotEmpty);
-      expect(en.colExpenseCategory, isNotEmpty);
-      expect(ar.colExpenseProvider, isNotEmpty);
-      expect(en.colExpenseProvider, isNotEmpty);
-      expect(ar.colExpenseCurrency, isNotEmpty);
-      expect(en.colExpenseCurrency, isNotEmpty);
-      expect(ar.colExpenseAmountFx, isNotEmpty);
-      expect(en.colExpenseAmountFx, isNotEmpty);
-      expect(ar.colExpenseExchangeRate, isNotEmpty);
-      expect(en.colExpenseExchangeRate, isNotEmpty);
-      expect(ar.colExpenseAmountEgp, isNotEmpty);
-      expect(en.colExpenseAmountEgp, isNotEmpty);
-      expect(ar.colItemCode, isNotEmpty);
-      expect(en.colItemCode, isNotEmpty);
-      expect(ar.colItemName, isNotEmpty);
-      expect(en.colItemName, isNotEmpty);
-      expect(ar.colItemQty, isNotEmpty);
-      expect(en.colItemQty, isNotEmpty);
-      expect(ar.colFobUnitPrice, isNotEmpty);
-      expect(en.colFobUnitPrice, isNotEmpty);
-      expect(ar.colLandedUnitPrice, isNotEmpty);
-      expect(en.colLandedUnitPrice, isNotEmpty);
-      expect(ar.colCostMarkupFactor, isNotEmpty);
-      expect(en.colCostMarkupFactor, isNotEmpty);
-      expect(ar.landedCostOverBudgetBanner('15.2'), contains('15.2'));
-      expect(en.landedCostOverBudgetBanner('15.2'), contains('15.2'));
-      expect(ar.landedCostUnderBudgetBanner('8.5'), contains('8.5'));
-      expect(en.landedCostUnderBudgetBanner('8.5'), contains('8.5'));
+      final gettersAr = [
+        ar.landedCostExportTsvBtn,
+        ar.landedCostExportExcelBtn,
+        ar.landedCostPrintPdfBtn,
+        ar.landedCostCopyDossierBtn,
+        ar.landedCostCopyDossierSuccess,
+        ar.landedCostDossierHeader,
+        ar.landedCostExportTsvDialogTitle,
+        ar.landedCostExportExcelDialogTitle,
+        ar.incoRuleExporterCoversLabel,
+        ar.incoRuleImporterCoversLabel,
+        ar.incoCifRuleTitle,
+        ar.incoCifRuleDesc,
+        ar.incoCifExporterCovers,
+        ar.incoCifImporterCovers,
+        ar.incoCfrRuleTitle,
+        ar.incoCfrRuleDesc,
+        ar.incoCfrExporterCovers,
+        ar.incoCfrImporterCovers,
+        ar.incoExwRuleTitle,
+        ar.incoExwRuleDesc,
+        ar.incoExwExporterCovers,
+        ar.incoExwImporterCovers,
+        ar.incoDdpRuleTitle,
+        ar.incoDdpRuleDesc,
+        ar.incoDdpExporterCovers,
+        ar.incoDdpImporterCovers,
+        ar.incoFobRuleTitle,
+        ar.incoFobRuleDesc,
+        ar.incoFobExporterCovers,
+        ar.incoFobImporterCovers,
+        ar.landedCostTsvHeaderSection,
+        ar.landedCostTsvHeaderCodeOrCategory,
+        ar.landedCostTsvHeaderNameOrProvider,
+        ar.landedCostTsvHeaderQtyOrCurrency,
+        ar.landedCostTsvHeaderUnitPriceOrFx,
+        ar.landedCostTsvHeaderExchangeRate,
+        ar.landedCostTsvHeaderTotalCostEgp,
+        ar.landedCostTsvHeaderMarkupOrVariance,
+        ar.noLandedCostDataRegistered,
+        ar.expenseBreakdownHeader,
+        ar.itemLandedCostHeader,
+        ar.estimatedCostHeader,
+        ar.actualCostHeader,
+        ar.fobValueCardTitle,
+        ar.totalExpensesCardTitle,
+        ar.totalLandedCostCardTitle,
+        ar.estAbbreviation,
+        ar.actAbbreviation,
+        ar.colExpenseCategory,
+        ar.colExpenseProvider,
+        ar.colExpenseCurrency,
+        ar.colExpenseAmountFx,
+        ar.colExpenseExchangeRate,
+        ar.colExpenseAmountEgp,
+        ar.colItemCode,
+        ar.colItemName,
+        ar.colItemQty,
+        ar.colFobUnitPrice,
+        ar.colLandedUnitPrice,
+        ar.colCostMarkupFactor,
+      ];
 
-      expect(ar.expenseCategoryName('freight'), isNotEmpty);
-      expect(en.expenseCategoryName('freight'), isNotEmpty);
-      expect(ar.expenseCategoryName('customs'), isNotEmpty);
-      expect(en.expenseCategoryName('customs'), isNotEmpty);
-      expect(ar.expenseCategoryName('clearance'), isNotEmpty);
-      expect(en.expenseCategoryName('clearance'), isNotEmpty);
-      expect(ar.expenseCategoryName('transport'), isNotEmpty);
-      expect(en.expenseCategoryName('transport'), isNotEmpty);
-      expect(ar.expenseCategoryName('storage'), isNotEmpty);
-      expect(en.expenseCategoryName('storage'), isNotEmpty);
-      expect(ar.expenseCategoryName('other'), isNotEmpty);
-      expect(en.expenseCategoryName('other'), isNotEmpty);
+      final gettersEn = [
+        en.landedCostExportTsvBtn,
+        en.landedCostExportExcelBtn,
+        en.landedCostPrintPdfBtn,
+        en.landedCostCopyDossierBtn,
+        en.landedCostCopyDossierSuccess,
+        en.landedCostDossierHeader,
+        en.landedCostExportTsvDialogTitle,
+        en.landedCostExportExcelDialogTitle,
+        en.incoRuleExporterCoversLabel,
+        en.incoRuleImporterCoversLabel,
+        en.incoCifRuleTitle,
+        en.incoCifRuleDesc,
+        en.incoCifExporterCovers,
+        en.incoCifImporterCovers,
+        en.incoCfrRuleTitle,
+        en.incoCfrRuleDesc,
+        en.incoCfrExporterCovers,
+        en.incoCfrImporterCovers,
+        en.incoExwRuleTitle,
+        en.incoExwRuleDesc,
+        en.incoExwExporterCovers,
+        en.incoExwImporterCovers,
+        en.incoDdpRuleTitle,
+        en.incoDdpRuleDesc,
+        en.incoDdpExporterCovers,
+        en.incoDdpImporterCovers,
+        en.incoFobRuleTitle,
+        en.incoFobRuleDesc,
+        en.incoFobExporterCovers,
+        en.incoFobImporterCovers,
+        en.landedCostTsvHeaderSection,
+        en.landedCostTsvHeaderCodeOrCategory,
+        en.landedCostTsvHeaderNameOrProvider,
+        en.landedCostTsvHeaderQtyOrCurrency,
+        en.landedCostTsvHeaderUnitPriceOrFx,
+        en.landedCostTsvHeaderExchangeRate,
+        en.landedCostTsvHeaderTotalCostEgp,
+        en.landedCostTsvHeaderMarkupOrVariance,
+        en.noLandedCostDataRegistered,
+        en.expenseBreakdownHeader,
+        en.itemLandedCostHeader,
+        en.estimatedCostHeader,
+        en.actualCostHeader,
+        en.fobValueCardTitle,
+        en.totalExpensesCardTitle,
+        en.totalLandedCostCardTitle,
+        en.estAbbreviation,
+        en.actAbbreviation,
+        en.colExpenseCategory,
+        en.colExpenseProvider,
+        en.colExpenseCurrency,
+        en.colExpenseAmountFx,
+        en.colExpenseExchangeRate,
+        en.colExpenseAmountEgp,
+        en.colItemCode,
+        en.colItemName,
+        en.colItemQty,
+        en.colFobUnitPrice,
+        en.colLandedUnitPrice,
+        en.colCostMarkupFactor,
+      ];
+
+      for (final val in gettersAr) {
+        expect(val, isNotEmpty);
+      }
+      for (final val in gettersEn) {
+        expect(val, isNotEmpty);
+      }
     });
 
-    test('Arabic static strings should not contain English or Latin characters', () {
+    test('Zero Latin characters rule: Arabic strings must contain ZERO [a-zA-Z]', () {
       final latinPattern = RegExp(r'[a-zA-Z]');
-      expect(latinPattern.hasMatch(ar.noLandedCostDataRegistered), isFalse);
-      expect(latinPattern.hasMatch(ar.expenseBreakdownHeader), isFalse);
-      expect(latinPattern.hasMatch(ar.itemLandedCostHeader), isFalse);
-      expect(latinPattern.hasMatch(ar.estimatedCostHeader), isFalse);
-      expect(latinPattern.hasMatch(ar.actualCostHeader), isFalse);
-      expect(latinPattern.hasMatch(ar.fobValueCardTitle), isFalse);
-      expect(latinPattern.hasMatch(ar.totalExpensesCardTitle), isFalse);
-      expect(latinPattern.hasMatch(ar.totalLandedCostCardTitle), isFalse);
-      expect(latinPattern.hasMatch(ar.estAbbreviation), isFalse);
-      expect(latinPattern.hasMatch(ar.actAbbreviation), isFalse);
-      expect(latinPattern.hasMatch(ar.colExpenseCategory), isFalse);
-      expect(latinPattern.hasMatch(ar.colExpenseProvider), isFalse);
-      expect(latinPattern.hasMatch(ar.colExpenseCurrency), isFalse);
-      expect(latinPattern.hasMatch(ar.colExpenseAmountFx), isFalse);
-      expect(latinPattern.hasMatch(ar.colExpenseExchangeRate), isFalse);
-      expect(latinPattern.hasMatch(ar.colExpenseAmountEgp), isFalse);
-      expect(latinPattern.hasMatch(ar.colItemCode), isFalse);
-      expect(latinPattern.hasMatch(ar.colItemName), isFalse);
-      expect(latinPattern.hasMatch(ar.colItemQty), isFalse);
-      expect(latinPattern.hasMatch(ar.colFobUnitPrice), isFalse);
-      expect(latinPattern.hasMatch(ar.colLandedUnitPrice), isFalse);
-      expect(latinPattern.hasMatch(ar.colCostMarkupFactor), isFalse);
 
-      expect(latinPattern.hasMatch(ar.expenseCategoryName('freight')), isFalse);
-      expect(latinPattern.hasMatch(ar.expenseCategoryName('customs')), isFalse);
-      expect(latinPattern.hasMatch(ar.expenseCategoryName('clearance')), isFalse);
-      expect(latinPattern.hasMatch(ar.expenseCategoryName('transport')), isFalse);
-      expect(latinPattern.hasMatch(ar.expenseCategoryName('storage')), isFalse);
-      expect(latinPattern.hasMatch(ar.expenseCategoryName('other')), isFalse);
+      final arabicStrings = [
+        ar.landedCostExportTsvBtn,
+        ar.landedCostExportExcelBtn,
+        ar.landedCostPrintPdfBtn,
+        ar.landedCostCopyDossierBtn,
+        ar.landedCostCopyDossierSuccess,
+        ar.landedCostDossierHeader,
+        ar.landedCostExportTsvDialogTitle,
+        ar.landedCostExportExcelDialogTitle,
+        ar.incoRuleExporterCoversLabel,
+        ar.incoRuleImporterCoversLabel,
+        ar.incoCifRuleTitle,
+        ar.incoCifRuleDesc,
+        ar.incoCifExporterCovers,
+        ar.incoCifImporterCovers,
+        ar.incoCfrRuleTitle,
+        ar.incoCfrRuleDesc,
+        ar.incoCfrExporterCovers,
+        ar.incoCfrImporterCovers,
+        ar.incoExwRuleTitle,
+        ar.incoExwRuleDesc,
+        ar.incoExwExporterCovers,
+        ar.incoExwImporterCovers,
+        ar.incoDdpRuleTitle,
+        ar.incoDdpRuleDesc,
+        ar.incoDdpExporterCovers,
+        ar.incoDdpImporterCovers,
+        ar.incoFobRuleTitle,
+        ar.incoFobRuleDesc,
+        ar.incoFobExporterCovers,
+        ar.incoFobImporterCovers,
+        ar.landedCostTsvHeaderSection,
+        ar.landedCostTsvHeaderCodeOrCategory,
+        ar.landedCostTsvHeaderNameOrProvider,
+        ar.landedCostTsvHeaderQtyOrCurrency,
+        ar.landedCostTsvHeaderUnitPriceOrFx,
+        ar.landedCostTsvHeaderExchangeRate,
+        ar.landedCostTsvHeaderTotalCostEgp,
+        ar.landedCostTsvHeaderMarkupOrVariance,
+        ar.noLandedCostDataRegistered,
+        ar.expenseBreakdownHeader,
+        ar.itemLandedCostHeader,
+        ar.estimatedCostHeader,
+        ar.actualCostHeader,
+        ar.fobValueCardTitle,
+        ar.totalExpensesCardTitle,
+        ar.totalLandedCostCardTitle,
+        ar.estAbbreviation,
+        ar.actAbbreviation,
+        ar.colExpenseCategory,
+        ar.colExpenseProvider,
+        ar.colExpenseCurrency,
+        ar.colExpenseAmountFx,
+        ar.colExpenseExchangeRate,
+        ar.colExpenseAmountEgp,
+        ar.colItemCode,
+        ar.colItemName,
+        ar.colItemQty,
+        ar.colFobUnitPrice,
+        ar.colLandedUnitPrice,
+        ar.colCostMarkupFactor,
+      ];
+
+      for (final str in arabicStrings) {
+        expect(
+          latinPattern.hasMatch(str),
+          isFalse,
+          reason: 'String "$str" contains Latin characters, violating zero-Latin rule',
+        );
+      }
+    });
+
+    test('Zero bilingual slash rule: Arabic strings must contain ZERO slashes [/]', () {
+      final arabicStrings = [
+        ar.landedCostExportTsvBtn,
+        ar.landedCostExportExcelBtn,
+        ar.landedCostPrintPdfBtn,
+        ar.landedCostCopyDossierBtn,
+        ar.landedCostCopyDossierSuccess,
+        ar.landedCostDossierHeader,
+        ar.landedCostExportTsvDialogTitle,
+        ar.landedCostExportExcelDialogTitle,
+        ar.incoRuleExporterCoversLabel,
+        ar.incoRuleImporterCoversLabel,
+        ar.incoCifRuleTitle,
+        ar.incoCifRuleDesc,
+        ar.incoCifExporterCovers,
+        ar.incoCifImporterCovers,
+        ar.incoCfrRuleTitle,
+        ar.incoCfrRuleDesc,
+        ar.incoCfrExporterCovers,
+        ar.incoCfrImporterCovers,
+        ar.incoExwRuleTitle,
+        ar.incoExwRuleDesc,
+        ar.incoExwExporterCovers,
+        ar.incoExwImporterCovers,
+        ar.incoDdpRuleTitle,
+        ar.incoDdpRuleDesc,
+        ar.incoDdpExporterCovers,
+        ar.incoDdpImporterCovers,
+        ar.incoFobRuleTitle,
+        ar.incoFobRuleDesc,
+        ar.incoFobExporterCovers,
+        ar.incoFobImporterCovers,
+        ar.landedCostTsvHeaderSection,
+        ar.landedCostTsvHeaderCodeOrCategory,
+        ar.landedCostTsvHeaderNameOrProvider,
+        ar.landedCostTsvHeaderQtyOrCurrency,
+        ar.landedCostTsvHeaderUnitPriceOrFx,
+        ar.landedCostTsvHeaderExchangeRate,
+        ar.landedCostTsvHeaderTotalCostEgp,
+        ar.landedCostTsvHeaderMarkupOrVariance,
+        ar.colExpenseProvider,
+      ];
+
+      for (final str in arabicStrings) {
+        expect(
+          str.contains('/'),
+          isFalse,
+          reason: 'String "$str" contains bilingual slash [/]',
+        );
+      }
+    });
+
+    testWidgets('LandedCostComparisonExportService buildDossierText builds structured dossier', (tester) async {
+      late BuildContext testContext;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Builder(
+                builder: (ctx) {
+                  testContext = ctx;
+                  return const Scaffold(body: Text('OK'));
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final service = LandedCostComparisonExportService(
+        context: testContext,
+        fileCode: 'IMP-2026-001',
+        incoterm: 'FOB',
+        estimatedCost: 500000.0,
+        settlementRecord: {
+          'total_fob_egp': 480000.0,
+          'total_expenses_egp': 65000.0,
+          'total_landed_cost_egp': 545000.0,
+          'expense_invoices': [
+            {
+              'category': 'freight',
+              'provider_name': 'Maersk Line',
+              'currency': 'USD',
+              'amount_fx': 1200.0,
+              'exchange_rate': 50.0,
+              'amount_egp': 60000.0,
+            }
+          ],
+          'item_landed_costs': [
+            {
+              'item_code': 'RAW-001',
+              'item_name': 'Industrial Steel Bars',
+              'qty': 100,
+              'fob_unit_egp': 4800.0,
+              'unit_landed_cost_egp': 5450.0,
+              'markup_factor': 1.135,
+            }
+          ],
+        },
+      );
+
+      final dossier = service.buildDossierText();
+      expect(dossier, contains('IMP-2026-001'));
+      expect(dossier, contains('FOB'));
+      expect(dossier, contains('545000.00 EGP'));
+      expect(dossier, contains('Maersk Line'));
+      expect(dossier, contains('RAW-001'));
     });
   });
 }

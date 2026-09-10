@@ -150,3 +150,106 @@ def restore_supplier_service(db: Session, supplier_id: int) -> Supplier | None:
         action="RESTORE",
     )
     return restored
+
+
+# ==================================================
+# Supplier KPI Scorecard (LOG-KPIS-005)
+# ==================================================
+
+def get_supplier_scorecard_service(db: Session, supplier_id: int):
+    supplier = get_supplier_by_id(db, supplier_id)
+    if not supplier:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"المورد رقم [{supplier_id}] غير موجود."
+        )
+
+    from modules.purchase_orders.model import PurchaseOrder
+    from modules.import_files.model import ImportFile
+    from modules.cargo_shipping.model import CargoShippingRecord
+    from modules.docs_customs_approval.model import CustomsDocumentApproval, DiscrepancyRectificationTicket
+    from .schemas import SupplierScorecardResponse
+
+    # 1. Purchase Orders
+    orders = db.query(PurchaseOrder).filter(
+        PurchaseOrder.supplier_id == supplier_id,
+        PurchaseOrder.is_active == True,
+    ).all()
+    total_orders = len(orders)
+    completed_orders = sum(1 for o in orders if o.status in ["Delivered", "Completed", "Closed"])
+    order_fulfillment_rate = round((completed_orders / total_orders * 100.0) if total_orders > 0 else 100.0, 1)
+
+    # 2. CRD Adherence (Cargo Readiness Date)
+    import_files = db.query(ImportFile).filter(
+        ImportFile.supplier_id == supplier_id,
+        ImportFile.is_active == True,
+    ).all()
+    file_ids = [f.import_file_id for f in import_files]
+
+    crd_records = db.query(CargoShippingRecord).filter(
+        CargoShippingRecord.import_file_id.in_(file_ids)
+    ).all() if file_ids else []
+
+    total_crd = len(crd_records)
+    if total_crd > 0:
+        crd_on_time = sum(1 for r in crd_records if r.is_crd_validated is not False)
+        crd_adherence_rate = round((crd_on_time / total_crd) * 100.0, 1)
+    else:
+        crd_adherence_rate = 95.0
+
+    # 3. Documentation Accuracy Rate
+    tickets = db.query(DiscrepancyRectificationTicket).join(
+        CustomsDocumentApproval,
+        DiscrepancyRectificationTicket.approval_id == CustomsDocumentApproval.approval_id
+    ).filter(
+        CustomsDocumentApproval.import_file_id.in_(file_ids)
+    ).all() if file_ids else []
+
+    doc_approvals = db.query(CustomsDocumentApproval).filter(
+        CustomsDocumentApproval.import_file_id.in_(file_ids)
+    ).all() if file_ids else []
+
+    total_docs = len(doc_approvals)
+    total_tickets = len(tickets)
+    if total_docs > 0:
+        doc_accuracy_rate = round(max(50.0, 100.0 - (total_tickets / total_docs * 100.0)), 1)
+    else:
+        doc_accuracy_rate = 98.0
+
+    # 4. Overall Weighted Score
+    quality_score = round((crd_adherence_rate * 0.4) + (doc_accuracy_rate * 0.4) + (order_fulfillment_rate * 0.2), 1)
+    quality_score = min(100.0, max(40.0, quality_score))
+    star_rating = round(quality_score / 20.0, 1)
+
+    if quality_score >= 90:
+        tier_badge = "Platinum A+"
+    elif quality_score >= 80:
+        tier_badge = "Gold A"
+    elif quality_score >= 70:
+        tier_badge = "Silver B"
+    else:
+        tier_badge = "Probation C"
+
+    summary_ar = (
+        f"بطاقة أداء المورد [{supplier.company_name}]: "
+        f"الالتزام بجاهزية البضاعة بنسبة {crd_adherence_rate}%، "
+        f"ودقة مستندات الشحن {doc_accuracy_rate}% عبر {total_orders} أمر توريد، "
+        f"بتقييم إجمالي {quality_score:.1f}/100 ({star_rating} من 5) وتصنيف [{tier_badge}]."
+    )
+
+    return SupplierScorecardResponse(
+        supplier_id=supplier.supplier_id,
+        supplier_code=supplier.supplier_code,
+        company_name=supplier.company_name,
+        supplier_type=supplier.supplier_type or "Manufacturer",
+        country=supplier.foreign_exporter_country or "Unknown",
+        total_orders_completed=total_orders,
+        crd_adherence_rate=crd_adherence_rate,
+        documentation_accuracy_rate=doc_accuracy_rate,
+        order_fulfillment_rate=order_fulfillment_rate,
+        quality_score_out_of_100=quality_score,
+        star_rating=star_rating,
+        tier_badge=tier_badge,
+        executive_summary_ar=summary_ar,
+    )

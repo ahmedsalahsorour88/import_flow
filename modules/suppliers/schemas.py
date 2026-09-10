@@ -151,3 +151,21 @@ class SupplierResponse(SupplierBase):
     model_config = ConfigDict(
         from_attributes=True
     )
+
+
+class SupplierScorecardResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    supplier_id: int
+    supplier_code: str
+    company_name: str
+    supplier_type: str
+    country: str
+    total_orders_completed: int
+    crd_adherence_rate: float
+    documentation_accuracy_rate: float
+    order_fulfillment_rate: float
+    quality_score_out_of_100: float
+    star_rating: float
+    tier_badge: str
+    executive_summary_ar: str

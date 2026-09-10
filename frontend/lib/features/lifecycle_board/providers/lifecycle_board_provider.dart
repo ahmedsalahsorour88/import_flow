@@ -4,6 +4,19 @@ import '../../../core/constants/api_constants.dart';
 import '../models/lifecycle_board_model.dart';
 import '../../../core/network/api_client.dart';
 
+/// Extracts the human-readable `detail` message from a FastAPI error response.
+/// Falls back to a generic message when the response body is unavailable.
+String _extractErrorDetail(Object e) {
+  if (e is DioException) {
+    final data = e.response?.data;
+    if (data is Map && data['detail'] != null) {
+      return data['detail'].toString();
+    }
+    if (e.message != null && e.message!.isNotEmpty) return e.message!;
+  }
+  return e.toString();
+}
+
 
 final lifecycleBoardSummaryProvider =
     FutureProvider.autoDispose<LifecycleBoardSummaryModel>((ref) async {
@@ -33,6 +46,11 @@ class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {
   final Ref ref;
   final Dio _dio;
 
+  /// Last error detail from the backend (Arabic message from FastAPI HTTPException).
+  /// Null when last operation succeeded.
+  String? _lastErrorMessage;
+  String? get lastErrorMessage => _lastErrorMessage;
+
   LifecycleBoardNotifier(this.ref, this._dio) : super(const AsyncValue.data(null));
 
   Future<bool> advanceStep({
@@ -54,10 +72,12 @@ class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {
           'action_data': actionData,
         },
       );
+      _lastErrorMessage = null;
       state = const AsyncValue.data(null);
       ref.invalidate(lifecycleBoardSummaryProvider);
       return true;
     } catch (e, st) {
+      _lastErrorMessage = _extractErrorDetail(e);
       state = AsyncValue.error(e, st);
       return false;
     }
@@ -80,10 +100,12 @@ class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {
           'next_step_codes': nextStepCodes,
         },
       );
+      _lastErrorMessage = null;
       state = const AsyncValue.data(null);
       ref.invalidate(lifecycleBoardSummaryProvider);
       return true;
     } catch (e, st) {
+      _lastErrorMessage = _extractErrorDetail(e);
       state = AsyncValue.error(e, st);
       return false;
     }
@@ -104,10 +126,12 @@ class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {
           'notes': notes,
         },
       );
+      _lastErrorMessage = null;
       state = const AsyncValue.data(null);
       ref.invalidate(lifecycleBoardSummaryProvider);
       return true;
     } catch (e, st) {
+      _lastErrorMessage = _extractErrorDetail(e);
       state = AsyncValue.error(e, st);
       return false;
     }
@@ -118,4 +142,3 @@ final lifecycleBoardActionProvider =
     StateNotifierProvider<LifecycleBoardNotifier, AsyncValue<void>>((ref) {
   return LifecycleBoardNotifier(ref, ref.read(dioProvider));
 });
-

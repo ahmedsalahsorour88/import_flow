@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/adaptive_tab_scaffold.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -481,88 +482,55 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final allReviews = ref.watch(draftBLReviewsProvider).valueOrNull ?? [];
 
-    return Column(
-      children: [
-        // 5-Stage Stepper Navigation Bar
-        Container(
-          color: Colors.white,
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: [
-                _buildStageButton(0, context.l10n.draftBlStage0ReviewSheet, Icons.fact_check),
-                const SizedBox(width: 8),
-                _buildStageButton(1, context.l10n.draftBlStage1RevisionReport, Icons.assignment_late),
-                const SizedBox(width: 8),
-                _buildStageButton(2, context.l10n.draftBlStage2VersionBranching, Icons.history),
-                const SizedBox(width: 8),
-                _buildStageButton(3, context.l10n.draftBlStage3DualApproval, Icons.verified_user),
-                const SizedBox(width: 8),
-                _buildStageButton(4, context.l10n.draftBlStage4FinalRegistry, Icons.inventory_2),
-              ],
-            ),
+    final l10n = context.l10n;
+
+    return AdaptiveTabScaffold(
+      selectedIndex: _activeStep,
+      onTabSelected: (index) => setState(() => _activeStep = index),
+      accentColor: AppTheme.cobalt,
+      tabs: [
+        AdaptiveTabItem(
+          icon: Icons.fact_check,
+          label: l10n.draftBlStage0ReviewSheet,
+          content: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: _buildStage1UnifiedReviewSheetView(importFiles),
           ),
         ),
-        const Divider(height: 1),
-
-        // Body Views
-        Expanded(
-          child: SingleChildScrollView(
+        AdaptiveTabItem(
+          icon: Icons.assignment_late,
+          label: l10n.draftBlStage1RevisionReport,
+          content: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
-            child: _buildCurrentStageView(importFiles, allReviews),
+            child: _buildStage2RevisionView(importFiles),
+          ),
+        ),
+        AdaptiveTabItem(
+          icon: Icons.history,
+          label: l10n.draftBlStage2VersionBranching,
+          content: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: _buildStage3VersionBranchingView(importFiles),
+          ),
+        ),
+        AdaptiveTabItem(
+          icon: Icons.verified_user,
+          label: l10n.draftBlStage3DualApproval,
+          content: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: _buildStage4DualApprovalView(importFiles),
+          ),
+        ),
+        AdaptiveTabItem(
+          icon: Icons.inventory_2,
+          label: l10n.draftBlStage4FinalRegistry,
+          content: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: _buildStage5FinalRegistryView(allReviews),
           ),
         ),
       ],
     );
-  }
-
-  Widget _buildStageButton(int index, String title, IconData icon) {
-    bool isSelected = _activeStep == index;
-    return InkWell(
-      onTap: () => setState(() => _activeStep = index),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.cobalt : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.black87),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.black87,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCurrentStageView(List<dynamic> importFiles, List<DraftBLReviewModel> allReviews) {
-    switch (_activeStep) {
-      case 0:
-        return _buildStage1UnifiedReviewSheetView(importFiles);
-      case 1:
-        return _buildStage2RevisionView(importFiles);
-      case 2:
-        return _buildStage3VersionBranchingView(importFiles);
-      case 3:
-        return _buildStage4DualApprovalView(importFiles);
-      case 4:
-        return _buildStage5FinalRegistryView(allReviews);
-      default:
-        return const SizedBox.shrink();
-    }
   }
 
   // ===========================================================================

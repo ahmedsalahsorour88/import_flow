@@ -225,6 +225,58 @@ void main() {
       expect(en.usersMgmtRoleOperatorPerm4, isNotEmpty);
       expect(ar.usersMgmtRoleOperatorPerm5, isNotEmpty);
       expect(en.usersMgmtRoleOperatorPerm5, isNotEmpty);
+
+      // Export Toolbar, Copy Feedback & Permissions Detail
+      expect(ar.usersMgmtPermBadgeGrant, isNotEmpty);
+      expect(en.usersMgmtPermBadgeGrant, isNotEmpty);
+      expect(ar.usersMgmtPermBadgeRevoke, isNotEmpty);
+      expect(en.usersMgmtPermBadgeRevoke, isNotEmpty);
+      expect(ar.usersMgmtPermBadgeRole, isNotEmpty);
+      expect(en.usersMgmtPermBadgeRole, isNotEmpty);
+      expect(ar.usersMgmtPermTooltipGrant, isNotEmpty);
+      expect(en.usersMgmtPermTooltipGrant, isNotEmpty);
+      expect(ar.usersMgmtPermTooltipRevoke, isNotEmpty);
+      expect(en.usersMgmtPermTooltipRevoke, isNotEmpty);
+      expect(ar.usersMgmtPermTooltipRevertGrant, isNotEmpty);
+      expect(en.usersMgmtPermTooltipRevertGrant, isNotEmpty);
+      expect(ar.usersMgmtPermTooltipRevertRevoke, isNotEmpty);
+      expect(en.usersMgmtPermTooltipRevertRevoke, isNotEmpty);
+      expect(ar.usersMgmtExportTsvBtn, isNotEmpty);
+      expect(en.usersMgmtExportTsvBtn, isNotEmpty);
+      expect(ar.usersMgmtExportExcelBtn, isNotEmpty);
+      expect(en.usersMgmtExportExcelBtn, isNotEmpty);
+      expect(ar.usersMgmtPrintPdfBtn, isNotEmpty);
+      expect(en.usersMgmtPrintPdfBtn, isNotEmpty);
+      expect(ar.usersMgmtCopyDossierBtn, isNotEmpty);
+      expect(en.usersMgmtCopyDossierBtn, isNotEmpty);
+      expect(ar.usersMgmtCopiedTsvSuccess, isNotEmpty);
+      expect(en.usersMgmtCopiedTsvSuccess, isNotEmpty);
+      expect(ar.usersMgmtCopiedExcelSuccess, isNotEmpty);
+      expect(en.usersMgmtCopiedExcelSuccess, isNotEmpty);
+      expect(ar.usersMgmtCopiedDossierSuccess, isNotEmpty);
+      expect(en.usersMgmtCopiedDossierSuccess, isNotEmpty);
+      expect(ar.usersMgmtCopyRowSummaryBtn, isNotEmpty);
+      expect(en.usersMgmtCopyRowSummaryBtn, isNotEmpty);
+      expect(ar.usersMgmtCopyRowSummarySuccess, isNotEmpty);
+      expect(en.usersMgmtCopyRowSummarySuccess, isNotEmpty);
+      expect(ar.usersMgmtCopyBadgeSuccess('اسم المستخدم', 'admin'), isNotEmpty);
+      expect(en.usersMgmtCopyBadgeSuccess('Username', 'admin'), isNotEmpty);
+      expect(ar.usersMgmtSearchCopied, isNotEmpty);
+      expect(en.usersMgmtSearchCopied, isNotEmpty);
+      expect(ar.usersMgmtCopyFieldTooltip('الاسم'), isNotEmpty);
+      expect(en.usersMgmtCopyFieldTooltip('Name'), isNotEmpty);
+      expect(ar.usersMgmtPdfTitle, isNotEmpty);
+      expect(en.usersMgmtPdfTitle, isNotEmpty);
+      expect(ar.usersMgmtPdfSubtitle, isNotEmpty);
+      expect(en.usersMgmtPdfSubtitle, isNotEmpty);
+      expect(ar.usersMgmtDossierHeader, isNotEmpty);
+      expect(en.usersMgmtDossierHeader, isNotEmpty);
+      expect(ar.usersMgmtDossierKpiSummary, isNotEmpty);
+      expect(en.usersMgmtDossierKpiSummary, isNotEmpty);
+      expect(ar.usersMgmtDossierRecordsDetails, isNotEmpty);
+      expect(en.usersMgmtDossierRecordsDetails, isNotEmpty);
+      expect(ar.usersMgmtDossierFooter, isNotEmpty);
+      expect(en.usersMgmtDossierFooter, isNotEmpty);
     });
 
     test('Arabic static strings should not contain English or Latin characters', () {
@@ -319,6 +371,59 @@ void main() {
       expect(latinPattern.hasMatch(ar.usersMgmtRoleOperatorPerm3), isFalse);
       expect(latinPattern.hasMatch(ar.usersMgmtRoleOperatorPerm4), isFalse);
       expect(latinPattern.hasMatch(ar.usersMgmtRoleOperatorPerm5), isFalse);
+
+      expect(latinPattern.hasMatch(ar.usersMgmtPermBadgeGrant), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtPermBadgeRevoke), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtPermBadgeRole), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtPermTooltipGrant), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtPermTooltipRevoke), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtPermTooltipRevertGrant), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtPermTooltipRevertRevoke), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtExportTsvBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtExportExcelBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtPrintPdfBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtCopyDossierBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtCopiedTsvSuccess), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtCopiedExcelSuccess), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtCopiedDossierSuccess), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtCopyRowSummaryBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtCopyRowSummarySuccess), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtCopyBadgeSuccess('الاسم', 'أحمد')), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtSearchCopied), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtCopyFieldTooltip('الاسم')), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtPdfTitle), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtPdfSubtitle), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtDossierHeader), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtDossierKpiSummary), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtDossierRecordsDetails), isFalse);
+      expect(latinPattern.hasMatch(ar.usersMgmtDossierFooter), isFalse);
+    });
+
+    test('Arabic strings must NEVER contain bilingual slashes "/"', () {
+      expect(ar.usersMgmtTitle.contains('/'), isFalse);
+      expect(ar.usersMgmtSubtitle(5).contains('/'), isFalse);
+      expect(ar.usersMgmtRefreshTooltip.contains('/'), isFalse);
+      expect(ar.usersMgmtNewUserBtn.contains('/'), isFalse);
+      expect(ar.usersMgmtReadOnlyNotice.contains('/'), isFalse);
+      expect(ar.usersMgmtStatAll.contains('/'), isFalse);
+      expect(ar.usersMgmtStatActive.contains('/'), isFalse);
+      expect(ar.usersMgmtStatAdmin.contains('/'), isFalse);
+      expect(ar.usersMgmtStatManager.contains('/'), isFalse);
+      expect(ar.usersMgmtStatOperator.contains('/'), isFalse);
+      expect(ar.usersMgmtColFullName.contains('/'), isFalse);
+      expect(ar.usersMgmtColUsername.contains('/'), isFalse);
+      expect(ar.usersMgmtColEmail.contains('/'), isFalse);
+      expect(ar.usersMgmtColRole.contains('/'), isFalse);
+      expect(ar.usersMgmtColStatus.contains('/'), isFalse);
+      expect(ar.usersMgmtColCreatedAt.contains('/'), isFalse);
+      expect(ar.usersMgmtColActions.contains('/'), isFalse);
+      expect(ar.usersMgmtExportTsvBtn.contains('/'), isFalse);
+      expect(ar.usersMgmtExportExcelBtn.contains('/'), isFalse);
+      expect(ar.usersMgmtPrintPdfBtn.contains('/'), isFalse);
+      expect(ar.usersMgmtCopyDossierBtn.contains('/'), isFalse);
+      expect(ar.usersMgmtPdfTitle.contains('/'), isFalse);
+      expect(ar.usersMgmtDossierHeader.contains('/'), isFalse);
+      expect(ar.usersMgmtDossierFooter.contains('/'), isFalse);
     });
 
     test('Stacked bilingual patterns should not exist in English strings', () {

@@ -197,6 +197,20 @@ class BrokerPriceListsNotifier extends StateNotifier<AsyncValue<List<BrokerPrice
     }
   }
 
+  Future<BrokerPriceListModel?> clonePriceList(int priceListId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-consultations/price-lists/$priceListId/clone',
+        data: payload,
+      );
+      final pl = BrokerPriceListModel.fromJson(response.data);
+      await fetchPriceLists();
+      return pl;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> softDeletePriceList(int priceListId) async {
     try {
       await _dio.delete('${ApiConstants.baseUrl}/customs-consultations/price-lists/$priceListId');
@@ -338,5 +352,161 @@ class CustomsConsultationNotifier extends StateNotifier<AsyncValue<List<CustomsC
       rethrow;
     }
   }
+
+  Future<CustomsConsultationModel?> cloneConsultation(int consultationId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-consultations/$consultationId/clone',
+        data: payload,
+      );
+      final item = CustomsConsultationModel.fromJson(response.data);
+      await fetchConsultations();
+      return item;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
+
+// ── Expense Catalog (AI-EXPENSE-CATALOG-002) ──────────────────────────────────
+
+class ExpenseCatalogItemModel {
+  final String code;
+  final String canonicalNameAr;
+  final String? canonicalNameEn;
+  final String category;
+  final String unitType;
+  final bool allowComposite;
+  final List<String> recognitionPatterns;
+  final bool isActive;
+  final String? createdAt;
+
+  ExpenseCatalogItemModel({
+    required this.code,
+    required this.canonicalNameAr,
+    this.canonicalNameEn,
+    required this.category,
+    required this.unitType,
+    required this.allowComposite,
+    required this.recognitionPatterns,
+    required this.isActive,
+    this.createdAt,
+  });
+
+  factory ExpenseCatalogItemModel.fromJson(Map<String, dynamic> json) {
+    return ExpenseCatalogItemModel(
+      code: json['code']?.toString() ?? '',
+      canonicalNameAr: json['canonical_name_ar']?.toString() ?? '',
+      canonicalNameEn: json['canonical_name_en']?.toString(),
+      category: json['category']?.toString() ?? '',
+      unitType: json['unit_type']?.toString() ?? 'fixed',
+      allowComposite: json['allow_composite'] == true,
+      recognitionPatterns: (json['recognition_patterns'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      isActive: json['is_active'] != false,
+      createdAt: json['created_at']?.toString(),
+    );
+  }
+}
+
+final expenseCatalogProvider =
+    StateNotifierProvider<ExpenseCatalogNotifier, AsyncValue<List<ExpenseCatalogItemModel>>>((ref) {
+  return ExpenseCatalogNotifier(ref.read(dioProvider));
+});
+
+class ExpenseCatalogNotifier extends StateNotifier<AsyncValue<List<ExpenseCatalogItemModel>>> {
+  final Dio _dio;
+  CancelToken? _cancelToken;
+
+  ExpenseCatalogNotifier(this._dio) : super(const AsyncValue.loading()) {
+    fetchCatalog();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('ExpenseCatalogNotifier disposed');
+    super.dispose();
+  }
+
+  Future<void> fetchCatalog({String? category, String? search}) async {
+    _cancelToken?.cancel('New fetch requested');
+    _cancelToken = CancelToken();
+    state = const AsyncValue.loading();
+    try {
+      final queryParams = <String, dynamic>{'active_only': true};
+      if (category != null && category.isNotEmpty && category != 'All') {
+        queryParams['category'] = category;
+      }
+      if (search != null && search.isNotEmpty) {
+        queryParams['search'] = search;
+      }
+      final response = await _dio.get(
+        ApiConstants.expenseCatalog,
+        queryParameters: queryParams,
+        cancelToken: _cancelToken,
+      );
+      final List<dynamic> data = response.data;
+      final items = data.map((j) => ExpenseCatalogItemModel.fromJson(j)).toList();
+      state = AsyncValue.data(items);
+    } catch (e, stack) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<ExpenseCatalogItemModel?> createItem(Map<String, dynamic> payload) async {
+    try {
+      final res = await _dio.post(
+        ApiConstants.expenseCatalog,
+        data: payload,
+      );
+      final item = ExpenseCatalogItemModel.fromJson(res.data);
+      final current = state.valueOrNull ?? [];
+      state = AsyncValue.data([...current, item]);
+      return item;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<bool> addPattern(String code, String pattern) async {
+    try {
+      await _dio.post(
+        '${ApiConstants.expenseCatalog}/$code/patterns',
+        data: {'pattern': pattern},
+      );
+      await fetchCatalog();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<ExpenseCatalogItemModel?> updateItem(String code, Map<String, dynamic> payload) async {
+    try {
+      final res = await _dio.put(
+        '${ApiConstants.expenseCatalog}/$code',
+        data: payload,
+      );
+      final updated = ExpenseCatalogItemModel.fromJson(res.data);
+      await fetchCatalog();
+      return updated;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<bool> deleteItem(String code) async {
+    try {
+      await _dio.delete('${ApiConstants.expenseCatalog}/$code');
+      await fetchCatalog();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+}
+
 

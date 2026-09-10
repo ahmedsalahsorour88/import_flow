@@ -71,7 +71,7 @@ class CargoXPdfService {
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(
-                'Sorour Logistics ERP — ImportFlow Compliance Engine',
+                'Sorour Logistics ERP — Compliance Engine',
                 style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
               ),
               pw.Text(
@@ -100,16 +100,16 @@ class CargoXPdfService {
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text(
-                        'EXPORTER / SELLER (المصدر):',
+                        'EXPORTER (SELLER):',
                         style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: darkBlue),
                       ),
                       pw.SizedBox(height: 4),
                       pw.Text(payload.sellerName ?? 'N/A', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
                       if (payload.sellerTaxId != null && payload.sellerTaxId!.isNotEmpty)
-                        pw.Text('Tax / Reg ID: ', style: const pw.TextStyle(fontSize: 8)),
+                        pw.Text('Tax ID: ${payload.sellerTaxId!}', style: const pw.TextStyle(fontSize: 8)),
                       if (payload.sellerAddress != null && payload.sellerAddress!.isNotEmpty)
                         pw.Text(payload.sellerAddress!, style: const pw.TextStyle(fontSize: 8)),
-                      pw.Text('Country: ', style: const pw.TextStyle(fontSize: 8)),
+                      pw.Text('Country: ${payload.sellerCountryCode ?? "N/A"}', style: const pw.TextStyle(fontSize: 8)),
                     ],
                   ),
                 ),
@@ -127,16 +127,16 @@ class CargoXPdfService {
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text(
-                        'IMPORTER / BUYER (المستورد):',
+                        'IMPORTER (BUYER):',
                         style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: darkBlue),
                       ),
                       pw.SizedBox(height: 4),
                       pw.Text(payload.buyerName ?? 'N/A', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
                       if (payload.buyerTaxId != null && payload.buyerTaxId!.isNotEmpty)
-                        pw.Text('VAT / Tax ID: ', style: const pw.TextStyle(fontSize: 8)),
+                        pw.Text('VAT / Tax ID: ${payload.buyerTaxId!}', style: const pw.TextStyle(fontSize: 8)),
                       if (payload.buyerAddress != null && payload.buyerAddress!.isNotEmpty)
                         pw.Text(payload.buyerAddress!, style: const pw.TextStyle(fontSize: 8)),
-                      pw.Text('ACID: ', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: emerald)),
+                      pw.Text('ACID: ${payload.acidNumber ?? "N/A"}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: emerald)),
                     ],
                   ),
                 ),
@@ -356,12 +356,12 @@ class CargoXPdfService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text(
-                    'CUSTOMS PACKING LIST / قائمة التعبئة الجمركية',
+                    'CUSTOMS PACKING LIST',
                     style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: darkBlue),
                   ),
                   pw.SizedBox(height: 2),
                   pw.Text(
-                    'Egyptian Customs & CargoX Standard (ACID: )',
+                    'Egyptian Customs & CargoX Standard',
                     style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
                   ),
                 ],
@@ -416,8 +416,8 @@ class CargoXPdfService {
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildMetaItem('Shipper / Exporter:', packingListData['seller_name']?.toString() ?? 'N/A'),
-                    _buildMetaItem('Importer / Consignee:', packingListData['buyer_name']?.toString() ?? 'N/A'),
+                    _buildMetaItem('Shipper (Exporter):', packingListData['seller_name']?.toString() ?? 'N/A'),
+                    _buildMetaItem('Importer (Consignee):', packingListData['buyer_name']?.toString() ?? 'N/A'),
                     _buildMetaItem('ACID Number:', packingListData['acid_number']?.toString() ?? 'N/A'),
                   ],
                 ),
@@ -425,7 +425,7 @@ class CargoXPdfService {
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildMetaItem('Total Packages / CTN:', '$totalPackages PKGS'),
+                    _buildMetaItem('Total Packages:', '$totalPackages PKGS'),
                     _buildMetaItem('Total Net Weight:', '${totalNet.toStringAsFixed(2)} KGS'),
                     _buildMetaItem('Total Gross Weight:', '${totalGross.toStringAsFixed(2)} KGS'),
                   ],
@@ -500,7 +500,7 @@ class CargoXPdfService {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('Authorized Exporter / Packer:', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+                  pw.Text('Authorized Exporter & Packer:', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
                   pw.SizedBox(height: 35),
                   pw.Container(width: 180, height: 1, color: PdfColors.grey600),
                 ],

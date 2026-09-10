@@ -18,7 +18,7 @@ def test_get_system_version_info():
     assert "build_number" in data
     assert "tables_count" in data
     assert "total_backups_count" in data
-    assert data["system_name"] == "ImportFlow ERP - Sorour Logistics"
+    assert data["system_name"] == "Sorour Logistics ERP"
 
 
 def test_check_for_system_updates():

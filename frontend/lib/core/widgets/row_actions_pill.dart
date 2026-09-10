@@ -3,7 +3,7 @@ import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import 'buttons/icon_action_button.dart';
 
-/// Standard 4-Action Row Pill Widget for ImportFlow ERP data tables.
+/// Standard 4-Action Row Pill Widget for Sorour Logistics ERP data tables.
 ///
 /// Uses [IconActionButton] factory subclasses for consistent styling.
 /// Labels pulled from [AppLocalizations] (context.l10n).

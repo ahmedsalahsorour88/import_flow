@@ -11,6 +11,9 @@ class ItemPriceHistory(BaseModel):
     item_code: str
     description_ar: str
     last_unit_price: float
+    previous_unit_price: Optional[float] = None
+    price_change_percentage: Optional[float] = None
+    price_trend: Optional[str] = None
     currency: str = "USD"
     last_po_date: Optional[date] = None
     last_po_code: Optional[str] = None
@@ -24,6 +27,8 @@ class RouteShippingMemory(BaseModel):
     last_pol: str = "غير محدد"
     last_pod: str = "غير محدد"
     last_free_days_granted: int = 14
+    average_transit_days: int = 0
+    last_transit_days: int = 0
 
 
 class CustomsAndClearanceMemory(BaseModel):
@@ -60,11 +65,18 @@ class SupplierRouteIntelligenceResponse(BaseModel):
     supplier_code: str
     company_name: str
     country: str
+    country_name: Optional[str] = None
+    country_code: Optional[str] = None
     total_completed_shipments: int
     items_price_history: List[ItemPriceHistory]
+    historical_prices: Optional[List[ItemPriceHistory]] = None
     shipping_memory: RouteShippingMemory
+    recent_freight: Optional[dict] = None
     customs_memory: CustomsAndClearanceMemory
+    customs_clearance: Optional[dict] = None
     operational_notes: List[OperationalNoteItem]
     last_actual_lead_time_days: int
+    average_cycle_days: Optional[int] = None
     lead_time_breakdown_ar: str
     advisory_recommendation_ar: str
+    executive_recommendation_ar: Optional[str] = None

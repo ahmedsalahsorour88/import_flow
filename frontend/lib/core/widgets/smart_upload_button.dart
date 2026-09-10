@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../constants/api_constants.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
+import 'copyable_data_helper.dart';
 import 'universal_entity_extractor_dialog.dart';
 import 'extraction_progress_dialog.dart';
 import '../../features/customs_tariff/widgets/tariff_form_dialog.dart';
@@ -19,7 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 enum SmartUploadModule {
   purchaseOrder('purchase-order', 'أمر الشراء', 'Purchase Order'),
   importFile('import-file', 'ملف الاستيراد', 'Import File'),
-  cargoShipping('cargo-shipping', 'بيانات الشحنة (B/L)', 'Cargo Shipping (B/L)'),
+  cargoShipping('cargo-shipping', 'بيانات الشحنة وبوليصة الشحن', 'Cargo Shipping (B/L)'),
   customsClearance('customs-clearance', 'الإقرار الجمركي', 'Customs Clearance'),
   freightQuotation('freight-quotation', 'عرض سعر الشحن', 'Freight Quotation'),
   freightBooking('freight-booking', 'تأكيد الحجز', 'Freight Booking'),
@@ -560,34 +561,52 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
   }
 
   void _showAddCustomFieldModal() {
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     String selectedPreset = 'custom';
     final keyCtrl = TextEditingController();
     final valCtrl = TextEditingController();
 
-    final presets = {
-      'hs_code': 'بند التعريفة الجمركية (HS Code)',
-      'acid_number': 'رقم إقرار الشحنة المسبق (ACID)',
-      'bl_number': 'رقم بوليصة الشحن (B/L Number)',
-      'container_number': 'رقم الحاوية (Container Number)',
-      'loading_port': 'ميناء الشحن (Port of Loading)',
-      'discharge_port': 'ميناء التفريغ (Port of Discharge)',
-      'carrier_name': 'اسم الخط الملاحي / الناقل (Carrier)',
-      'lc_number': 'رقم الاعتماد المستندي (LC Number)',
-      'payment_terms': 'شروط السداد والدفع (Payment Terms)',
-      'notes': 'ملاحظات وشروط خاصة (Special Notes)',
-      'custom': '➕ بيان / حقل مخصص آخر (Custom Field)',
-    };
+    final presets = isAr
+        ? {
+            'hs_code': 'بند التعريفة الجمركية',
+            'acid_number': 'رقم إقرار الشحنة المسبق نافذة',
+            'bl_number': 'رقم بوليصة الشحن',
+            'container_number': 'رقم الحاوية',
+            'loading_port': 'ميناء الشحن والتحميل',
+            'discharge_port': 'ميناء الوصول والتفريغ',
+            'carrier_name': 'اسم الناقل والخط الملاحي',
+            'lc_number': 'رقم الاعتماد المستندي',
+            'payment_terms': 'شروط السداد والدفع',
+            'notes': 'ملاحظات وشروط خاصة',
+            'custom': '➕ بيان مخصص إضافي',
+          }
+        : {
+            'hs_code': 'Customs Tariff Item (HS Code)',
+            'acid_number': 'Advance Cargo Info (ACID)',
+            'bl_number': 'Bill of Lading Number',
+            'container_number': 'Container Number',
+            'loading_port': 'Port of Loading',
+            'discharge_port': 'Port of Discharge',
+            'carrier_name': 'Shipping Line or Carrier',
+            'lc_number': 'Letter of Credit Number',
+            'payment_terms': 'Payment Terms',
+            'notes': 'Special Notes & Terms',
+            'custom': '➕ Additional Custom Field',
+          };
 
     showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.add_box_rounded, color: AppTheme.cobalt),
-              SizedBox(width: 8),
-              Text('إضافة بيان / حقل إضافي يدوياً', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const Icon(Icons.add_box_rounded, color: AppTheme.cobalt),
+              const SizedBox(width: 8),
+              Text(
+                isAr ? 'إضافة بيان إضافي يدوياً' : 'Add Custom Field Manually',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           content: SizedBox(
@@ -596,13 +615,24 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('اختر نوع البيان أو أدخل بياناً مخصصاً:', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
+                Text(
+                  isAr ? 'اختر نوع البيان أو أدخل بياناً مخصصاً:' : 'Select field type or enter custom field:',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: selectedPreset,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'نوع البيان المطلوب إضافته', isDense: true),
-                  items: presets.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 13)))).toList(),
+                  decoration: InputDecoration(
+                    labelText: isAr ? 'نوع البيان المطلوب إضافته' : 'Field Type',
+                    isDense: true,
+                  ),
+                  items: presets.entries
+                      .map((e) => DropdownMenuItem(
+                            value: e.key,
+                            child: Text(e.value, style: const TextStyle(fontSize: 13)),
+                          ))
+                      .toList(),
                   onChanged: (v) {
                     if (v != null) {
                       setModalState(() {
@@ -620,24 +650,33 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                   const SizedBox(height: 10),
                   TextField(
                     controller: keyCtrl,
-                    decoration: const InputDecoration(labelText: 'اسم الحقل / البيان الجديد (Field Name) *', hintText: 'مثلاً: vessel_name أو رقم_الشهادة'),
+                    decoration: InputDecoration(
+                      labelText: isAr ? 'اسم البيان الجديد *' : 'New Field Name *',
+                      hintText: isAr ? 'مثلاً: اسم_السفينة أو رقم_الشهادة' : 'e.g., vessel_name or cert_number',
+                    ),
                   ),
                 ],
                 const SizedBox(height: 10),
                 TextField(
                   controller: valCtrl,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'القيمة / البيان (Field Value) *', hintText: 'أدخل القيمة المراد إضافتها للنموذج...'),
+                  decoration: InputDecoration(
+                    labelText: isAr ? 'قيمة البيان *' : 'Field Value *',
+                    hintText: isAr ? 'أدخل القيمة المراد إضافتها للنموذج...' : 'Enter value to add to form...',
+                  ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(isAr ? 'إلغاء' : 'Cancel'),
+            ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
               icon: const Icon(Icons.check, size: 16),
-              label: const Text('إضافة للبيانات'),
+              label: Text(isAr ? 'إضافة للبيانات' : 'Add to Fields'),
               onPressed: () {
                 final k = keyCtrl.text.trim();
                 final v = valCtrl.text.trim();
@@ -656,6 +695,7 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
   }
 
   void _showEditFieldModal(String key, dynamic value) {
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     final valCtrl = TextEditingController(text: value?.toString() ?? '');
     showDialog<void>(
       context: context,
@@ -665,7 +705,12 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
           children: [
             const Icon(Icons.edit_note_rounded, color: AppTheme.cobalt),
             const SizedBox(width: 8),
-            Expanded(child: Text('تعديل قيمة: ${_formatFieldName(key)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold))),
+            Expanded(
+              child: Text(
+                isAr ? 'تعديل قيمة: ${_formatFieldName(key)}' : 'Edit value: ${_formatFieldName(key)}',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
         content: SizedBox(
@@ -674,18 +719,21 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
             controller: valCtrl,
             maxLines: 3,
             decoration: InputDecoration(
-              labelText: 'القيمة المحدثة',
-              hintText: 'أدخل القيمة الصحيحة...',
+              labelText: isAr ? 'القيمة المحدثة' : 'Updated Value',
+              hintText: isAr ? 'أدخل القيمة الصحيحة...' : 'Enter corrected value...',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(isAr ? 'إلغاء' : 'Cancel'),
+          ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
             icon: const Icon(Icons.save, size: 16),
-            label: const Text('حفظ التعديل'),
+            label: Text(isAr ? 'حفظ التعديل' : 'Save Changes'),
             onPressed: () {
               setState(() {
                 _currentFields[key] = valCtrl.text.trim();
@@ -698,11 +746,33 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
     );
   }
 
+  void _copyAllExtractedData(BuildContext context) {
+    final isAr = Directionality.of(context) == TextDirection.rtl;
+    final buffer = StringBuffer();
+    buffer.writeln(isAr ? '--- بيانات الاستخراج الذكي ---' : '--- Smart Extraction Data ---');
+    buffer.writeln('${isAr ? "الملف" : "File"}: ${widget.result.filename}');
+    buffer.writeln('${isAr ? "معدل الثقة" : "Confidence"}: ${widget.result.confidencePercent}%');
+    buffer.writeln('');
+    for (final entry in _currentFields.entries) {
+      if (entry.value != null && entry.value.toString().trim().isNotEmpty) {
+        final label = _formatFieldName(entry.key);
+        final val = _formatValue(entry.value);
+        buffer.writeln('$label: $val');
+      }
+    }
+    CopyHelper.copy(
+      context,
+      buffer.toString(),
+      customMessage: isAr ? 'تم نسخ كافة البيانات المستخرجة بنجاح' : 'All extracted data copied successfully',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l = context.l10n;
     final result = widget.result;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
 
     Color statusColor;
     IconData statusIcon;
@@ -730,64 +800,71 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680, maxHeight: 600),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ─ Header ─────────────────────────────────────────────────────
-            Container(
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.08),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
+      child: SelectionArea(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680, maxHeight: 600),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ─ Header ─────────────────────────────────────────────────────
+              Container(
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.08),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                child: Row(
+                  children: [
+                    Icon(statusIcon, color: statusColor, size: 24),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${l.extractionResultHeader} — $statusLabel',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                            ),
+                          ),
+                          Text(
+                            '${result.filename} · ${l.extractionConfidenceLabel}: ${result.confidencePercent}%',
+                            style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.charcoal.withOpacity(0.6)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Confidence bar
+                    SizedBox(
+                      width: 80,
+                      child: Column(
+                        children: [
+                          Text('${result.confidencePercent}%',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: statusColor)),
+                          const SizedBox(height: 4),
+                          LinearProgressIndicator(
+                            value: result.confidenceScore,
+                            color: statusColor,
+                            backgroundColor: statusColor.withOpacity(0.2),
+                            minHeight: 6,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.copy_all_rounded, size: 20, color: AppTheme.cobalt),
+                      tooltip: isAr ? 'نسخ كافة البيانات المستخرجة' : 'Copy all extracted data',
+                      onPressed: () => _copyAllExtractedData(context),
+                    ),
+                  ],
                 ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              child: Row(
-                children: [
-                  Icon(statusIcon, color: statusColor, size: 24),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${l.extractionResultHeader} — $statusLabel',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: statusColor,
-                          ),
-                        ),
-                        Text(
-                          '${result.filename} · ${l.extractionConfidenceLabel}: ${result.confidencePercent}%',
-                          style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.charcoal.withOpacity(0.6)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Confidence bar
-                  SizedBox(
-                    width: 80,
-                    child: Column(
-                      children: [
-                        Text('${result.confidencePercent}%',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: statusColor)),
-                        const SizedBox(height: 4),
-                        LinearProgressIndicator(
-                          value: result.confidenceScore,
-                          color: statusColor,
-                          backgroundColor: statusColor.withOpacity(0.2),
-                          minHeight: 6,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
 
             // ─ Fields List ────────────────────────────────────────────────
             Flexible(
@@ -799,13 +876,17 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '${l.extractedFieldsTitle} (${nonNullFields.length})',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: AppTheme.charcoal,
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Text(
+                            '${l.extractedFieldsTitle} (${nonNullFields.length})',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: AppTheme.charcoal,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 8),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.emerald,
@@ -848,15 +929,15 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                             if (result.supplierVerified != null)
                               _EntityVerificationRow(
                                 icon: Icons.factory_rounded,
-                                label: 'المورد الأجنبي',
+                                label: isAr ? 'المورد الأجنبي' : 'Foreign Supplier',
                                 entityName: _currentFields['supplier_name']?.toString() ??
                                     _currentFields['shipper']?.toString() ?? '—',
                                 isVerified: result.supplierVerified!,
                                 entityCode: result.supplierCode,
                                 verifiedTooltip: result.supplierCode != null
-                                    ? 'مسجل بالكود: ${result.supplierCode}'
-                                    : 'مسجل في النظام',
-                                unverifiedTooltip: 'غير موجود في الموردين — يلزم التسجيل',
+                                    ? (isAr ? 'مسجل بالكود: ${result.supplierCode}' : 'Registered with code: ${result.supplierCode}')
+                                    : (isAr ? 'مسجل في النظام' : 'Registered in system'),
+                                unverifiedTooltip: isAr ? 'غير موجود في الموردين — يلزم التسجيل' : 'Not found in suppliers — Registration required',
                                 onRegisterTap: result.supplierVerified! ? null : () =>
                                     UniversalEntityExtractorDialog.show(context, initialTarget: EntityTarget.supplier),
                               ),
@@ -865,15 +946,15 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                             if (result.importerVerified != null)
                               _EntityVerificationRow(
                                 icon: Icons.domain_rounded,
-                                label: 'الشركة المستوردة',
+                                label: isAr ? 'الشركة المستوردة' : 'Importing Company',
                                 entityName: _currentFields['importer_name']?.toString() ??
                                     _currentFields['consignee']?.toString() ?? '—',
                                 isVerified: result.importerVerified!,
                                 entityCode: result.importerCode,
                                 verifiedTooltip: result.importerCode != null
-                                    ? 'مسجلة بالكود: ${result.importerCode}'
-                                    : 'مسجلة في النظام',
-                                unverifiedTooltip: 'غير موجودة في الشركات المستوردة — يلزم التسجيل',
+                                    ? (isAr ? 'مسجلة بالكود: ${result.importerCode}' : 'Registered with code: ${result.importerCode}')
+                                    : (isAr ? 'مسجلة في النظام' : 'Registered in system'),
+                                unverifiedTooltip: isAr ? 'غير موجودة في الشركات المستوردة — يلزم التسجيل' : 'Not found in importing companies — Registration required',
                                 onRegisterTap: result.importerVerified! ? null : () =>
                                     UniversalEntityExtractorDialog.show(context, initialTarget: EntityTarget.company),
                               ),
@@ -900,7 +981,9 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                         child: Padding(
                           padding: const EdgeInsets.all(20),
                           child: Text(
-                            'لم يتم استخراج أي بيانات من هذا الملف.\nتأكد من أن الملف يحتوي على نص قابل للقراءة.',
+                            isAr
+                                ? 'لم يتم استخراج أي بيانات من هذا الملف.\nتأكد من أن الملف يحتوي على نص قابل للقراءة.'
+                                : 'No data was extracted from this file.\nEnsure the file contains readable text.',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.crimson),
                           ),
@@ -947,7 +1030,7 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                                   visualDensity: VisualDensity.compact,
                                 ),
                                 icon: const Icon(Icons.auto_fix_high, size: 16),
-                                label: const Text('✨ استدعاء Smart Nafeza & Diff Engine لتسجيل البند'),
+                                label: Text(isAr ? '✨ استدعاء نافذة الذكية ومحرك الفروقات لتسجيل البند' : '✨ Open Smart Nafeza & Diff Engine'),
                                 onPressed: () => showTariffDialog(context, ref, initialModeIndex: 0),
                               ),
                             ),
@@ -973,7 +1056,9 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'الحقول التالية لم تُستخرج: ${result.missingFields.map(_formatFieldName).join('، ')}',
+                                isAr
+                                    ? 'الحقول التالية لم تُستخرج: ${result.missingFields.map(_formatFieldName).join('، ')}'
+                                    : 'The following fields were not extracted: ${result.missingFields.map(_formatFieldName).join(', ')}',
                                 style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.orange),
                               ),
                             ),
@@ -1007,13 +1092,13 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                 children: [
                   TextButton(
                     onPressed: widget.onCancel,
-                    child: const Text('إلغاء'),
+                    child: Text(isAr ? 'إلغاء' : 'Cancel'),
                   ),
                   const SizedBox(width: 12),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(backgroundColor: AppTheme.cobalt),
                     icon: const Icon(Icons.check_rounded, size: 16),
-                    label: const Text('تعبئة النموذج'),
+                    label: Text(isAr ? 'تعبئة النموذج' : 'Apply to Form'),
                     onPressed: nonNullFields.isEmpty ? null : () => widget.onConfirm(result.copyWith(extractedFields: _currentFields)),
                   ),
                 ],
@@ -1022,7 +1107,8 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   String _formatFieldName(String rawKey) {
@@ -1096,9 +1182,10 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
   }
 
   String _formatValue(dynamic value) {
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     if (value is List) {
-      if (value.isEmpty) return '(فارغ)';
-      return '${value.length} عنصر';
+      if (value.isEmpty) return isAr ? '(فارغ)' : '(empty)';
+      return isAr ? '${value.length} عنصر' : '${value.length} items';
     }
     if (value is Map) return '{...}';
     return value.toString();
@@ -1131,6 +1218,7 @@ class _EntityVerificationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     final badgeColor = isVerified ? AppTheme.emerald : AppTheme.crimson;
     final badgeIcon = isVerified ? Icons.check_circle_rounded : Icons.cancel_rounded;
     final badgeLabel = isVerified ? l.partyConfirmed : l.partyUnconfirmed;
@@ -1164,6 +1252,17 @@ class _EntityVerificationRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (entityName.isNotEmpty && entityName != '—') ...[
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 14, color: Colors.grey),
+                tooltip: isAr ? 'نسخ الاسم' : 'Copy name',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () => CopyHelper.copy(context, entityName),
+              ),
+            ],
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1194,12 +1293,15 @@ class _EntityVerificationRow extends StatelessWidget {
                     color: AppTheme.cobalt.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add_rounded, size: 13, color: AppTheme.cobalt),
-                      SizedBox(width: 3),
-                      Text('سجّل', style: TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                      const Icon(Icons.add_rounded, size: 13, color: AppTheme.cobalt),
+                      const SizedBox(width: 3),
+                      Text(
+                        isAr ? 'سجّل' : 'Register',
+                        style: const TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                      ),
                     ],
                   ),
                 ),
@@ -1231,6 +1333,7 @@ class _FieldRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2.5),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1276,10 +1379,21 @@ class _FieldRow extends StatelessWidget {
               ),
             ),
           ),
-          if (onEdit != null && value != '{...}' && !value.contains('عنصر'))
+          if (value.isNotEmpty && value != '—' && value != '{...}' && !value.contains('عنصر') && !value.contains('item')) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.copy_rounded, size: 15, color: Colors.grey),
+              tooltip: isAr ? 'نسخ القيمة' : 'Copy value',
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () => CopyHelper.copy(context, value),
+            ),
+          ],
+          if (onEdit != null && value != '{...}' && !value.contains('عنصر') && !value.contains('item'))
             IconButton(
               icon: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.cobalt),
-              tooltip: 'تعديل البيان',
+              tooltip: isAr ? 'تعديل البيان' : 'Edit field',
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
@@ -1289,7 +1403,7 @@ class _FieldRow extends StatelessWidget {
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.delete_outline, size: 16, color: AppTheme.crimson),
-              tooltip: 'حذف البيان',
+              tooltip: isAr ? 'حذف البيان' : 'Delete field',
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),

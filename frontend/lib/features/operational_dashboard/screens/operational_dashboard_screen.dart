@@ -15,6 +15,7 @@ import '../../import_files/widgets/close_shipment_dialog.dart';
 import '../../import_files/widgets/shipment_milestone_tracker.dart';
 import '../../lifecycle_board/models/lifecycle_board_model.dart';
 import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
+import '../../lifecycle_board/widgets/skip_step_dialog_helper.dart';
 import '../../shipment_updates/providers/shipment_updates_provider.dart';
 import '../../shipment_updates/widgets/shipment_update_dialog.dart';
 import '../../smart_tasks/models/smart_task_model.dart';
@@ -663,6 +664,26 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   ),
                 ),
                 const SizedBox(width: 8),
+                if (s.status != 'Closed') ...[
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.orange,
+                      side: const BorderSide(color: AppTheme.orange),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    icon: const Icon(Icons.fast_forward_rounded, size: 14),
+                    label: Text(l.skipStepBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    onPressed: () => SkipStepDialogHelper.show(
+                      context: context,
+                      ref: ref,
+                      importFileCode: s.importFileCode,
+                      currentStepCode: s.currentStage,
+                      currentStepName: _formatStageName(s.currentModule, isArabic),
+                      onSuccess: () => ref.read(operationalDashboardProvider.notifier).fetchDashboard(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 if (s.status != 'Closed')
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),

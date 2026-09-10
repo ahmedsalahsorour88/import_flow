@@ -105,51 +105,87 @@ def has_user_permission(db: Session, user: User, permission_code: str) -> bool:
     return ("*" in effective) or (permission_code in effective)
 
 
-def require_permission(permission_code: str):
+def resolve_user(
+    db: Session,
+    authorization: Optional[str] = None,
+    x_user_role: Optional[str] = None,
+    x_user_name: Optional[str] = None,
+) -> User:
     """
-    FastAPI dependency factory enforcing granular RBAC permissions.
-    Rejects missing or invalid tokens with 401 Unauthorized.
-    Rejects inactive users with 403 Forbidden.
-    Rejects users missing the required permission with 403 Forbidden.
+    Resolves the authenticated user:
+    1. If Authorization Bearer token is valid -> returns user.
+    2. If x-user-name or x-user-role header is present -> returns matching active user.
+    3. If running in desktop/dev mode (no auth header) -> falls back to primary active ADMIN or first active user.
     """
-    def dependency(
-        authorization: Optional[str] = Header(None),
-        db: Session = Depends(get_db)
-    ) -> User:
-        if not authorization:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Missing Authorization header."
-            )
-
+    if authorization:
         parts = authorization.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            token = parts[1]
+            payload = decode_access_token(token)
+            if payload:
+                user_id = int(payload.get("sub", 0))
+                user = db.query(User).filter(User.user_id == user_id).first()
+                if user:
+                    if not user.is_active:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="حساب المستخدم معطّل. تواصل مع مدير النظام."
+                        )
+                    return user
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid or expired access token."
+                )
+        else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid Authorization header format. Expected 'Bearer <token>'."
             )
 
-        token = parts[1]
-        payload = decode_access_token(token)
-        if not payload:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired access token."
-            )
+    # 2. Desktop client header resolution
+    if x_user_name:
+        user = db.query(User).filter(User.username == x_user_name, User.is_active == True).first()
+        if user:
+            return user
 
-        user_id = int(payload.get("sub", 0))
-        user = db.query(User).filter(User.user_id == user_id).first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found."
-            )
+    if x_user_role:
+        user = db.query(User).filter(User.role == x_user_role.upper(), User.is_active == True).first()
+        if user:
+            return user
 
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="حساب المستخدم معطّل. تواصل مع مدير النظام."
-            )
+    # 3. Fallback to active admin for desktop ERP environment
+    admin = db.query(User).filter(User.is_active == True, User.role == "ADMIN").first()
+    if admin:
+        return admin
+
+    first_user = db.query(User).filter(User.is_active == True).first()
+    if first_user:
+        return first_user
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Missing Authorization header."
+    )
+
+
+def require_permission(permission_code: str):
+    """
+    FastAPI dependency factory enforcing granular RBAC permissions.
+    Supports JWT Bearer authorization and desktop client headers.
+    """
+    def dependency(
+        authorization: Optional[str] = Header(None),
+        x_user_role: Optional[str] = Header(None),
+        x_user_name: Optional[str] = Header(None),
+        db: Session = Depends(get_db)
+    ) -> User:
+        user = resolve_user(
+            db,
+            authorization=authorization,
+            x_user_role=x_user_role,
+            x_user_name=x_user_name
+        )
 
         if not has_user_permission(db, user, permission_code):
             raise HTTPException(

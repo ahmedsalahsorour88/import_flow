@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 void showRouteIntelligenceDialog(BuildContext context, WidgetRef ref, {
   required int supplierId,
@@ -107,14 +108,15 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
 
   Widget _buildContent(BuildContext context) {
     final l10n = context.l10n;
-    final country = _card?['country_name'] ?? '';
-    final code = _card?['country_code'] ?? '';
-    final avgCycleDays = _card?['average_cycle_days'] ?? 0;
-    final recommendation = _card?['executive_recommendation_ar'] ?? '';
-    final historicalPrices = (_card?['historical_prices'] as List<dynamic>?) ?? [];
-    final recentFreight = _card?['recent_freight'] as Map<String, dynamic>?;
-    final clearance = _card?['customs_clearance'] as Map<String, dynamic>?;
+    final country = _card?['country_name'] ?? _card?['country'] ?? '';
+    final code = _card?['country_code'] ?? _card?['supplier_code'] ?? '';
+    final avgCycleDays = _card?['average_cycle_days'] ?? _card?['last_actual_lead_time_days'] ?? 0;
+    final recommendation = _card?['executive_recommendation_ar'] ?? _card?['advisory_recommendation_ar'] ?? '';
+    final historicalPrices = (_card?['historical_prices'] ?? _card?['items_price_history']) as List<dynamic>? ?? [];
+    final recentFreight = (_card?['recent_freight'] ?? _card?['shipping_memory']) as Map<String, dynamic>?;
+    final clearance = (_card?['customs_clearance'] ?? _card?['customs_memory']) as Map<String, dynamic>?;
     final notes = (_card?['operational_notes'] as List<dynamic>?) ?? [];
+    final avgTransitDays = recentFreight?['average_transit_days'] ?? 0;
 
     return SingleChildScrollView(
       child: Column(
@@ -148,6 +150,24 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
                   ],
                 ),
               ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.copy_rounded, size: 16),
+                label: Text(l10n.routeIntelligenceCopyDossierBtn),
+                onPressed: () {
+                  final dossier = '''
+${l10n.routeIntelligenceDialogTitle}
+- ${l10n.supplierCompanyNameLabel}: ${widget.supplierName}
+- ${l10n.supplierCountryLabel}: $country ($code)
+- ${l10n.routeIntelligenceAvgCycleDays}: $avgCycleDays ${l10n.routeIntelligenceDaysSuffix}
+- ${l10n.routeIntelligenceAverageTransitDays}: $avgTransitDays ${l10n.routeIntelligenceDaysSuffix}
+- ${l10n.routeIntelligenceRecentFreight}: \$${recentFreight?['freight_cost_usd'] ?? recentFreight?['last_ocean_freight_cost'] ?? 0}
+- ${l10n.routeIntelligenceRecentClearance}: ${clearance?['clearance_fee_egp'] ?? clearance?['last_clearance_fees_egp'] ?? 0} ${l10n.routeIntelligenceCurrencyEgp}
+- ${l10n.routeIntelligenceAiRecommendationTitle}: $recommendation
+''';
+                  CopyHelper.copy(context, dossier.trim(), customMessage: l10n.routeIntelligenceDossierCopied);
+                },
+              ),
+              const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.of(context).pop(),
@@ -199,20 +219,33 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
                   AppTheme.cobalt,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildMetricTile(
+                  l10n.routeIntelligenceAverageTransitDays,
+                  '$avgTransitDays ${l10n.routeIntelligenceDaysSuffix}',
+                  Icons.sailing_outlined,
+                  AppTheme.cobalt,
+                ),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: _buildMetricTile(
                   l10n.routeIntelligenceRecentFreight,
-                  recentFreight != null ? '\$${(recentFreight['freight_cost_usd'] ?? 0)}' : l10n.routeIntelligenceNotRecorded,
+                  recentFreight != null
+                      ? '\$${(recentFreight['freight_cost_usd'] ?? recentFreight['last_ocean_freight_cost'] ?? 0)}'
+                      : l10n.routeIntelligenceNotRecorded,
                   Icons.directions_boat_outlined,
                   AppTheme.emerald,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: _buildMetricTile(
                   l10n.routeIntelligenceRecentClearance,
-                  clearance != null ? '${(clearance['clearance_fee_egp'] ?? 0)} ${l10n.routeIntelligenceCurrencyEgp}' : l10n.routeIntelligenceNotRecorded,
+                  clearance != null
+                      ? '${(clearance['clearance_fee_egp'] ?? clearance['last_clearance_fees_egp'] ?? 0)} ${l10n.routeIntelligenceCurrencyEgp}'
+                      : l10n.routeIntelligenceNotRecorded,
                   Icons.receipt_outlined,
                   AppTheme.orange,
                 ),
@@ -230,6 +263,13 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
           else
             Table(
               border: TableBorder.all(color: Colors.grey.shade300),
+              columnWidths: const {
+                0: FlexColumnWidth(1.2),
+                1: FlexColumnWidth(2.5),
+                2: FlexColumnWidth(1.3),
+                3: FlexColumnWidth(1.2),
+                4: FlexColumnWidth(1.2),
+              },
               children: [
                 TableRow(
                   decoration: BoxDecoration(color: Colors.grey.shade100),
@@ -237,17 +277,47 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
                     Padding(padding: const EdgeInsets.all(8), child: Text(l10n.routeIntelligenceItemCodeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                     Padding(padding: const EdgeInsets.all(8), child: Text(l10n.routeIntelligenceItemDescCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                     Padding(padding: const EdgeInsets.all(8), child: Text(l10n.routeIntelligenceLastUnitPriceCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    Padding(padding: const EdgeInsets.all(8), child: Text(l10n.routeIntelligencePriceChangeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                     Padding(padding: const EdgeInsets.all(8), child: Text(l10n.routeIntelligenceOrderCodeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                   ],
                 ),
-                ...historicalPrices.map((p) => TableRow(
-                  children: [
-                    Padding(padding: const EdgeInsets.all(8), child: Text(p['item_code'] ?? '', style: const TextStyle(fontSize: 12))),
-                    Padding(padding: const EdgeInsets.all(8), child: Text(p['item_description'] ?? '', style: const TextStyle(fontSize: 12))),
-                    Padding(padding: const EdgeInsets.all(8), child: Text('${p['currency'] ?? 'USD'} ${p['last_unit_price'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    Padding(padding: const EdgeInsets.all(8), child: Text(p['order_code'] ?? '', style: const TextStyle(fontSize: 12))),
-                  ],
-                )),
+                ...historicalPrices.map((p) {
+                  final pct = p['price_change_percentage'];
+                  Color pctColor = AppTheme.charcoal;
+                  String pctText = '-';
+                  if (pct != null) {
+                    final num val = pct as num;
+                    if (val > 0) {
+                      pctColor = AppTheme.crimson;
+                      pctText = '+$val%';
+                    } else if (val < 0) {
+                      pctColor = AppTheme.emerald;
+                      pctText = '$val%';
+                    } else {
+                      pctText = '0%';
+                    }
+                  }
+                  final desc = p['item_description'] ?? p['description_ar'] ?? '';
+                  final poCode = p['order_code'] ?? p['last_po_code'] ?? '';
+                  final price = p['last_unit_price'] ?? 0;
+                  final curr = p['currency'] ?? 'USD';
+
+                  return TableRow(
+                    children: [
+                      Padding(padding: const EdgeInsets.all(8), child: Text(p['item_code'] ?? '', style: const TextStyle(fontSize: 12))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(desc, style: const TextStyle(fontSize: 12))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text('$curr $price', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text(
+                          pctText,
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: pctColor),
+                        ),
+                      ),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(poCode, style: const TextStyle(fontSize: 12))),
+                    ],
+                  );
+                }),
               ],
             ),
           const SizedBox(height: 18),

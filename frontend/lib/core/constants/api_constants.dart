@@ -21,6 +21,7 @@ class ApiConstants {
   static String get transportLocations => '$baseUrl/transport-locations';
   static String get projects => '$baseUrl/projects';
   static String get customsTariff => '$baseUrl/customs-tariff';
+  static String get expenseCatalog => '$baseUrl/expense-catalog';
 
   // ── Import Operations ─────────────────────────────────────
   static String get importFiles => '$baseUrl/import-files';
@@ -60,6 +61,7 @@ class ApiConstants {
   static String get shipmentUpdates => '$baseUrl/shipment-updates';
   static String get routeIntelligence => '$baseUrl/route-intelligence';
   static String get integrations => '$baseUrl/integrations';
+  static String get experienceGuide => '$baseUrl/experience-guide';
 
   static String get lifecycleBoard => '$baseUrl/lifecycle-board';
   static String get smartDocumentUpload => '$baseUrl/smart-upload';

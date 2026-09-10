@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -85,9 +86,10 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
   }
 
   Future<void> _submitContainerGateOut() async {
+    final l10n = context.l10n;
     if (_containerController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى إدخال رقم الحاوية')),
+        SnackBar(content: Text(l10n.dualClockEnterContainerValidation)),
       );
       return;
     }
@@ -111,7 +113,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppTheme.emerald,
-            content: Text('تم تثبيت بيانات خروج الحاوية $containerNo بنجاح'),
+            content: Text('${l10n.dualClockGateOutSuccessSnack} ($containerNo)'),
           ),
         );
         _containerController.clear();
@@ -123,7 +125,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: AppTheme.crimson, content: Text('فشل حفظ البيانات: $e')),
+          SnackBar(backgroundColor: AppTheme.crimson, content: Text('${l10n.dualClockGateOutErrorSnack}: $e')),
         );
       }
     } finally {
@@ -133,6 +135,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final isArabic = Directionality.of(context) == TextDirection.rtl;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -158,7 +161,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                             const SizedBox(height: 12),
                             ElevatedButton(
                               onPressed: _fetchDualClockData,
-                              child: Text(isArabic ? 'إعادة المحاولة' : 'Retry'),
+                              child: Text(l10n.dualClockRetryBtn),
                             )
                           ],
                         ),
@@ -171,6 +174,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
   }
 
   void _copyRadarMetrics(BuildContext context, bool isArabic) {
+    final l10n = context.l10n;
     final carrierClock = _data?['carrier_clock'] as Map<String, dynamic>? ?? {};
     final portClock = _data?['port_storage_clock'] as Map<String, dynamic>? ?? {};
     final buffer = StringBuffer();
@@ -211,17 +215,16 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
     CopyHelper.copy(
       context,
       buffer.toString(),
-      customMessage: isArabic
-          ? 'تم نسخ مؤشرات رادار المتابعة بنجاح'
-          : 'Dual-clock radar metrics copied successfully',
+      customMessage: l10n.dualClockCopyMetricsSuccess,
     );
   }
 
   Widget _buildContent(bool isArabic) {
+    final l10n = context.l10n;
     final carrierClock = _data?['carrier_clock'] as Map<String, dynamic>? ?? {};
     final portClock = _data?['port_storage_clock'] as Map<String, dynamic>? ?? {};
-    final bool warning72h = portClock['warning_72h_active'] == true;
-    final String portAdvice = portClock['urgent_advice_ar'] ?? '';
+    final bool warning72h = portClock['warning_72h_active'] == true || portClock['is_critical_72h_warning'] == true;
+    final String portAdvice = portClock['urgent_advice_ar'] ?? _data?['summary_ar'] ?? '';
 
     return SingleChildScrollView(
       child: Column(
@@ -245,15 +248,11 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isArabic
-                          ? 'رادار المتابعة المزدوج: غرامات التأخير وأرضيات الميناء'
-                          : 'Dual-Clock Radar: Demurrage & Port Storage',
+                      l10n.dualClockRadarDialogTitle,
                       style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                     ),
                     Text(
-                      isArabic
-                          ? 'بوليصة الشحن: ${widget.billOfLadingNo}  •  الخط الملاحي: ${widget.carrierName}'
-                          : 'Bill of Lading: ${widget.billOfLadingNo}  •  Carrier: ${widget.carrierName}',
+                      '${l10n.billOfLadingLabel(widget.billOfLadingNo)}  •  ${widget.carrierName}',
                       style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                     ),
                   ],
@@ -261,7 +260,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
               ),
               IconButton(
                 icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
-                tooltip: isArabic ? 'نسخ مؤشرات الرادار' : 'Copy Radar Metrics',
+                tooltip: l10n.dualClockCopyMetricsBtn,
                 onPressed: () => _copyRadarMetrics(context, isArabic),
               ),
               IconButton(
@@ -291,9 +290,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isArabic
-                              ? '⚠️ تحذير حاسم: متبقي أقل من 72 ساعة على مضاعفة شريحة أرضيات ساحة الميناء!'
-                              : '⚠️ Critical Warning: Less than 72 hours remaining before port storage tier doubles!',
+                          l10n.dualClockWarning72hTitle,
                           style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange, fontSize: 13.5),
                         ),
                         if (portAdvice.isNotEmpty)
@@ -312,7 +309,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
               // Clock 1: Carrier Demurrage (USD)
               Expanded(
                 child: _buildClockCard(
-                  title: isArabic ? 'غرامات التوكيل الملاحي' : 'Carrier Demurrage',
+                  title: l10n.dualClockCarrierClockTitle,
                   currencySymbol: '\$',
                   currencyCode: 'USD',
                   totalAmount: (carrierClock['total_accrued_demurrage_usd'] as num?)?.toDouble() ?? 0.0,
@@ -320,12 +317,8 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                   overdueDays: carrierClock['demurrage_overdue_days'] ?? 0,
                   dailyRate: (carrierClock['daily_rate_usd'] as num?)?.toDouble() ?? 0.0,
                   statusNote: carrierClock['is_demurrage_overdue'] == true
-                      ? (isArabic
-                          ? 'تجاوزت فترة السماح (${carrierClock['demurrage_overdue_days']} يوم)'
-                          : 'Overdue (${carrierClock['demurrage_overdue_days']} days)')
-                      : (isArabic
-                          ? 'في نطاق السماح (متبقي ${carrierClock['free_days_remaining']} يوم)'
-                          : 'Within Free Time (${carrierClock['free_days_remaining']} days left)'),
+                      ? '${l10n.dualClockOverdueDaysNote} (${carrierClock['demurrage_overdue_days']} ${l10n.daysCountFormatted(1)})'
+                      : '${l10n.dualClockFreeDaysRemaining} (${carrierClock['free_days_remaining']} ${l10n.daysCountFormatted(1)})',
                   isDanger: carrierClock['is_demurrage_overdue'] == true,
                   icon: Icons.directions_boat_outlined,
                   accentColor: AppTheme.cobalt,
@@ -337,16 +330,14 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
               // Clock 2: Port Storage (EGP)
               Expanded(
                 child: _buildClockCard(
-                  title: isArabic ? 'أرضيات هيئة الميناء' : 'Port Storage',
+                  title: l10n.dualClockPortClockTitle,
                   currencySymbol: isArabic ? 'ج.م' : 'EGP',
                   currencyCode: 'EGP',
                   totalAmount: (portClock['total_accrued_storage_egp'] as num?)?.toDouble() ?? 0.0,
                   freeDays: portClock['port_storage_free_days'] ?? 0,
                   overdueDays: portClock['storage_overdue_days'] ?? 0,
                   dailyRate: (portClock['current_tier_rate_egp'] as num?)?.toDouble() ?? 0.0,
-                  statusNote: isArabic
-                      ? 'الشريحة الحالية: ${portClock['current_tier_name'] ?? 'شريحة اعتيادية'}'
-                      : 'Current Tier: ${portClock['current_tier_name'] ?? 'Standard Tier'}',
+                  statusNote: '${l10n.dualClockCurrentTierPrefix}: ${portClock['current_tier_name'] ?? l10n.dualClockStandardTierLabel}',
                   isDanger: portClock['is_storage_overdue'] == true,
                   icon: Icons.warehouse_outlined,
                   accentColor: AppTheme.orange,
@@ -374,9 +365,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        isArabic
-                            ? 'التتبع المنفصل وخروج الحاويات الجزئي'
-                            : 'Container Gate-Out & EIR Tracking',
+                        l10n.dualClockGateOutSectionTitle,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -392,9 +381,15 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                       child: TextFormField(
                         controller: _containerController,
                         decoration: InputDecoration(
-                          labelText: isArabic ? 'رقم الحاوية (مثلاً MSKU1234567)' : 'Container No. (e.g. MSKU1234567)',
+                          labelText: l10n.dualClockContainerNoLabel,
+                          hintText: l10n.dualClockContainerNoHint,
                           border: const OutlineInputBorder(),
                           isDense: true,
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                            tooltip: l10n.demurrageCopyFieldTooltip,
+                            onPressed: () => CopyHelper.copy(context, _containerController.text, customMessage: l10n.demurrageCopyFieldTooltip),
+                          ),
                         ),
                       ),
                     ),
@@ -404,9 +399,14 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                       child: TextFormField(
                         controller: _eirController,
                         decoration: InputDecoration(
-                          labelText: isArabic ? 'رقم إيصال الفحص' : 'EIR Receipt Number',
+                          labelText: l10n.dualClockEirReceiptLabel,
                           border: const OutlineInputBorder(),
                           isDense: true,
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                            tooltip: l10n.demurrageCopyFieldTooltip,
+                            onPressed: () => CopyHelper.copy(context, _eirController.text, customMessage: l10n.demurrageCopyFieldTooltip),
+                          ),
                         ),
                       ),
                     ),
@@ -416,7 +416,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
                       icon: _isSubmittingGateOut
                           ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.check_circle_outline, size: 18),
-                      label: Text(isArabic ? 'تثبيت الخروج' : 'Record Gate-Out'),
+                      label: Text(l10n.dualClockRecordGateOutBtn),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.emerald,
                         foregroundColor: Colors.white,
@@ -447,6 +447,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
     required Color accentColor,
     required bool isArabic,
   }) {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -480,12 +481,27 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
             ],
           ),
           const SizedBox(height: 14),
-          Text(
-            '$currencySymbol ${totalAmount.toStringAsFixed(2)}',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: isDanger ? AppTheme.crimson : AppTheme.charcoal,
+          InkWell(
+            onTap: () => CopyHelper.copy(
+              context,
+              totalAmount.toStringAsFixed(2),
+              customMessage: l10n.demurrageCopyFieldTooltip,
+            ),
+            borderRadius: BorderRadius.circular(4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$currencySymbol ${totalAmount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: isDanger ? AppTheme.crimson : AppTheme.charcoal,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+              ],
             ),
           ),
           Text(
@@ -498,7 +514,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
             children: [
               Expanded(
                 child: Text(
-                  isArabic ? 'أيام السماح: $freeDays يوم' : 'Free Days: $freeDays days',
+                  '${l10n.colFreeDays}: ${l10n.daysCountFormatted(freeDays)}',
                   style: const TextStyle(fontSize: 12),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -506,7 +522,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  isArabic ? 'أيام التجاوز: $overdueDays يوم' : 'Overdue: $overdueDays days',
+                  '${l10n.colOverdueDays}: ${l10n.daysCountFormatted(overdueDays)}',
                   textAlign: TextAlign.end,
                   style: TextStyle(
                     fontSize: 12,
@@ -521,9 +537,7 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
 
           const SizedBox(height: 6),
           Text(
-            isArabic
-                ? 'المعدل اليومي: $currencySymbol ${dailyRate.toStringAsFixed(2)}'
-                : 'Daily Rate: $currencySymbol ${dailyRate.toStringAsFixed(2)}',
+            '${l10n.dailyStorageRateLabel}: $currencySymbol ${dailyRate.toStringAsFixed(2)}',
             style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 10),

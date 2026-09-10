@@ -45,39 +45,72 @@ def get_supplier_route_intelligence_service(
 
     # 1. Price History across Purchase Orders
     pos = repository.get_supplier_purchase_orders(db, supplier_id)
-    seen_items = set()
-    items_history: List[ItemPriceHistory] = []
+    item_occurrences: Dict[str, List[Dict[str, Any]]] = {}
 
     for po in pos:
         raw_items = getattr(po, "line_items", None) or getattr(po, "items", None) or []
+        po_dt = po.order_date.date() if hasattr(po.order_date, "date") else po.order_date
+        po_code = getattr(po, "po_number", None) or getattr(po, "po_code", "")
+        curr_code = "USD"
+        po_curr = getattr(po, "currency", None)
+        if po_curr is not None:
+            if isinstance(po_curr, str):
+                curr_code = po_curr
+            elif hasattr(po_curr, "currency_code"):
+                curr_code = str(po_curr.currency_code)
+        elif hasattr(po, "currency_code") and po.currency_code:
+            curr_code = str(po.currency_code)
+
         for item in raw_items:
             code = getattr(item, "item_code", "") or getattr(item, "commodity_code", "")
-            if code and code not in seen_items:
-                seen_items.add(code)
-                po_dt = po.order_date.date() if hasattr(po.order_date, "date") else po.order_date
-                
-                curr_code = "USD"
-                po_curr = getattr(po, "currency", None)
-                if po_curr is not None:
-                    if isinstance(po_curr, str):
-                        curr_code = po_curr
-                    elif hasattr(po_curr, "currency_code"):
-                        curr_code = str(po_curr.currency_code)
-                elif hasattr(po, "currency_code") and po.currency_code:
-                    curr_code = str(po.currency_code)
+            if not code:
+                continue
+            unit_price = float(getattr(item, "unit_price", 0.0) or 0.0)
+            desc_ar = getattr(item, "description_ar", "") or getattr(item, "description", "")
+            if code not in item_occurrences:
+                item_occurrences[code] = []
+            item_occurrences[code].append({
+                "unit_price": unit_price,
+                "description_ar": desc_ar,
+                "currency": curr_code,
+                "po_date": po_dt,
+                "po_code": po_code,
+            })
 
-                items_history.append(
-                    ItemPriceHistory(
-                        item_code=code,
-                        description_ar=getattr(item, "description_ar", "") or getattr(item, "description", ""),
-                        last_unit_price=float(getattr(item, "unit_price", 0.0) or 0.0),
-                        currency=curr_code,
-                        last_po_date=po_dt,
-                        last_po_code=getattr(po, "po_number", None) or getattr(po, "po_code", ""),
-                    )
-                )
+    items_history: List[ItemPriceHistory] = []
+    for code, history in item_occurrences.items():
+        latest = history[0]
+        prev = history[1] if len(history) > 1 else None
+        last_price = latest["unit_price"]
+        prev_price = prev["unit_price"] if prev else None
 
+        price_change_pct = None
+        trend = "stable"
+        if prev_price is not None and prev_price > 0:
+            diff = last_price - prev_price
+            price_change_pct = round((diff / prev_price) * 100.0, 2)
+            if price_change_pct > 0.05:
+                trend = "increased"
+            elif price_change_pct < -0.05:
+                trend = "decreased"
+            else:
+                trend = "stable"
+        else:
+            trend = "new"
 
+        items_history.append(
+            ItemPriceHistory(
+                item_code=code,
+                description_ar=latest["description_ar"],
+                last_unit_price=last_price,
+                previous_unit_price=prev_price,
+                price_change_percentage=price_change_pct,
+                price_trend=trend,
+                currency=latest["currency"],
+                last_po_date=latest["po_date"],
+                last_po_code=latest["po_code"],
+            )
+        )
 
     # 2. Shipping Memory
     import_files = repository.get_supplier_import_files(db, supplier_id)
@@ -119,6 +152,23 @@ def get_supplier_route_intelligence_service(
             or 14
         )
 
+    # Transit days calculation
+    transit_samples = []
+    last_transit = 0
+    if latest_shipping:
+        if getattr(latest_shipping, "actual_departure_date", None) and getattr(latest_shipping, "actual_arrival_date", None):
+            last_transit = max(1, (latest_shipping.actual_arrival_date.date() - latest_shipping.actual_departure_date.date()).days)
+            transit_samples.append(last_transit)
+        elif getattr(latest_shipping, "etd", None) and getattr(latest_shipping, "eta", None):
+            last_transit = max(1, (latest_shipping.eta.date() - latest_shipping.etd.date()).days)
+            transit_samples.append(last_transit)
+    if not last_transit and latest_booking:
+        transit_field = getattr(latest_booking, "transit_time_days", None) or getattr(latest_booking, "transit_days", None)
+        if transit_field:
+            last_transit = int(transit_field)
+            transit_samples.append(last_transit)
+
+    avg_transit = round(sum(transit_samples) / len(transit_samples)) if transit_samples else (last_transit or 28)
 
     shipping_memory = RouteShippingMemory(
         last_ocean_freight_cost=last_freight,
@@ -128,6 +178,8 @@ def get_supplier_route_intelligence_service(
         last_pol=pol,
         last_pod=pod,
         last_free_days_granted=free_days,
+        average_transit_days=avg_transit,
+        last_transit_days=last_transit or avg_transit,
     )
 
     # 3. Customs & Clearance Memory
@@ -212,12 +264,27 @@ def get_supplier_route_intelligence_service(
         supplier_code=supplier.supplier_code,
         company_name=supplier.company_name,
         country=country_name,
+        country_name=country_name,
+        country_code=supplier.supplier_code or "SUP",
         total_completed_shipments=len(import_files),
         items_price_history=items_history,
+        historical_prices=items_history,
         shipping_memory=shipping_memory,
+        recent_freight={
+            "freight_cost_usd": last_freight,
+            "shipping_line": shipping_line,
+            "average_transit_days": avg_transit,
+        },
         customs_memory=customs_memory,
+        customs_clearance={
+            "clearance_fee_egp": last_clearance_fees,
+            "clearance_days": clearance_days,
+            "broker_name": broker_name,
+        },
         operational_notes=operational_notes,
         last_actual_lead_time_days=actual_lead_time_days,
+        average_cycle_days=actual_lead_time_days,
         lead_time_breakdown_ar=lead_breakdown,
         advisory_recommendation_ar=advisory,
+        executive_recommendation_ar=advisory,
     )

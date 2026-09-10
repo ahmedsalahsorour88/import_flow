@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
@@ -82,6 +83,9 @@ void showPriceListFormDialog(
   };
 
   // Load items either from existing price list or from master expense catalog
+  if (!ref.read(expenseCatalogProvider).isLoading && ref.read(expenseCatalogProvider).valueOrNull == null) {
+    Future.microtask(() => ref.read(expenseCatalogProvider.notifier).fetchCatalog());
+  }
   final catalog = ref.read(clearanceExpenseTypesProvider).valueOrNull ?? [];
   final List<Map<String, dynamic>> itemsState = [];
 
@@ -228,6 +232,10 @@ void showPriceListFormDialog(
         minP = (bestExtItem['min_price'] as num?)?.toDouble();
         maxP = (bestExtItem['max_price'] as num?)?.toDouble();
         notes = bestExtItem['notes']?.toString();
+        if (bestExtItem['code'] != null) {
+          itm['code'] = bestExtItem['code'];
+          itm['is_uncoded'] = bestExtItem['is_uncoded'] == true;
+        }
         matchedExtractedIndices.add(bestExtIdx);
       }
 
@@ -281,6 +289,8 @@ void showPriceListFormDialog(
         if (!alreadyInItems) {
           itemsState.insert(0, {
             'expense_type_id': null,
+            'code': extItem['code'],
+            'is_uncoded': extItem['is_uncoded'] == true,
             'expense_name': extName,
             'category': extItem['category']?.toString() ?? 'Other Fees (مصاريف أخرى)',
             'unit_type': ((extItem['pricing_unit'] ?? extItem['unit_type'])?.toString()) ?? 'Per Shipment (لكل شحنة)',
@@ -360,6 +370,7 @@ void showPriceListFormDialog(
   String itemSearchQuery = '';
   String selectedCategoryFilter = 'All';
   bool isSaving = false;
+  int? activeRowIndex;
 
   showDialog(
     context: context,
@@ -486,15 +497,26 @@ void showPriceListFormDialog(
           }
         }
 
-        // Add Custom Surcharge / Ad-hoc Item Dialog
-        Future<void> showAddCustomItemDialog() async {
+        // Coded Item Registration / Alias Mapping Dialog (AI-EXPENSE-CATALOG-002)
+        Future<void> showAddCustomItemDialog({String? initialName, String? initialCategory, double? initialPrice, Map<String, dynamic>? targetItem}) async {
           final formKey = GlobalKey<FormState>();
-          final customNameCtrl = TextEditingController();
-          final customPriceCtrl = TextEditingController(text: '1000');
+          int activeMode = 0; // 0 = Map as alias to existing code, 1 = Create new permanent code
+
+          final catalogItems = ref.read(expenseCatalogProvider).valueOrNull ?? [];
+          String? selectedCanonicalCode = catalogItems.isNotEmpty ? catalogItems.first.code : null;
+
+          final aliasPatternCtrl = TextEditingController(text: initialName ?? '');
+          final customPriceCtrl = TextEditingController(text: initialPrice != null && initialPrice > 0 ? initialPrice.toStringAsFixed(0) : '1000');
           final customNotesCtrl = TextEditingController();
-          String customCategory = 'Other Fees (مصاريف أخرى)';
-          String customUnit = 'Per Shipment (لكل شحنة)';
+
+          // For mode 1 (new permanent code)
+          final newCodeCtrl = TextEditingController();
+          final newNameArCtrl = TextEditingController(text: initialName ?? '');
+          final newNameEnCtrl = TextEditingController();
+          String newCategory = initialCategory ?? 'Other Fees';
+          String newUnit = 'fixed';
           String customCurrency = 'EGP';
+          bool isSubmitting = false;
 
           await showDialog(
             context: ctx,
@@ -503,174 +525,421 @@ void showPriceListFormDialog(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 title: const Row(
                   children: [
-                    Icon(Icons.add_circle, color: AppTheme.cobalt),
+                    Icon(Icons.qr_code_2, color: AppTheme.cobalt, size: 24),
                     SizedBox(width: 8),
-                    Text('إضافة بند مخصص / استثنائي خارج الليستة', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    Expanded(
+                      child: Text('تكويد المصروفات الجمركية المرجعية', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    ),
                   ],
                 ),
                 content: SizedBox(
-                  width: 480,
+                  width: 520,
                   child: SingleChildScrollView(
                     child: Form(
                       key: formKey,
                       child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextFormField(
-                          controller: customNameCtrl,
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال اسم البند أو المصروف المخصص' : null,
-                          decoration: const InputDecoration(
-                            labelText: 'اسم البند / المصروف المخصص *',
-                            hintText: 'مثال: كشف عمال وتجميع وكلارك / حراسة أمنية',
-                            isDense: true,
-                            border: OutlineInputBorder(),
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Mode selector tabs
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 14),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () => setInnerState(() => activeMode = 0),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: activeMode == 0 ? AppTheme.cobalt : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '🔗 ربط كمرادف لبند معتمد',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: activeMode == 0 ? Colors.white : AppTheme.charcoal,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () => setInnerState(() => activeMode = 1),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: activeMode == 1 ? AppTheme.cobalt : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '➕ تسجيل كود جديد بالكتالوج',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: activeMode == 1 ? Colors.white : AppTheme.charcoal,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: SearchableDropdownField<String>(
-                                value: customCategory,
-                                labelText: 'فئة المصروف *',
-                                items: const [
-                                  SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'Clearance Fees (أتعاب ومصاريف تخليص)'),
-                                  SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'Procedures & Approvals (إجراءات وموافقات وفحص)'),
-                                  SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'Inland Transport (نقل بري وشاحنات)'),
-                                  SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'Port & Handling (موانئ وتعتيق وتفريغ)'),
-                                  SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'Other Fees (مصاريف أخرى)'),
-                                ],
-                                onChanged: (v) => setInnerState(() => customCategory = v ?? customCategory),
+
+                          if (activeMode == 0) ...[
+                            // Mode 0: Alias mapping
+                            SearchableDropdownField<String?>(
+                              value: selectedCanonicalCode,
+                              labelText: 'البند المعتمد في الكتالوج *',
+                              searchHintText: 'ابحث في بنود الكتالوج المعتمدة...',
+                              items: catalogItems.map((ci) => SearchableDropdownItem<String?>(
+                                value: ci.code,
+                                label: '${ci.code} — ${ci.canonicalNameAr}',
+                              )).toList(),
+                              onChanged: (v) => setInnerState(() => selectedCanonicalCode = v),
+                            ),
+                            const SizedBox(height: 10),
+                            TextFormField(
+                              controller: aliasPatternCtrl,
+                              validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى كتابة الاسم أو المرادف كما ورد في المقايسة' : null,
+                              decoration: const InputDecoration(
+                                labelText: 'الاسم أو المرادف في المستند *',
+                                hintText: 'مثال: عوائد تفريغ ميناء / كارتة / أتعاب استثنائية',
+                                isDense: true,
+                                border: OutlineInputBorder(),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              flex: 2,
-                              child: SearchableDropdownField<String>(
-                                value: customUnit,
-                                labelText: 'الوحدة *',
-                                items: const [
-                                  SearchableDropdownItem(value: 'Per Shipment (لكل شحنة)', label: 'Per Shipment (لكل شحنة)'),
-                                  SearchableDropdownItem(value: 'Per Container (لكل حاوية)', label: 'Per Container (لكل حاوية)'),
-                                  SearchableDropdownItem(value: 'Per Invoice (لكل فاتورة)', label: 'Per Invoice (لكل فاتورة)'),
-                                  SearchableDropdownItem(value: 'Per Ton (لكل طن)', label: 'Per Ton (لكل طن)'),
-                                  SearchableDropdownItem(value: 'Per Day (لكل يوم)', label: 'Per Day (لكل يوم)'),
-                                  SearchableDropdownItem(value: 'Per Inspection (لكل كشف)', label: 'Per Inspection (لكل كشف)'),
-                                  SearchableDropdownItem(value: 'Per Certificate (لكل شهادة)', label: 'Per Certificate (لكل شهادة)'),
-                                ],
-                                onChanged: (v) => setInnerState(() => customUnit = v ?? customUnit),
+                          ] else ...[
+                            // Mode 1: New code
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    controller: newCodeCtrl,
+                                    textCapitalization: TextCapitalization.characters,
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty) return 'يرجى إدخال كود فريد';
+                                      if (!RegExp(r'^[A-Z0-9]+(-[A-Z0-9]+)+$').hasMatch(v.trim().toUpperCase())) {
+                                        return 'الصيغة غير صالحة (مثال: OTHER-CLARK-01)';
+                                      }
+                                      return null;
+                                    },
+                                    decoration: const InputDecoration(
+                                      labelText: 'كود البند المرجعي *',
+                                      hintText: 'OTHER-SPECIAL-01',
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  flex: 3,
+                                  child: SearchableDropdownField<String>(
+                                    value: newCategory,
+                                    labelText: 'الفئة الرسمية *',
+                                    items: const [
+                                      SearchableDropdownItem(value: 'Clearance Fees', label: 'Clearance Fees (أتعاب تخليص)'),
+                                      SearchableDropdownItem(value: 'Procedures & Approvals', label: 'Procedures & Approvals (إجراءات وموافقات)'),
+                                      SearchableDropdownItem(value: 'Inland Transport', label: 'Inland Transport (نقل داخلي)'),
+                                      SearchableDropdownItem(value: 'Port & Handling', label: 'Port & Handling (موانئ ومناولة)'),
+                                      SearchableDropdownItem(value: 'Other Fees', label: 'Other Fees (مصاريف أخرى)'),
+                                    ],
+                                    onChanged: (v) => setInnerState(() => newCategory = v ?? newCategory),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            TextFormField(
+                              controller: newNameArCtrl,
+                              validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال الاسم العربي المعتمد للبند' : null,
+                              decoration: const InputDecoration(
+                                labelText: 'الاسم العربي المعتمد للبند *',
+                                isDense: true,
+                                border: OutlineInputBorder(),
                               ),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: TextFormField(
+                                    controller: newNameEnCtrl,
+                                    decoration: const InputDecoration(
+                                      labelText: 'الاسم بالإنجليزية (اختياري)',
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  flex: 2,
+                                  child: SearchableDropdownField<String>(
+                                    value: newUnit,
+                                    labelText: 'نوع الوحدة *',
+                                    items: const [
+                                      SearchableDropdownItem(value: 'fixed', label: 'مبلغ مقطوع (fixed)'),
+                                      SearchableDropdownItem(value: 'per_container', label: 'لكل حاوية (per_container)'),
+                                      SearchableDropdownItem(value: 'per_invoice', label: 'لكل فاتورة (per_invoice)'),
+                                      SearchableDropdownItem(value: 'per_ton', label: 'لكل طن (per_ton)'),
+                                      SearchableDropdownItem(value: 'per_truck', label: 'لكل شاحنة (per_truck)'),
+                                      SearchableDropdownItem(value: 'per_day', label: 'لكل يوم (per_day)'),
+                                      SearchableDropdownItem(value: 'per_shipment', label: 'لكل شحنة (per_shipment)'),
+                                      SearchableDropdownItem(value: 'per_declaration', label: 'لكل شهادة (per_declaration)'),
+                                      SearchableDropdownItem(value: 'per_bl', label: 'لكل بوليصة (per_bl)'),
+                                    ],
+                                    onChanged: (v) => setInnerState(() => newUnit = v ?? newUnit),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: customPriceCtrl,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                validator: (v) {
-                                  if (v == null || v.trim().isEmpty) return 'يرجى تحديد السعر المعتمد';
-                                  if (double.tryParse(v.trim()) == null) return 'قيمة السعر غير صحيحة';
-                                  return null;
-                                },
-                                decoration: const InputDecoration(
-                                  labelText: 'السعر المعتمد *',
-                                  isDense: true,
-                                  border: OutlineInputBorder(),
+
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: customPriceCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) return 'يرجى تحديد السعر';
+                                    if (double.tryParse(v.trim()) == null) return 'السعر غير صالح';
+                                    return null;
+                                  },
+                                  decoration: const InputDecoration(
+                                    labelText: 'السعر المعتمد *',
+                                    isDense: true,
+                                    border: OutlineInputBorder(),
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 100,
-                              child: SearchableDropdownField<String>(
-                                value: customCurrency,
-                                items: const [
-                                  SearchableDropdownItem(value: 'EGP', label: 'EGP'),
-                                  SearchableDropdownItem(value: 'USD', label: 'USD'),
-                                  SearchableDropdownItem(value: 'EUR', label: 'EUR'),
-                                ],
-                                onChanged: (v) => setInnerState(() => customCurrency = v ?? 'EGP'),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 100,
+                                child: SearchableDropdownField<String>(
+                                  value: customCurrency,
+                                  items: const [
+                                    SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                                    SearchableDropdownItem(value: 'USD', label: 'USD'),
+                                    SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                                  ],
+                                  onChanged: (v) => setInnerState(() => customCurrency = v ?? 'EGP'),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        TextFormField(
-                          controller: customNotesCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'ملاحظات وشروط البند المخصص',
-                            isDense: true,
-                            border: OutlineInputBorder(),
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 10),
+                          TextFormField(
+                            controller: customNotesCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'ملاحظات وشروط البند',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              actions: [
+                actions: [
                   TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-                    icon: const Icon(Icons.check, size: 16),
-                    label: const Text('إضافة البند'),
-                    onPressed: () {
-                      if (!formKey.currentState!.validate()) return;
-                      final name = customNameCtrl.text.trim();
-                      final price = double.tryParse(customPriceCtrl.text.trim()) ?? 0.0;
+                    icon: isSubmitting
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.check, size: 16),
+                    label: Text(activeMode == 0 ? 'حفظ وتكويد المرادف' : 'تسجيل الكود بالكتالوج'),
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            if (!formKey.currentState!.validate()) return;
+                            setInnerState(() => isSubmitting = true);
+                            final price = double.tryParse(customPriceCtrl.text.trim()) ?? 0.0;
 
-                      setDlgState(() {
-                        selectedCategoryFilter = 'All';
-                        itemSearchQuery = '';
-                        itemsState.insert(0, {
-                          'expense_type_id': null,
-                          'expense_name': name,
-                          'category': customCategory,
-                          'unit_type': customUnit,
-                          'standard_price': price,
-                          'currency': customCurrency,
-                          'min_price': null,
-                          'max_price': null,
-                          'notes': customNotesCtrl.text.trim(),
-                          'is_active': true,
-                        });
-                      });
-                      Navigator.pop(c);
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(
-                          content: Text('✨ تم إضافة البند المخصص "$name" بنجاح إلى جدول الأسعار'),
-                          backgroundColor: AppTheme.emerald,
-                          duration: const Duration(seconds: 3),
-                        ),
-                      );
-                    },
+                            if (activeMode == 0) {
+                              // Mode 0: Alias pattern mapping
+                              final code = selectedCanonicalCode;
+                              final alias = aliasPatternCtrl.text.trim();
+                              if (code != null && alias.isNotEmpty) {
+                                await ref.read(expenseCatalogProvider.notifier).addPattern(code, alias);
+                                final matchedCatItem = catalogItems.firstWhere((it) => it.code == code, orElse: () => catalogItems.first);
+
+                                setDlgState(() {
+                                  selectedCategoryFilter = 'All';
+                                  itemSearchQuery = '';
+                                  if (targetItem != null) {
+                                    targetItem['code'] = code;
+                                    targetItem['is_uncoded'] = false;
+                                    targetItem['canonical_name_ar'] = matchedCatItem.canonicalNameAr;
+                                    if (price > 0) targetItem['standard_price'] = price;
+                                  } else {
+                                    itemsState.insert(0, {
+                                      'expense_type_id': null,
+                                      'code': code,
+                                      'expense_name': alias,
+                                      'canonical_name_ar': matchedCatItem.canonicalNameAr,
+                                      'category': matchedCatItem.category,
+                                      'unit_type': matchedCatItem.unitType,
+                                      'standard_price': price,
+                                      'currency': customCurrency,
+                                      'min_price': null,
+                                      'max_price': null,
+                                      'notes': customNotesCtrl.text.trim(),
+                                      'is_uncoded': false,
+                                      'is_active': true,
+                                    });
+                                  }
+                                });
+
+                                if (c.mounted) Navigator.pop(c);
+                                if (ctx.mounted) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(
+                                    content: Text('✨ تم تكويد "$alias" وربطه بنجاح بالكود المرجعي $code'),
+                                    backgroundColor: AppTheme.emerald,
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                                }
+                              }
+                            } else {
+                              // Mode 1: New code
+                              final newCode = newCodeCtrl.text.trim().toUpperCase();
+                              final nameAr = newNameArCtrl.text.trim();
+                              final nameEn = newNameEnCtrl.text.trim();
+
+                              await ref.read(expenseCatalogProvider.notifier).createItem({
+                                'code': newCode,
+                                'canonical_name_ar': nameAr,
+                                if (nameEn.isNotEmpty) 'canonical_name_en': nameEn,
+                                'category': newCategory,
+                                'unit_type': newUnit,
+                                'allow_composite': false,
+                                'recognition_patterns': [nameAr],
+                              });
+
+                              setDlgState(() {
+                                selectedCategoryFilter = 'All';
+                                itemSearchQuery = '';
+                                if (targetItem != null) {
+                                  targetItem['code'] = newCode;
+                                  targetItem['is_uncoded'] = false;
+                                  targetItem['canonical_name_ar'] = nameAr;
+                                  if (price > 0) targetItem['standard_price'] = price;
+                                } else {
+                                  itemsState.insert(0, {
+                                    'expense_type_id': null,
+                                    'code': newCode,
+                                    'expense_name': nameAr,
+                                    'canonical_name_ar': nameAr,
+                                    'category': newCategory,
+                                    'unit_type': newUnit,
+                                    'standard_price': price,
+                                    'currency': customCurrency,
+                                    'min_price': null,
+                                    'max_price': null,
+                                    'notes': customNotesCtrl.text.trim(),
+                                    'is_uncoded': false,
+                                    'is_active': true,
+                                  });
+                                }
+                              });
+
+                              if (c.mounted) Navigator.pop(c);
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(
+                                  content: Text('✨ تم تسجيل الكود المرجعي الجديد $newCode بالكتالوج بنجاح'),
+                                  backgroundColor: AppTheme.emerald,
+                                  duration: const Duration(seconds: 3),
+                                ),
+                              );
+                              }
+                            }
+                          },
                   ),
                 ],
               ),
             ),
           );
         }
-
         final filteredItems = itemsState.where((itm) {
           final name = (itm['expense_name'] as String).toLowerCase();
           final cat = (itm['category'] as String);
           final matchSearch = itemSearchQuery.isEmpty || name.contains(itemSearchQuery.toLowerCase());
-          final matchCat = selectedCategoryFilter == 'All' || cat == selectedCategoryFilter;
+          final matchCat = selectedCategoryFilter == 'All' ||
+              cat == selectedCategoryFilter ||
+              cat.toLowerCase().contains(selectedCategoryFilter.toLowerCase()) ||
+              selectedCategoryFilter.toLowerCase().contains(cat.toLowerCase());
           return matchSearch && matchCat;
         }).toList();
+
+        void cloneRowAt(int realIdx) {
+          if (realIdx < 0 || realIdx >= itemsState.length) return;
+          final orig = itemsState[realIdx];
+          final cloned = Map<String, dynamic>.from(orig);
+          cloned['item_id'] = null;
+          cloned['expense_type_id'] = null;
+          final isAr = Localizations.localeOf(ctx).languageCode == 'ar';
+          final suffix = isAr ? ' (نسخة)' : ' (Copy)';
+          cloned['expense_name'] = '${orig['expense_name']}$suffix';
+          cloned['notes'] = orig['notes'] != null && orig['notes'].toString().isNotEmpty
+              ? '${orig['notes']} | مستنسخ'
+              : (isAr ? 'مستنسخ' : 'Cloned');
+          setDlgState(() {
+            itemsState.insert(realIdx + 1, cloned);
+            activeRowIndex = realIdx + 1;
+          });
+          if (ctx.mounted) {
+            ScaffoldMessenger.of(ctx).showSnackBar(
+              SnackBar(
+                content: Text(isAr ? '✨ تم استنساخ السطر بنجاح (كنترول + د)' : '✨ Row cloned successfully (Ctrl+D)'),
+                backgroundColor: AppTheme.cobalt,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        }
 
         final mediaQuery = MediaQuery.of(ctx);
         final dialogWidth = (mediaQuery.size.width * 0.92).clamp(750.0, 1050.0);
         final dialogHeight = (mediaQuery.size.height * 0.88).clamp(420.0, 750.0);
 
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Container(
+        return CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.keyD, control: true): () {
+              if (activeRowIndex != null) {
+                cloneRowAt(activeRowIndex!);
+              } else if (filteredItems.isNotEmpty) {
+                final firstIdx = itemsState.indexOf(filteredItems.first);
+                cloneRowAt(firstIdx);
+              }
+            },
+          },
+          child: Focus(
+            autofocus: true,
+            child: Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Container(
             width: dialogWidth,
             height: dialogHeight,
             padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
@@ -802,11 +1071,11 @@ void showPriceListFormDialog(
                         labelText: l.filterCategoryLabel,
                         items: [
                           SearchableDropdownItem(value: 'All', label: l.allCategoriesItem),
-                          const SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'Clearance Fees'),
-                          const SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'Procedures & Approvals'),
-                          const SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'Inland Transport'),
-                          const SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'Port & Handling'),
-                          const SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'Other Fees'),
+                          const SearchableDropdownItem(value: 'Clearance Fees', label: 'Clearance Fees (أتعاب تخليص)'),
+                          const SearchableDropdownItem(value: 'Procedures & Approvals', label: 'Procedures & Approvals (إجراءات وموافقات)'),
+                          const SearchableDropdownItem(value: 'Inland Transport', label: 'Inland Transport (نقل داخلي)'),
+                          const SearchableDropdownItem(value: 'Port & Handling', label: 'Port & Handling (موانئ ومناولة)'),
+                          const SearchableDropdownItem(value: 'Other Fees', label: 'Other Fees (مصاريف أخرى)'),
                         ],
                         onChanged: (v) => setDlgState(() => selectedCategoryFilter = v ?? 'All'),
                       ),
@@ -815,9 +1084,9 @@ void showPriceListFormDialog(
                     // Add Custom Item Button
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
-                      onPressed: showAddCustomItemDialog,
-                      icon: const Icon(Icons.add, size: 14),
-                      label: const Text('➕ إضافة بند مخصص خارج الليستة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      onPressed: () => showAddCustomItemDialog(),
+                      icon: const Icon(Icons.qr_code_2, size: 15),
+                      label: const Text('➕ تكويد بند جديد أو ربط مرادف', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(width: 6),
                     // Quick Fill Button
@@ -891,7 +1160,31 @@ void showPriceListFormDialog(
                                     children: [
                                       Row(
                                         children: [
-                                          if (isCustomItem)
+                                          if (itm['code'] != null)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              margin: const EdgeInsets.only(left: 6),
+                                              decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
+                                              child: Text(itm['code'].toString(), style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                            )
+                                          else if (itm['is_uncoded'] == true)
+                                            InkWell(
+                                              onTap: () => showAddCustomItemDialog(initialName: itm['expense_name'], initialPrice: standardPrice, targetItem: itm),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                margin: const EdgeInsets.only(left: 6),
+                                                decoration: BoxDecoration(color: AppTheme.crimson, borderRadius: BorderRadius.circular(4)),
+                                                child: const Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.warning_amber_rounded, color: Colors.white, size: 10),
+                                                    SizedBox(width: 2),
+                                                    Text('بحاجة لتكويد', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                                  ],
+                                                ),
+                                              ),
+                                            )
+                                          else if (isCustomItem)
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                               margin: const EdgeInsets.only(left: 6),
@@ -965,6 +1258,11 @@ void showPriceListFormDialog(
                                     ),
                                     onChanged: (v) => itemsState[realIdx]['notes'] = v,
                                   ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.cobalt, size: 18),
+                                  tooltip: l.cloneRowTooltip,
+                                  onPressed: () => cloneRowAt(realIdx),
                                 ),
                                 if (isCustomItem)
                                   IconButton(
@@ -1141,8 +1439,10 @@ void showPriceListFormDialog(
             ],
           ),
         ),
-      );
-    },
-  ),
+      ),
+    ),
+  );
+},
+),
 );
 }

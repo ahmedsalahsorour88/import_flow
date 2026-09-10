@@ -116,6 +116,10 @@ class RankedForwarderQuote(BaseModel):
     currency_code: str = "USD"
     transit_days: int
     free_days_at_pod: int
+    cost_score: float = 0.0
+    free_days_score: float = 0.0
+    transit_score: float = 0.0
+    reliability_score: float = 0.0
     composite_score: float
     cost_saving_vs_average: float
     key_advantages: List[str]

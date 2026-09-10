@@ -41,7 +41,12 @@ void main() async {
   if (!kIsWeb && Platform.isWindows) {
     try {
       await windowManager.ensureInitialized();
-      windowManager.waitUntilReadyToShow(null, () async {
+      const windowOptions = WindowOptions(
+        size: Size(1366, 768),
+        minimumSize: Size(1024, 600),
+        center: true,
+      );
+      windowManager.waitUntilReadyToShow(windowOptions, () async {
         await windowManager.setPreventClose(true);
         await windowManager.show();
         await windowManager.focus();
@@ -139,7 +144,7 @@ void main() async {
 
   runApp(
     const ProviderScope(
-      child: ImportFlowApp(),
+      child: SorourLogisticsApp(),
     ),
   );
 }
@@ -160,6 +165,11 @@ class AppCustomScrollBehavior extends MaterialScrollBehavior {
   @override
   Widget buildScrollbar(
       BuildContext context, Widget child, ScrollableDetails details) {
+    // Disable horizontal scrollbars system-wide across all screens and components
+    if (details.direction == AxisDirection.left ||
+        details.direction == AxisDirection.right) {
+      return child;
+    }
     return Scrollbar(
       controller: details.controller,
       thumbVisibility: true,
@@ -173,14 +183,14 @@ class AppCustomScrollBehavior extends MaterialScrollBehavior {
 // Root application widget
 // ─────────────────────────────────────────────────────────────────────────────
 
-class ImportFlowApp extends ConsumerStatefulWidget {
-  const ImportFlowApp({super.key});
+class SorourLogisticsApp extends ConsumerStatefulWidget {
+  const SorourLogisticsApp({super.key});
 
   @override
-  ConsumerState<ImportFlowApp> createState() => _ImportFlowAppState();
+  ConsumerState<SorourLogisticsApp> createState() => _SorourLogisticsAppState();
 }
 
-class _ImportFlowAppState extends ConsumerState<ImportFlowApp>
+class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
     with WindowListener {
   @override
   void initState() {
@@ -249,7 +259,7 @@ class _ImportFlowAppState extends ConsumerState<ImportFlowApp>
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'ImportFlow ERP - Sorour Logistics (v1.0.155)',
+            title: 'Sorour Logistics ERP (v1.0.158)',
             theme: AppTheme.lightTheme,
             scrollBehavior: AppCustomScrollBehavior(),
             locale: locale,
@@ -273,3 +283,7 @@ class _ImportFlowAppState extends ConsumerState<ImportFlowApp>
     );
   }
 }
+
+/// Backward compatibility alias
+typedef ImportFlowApp = SorourLogisticsApp;
+

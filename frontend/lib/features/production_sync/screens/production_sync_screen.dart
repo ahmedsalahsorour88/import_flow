@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/production_sync_model.dart';
 import '../providers/production_sync_provider.dart';
 import '../services/auto_updater_service.dart';
 import '../services/local_process_sync_service.dart';
+import '../services/production_sync_export_service.dart';
 import '../services/production_sync_service.dart';
 import '../widgets/sync_console_widget.dart';
 import '../widgets/sync_progress_and_diff_widget.dart';
@@ -95,41 +98,42 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
   }
 
   Future<void> _confirmAndRestoreBackup(LocalBackupEntry b) async {
+    final l = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.history_rounded, color: AppTheme.orange),
-            SizedBox(width: 8),
-            Text('تأكيد استعادة النسخة الاحتياطية', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            const Icon(Icons.history_rounded, color: AppTheme.orange),
+            const SizedBox(width: 8),
+            Text(l.prodSyncConfirmRestoreTitleDialog, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('هل أنت متأكد من استعادة هذه النسخة: ${b.filename}؟'),
+            Text(l.prodSyncConfirmRestoreMsgDialog(b.filename)),
             const SizedBox(height: 10),
-            const Text(
-              '🛡️ سيقوم النظام تلقائياً بإنشاء نسخة أمان فورية من الوضع الحالي قبل تطبيق الاسترجاع لضمان عدم فقدان أي بيانات نهائياً.',
-              style: TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.w600),
+            Text(
+              l.prodSyncConfirmRestoreSafeNotice,
+              style: const TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.w600),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.prodSyncCancelAction)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('استعادة الآن'),
+            child: Text(l.prodSyncRestoreNowAction),
           ),
         ],
       ),
     );
 
     if (confirmed == true) {
-      await _executeAction('استعادة النسخة ${b.filename}', () async {
+      await _executeAction(l.prodSyncRestoreActionBtn, () async {
         try {
           final api = ProductionSyncService();
           final target = b.tag.contains('dev') ? 'dev' : 'prod';
@@ -146,6 +150,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
 
   Future<void> _executeAction(String actionName, Future<int> Function() task) async {
     if (_isRunning) return;
+    final l = context.l10n;
 
     setState(() {
       _isRunning = true;
@@ -153,10 +158,10 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
       _progress = SyncProgressEvent(
         percent: 5,
         stage: 'init',
-        message: 'جارٍ بدء عملية: $actionName...',
+        message: l.prodSyncActionStarting(actionName),
       );
       _consoleLogs.add(ConsoleLogLine('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-      _consoleLogs.add(ConsoleLogLine('🚀 بدء عملية: $actionName'));
+      _consoleLogs.add(ConsoleLogLine('🚀 ${l.prodSyncActionStarting(actionName)}'));
     });
 
     try {
@@ -166,7 +171,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         if (code == 0) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✅ اكتملت عملية [$actionName] بنجاح!'),
+              content: Text('✅ ${l.prodSyncActionSuccess(actionName)}'),
               backgroundColor: AppTheme.emerald,
               duration: const Duration(seconds: 3),
             ),
@@ -174,7 +179,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('⚠️ انتهت عملية [$actionName] مع أخطاء. راجع السجل.'),
+              content: Text('⚠️ ${l.prodSyncActionFailed(actionName)}'),
               backgroundColor: AppTheme.crimson,
               duration: const Duration(seconds: 4),
             ),
@@ -182,7 +187,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         }
       }
     } catch (e) {
-      _appendLog('❌ استثناء غير متوقع: $e', isError: true);
+      _appendLog('❌ ${l.prodSyncActionUnexpectedErr(e)}', isError: true);
       _refreshLocalData();
     } finally {
       if (mounted) {
@@ -197,8 +202,10 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
   @override
   Widget build(BuildContext context) {
     final updateState = ref.watch(updateCheckStateProvider);
-
-    final isArabic = Directionality.of(context) == TextDirection.rtl;
+    final l = context.l10n;
+    final versionInfo = ref.watch(systemVersionInfoProvider);
+    final currentVer = versionInfo.whenOrNull(data: (i) => i.version) ?? '1.0.73';
+    final currentBuild = versionInfo.whenOrNull(data: (i) => i.buildNumber) ?? 74;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -222,16 +229,12 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    isArabic
-                        ? 'مركز إدارة التحديثات والنسخ الاحتياطي'
-                        : 'System Updates & Backups Hub',
+                    l.prodSyncScreenHeaderTitle,
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    isArabic
-                        ? 'الترقية التلقائية الآمنة لقاعدة البيانات وإدارة نقاط الاسترجاع وفحص الإصدارات السحابية'
-                        : 'Automated safe database upgrade, recovery snapshots, and cloud version checking',
+                    l.prodSyncScreenHeaderSubtitle,
                     style: const TextStyle(color: Colors.white70, fontSize: 11),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -241,9 +244,74 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           ],
         ),
         actions: [
+          // ── Linked Output Actions (Task C) ──────────────────────────────
+          IconButton(
+            icon: const Icon(Icons.table_view_rounded, color: Colors.white),
+            tooltip: l.prodSyncExportTsvBtn,
+            onPressed: () {
+              if (_diffSummary != null && _diffSummary!.tables.isNotEmpty) {
+                ProductionSyncExportService.saveTableDiffTsvToFile(
+                  context: context,
+                  tables: _diffSummary!.tables,
+                );
+              } else {
+                ProductionSyncExportService.saveBackupsTsvToFile(
+                  context: context,
+                  backups: _backups,
+                );
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.file_download_outlined, color: Colors.white),
+            tooltip: l.prodSyncExportExcelBtn,
+            onPressed: () {
+              if (_diffSummary != null && _diffSummary!.tables.isNotEmpty) {
+                ProductionSyncExportService.saveTableDiffCsvToFile(
+                  context: context,
+                  tables: _diffSummary!.tables,
+                );
+              } else {
+                ProductionSyncExportService.saveBackupsCsvToFile(
+                  context: context,
+                  backups: _backups,
+                );
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
+            tooltip: l.prodSyncExportPdfBtn,
+            onPressed: () => ProductionSyncExportService.printOrSaveSyncDiagnosticsPdf(
+              context: context,
+              version: currentVer,
+              buildNumber: currentBuild,
+              devStats: _devStats,
+              prodStats: _prodStats,
+              diffSummary: _diffSummary,
+              backups: _backups,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.assignment_outlined, color: Colors.white),
+            tooltip: l.prodSyncCopyDossierBtn,
+            onPressed: () {
+              final dossier = ProductionSyncExportService.buildSystemSyncDossier(
+                context: context,
+                version: currentVer,
+                buildNumber: currentBuild,
+                devStats: _devStats,
+                prodStats: _prodStats,
+                diffSummary: _diffSummary,
+                backups: _backups,
+              );
+              CopyHelper.copy(context, dossier, customMessage: l.prodSyncCopyDossierSuccess);
+            },
+          ),
+          const VerticalDivider(width: 16, color: Colors.white24, indent: 12, endIndent: 12),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-            tooltip: isArabic ? 'تحديث حالة النظام' : 'Refresh System Status',
+            tooltip: l.prodSyncRefreshSystemStatusTooltip,
             onPressed: _refreshLocalData,
           ),
           const SizedBox(width: 8),
@@ -259,34 +327,36 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           tabs: [
             Tab(
               icon: const Icon(Icons.security_rounded, size: 18),
-              text: isArabic ? 'إدارة التحديثات ونقاط الاسترجاع' : 'Updates & Safety Backups',
+              text: l.prodSyncTabUpdatesAndBackups,
             ),
             Tab(
               icon: const Icon(Icons.code_rounded, size: 18),
-              text: isArabic ? 'أدوات المطور والمقارنة المباشرة' : 'Dev Tools & Live Diff',
+              text: l.prodSyncTabDevToolsAndDiff,
             ),
           ],
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // ─── Version & Update Status Top Banner ────────────────────────
-            _buildUpdateStatusBanner(updateState),
-            const SizedBox(height: 10),
+      body: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // ─── Version & Update Status Top Banner ────────────────────────
+              _buildUpdateStatusBanner(updateState, l),
+              const SizedBox(height: 10),
 
-            // ─── Tab Views ────────────────────────────────────────────────
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildBackupsAndUpdatesTab(),
-                  _buildDevOperationsTab(),
-                ],
+              // ─── Tab Views ────────────────────────────────────────────────
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildBackupsAndUpdatesTab(l),
+                    _buildDevOperationsTab(l),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -296,7 +366,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
   // Top Banner: Version & Update Status
   // ──────────────────────────────────────────────────────────────────────────
 
-  Widget _buildUpdateStatusBanner(AsyncValue<RemoteUpdateCheckResultModel?> updateState) {
+  Widget _buildUpdateStatusBanner(AsyncValue<RemoteUpdateCheckResultModel?> updateState, AppLocalizations l) {
     return updateState.when(
       data: (result) {
         if (result == null) {
@@ -305,7 +375,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
             version: versionInfo.whenOrNull(data: (i) => i.version) ?? '1.0.73',
             buildNumber: versionInfo.whenOrNull(data: (i) => i.buildNumber) ?? 74,
             hasUpdate: false,
-            message: 'النظام محدث ومستقر بأحدث إصدار مثبت.',
+            message: l.prodSyncSystemUpToDateMsg,
+            l: l,
           );
         }
         final versionInfo = ref.watch(systemVersionInfoProvider);
@@ -320,6 +391,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           installerUrl: result.installerUrl,
           installerFilename: result.installerFilename,
           installerSizeMb: result.installerSizeMb,
+          l: l,
         );
       },
       loading: () => Container(
@@ -329,11 +401,11 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.grey.shade300),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.cobalt)),
-            SizedBox(width: 12),
-            Text('جاري فحص الإصدارات الجديدة عبر السحابة...', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+            const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.cobalt)),
+            const SizedBox(width: 12),
+            Text(l.prodSyncCheckingCloudUpdates, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -341,7 +413,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         version: '1.0.52',
         buildNumber: 53,
         hasUpdate: false,
-        message: 'يعمل النظام في الوضع المحلي المستقل (Offline Mode).',
+        message: l.prodSyncOfflineModeMsg,
+        l: l,
       ),
     );
   }
@@ -357,6 +430,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     String? installerUrl,
     String? installerFilename,
     double installerSizeMb = 0.0,
+    required AppLocalizations l,
   }) {
     final downloadState = ref.watch(downloadProgressProvider);
     final isDownloading = downloadState.state == AutoUpdateState.downloading;
@@ -376,15 +450,31 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: hasUpdate ? AppTheme.cobalt : AppTheme.charcoal,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
+              // Clickable Version Badge with Copy Trigger
+              InkWell(
+                onTap: () => CopyHelper.copy(
+                  context,
                   'v$version (Build $buildNumber)',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                  customMessage: l.prodSyncCopyFieldTooltip,
+                ),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: hasUpdate ? AppTheme.cobalt : AppTheme.charcoal,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'v$version (Build $buildNumber)',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.copy_rounded, size: 12, color: Colors.white70),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -421,7 +511,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                   ),
                   icon: const Icon(Icons.download_rounded, size: 15),
                   label: Text(
-                    'تثبيت v$latestVersion الآن',
+                    l.prodSyncInstallVersionNow(latestVersion ?? ''),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   onPressed: () => _confirmAndStartUpdate(
@@ -429,6 +519,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                     installerFilename: installerFilename ?? 'Sorour_Logistics_Setup.exe',
                     latestVersion: latestVersion ?? '',
                     installerSizeMb: installerSizeMb,
+                    l: l,
                   ),
                 ),
               // ── Done → Launch installer ────────────────────────────────────
@@ -440,18 +531,18 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   ),
                   icon: const Icon(Icons.rocket_launch_rounded, size: 15),
-                  label: const Text('تشغيل المثبّت الآن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  label: Text(l.prodSyncLaunchInstallerNow, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   onPressed: () => ref.read(downloadProgressProvider.notifier).launchAndExit(),
                 ),
               // ── Launching ─────────────────────────────────────────────────
               if (isLaunching)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Row(
                     children: [
-                      SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.emerald)),
-                      SizedBox(width: 8),
-                      Text('جاري التثبيت...', style: TextStyle(fontSize: 12, color: AppTheme.emerald)),
+                      const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.emerald)),
+                      const SizedBox(width: 8),
+                      Text(l.prodSyncInstallingStatus, style: const TextStyle(fontSize: 12, color: AppTheme.emerald)),
                     ],
                   ),
                 ),
@@ -466,7 +557,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                     visualDensity: VisualDensity.compact,
                   ),
                   icon: const Icon(Icons.refresh_rounded, size: 14),
-                  label: const Text('فحص التحديثات', style: TextStyle(fontSize: 11)),
+                  label: Text(l.prodSyncCheckUpdatesBtn, style: const TextStyle(fontSize: 11)),
                   onPressed: () {
                     ref.read(productionSyncNotifierProvider.notifier).checkForUpdates();
                   },
@@ -476,7 +567,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                 TextButton.icon(
                   style: TextButton.styleFrom(foregroundColor: AppTheme.crimson),
                   icon: const Icon(Icons.cancel_rounded, size: 15),
-                  label: const Text('إلغاء', style: TextStyle(fontSize: 12)),
+                  label: Text(l.prodSyncCancelBtn, style: const TextStyle(fontSize: 12)),
                   onPressed: () => ref.read(downloadProgressProvider.notifier).cancelDownload(),
                 ),
             ],
@@ -501,8 +592,11 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'جاري تنزيل التحديث... ${(downloadState.progress * 100).toStringAsFixed(0)}%'
-                          '  (${downloadState.downloadedMb} / ${downloadState.totalMb} MB)',
+                          l.prodSyncDownloadingProgress(
+                            (downloadState.progress * 100).toStringAsFixed(0),
+                            downloadState.downloadedMb,
+                            downloadState.totalMb,
+                          ),
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.cobalt),
                         ),
                       ),
@@ -519,9 +613,9 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    '⚡ سيتم إغلاق التطبيق تلقائياً عند اكتمال التنزيل لتطبيق التحديث.',
-                    style: TextStyle(fontSize: 10.5, color: Colors.grey),
+                  Text(
+                    l.prodSyncAutoCloseNotice,
+                    style: const TextStyle(fontSize: 10.5, color: Colors.grey),
                   ),
                 ],
               ),
@@ -538,14 +632,14 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 18),
-                  SizedBox(width: 8),
+                  const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 18),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '✅ اكتمل تنزيل التحديث! اضغط "تشغيل المثبّت الآن" لتثبيت الإصدار الجديد.',
-                      style: TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.w600),
+                      l.prodSyncDownloadCompleteNotice,
+                      style: const TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -569,13 +663,13 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      downloadState.errorMessage ?? 'فشل التنزيل. يرجى المحاولة مرة أخرى.',
+                      downloadState.errorMessage ?? l.prodSyncDownloadFailedFallback,
                       style: const TextStyle(fontSize: 12, color: AppTheme.crimson),
                     ),
                   ),
                   TextButton(
                     onPressed: () => ref.read(downloadProgressProvider.notifier).reset(),
-                    child: const Text('إعادة المحاولة'),
+                    child: Text(l.prodSyncRetryBtn),
                   ),
                 ],
               ),
@@ -596,7 +690,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '🌟 المميزات الجديدة في إصدار v$latestVersion:',
+                    l.prodSyncWhatsNewInVersion(latestVersion ?? ''),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                   ),
                   const SizedBox(height: 4),
@@ -625,8 +719,9 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     required String installerFilename,
     required String latestVersion,
     double installerSizeMb = 0,
+    required AppLocalizations l,
   }) async {
-    final sizeMbStr = installerSizeMb > 0 ? '${installerSizeMb.toStringAsFixed(0)} MB' : 'تنزيل';
+    final sizeMbStr = installerSizeMb > 0 ? '${installerSizeMb.toStringAsFixed(0)} MB' : '';
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -640,7 +735,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
               child: const Icon(Icons.system_update_rounded, color: AppTheme.emerald, size: 22),
             ),
             const SizedBox(width: 10),
-            Text('تثبيت الإصدار v$latestVersion', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            Text(l.prodSyncInstallConfirmTitle(latestVersion), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
@@ -648,7 +743,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'سيتم تنزيل ($sizeMbStr) وتثبيت الإصدار الجديد تلقائياً.',
+              l.prodSyncInstallConfirmDesc(sizeMbStr),
               style: const TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 10),
@@ -659,14 +754,14 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
               ),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('✅ لن تُفقد أي بيانات — قاعدة البيانات محمية', style: TextStyle(fontSize: 12, color: AppTheme.emerald)),
-                  SizedBox(height: 3),
-                  Text('✅ سيغلق التطبيق تلقائياً أثناء التثبيت', style: TextStyle(fontSize: 12, color: AppTheme.emerald)),
-                  SizedBox(height: 3),
-                  Text('✅ يستغرق التثبيت حوالي 10 ثوانٍ', style: TextStyle(fontSize: 12, color: AppTheme.emerald)),
+                  Text(l.prodSyncInstallSafeNotice1, style: const TextStyle(fontSize: 12, color: AppTheme.emerald)),
+                  const SizedBox(height: 3),
+                  Text(l.prodSyncInstallSafeNotice2, style: const TextStyle(fontSize: 12, color: AppTheme.emerald)),
+                  const SizedBox(height: 3),
+                  Text(l.prodSyncInstallSafeNotice3, style: const TextStyle(fontSize: 12, color: AppTheme.emerald)),
                 ],
               ),
             ),
@@ -675,7 +770,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('لاحقاً', style: TextStyle(color: Colors.grey)),
+            child: Text(l.prodSyncLaterBtn, style: const TextStyle(color: Colors.grey)),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
@@ -684,7 +779,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
             icon: const Icon(Icons.download_rounded, size: 16),
-            label: const Text('تنزيل وتثبيت الآن', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(l.prodSyncDownloadAndInstallNowBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () => Navigator.pop(ctx, true),
           ),
         ],
@@ -704,7 +799,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
   // Tab 1: System Updates & Safety Backups
   // ──────────────────────────────────────────────────────────────────────────
 
-  Widget _buildBackupsAndUpdatesTab() {
+  Widget _buildBackupsAndUpdatesTab(AppLocalizations l) {
     return Column(
       children: [
         // Top Info & Quick Backup Actions
@@ -726,18 +821,18 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                 child: const Icon(Icons.verified_user_rounded, color: AppTheme.emerald, size: 28),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'محرك الترقية التراكمي الآمن (In-Place Schema Upgrade Engine)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
+                      l.prodSyncSchemaEngineTitle,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
-                      'يقوم النظام تلقائياً بأخذ لقطة أمان قبل كل ترقية، مع إضافة الجداول والأعمدة الجديدة دون المساس ببيانات التشغيل.',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                      l.prodSyncSchemaEngineDesc,
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -749,11 +844,11 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
                 icon: const Icon(Icons.add_to_photos_rounded, size: 16),
-                label: const Text('📸 إنشاء نقطة استرجاع فورية (Backup)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                label: Text(l.prodSyncCreateInstantBackupBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 onPressed: _isRunning
                     ? null
                     : () => _executeAction(
-                          'إنشاء نقطة استرجاع فورية',
+                          l.prodSyncCreateInstantBackupBtn,
                           () => _service.createManualBackup(
                             onOutput: (l) => _appendLog(l),
                             onError: (l) => _appendLog(l, isError: true),
@@ -781,21 +876,42 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'أرشيف النسخ الاحتياطية ونقاط الاسترجاع (${_backups.length} نسخة محفوظة)',
+                      l.prodSyncBackupsArchiveHeader(_backups.length),
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.refresh_rounded, size: 18, color: Colors.grey),
-                      onPressed: _refreshLocalData,
-                      tooltip: 'تحديث القائمة',
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.table_view_rounded, size: 18, color: AppTheme.cobalt),
+                          tooltip: l.prodSyncExportTsvBtn,
+                          onPressed: () => ProductionSyncExportService.saveBackupsTsvToFile(
+                            context: context,
+                            backups: _backups,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.file_download_outlined, size: 18, color: AppTheme.emerald),
+                          tooltip: l.prodSyncExportExcelBtn,
+                          onPressed: () => ProductionSyncExportService.saveBackupsCsvToFile(
+                            context: context,
+                            backups: _backups,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.refresh_rounded, size: 18, color: Colors.grey),
+                          onPressed: _refreshLocalData,
+                          tooltip: l.prodSyncRefreshListTooltip,
+                        ),
+                      ],
                     ),
                   ],
                 ),
                 const Divider(),
                 Expanded(
                   child: _backups.isEmpty
-                      ? const Center(
-                          child: Text('لا توجد نسخ احتياطية سابقة في مجلد backups/.'),
+                      ? Center(
+                          child: Text(l.prodSyncNoBackupsInFolder),
                         )
                       : ListView.separated(
                           itemCount: _backups.length,
@@ -808,6 +924,11 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                                 : b.tag.contains('prod')
                                     ? AppTheme.emerald
                                     : AppTheme.orange;
+                            final tagLabel = isAuto
+                                ? l.prodSyncAutoPreUpgradeTag
+                                : (b.tag.contains('prod')
+                                    ? l.prodSyncTargetProdLabel
+                                    : (b.tag.contains('dev') ? l.prodSyncTargetDevLabel : b.tag));
 
                             return ListTile(
                               dense: true,
@@ -816,12 +937,29 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                                 color: tagColor,
                                 size: 22,
                               ),
-                              title: Text(
-                                b.filename,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace'),
+                              title: InkWell(
+                                onTap: () => CopyHelper.copy(
+                                  context,
+                                  b.filename,
+                                  customMessage: l.prodSyncCopyFieldTooltip,
+                                ),
+                                borderRadius: BorderRadius.circular(4),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        b.filename,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(Icons.copy_rounded, size: 11, color: Colors.grey.shade400),
+                                  ],
+                                ),
                               ),
                               subtitle: Text(
-                                'تاريخ الإنشاء: ${b.mtime}  •  الحجم: ${b.sizeKb} KB  •  ${isAuto ? "ترقية تلقائية آمنة" : "نسخة يدوية"}',
+                                '${l.prodSyncBackupCreatedAt(b.mtime)} • ${l.prodSyncBackupSize(b.sizeKb)} • ${isAuto ? l.prodSyncAutoPreUpgradeTag : l.prodSyncManualBackupTag}',
                                 style: const TextStyle(fontSize: 11, color: Colors.grey),
                               ),
                               trailing: Row(
@@ -834,11 +972,23 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      isAuto ? 'تلقائي (Pre-Upgrade)' : b.tag,
+                                      tagLabel,
                                       style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: tagColor),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 6),
+                                  IconButton(
+                                    icon: const Icon(Icons.copy_rounded, size: 14, color: Colors.grey),
+                                    tooltip: l.prodSyncCopyRowSummaryBtn,
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                                    onPressed: () {
+                                      final summary = '${b.filename} | ${b.sizeKb} KB | ${b.mtime} | ${b.tag}';
+                                      CopyHelper.copy(context, summary, customMessage: l.prodSyncCopyRowSummarySuccess);
+                                    },
+                                  ),
+                                  const SizedBox(width: 6),
                                   OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: AppTheme.orange,
@@ -847,7 +997,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                                       visualDensity: VisualDensity.compact,
                                     ),
                                     icon: const Icon(Icons.restore_rounded, size: 14),
-                                    label: const Text('استعادة (Restore)', style: TextStyle(fontSize: 10.5)),
+                                    label: Text(l.prodSyncRestoreActionBtn, style: const TextStyle(fontSize: 10.5)),
                                     onPressed: _isRunning ? null : () => _confirmAndRestoreBackup(b),
                                   ),
                                 ],
@@ -868,7 +1018,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
   // Tab 2: Developer Operations & Diff
   // ──────────────────────────────────────────────────────────────────────────
 
-  Widget _buildDevOperationsTab() {
+  Widget _buildDevOperationsTab(AppLocalizations l) {
     return Column(
       children: [
         // DB Status Cards
@@ -876,21 +1026,23 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           children: [
             Expanded(
               child: _buildDbCard(
-                title: 'قاعدة بيانات التطوير (Dev DB)',
+                title: l.prodSyncDevDbTitle,
                 path: _service.devDbPath,
                 stats: _devStats,
                 color: AppTheme.cobalt,
                 icon: Icons.code_rounded,
+                l: l,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _buildDbCard(
-                title: 'قاعدة بيانات الإنتاج (Prod DB)',
+                title: l.prodSyncProdDbTitle,
                 path: _service.prodDbPath,
                 stats: _prodStats,
                 color: AppTheme.emerald,
                 icon: Icons.desktop_windows_rounded,
+                l: l,
               ),
             ),
           ],
@@ -919,11 +1071,11 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                 icon: _isRunning && _currentAction.contains('Dev → Prod')
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.cloud_upload_rounded, size: 16),
-                label: const Text('⚡ مزامنة لقاعدة الإنتاج (Dev → Prod)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                label: Text(l.prodSyncSyncDevToProdBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 onPressed: _isRunning
                     ? null
                     : () => _executeAction(
-                          'مزامنة لقاعدة الإنتاج (Dev → Prod)',
+                          l.prodSyncSyncDevToProdBtn,
                           () => _service.syncDevToProd(
                             onOutput: (l) => _appendLog(l),
                             onError: (l) => _appendLog(l, isError: true),
@@ -943,11 +1095,11 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
                 icon: const Icon(Icons.compare_arrows_rounded, size: 16),
-                label: const Text('🔍 فحص ومقارنة الجداول (Compare)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                label: Text(l.prodSyncCompareTablesBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 onPressed: _isRunning
                     ? null
                     : () => _executeAction(
-                          'فحص ومقارنة الجداول',
+                          l.prodSyncCompareTablesBtn,
                           () => _service.compareDatabases(
                             onOutput: (l) => _appendLog(l),
                             onError: (l) => _appendLog(l, isError: true),
@@ -964,11 +1116,11 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
                 icon: const Icon(Icons.download_rounded, size: 16),
-                label: const Text('⬇ سحب الإنتاج للتطوير (Prod → Dev)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                label: Text(l.prodSyncPullProdToDevBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 onPressed: _isRunning
                     ? null
                     : () => _executeAction(
-                          'سحب بيانات الإنتاج إلى بيئة التطوير (Prod → Dev)',
+                          l.prodSyncPullProdToDevBtn,
                           () => _service.pullProdToDev(
                             onOutput: (l) => _appendLog(l),
                             onError: (l) => _appendLog(l, isError: true),
@@ -985,11 +1137,11 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
                 icon: const Icon(Icons.inventory_rounded, size: 16),
-                label: const Text('📦 بناء وحزم الإنتاج (Full Build)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                label: Text(l.prodSyncFullBuildBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 onPressed: _isRunning
                     ? null
                     : () => _executeAction(
-                          'بناء وتجميع الإنتاج بالكامل (Full Build & Package)',
+                          l.prodSyncFullBuildBtn,
                           () => _service.fullBuildAndSync(
                             onOutput: (l) => _appendLog(l),
                             onError: (l) => _appendLog(l, isError: true),
@@ -1013,7 +1165,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           diffSummary: _diffSummary,
           isRunning: _isRunning,
           onCheckDiff: () => _executeAction(
-            'فحص ومقارنة الجداول',
+            l.prodSyncCompareTablesBtn,
             () => _service.compareDatabases(
               onOutput: (l) => _appendLog(l),
               onError: (l) => _appendLog(l, isError: true),
@@ -1047,6 +1199,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     required LocalDbStats stats,
     required Color color,
     required IconData icon,
+    required AppLocalizations l,
   }) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1072,10 +1225,32 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
               children: [
                 Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                 const SizedBox(height: 2),
+                InkWell(
+                  onTap: () => CopyHelper.copy(context, path, customMessage: l.prodSyncCopyFieldTooltip),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            path,
+                            style: const TextStyle(fontSize: 10, color: Colors.grey, fontFamily: 'monospace'),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.copy_rounded, size: 10, color: Colors.grey.shade400),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
                 Text(
                   stats.exists
-                      ? 'الحجم: ${stats.sizeKb} KB  •  آخر تعديل: ${stats.mtime ?? "—"}'
-                      : '⚠️ لم يتم العثور على الملف بعد (سيتم إنشاؤه عند أول مزامنة)',
+                      ? '${l.prodSyncDbSizeLabel(stats.sizeKb)} • ${l.prodSyncDbLastModified(stats.mtime ?? "—")}'
+                      : l.prodSyncDbNotFoundNotice,
                   style: TextStyle(
                     fontSize: 11,
                     color: stats.exists ? Colors.black87 : AppTheme.crimson,

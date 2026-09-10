@@ -3,7 +3,7 @@ import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import 'buttons/app_button.dart';
 
-/// Reusable Standard Form Action Bar across all screens in ImportFlow ERP.
+/// Reusable Standard Form Action Bar across all screens in Sorour Logistics ERP.
 ///
 /// Uses [AppButton] for consistent styling — no inline ElevatedButton.styleFrom().
 ///

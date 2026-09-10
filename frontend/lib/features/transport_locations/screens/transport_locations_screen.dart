@@ -2,8 +2,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -42,6 +44,62 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
     super.dispose();
   }
 
+  void _copyLocationsTsv(BuildContext context, List<TransportLocationModel> locations) {
+    final l10n = context.l10n;
+    if (locations.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.noTransportLocationsFound), backgroundColor: AppTheme.crimson),
+      );
+      return;
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln([
+      l10n.locationsTsvHeaderUnLocode,
+      l10n.locationsTsvHeaderName,
+      l10n.locationsTsvHeaderType,
+      l10n.locationsTsvHeaderCountry,
+      l10n.locationsTsvHeaderCity,
+      l10n.locationsTsvHeaderStatus,
+      l10n.locationsTsvHeaderNotes,
+    ].join('\t'));
+
+    for (final loc in locations) {
+      final statusStr = loc.isActive ? l10n.statusActive : l10n.statusInactive;
+      buffer.writeln([
+        loc.unLocode,
+        loc.locationName,
+        _getLocationTypeLabel(loc.locationType, l10n),
+        loc.country,
+        loc.city,
+        statusStr,
+        loc.notes ?? '',
+      ].join('\t'));
+    }
+
+    CopyHelper.copy(
+      context,
+      buffer.toString(),
+      customMessage: l10n.locationsExportTsvSuccess,
+    );
+  }
+
+  String _buildLocationRowSummary(AppLocalizations l10n, TransportLocationModel loc) {
+    final statusStr = loc.isActive ? l10n.statusActive : l10n.statusInactive;
+    final typeStr = _getLocationTypeLabel(loc.locationType, l10n);
+    return '${loc.unLocode}\t${loc.locationName}\t$typeStr\t${loc.country}\t${loc.city}\t$statusStr\t${loc.notes ?? ""}';
+  }
+
+  void _copySingleLocationSummary(BuildContext context, TransportLocationModel loc) {
+    final l10n = context.l10n;
+    final summary = _buildLocationRowSummary(l10n, loc);
+    CopyHelper.copy(
+      context,
+      summary,
+      customMessage: l10n.locationCopySummarySuccess,
+    );
+  }
+
   String _getLocationTypeLabel(String type, AppLocalizations l10n) {
     switch (type) {
       case 'All':
@@ -70,61 +128,87 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Title & Actions
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.transportLocationsScreenTitle,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.charcoal,
+      body: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Title & Actions
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.transportLocationsScreenTitle,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.charcoal,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          l10n.transportLocationsScreenSubtitle,
+                          style: const TextStyle(fontSize: 13, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Row(
+                    children: [
+                      const BackToDashboardButton(),
+                      const SizedBox(width: 10),
+                      ElevatedButton.icon(
+                        onPressed: () => _copyLocationsTsv(
+                            context, locationsAsync.asData?.value ?? []),
+                        icon: const Icon(Icons.table_chart_outlined, size: 18),
+                        label: Text(l10n.locationsExportTsvBtn),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.emerald,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.transportLocationsScreenSubtitle,
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const BackToDashboardButton(),
-                    const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      onPressed: () => _showLocationDialog(context),
-                      icon: const Icon(Icons.add_location_alt, size: 18),
-                      label: Text(l10n.addTransportLocationBtn),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      const SizedBox(width: 10),
+                      ElevatedButton.icon(
+                        onPressed: () => _showLocationDialog(context),
+                        icon: const Icon(Icons.add_location_alt, size: 18),
+                        label: Text(l10n.addTransportLocationBtn),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
 
-            // Data Actions Toolbar
-            MasterDataToolbarWidget(
-              moduleEndpoint: 'transport-locations',
-              title: 'Transport_Locations',
-              onRefreshNeeded: () => ref.read(transportLocationsProvider.notifier).fetchLocations(),
-              onImportExcel: () => _handleExcelImport(context, ref),
-            ),
+              // Data Actions Toolbar
+              MasterDataToolbarWidget(
+                moduleEndpoint: 'transport-locations',
+                title: 'Transport_Locations',
+                onRefreshNeeded: () =>
+                    ref.read(transportLocationsProvider.notifier).fetchLocations(),
+                onImportExcel: () => _handleExcelImport(context, ref),
+                onExportExcel: () {
+                  final list = locationsAsync.asData?.value ?? [];
+                  MasterDataExportService.exportLocationsToExcel(context, list);
+                },
+              ),
 
             const SizedBox(height: 16),
 
@@ -250,7 +334,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                       Expanded(
                         child: LayoutBuilder(
                           builder: (context, constraints) {
-                            final tableWidth = constraints.maxWidth < 1100 ? 1100.0 : constraints.maxWidth;
+                            final tableWidth = constraints.maxWidth < 1180 ? 1180.0 : constraints.maxWidth;
 
                             return Container(
                               width: double.infinity,
@@ -276,13 +360,13 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                       child: Table(
                                         defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                                         columnWidths: const {
-                                          0: FixedColumnWidth(130),
+                                          0: FixedColumnWidth(140),
                                           1: FlexColumnWidth(3),
                                           2: FixedColumnWidth(140),
                                           3: FlexColumnWidth(2),
                                           4: FlexColumnWidth(2),
                                           5: FixedColumnWidth(95),
-                                          6: FixedColumnWidth(160),
+                                          6: FixedColumnWidth(210),
                                         },
                                         children: [
                                           // Table Header
@@ -316,6 +400,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                   final loc = entry.value;
                                   final isEven = entry.key % 2 == 0;
                                   final isActive = loc.isActive;
+                                  final rowSummary = _buildLocationRowSummary(l10n, loc);
 
                                   return TableRow(
                                     decoration: BoxDecoration(
@@ -324,18 +409,35 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                     children: [
                                       // UN/LOCODE
                                       _cell(
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.cobalt.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            loc.unLocode,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                              color: AppTheme.cobalt,
+                                        value: loc.unLocode,
+                                        rowSummary: rowSummary,
+                                        child: InkWell(
+                                          onTap: () => _showLocationDialog(context, location: loc),
+                                          borderRadius: BorderRadius.circular(6),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.cobalt.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  loc.unLocode,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                    color: AppTheme.cobalt,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                InkWell(
+                                                  onTap: () => CopyHelper.copy(context, loc.unLocode),
+                                                  child: const Icon(Icons.copy_rounded, size: 12, color: AppTheme.cobalt),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ),
@@ -343,6 +445,8 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
 
                                       // Location Name & Notes
                                       _cell(
+                                        value: '${loc.locationName}${loc.notes != null ? " - ${loc.notes}" : ""}',
+                                        rowSummary: rowSummary,
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
@@ -370,11 +474,15 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
 
                                       // Type Badge
                                       _cell(
+                                        value: _getLocationTypeLabel(loc.locationType, l10n),
+                                        rowSummary: rowSummary,
                                         child: _typeBadge(loc.locationType, l10n),
                                       ),
 
                                       // Country
                                       _cell(
+                                        value: loc.country,
+                                        rowSummary: rowSummary,
                                         child: Text(
                                           loc.country,
                                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
@@ -383,6 +491,8 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
 
                                       // City
                                       _cell(
+                                        value: loc.city,
+                                        rowSummary: rowSummary,
                                         child: Text(
                                           loc.city,
                                           style: const TextStyle(fontSize: 13, color: Colors.black87),
@@ -391,6 +501,8 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
 
                                       // Status
                                       _cell(
+                                        value: isActive ? l10n.statusActive : l10n.statusInactive,
+                                        rowSummary: rowSummary,
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
@@ -408,43 +520,48 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                         ),
                                       ),
 
-                                      // Actions: View (Details), Edit, Print, Delete
+                                      // Actions: Quick Copy Summary, View, Edit, Print, Delete
                                       _cell(
-                                        child: RowActionsPill(
-                                          onView: () => _showLocationDialog(context, location: loc),
-                                          onEdit: () => _showLocationDialog(context, location: loc),
-                                          onPrint: () {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(
-                                                content: Text(l10n.printLocationSnack(loc.locationName, loc.unLocode)),
-                                                backgroundColor: AppTheme.charcoal,
-                                                duration: const Duration(seconds: 2),
-                                              ),
-                                            );
-                                          },
-                                          onDelete: () async {
-                                            final confirm = await showDialog<bool>(
-                                              context: context,
-                                              builder: (ctx) => AlertDialog(
-                                                title: Text(l10n.confirmActionTitle),
-                                                content: Text(isActive
-                                                    ? l10n.confirmDeactivateLocation(loc.locationName)
-                                                    : l10n.confirmActivateLocation(loc.locationName)),
-                                                actions: [
-                                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                                                  ElevatedButton(
-                                                    onPressed: () => Navigator.pop(ctx, true),
-                                                    style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                                    child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                                        value: loc.unLocode,
+                                        rowSummary: rowSummary,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(Icons.copy_all_rounded, size: 18, color: AppTheme.cobalt),
+                                              tooltip: l10n.locationCopySummaryBtn,
+                                              onPressed: () => _copySingleLocationSummary(context, loc),
+                                              visualDensity: VisualDensity.compact,
+                                            ),
+                                            RowActionsPill(
+                                              onView: () => _showLocationDialog(context, location: loc),
+                                              onEdit: () => _showLocationDialog(context, location: loc),
+                                              onPrint: () => MasterDataExportService.printOrSaveLocationPdf(loc),
+                                              onDelete: () async {
+                                                final confirm = await showDialog<bool>(
+                                                  context: context,
+                                                  builder: (ctx) => AlertDialog(
+                                                    title: Text(l10n.confirmActionTitle),
+                                                    content: Text(isActive
+                                                        ? l10n.confirmDeactivateLocation(loc.locationName)
+                                                        : l10n.confirmActivateLocation(loc.locationName)),
+                                                    actions: [
+                                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+                                                      ElevatedButton(
+                                                        onPressed: () => Navigator.pop(ctx, true),
+                                                        style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                                        child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                                                      ),
+                                                    ],
                                                   ),
-                                                ],
-                                              ),
-                                            );
-                                            if (confirm == true && loc.locationId != null) {
-                                              ref.read(transportLocationsProvider.notifier).toggleActive(loc.locationId!, isActive);
-                                            }
-                                          },
-                                          deleteTooltip: isActive ? l10n.deactivateLocationTooltip : l10n.activateLocationTooltip,
+                                                );
+                                                if (confirm == true && loc.locationId != null) {
+                                                  ref.read(transportLocationsProvider.notifier).toggleActive(loc.locationId!, isActive);
+                                                }
+                                              },
+                                              deleteTooltip: isActive ? l10n.deactivateLocationTooltip : l10n.activateLocationTooltip,
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
@@ -534,13 +651,14 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                 ],
               );
             },
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  ),
+),
+);
+}
 
   Widget _typeBadge(String type, AppLocalizations l10n) {
     Color bg;
@@ -591,9 +709,18 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
     );
   }
 
-  Widget _cell({required Widget child}) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Align(alignment: Alignment.centerLeft, child: child),
+  Widget _cell({
+    required Widget child,
+    required String value,
+    String? rowSummary,
+  }) =>
+      CopyableTableCell(
+        value: value,
+        rowSummary: rowSummary,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Align(alignment: Alignment.centerLeft, child: child),
+        ),
       );
 
   void _showLocationDialog(BuildContext context, {TransportLocationModel? location}) {
@@ -615,110 +742,143 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
           title: Text(location == null
               ? l10n.addLocationDialogTitle
               : l10n.editLocationDialogTitle(location.unLocode)),
-          content: SizedBox(
-            width: 500,
-            child: Form(
-              key: formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: locodeCtrl,
-                            enabled: location == null,
-                            decoration: InputDecoration(
-                              labelText: l10n.unLocodeLabel,
-                              hintText: l10n.unLocodeHint,
+          content: SelectionArea(
+            child: SizedBox(
+              width: 500,
+              child: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: locodeCtrl,
+                              enabled: location == null,
+                              decoration: InputDecoration(
+                                labelText: l10n.unLocodeLabel,
+                                hintText: l10n.unLocodeHint,
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  tooltip: l10n.locationCopyFieldTooltip,
+                                  onPressed: () => CopyHelper.copy(context, locodeCtrl.text),
+                                ),
+                              ),
+                              validator: (v) =>
+                                  v == null || v.trim().isEmpty
+                                      ? l10n.requiredField
+                                      : null,
                             ),
-                            validator: (v) =>
-                                v == null || v.trim().isEmpty
-                                    ? l10n.requiredField
-                                    : null,
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: SearchableDropdownField<String>(
-                            value: selectedType,
-                            labelText: l10n.locationTypeLabel,
-                            items: [
-                              'Sea Port',
-                              'Airport',
-                              'Dry Port',
-                              'Land Border',
-                              'ICD',
-                              'Rail Terminal'
-                            ]
-                                .map((t) => SearchableDropdownItem<String>(
-                                    value: t,
-                                    label: _getLocationTypeLabel(t, l10n)))
-                                .toList(),
-                            onChanged: (v) => selectedType = v ?? 'Sea Port',
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SearchableDropdownField<String>(
+                              value: selectedType,
+                              labelText: l10n.locationTypeLabel,
+                              items: [
+                                'Sea Port',
+                                'Airport',
+                                'Dry Port',
+                                'Land Border',
+                                'ICD',
+                                'Rail Terminal'
+                              ]
+                                  .map((t) => SearchableDropdownItem<String>(
+                                      value: t,
+                                      label: _getLocationTypeLabel(t, l10n)))
+                                  .toList(),
+                              onChanged: (v) => selectedType = v ?? 'Sea Port',
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: nameCtrl,
-                      decoration: InputDecoration(
-                        labelText: l10n.locationNameLabel,
-                        hintText: l10n.locationNameHint,
+                        ],
                       ),
-                      validator: (v) =>
-                          v == null || v.trim().isEmpty
-                              ? l10n.requiredField
-                              : null,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: countryCtrl,
-                            decoration: InputDecoration(
-                              labelText: l10n.countryLabelRequired,
-                              hintText: l10n.countryHint,
-                            ),
-                            validator: (v) =>
-                                v == null || v.trim().isEmpty
-                                    ? l10n.requiredField
-                                    : null,
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: nameCtrl,
+                        decoration: InputDecoration(
+                          labelText: l10n.locationNameLabel,
+                          hintText: l10n.locationNameHint,
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy, size: 16),
+                            tooltip: l10n.locationCopyFieldTooltip,
+                            onPressed: () => CopyHelper.copy(context, nameCtrl.text),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: cityCtrl,
-                            decoration: InputDecoration(
-                              labelText: l10n.cityLabelRequired,
-                              hintText: l10n.cityHint,
-                            ),
-                            validator: (v) =>
-                                v == null || v.trim().isEmpty
-                                    ? l10n.requiredField
-                                    : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: notesCtrl,
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        labelText: l10n.locationNotesLabel,
+                        validator: (v) =>
+                            v == null || v.trim().isEmpty
+                                ? l10n.requiredField
+                                : null,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: countryCtrl,
+                              decoration: InputDecoration(
+                                labelText: l10n.countryLabelRequired,
+                                hintText: l10n.countryHint,
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  tooltip: l10n.locationCopyFieldTooltip,
+                                  onPressed: () => CopyHelper.copy(context, countryCtrl.text),
+                                ),
+                              ),
+                              validator: (v) =>
+                                  v == null || v.trim().isEmpty
+                                      ? l10n.requiredField
+                                      : null,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: cityCtrl,
+                              decoration: InputDecoration(
+                                labelText: l10n.cityLabelRequired,
+                                hintText: l10n.cityHint,
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  tooltip: l10n.locationCopyFieldTooltip,
+                                  onPressed: () => CopyHelper.copy(context, cityCtrl.text),
+                                ),
+                              ),
+                              validator: (v) =>
+                                  v == null || v.trim().isEmpty
+                                      ? l10n.requiredField
+                                      : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: notesCtrl,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          labelText: l10n.locationNotesLabel,
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy, size: 16),
+                            tooltip: l10n.locationCopyFieldTooltip,
+                            onPressed: () => CopyHelper.copy(context, notesCtrl.text),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
           actions: [
+            if (location != null)
+              IconButton(
+                icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson),
+                tooltip: l10n.exportLocationPdfBtn,
+                onPressed: () => MasterDataExportService.printOrSaveLocationPdf(location),
+              ),
             TextButton(
               onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
               child: Text(l10n.cancel),

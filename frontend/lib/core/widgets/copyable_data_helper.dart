@@ -4,7 +4,7 @@ import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 
 /// Central clipboard helper utility and reusable widgets for copying data
-/// across all screens in ImportFlow ERP.
+/// across all screens in Sorour Logistics ERP.
 class CopyHelper {
   /// Copies the specified [text] to the system clipboard and displays a
   /// styled, floating confirmation SnackBar.

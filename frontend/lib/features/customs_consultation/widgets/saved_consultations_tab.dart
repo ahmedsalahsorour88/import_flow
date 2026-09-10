@@ -11,6 +11,7 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import 'package:printing/printing.dart';
 import '../services/customs_consultation_pdf_service.dart';
+import '../services/customs_export_service.dart';
 class SavedConsultationsTab extends ConsumerStatefulWidget {
   final Function(CustomsConsultationModel) onEdit;
   final Function(BuildContext, CustomsConsultationModel) onViewDetails;
@@ -93,7 +94,8 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                     0.0, (s, c) => s + c.readinessPercentage) /
                 sessions.length;
 
-              return Column(
+              return SelectionArea(
+                child: Column(
                 children: [
                   // ── Metrics & Toolbar Strip ──────────────────────────────
                   Container(
@@ -224,6 +226,63 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                     color: AppTheme.cobalt),
                               ),
                             ),
+
+                            // 1. TSV Export Button
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.charcoal,
+                                side: BorderSide(color: Colors.grey.shade400),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              ),
+                              onPressed: () => CustomsExportService.exportConsultationsLogTsv(
+                                context: context,
+                                sessions: filtered,
+                              ),
+                              icon: const Icon(Icons.table_view_outlined, size: 15, color: Colors.blueGrey),
+                              label: Text(l.customsTaxExportTsvBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
+
+                            // 2. Excel Export Button
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.charcoal,
+                                side: BorderSide(color: Colors.grey.shade400),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              ),
+                              onPressed: () => CustomsExportService.exportConsultationsLogExcel(
+                                context: context,
+                                sessions: filtered,
+                              ),
+                              icon: const Icon(Icons.description_outlined, size: 15, color: AppTheme.emerald),
+                              label: Text(l.customsTaxExportExcelBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
+
+                            // 3. PDF Statement Print/Preview Button
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.charcoal,
+                                side: BorderSide(color: Colors.grey.shade400),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              ),
+                              onPressed: () => CustomsConsultationPdfService.printOrPreviewConsultationsLogPdf(context, filtered),
+                              icon: const Icon(Icons.picture_as_pdf_outlined, size: 15, color: AppTheme.crimson),
+                              label: Text(l.customsTaxPrintPdfBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
+
+                            // 4. Dossier Copy Button
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.charcoal,
+                                side: BorderSide(color: Colors.grey.shade400),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              ),
+                              onPressed: () => CustomsExportService.copyConsultationsLogDossier(
+                                context: context,
+                                sessions: filtered,
+                              ),
+                              icon: const Icon(Icons.copy_all_outlined, size: 15, color: AppTheme.cobalt),
+                              label: Text(l.customsTaxCopyDossierBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
                           ],
                         ),
                       ],
@@ -323,7 +382,11 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                         session.hasBlockingIssues ||
                                             session.blockingIssuesCount > 0;
                                     final fileCodeStr = session.importFileCode ?? (session.importFileId != null ? 'IMP-${session.importFileId}' : '—');
-                                    final rowSummary = '${session.consultationCode} | $fileCodeStr | ${session.title} | ${session.brokerName} | ${session.estimatedDutiesEgp.toStringAsFixed(0)} EGP | ${readinessPct.toStringAsFixed(0)}% | ${session.overallStatus}';
+                                    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+                                    final egpLabel = isArabic ? 'ج.م' : 'EGP';
+                                    final rowSummary = isArabic
+                                        ? '${session.consultationCode} | $fileCodeStr | ${session.title} | ${session.brokerName} | ${session.estimatedDutiesEgp.toStringAsFixed(0)} $egpLabel | ${readinessPct.toStringAsFixed(0)}% | ${session.overallStatus}'
+                                        : '${session.consultationCode} | $fileCodeStr | ${session.title} | ${session.brokerName} | ${session.estimatedDutiesEgp.toStringAsFixed(0)} $egpLabel | ${readinessPct.toStringAsFixed(0)}% | ${session.overallStatus}';
 
                                     return DataRow(
                                       color:
@@ -333,20 +396,23 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                       cells: [
                                         // ⚡ 1. Actions
                                         DataCell(
-                                          RowActionsPill(
-                                            onView: () =>
-                                                widget.onViewDetails(context, session),
-                                            onEdit: () =>
-                                                widget.onEdit(
-                                                    session),
-                                            onPrint: () {
-                                              Printing.layoutPdf(
-                                                onLayout: (format) =>
-                                                    CustomsConsultationPdfService.generateConsultationPdf(session),
-                                                name: 'Customs_Consultation_${session.consultationCode}',
-                                              );
-                                            },
-                                             onDelete: () async {
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              RowActionsPill(
+                                                onView: () =>
+                                                    widget.onViewDetails(context, session),
+                                                onEdit: () =>
+                                                    widget.onEdit(
+                                                        session),
+                                                onPrint: () {
+                                                  Printing.layoutPdf(
+                                                    onLayout: (format) =>
+                                                        CustomsConsultationPdfService.generateConsultationPdf(session),
+                                                    name: 'Customs_Consultation_${session.consultationCode}',
+                                                  );
+                                                },
+                                                onDelete: () async {
                                                final messenger = ScaffoldMessenger.of(context);
                                                if (session.isActive == false) {
                                                  final confirm = await showDialog<bool>(
@@ -456,6 +522,14 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                }
                                              },
                                              deleteTooltip: session.isActive == false ? l.restoreDeletedTooltip : l.deleteStudyTooltip,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              IconButton(
+                                                icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
+                                                tooltip: l.copyTooltip,
+                                                onPressed: () => CopyHelper.copy(context, rowSummary, customMessage: l.customsTaxCopyRowSuccess),
+                                              ),
+                                            ],
                                           ),
                                         ),
 
@@ -545,7 +619,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                         // 6. Estimated Duties
                                         DataCell(
                                           CopyableTableCell(
-                                            value: '${session.estimatedDutiesEgp.toStringAsFixed(0)} EGP',
+                                            value: '${session.estimatedDutiesEgp.toStringAsFixed(0)} $egpLabel',
                                             rowSummary: rowSummary,
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -554,7 +628,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                 borderRadius: BorderRadius.circular(20),
                                               ),
                                               child: Text(
-                                                '${session.estimatedDutiesEgp.toStringAsFixed(0)} EGP',
+                                                '${session.estimatedDutiesEgp.toStringAsFixed(0)} $egpLabel',
                                                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 12),
                                               ),
                                             ),
@@ -637,8 +711,9 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                           ),
                   ),
                 ],
-              );
-            },
+              ),
+            );
+          },
           );
   }
 }

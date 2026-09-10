@@ -243,7 +243,7 @@ class LocalProcessSyncServiceWebImpl implements LocalProcessSyncService {
     required void Function(String) onOutput,
     required void Function(String) onError,
   }) async {
-    onOutput('🚀 [LAUNCH] لتشغيل تطبيق الإنتاج المستقل على ويندوز، استخدم الملف: dist/Start_ImportFlow_Production.bat');
+    onOutput('🚀 [LAUNCH] لتشغيل تطبيق الإنتاج المستقل على ويندوز، استخدم الملف: dist/Start_Sorour_Logistics_Production.bat');
     return 0;
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_tariff_model.dart';
@@ -56,11 +57,16 @@ import '../widgets/verify_tariff_dialog.dart';
                         Row(
                           children: [
                             IconButton(
+                              icon: const Icon(Icons.print_outlined,
+                                  color: AppTheme.cobalt, size: 20),
+                              tooltip: l10n.exportTariffPdfBtn,
+                              onPressed: () => MasterDataExportService.printOrSaveTariffPdf(
+                                  tariff, agreements),
+                            ),
+                            IconButton(
                               icon: const Icon(Icons.copy_rounded,
                                   color: AppTheme.cobalt, size: 20),
-                              tooltip: isArabic
-                                  ? 'نسخ تفاصيل التعريفة الجمركية'
-                                  : 'Copy Tariff Details',
+                              tooltip: l10n.nafezaDetailsCopyTooltip,
                               onPressed: () => _copyTariffSummary(
                                   context, tariff, agreements, isArabic),
                             ),
@@ -255,7 +261,7 @@ import '../widgets/verify_tariff_dialog.dart';
     final buffer = StringBuffer();
     if (isArabic) {
       buffer.writeln('بيانات التعريفة الجمركية - منصة نافذة');
-      buffer.writeln('بند التعريفة (HS Code): ${tariff.hsCode}');
+      buffer.writeln('بند التعريفة الجمركية: ${tariff.hsCode}');
       buffer.writeln('الوصف: ${tariff.hsDescription}');
       buffer.writeln('ضريبة الوارد: ${tariff.customsDutyRate.toStringAsFixed(3)}%');
       buffer.writeln('ضريبة الجدول: ${tariff.scheduleTaxRate.toStringAsFixed(3)}%');
@@ -306,7 +312,7 @@ import '../widgets/verify_tariff_dialog.dart';
       context,
       buffer.toString(),
       customMessage: isArabic
-          ? 'تم نسخ تفاصيل التعريفة الجمركية بنجاح'
+          ? context.l10n.nafezaDetailsCopySuccess
           : 'Tariff details copied to clipboard',
     );
   }

@@ -270,14 +270,14 @@ Other (21days+USD200/ctnr)
     final progressCtrl = ExtractionProgressController();
     progressCtrl.update(
       percent: 0.15,
-      status: 'جاري رفع الملف وتهيئة الماسح الضوئي (OCR)...',
+      status: 'جاري رفع الملف وتهيئة الماسح الضوئي...',
       stepLabel: 'المرحلة 1 من 4: رفع الملف',
       currentStep: 1,
     );
 
     ExtractionProgressDialog.show(
       context: context,
-      title: 'استخراج عروض أسعار الشحن بالماسح الضوئي (OCR)',
+      title: 'استخراج عروض أسعار الشحن بالماسح الضوئي',
       fileName: file.name,
       fileSize: fileSizeFormatted,
       controller: progressCtrl,
@@ -320,7 +320,7 @@ Other (21days+USD200/ctnr)
       _processExtractedResponse(response.data);
     } on DioException catch (e) {
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
-      setState(() => _error = 'خطأ في معالجة الملف بالـ OCR: ${e.message}');
+      setState(() => _error = 'خطأ في معالجة الملف بالماسح الضوئي: ${e.message}');
     } catch (e) {
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
       setState(() => _error = 'حدث خطأ أثناء معالجة المستند: $e');
@@ -357,7 +357,9 @@ Other (21days+USD200/ctnr)
     }
 
     if (extracted['cancel_fee'] != null) {
-      cFields['رسوم الإلغاء (Cancellation Fee)'] = 'USD ${extracted['cancel_fee']}';
+      final isArabic = Directionality.of(context) == TextDirection.rtl;
+      final cancelLabel = isArabic ? 'رسوم الإلغاء' : 'Cancellation Fee';
+      cFields[cancelLabel] = 'USD ${extracted['cancel_fee']}';
     }
 
     setState(() {
@@ -366,7 +368,7 @@ Other (21days+USD200/ctnr)
       _options = parsedList;
       _customFields = cFields;
       if (parsedList.isEmpty) {
-        _error = 'لم يتم العثور على أية عروض أسعار صالحة في النص/المستند المدخل. يرجى التحقق من الصيغة.';
+        _error = 'لم يتم العثور على أية عروض أسعار صالحة في النص أو المستند المدخل. يرجى التحقق من الصيغة.';
       }
     });
   }
@@ -410,29 +412,29 @@ Other (21days+USD200/ctnr)
 
     final presets = isArabic
         ? {
-            'free_time_extend': '⏳ تمديد فترة السماح (USD/حاوية)',
-            'thc_charge': '🏗️ رسوم المناولة وتداول الحاويات (THC)',
+            'free_time_extend': '⏳ تمديد فترة السماح (بالدولار لكل حاوية)',
+            'thc_charge': '🏗️ رسوم المناولة وتداول الحاويات',
             'doc_fee': '📄 رسوم بوليصة ومستندات',
-            'isps_fee': '🛡️ رسوم أمن الميناء (ISPS)',
+            'isps_fee': '🛡️ رسوم أمن الميناء',
             'seal_fee': '🔒 رسوم الرصاصة الجمركية',
-            'vgm_fee': '⚖️ رسوم وزن الحاوية (VGM)',
+            'vgm_fee': '⚖️ رسوم وزن الحاوية',
             'chassis_fee': '🚛 رسوم الشاسيه',
-            'forwarder_name': '🏢 وكيل الشحن / الناقل',
+            'forwarder_name': '🏢 وكيل الشحن أو الناقل',
             'carrier_name': '🚢 الخط الملاحي',
-            'origin_port': '⚓ ميناء الشحن / السفر (POL)',
-            'destination_port': '⚓ ميناء الوصول / التفريغ (POD)',
+            'origin_port': '⚓ ميناء الشحن أو القيام',
+            'destination_port': '⚓ ميناء الوصول أو التفريغ',
             'vessel_name': '🚢 اسم الباخرة',
             'voyage_number': '🔢 رقم الرحلة',
-            'etd_date': '📅 تاريخ الإبحار (YYYY-MM-DD)',
-            'eta_date': '📅 تاريخ الوصول (YYYY-MM-DD)',
+            'etd_date': '📅 تاريخ الإبحار',
+            'eta_date': '📅 تاريخ الوصول',
             'transit_days': '⏱ مدة الإبحار (أيام)',
             'free_time_days': '⏳ فترة السماح (أيام)',
             'rate_20gp': '💵 نولون الحاوية 20',
             'rate_40hq': '💵 نولون الحاوية 40',
-            'local_charges': '💰 مصاريف ورسوم محلية (USD)',
-            'exw_charges': '🏭 رسوم المصنع والنقل الداخلي (USD)',
+            'local_charges': '💰 مصاريف ورسوم محلية بالدولار',
+            'exw_charges': '🏭 رسوم المصنع والنقل الداخلي بالدولار',
             'notes': '📝 ملاحظات وشروط إضافية',
-            'custom': '➕ بيان / مصروف مخصص آخر',
+            'custom': '➕ بيان أو مصروف مخصص آخر',
           }
         : {
             'free_time_extend': '⏳ Free Time Extension (USD/cntr)',
@@ -483,7 +485,7 @@ Other (21days+USD200/ctnr)
               children: [
                 Text(
                   isArabic
-                      ? 'اختر نوع المصروف/البيان أو أدخل بياناً مخصصاً لعروض الأسعار:'
+                      ? 'اختر نوع المصروف أو البيان أو أدخل بياناً مخصصاً لعروض الأسعار:'
                       : 'Select expense/field type or enter custom details:',
                   style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
                 ),
@@ -492,7 +494,7 @@ Other (21days+USD200/ctnr)
                   value: selectedPreset,
                   isExpanded: true,
                   decoration: InputDecoration(
-                    labelText: isArabic ? 'نوع البيان / المصروف المطلوب إضافته' : 'Expense / Field Type',
+                    labelText: isArabic ? 'نوع البيان أو المصروف المطلوب إضافته' : 'Expense / Field Type',
                     isDense: true,
                   ),
                   items: presets.entries
@@ -516,7 +518,7 @@ Other (21days+USD200/ctnr)
                   TextField(
                     controller: keyCtrl,
                     decoration: InputDecoration(
-                      labelText: isArabic ? 'اسم المصروف / البيان الجديد *' : 'New Expense / Field Name *',
+                      labelText: isArabic ? 'اسم المصروف أو البيان الجديد *' : 'New Expense / Field Name *',
                       hintText: isArabic ? 'مثلاً: غرامة إضافية أو تأخير' : 'e.g. Demurrage Tier 2 or Surcharge',
                     ),
                   ),
@@ -525,8 +527,8 @@ Other (21days+USD200/ctnr)
                 TextField(
                   controller: valCtrl,
                   decoration: InputDecoration(
-                    labelText: isArabic ? 'القيمة / التفاصيل *' : 'Value / Details *',
-                    hintText: isArabic ? 'مثلاً: USD 200/حاوية أو 21 يوم' : 'e.g. USD 200/cntr or 21 days',
+                    labelText: isArabic ? 'القيمة أو التفاصيل *' : 'Value / Details *',
+                    hintText: isArabic ? 'مثلاً: 200 دولار لكل حاوية أو 21 يوماً' : 'e.g. USD 200/cntr or 21 days',
                   ),
                 ),
               ],
@@ -708,11 +710,11 @@ Other (21days+USD200/ctnr)
                 tabs: [
                   Tab(
                     icon: const Icon(Icons.text_snippet_outlined, size: 18),
-                    text: isArabic ? '📝 لصق نص / بريد إلكتروني' : '📝 Paste Text / Email',
+                    text: isArabic ? '📝 لصق نص أو بريد إلكتروني' : '📝 Paste Text / Email',
                   ),
                   Tab(
                     icon: const Icon(Icons.document_scanner_outlined, size: 18),
-                    text: isArabic ? '📁 رفع ملف / مستند / صورة' : '📁 Upload File / Document (OCR)',
+                    text: isArabic ? '📁 رفع ملف أو مستند أو صورة' : '📁 Upload File / Document (OCR)',
                   ),
                 ],
               ),
@@ -966,7 +968,7 @@ Other (21days+USD200/ctnr)
           if (rawForwarder.isNotEmpty) ...[
             _buildPartyRow(
               icon: Icons.business_rounded,
-              title: isArabic ? 'وكيل الشحن / الناقل' : 'Freight Forwarder / Carrier',
+              title: isArabic ? 'وكيل الشحن أو الناقل' : 'Freight Forwarder / Carrier',
               name: rawForwarder,
               isVerified: matchedForwarder != null,
               code: matchedForwarder?.partnerCode ?? (matchedForwarder != null ? 'PRV-${matchedForwarder.providerId}' : null),
@@ -1197,9 +1199,8 @@ Other (21days+USD200/ctnr)
             style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
             decoration: InputDecoration(
               hintText: isArabic
-                  ? 'مثال:\nRoute: Shanghai - El Dekheila\nWHL: USD 6700/40HQ BY WHL\nTransit: 29 days direct | Free time: 21 days\nLocal: USD 880/40HQ'
-                  : 'Example:\nRoute: Shanghai - El Dekheila\nWHL: USD 6700/40HQ BY WHL\nTransit: 29 days direct | Free time: 21 days\nLocal: USD 880/40HQ',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ? 'الصق نص عرض السعر أو البريد هنا...\nمثال:\nمسار الرحلة: شنغهاي إلى الدخيلة\nالنولون البحري: 6700 دولار لكل حاوية 40 قدم\nمدة الإبحار: 29 يوماً | فترة السماح: 21 يوماً\nالمصاريف المحلية: 880 دولار لكل حاوية'
+                  : 'Paste quotation text or email here...\nExample:\nRoute: Shanghai - El Dekheila\nOcean Freight: USD 6700 per 40HQ container\nTransit: 29 days direct | Free time: 21 days\nLocal charges: USD 880 per container',
               contentPadding: const EdgeInsets.all(12),
             ),
             onChanged: (_) => setState(() {}),
@@ -1259,7 +1260,7 @@ Other (21days+USD200/ctnr)
                           const SizedBox(height: 4),
                           Text(
                             isArabic
-                                ? 'يدعم PDF، صور (PNG, JPG, WEBP)، مستندات Word، وجداول Excel'
+                                ? 'يدعم ملفات المستندات والصور والجداول الإلكترونية'
                                 : 'Supports PDF, images (PNG, JPG, WEBP), Word documents, and Excel',
                             style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                           ),
@@ -1313,7 +1314,7 @@ Other (21days+USD200/ctnr)
               : const Icon(Icons.document_scanner, color: Colors.white),
           label: Text(
             _isExtracting
-                ? (isArabic ? 'جاري المسح الضوئي (OCR)...' : 'Scanning document (OCR)...')
+                ? (isArabic ? 'جاري الفحص بالماسح الضوئي...' : 'Scanning document (OCR)...')
                 : (isArabic ? '🚀 قراءة واستخراج بالماسح الضوئي' : '🚀 Scan & Extract Document (OCR)'),
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
@@ -1356,14 +1357,14 @@ Other (21days+USD200/ctnr)
               Expanded(
                 child: Text(
                   isArabic
-                      ? 'تم استخراج ${_options.length} عرض/عروض أسعار بنجاح! راجع العروض أدناه ثم أضفها لدراسة المفاضلة:'
+                      ? 'تم استخراج ${_options.length} من عروض الأسعار بنجاح! راجع العروض أدناه ثم أضفها لدراسة المفاضلة:'
                       : 'Successfully extracted ${_options.length} quotation(s)! Review below and add to benchmark study:',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
                 ),
               ),
               IconButton(
                 icon: const Icon(Icons.copy_all_rounded, color: AppTheme.cobalt, size: 20),
-                tooltip: isArabic ? 'نسخ كافة العروض (TSV / Excel)' : 'Copy All Quotes (TSV / Excel)',
+                tooltip: isArabic ? 'نسخ كافة العروض بتنسيق جدول بيانات' : 'Copy All Quotes (TSV / Excel)',
                 onPressed: () => _copyAllQuotes(context, isArabic),
               ),
               const SizedBox(width: 6),
@@ -1639,7 +1640,7 @@ Other (21days+USD200/ctnr)
   void _copyAllQuotes(BuildContext context, bool isArabic) {
     if (_options.isEmpty) return;
     final headers = isArabic
-        ? ['الخط الملاحي', 'نوع الحاوية', 'النولون', 'المصاريف المحلية', 'الإجمالي', 'العملة', 'الترانزيت (أيام)', 'فترة السماح (أيام)', 'مباشر/ترانزيت', 'ميناء الشحن', 'ميناء الوصول', 'ملاحظات']
+        ? ['الخط الملاحي', 'نوع الحاوية', 'النولون', 'المصاريف المحلية', 'الإجمالي', 'العملة', 'الترانزيت (أيام)', 'فترة السماح (أيام)', 'مباشر أو ترانزيت', 'ميناء الشحن', 'ميناء الوصول', 'ملاحظات']
         : ['Carrier', 'Container Type', 'Ocean Freight', 'Local Charges', 'Total', 'Currency', 'Transit Days', 'Free Time Days', 'Direct/Transit', 'POL', 'POD', 'Notes'];
 
     final pol = _primaryMetadata?['origin_port']?.toString() ?? _options.firstOrNull?.originPort ?? '';
@@ -1665,7 +1666,7 @@ Other (21days+USD200/ctnr)
       context,
       tsv,
       customMessage: isArabic
-          ? 'تم نسخ جميع عروض الأسعار بصيغة جدول (TSV / Excel) بنجاح!'
+          ? 'تم نسخ جميع عروض الأسعار بصيغة جدول بنجاح!'
           : 'All quotations copied to clipboard (TSV / Excel) successfully!',
     );
   }
@@ -1713,15 +1714,15 @@ Other (21days+USD200/ctnr)
       children: [
         // Standard Fields
         if (pol != null && pol.isNotEmpty)
-          _buildFieldRow(label: isArabic ? 'ميناء الشحن (POL)' : 'Port of Loading (POL)', value: pol, isCustom: false),
+          _buildFieldRow(label: isArabic ? 'ميناء الشحن' : 'Port of Loading (POL)', value: pol, isCustom: false),
         if (pod != null && pod.isNotEmpty)
-          _buildFieldRow(label: isArabic ? 'ميناء الوصول (POD)' : 'Port of Discharge (POD)', value: pod, isCustom: false),
+          _buildFieldRow(label: isArabic ? 'ميناء الوصول' : 'Port of Discharge (POD)', value: pod, isCustom: false),
         if (carrier != null && carrier.isNotEmpty)
           _buildFieldRow(label: isArabic ? 'الخط الملاحي' : 'Shipping Line / Carrier', value: carrier, isCustom: false),
         if (fwd != null && fwd.isNotEmpty)
-          _buildFieldRow(label: isArabic ? 'وكيل الشحن / الناقل' : 'Freight Forwarder', value: fwd, isCustom: false),
+          _buildFieldRow(label: isArabic ? 'وكيل الشحن أو الناقل' : 'Freight Forwarder', value: fwd, isCustom: false),
         if (etd != null && etd.isNotEmpty)
-          _buildFieldRow(label: isArabic ? 'تاريخ الإبحار (ETD)' : 'Departure Date (ETD)', value: etd, isCustom: false),
+          _buildFieldRow(label: isArabic ? 'تاريخ الإبحار' : 'Departure Date (ETD)', value: etd, isCustom: false),
         if (transit != null && transit.isNotEmpty)
           _buildFieldRow(
             label: isArabic ? 'مدة الإبحار' : 'Transit Time',
@@ -1789,6 +1790,11 @@ Other (21days+USD200/ctnr)
               style: const TextStyle(fontSize: 12, color: Colors.black87),
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.copy_rounded, size: 15, color: Colors.grey),
+            tooltip: isArabic ? 'نسخ القيمة' : 'Copy value',
+            onPressed: () => CopyHelper.copy(context, value),
+          ),
           if (isCustom) ...[
             IconButton(
               icon: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.cobalt),
@@ -1800,8 +1806,7 @@ Other (21days+USD200/ctnr)
               tooltip: isArabic ? 'حذف هذا البند' : 'Delete item',
               onPressed: onDelete,
             ),
-          ] else
-            const SizedBox(width: 32),
+          ],
         ],
       ),
     );

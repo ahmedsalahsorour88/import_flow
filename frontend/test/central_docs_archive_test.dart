@@ -211,5 +211,11 @@ void main() {
     expect(find.textContaining('إلزام'), findsWidgets);
     expect(find.textContaining('نسخ إيميل التعديلات'), findsOneWidget);
     expect(find.textContaining('نسخ رسالة واتساب'), findsOneWidget);
+
+    // Verify Screen 51 Export Toolbar
+    expect(find.textContaining('تصدير جدول نصوص'), findsOneWidget);
+    expect(find.textContaining('تصدير جدول إكسيل'), findsOneWidget);
+    expect(find.textContaining('طباعة وحفظ مستند'), findsOneWidget);
+    expect(find.textContaining('نسخ الملخص الشامل'), findsOneWidget);
   });
 }

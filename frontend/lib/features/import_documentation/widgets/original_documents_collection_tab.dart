@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/original_documents_collection_model.dart';
 import '../providers/original_documents_collection_provider.dart';
+import '../services/original_docs_export_service.dart';
 
 String _formatDateTime(DateTime dt) {
   final str = dt.toIso8601String();
@@ -40,7 +41,6 @@ class _OriginalDocumentsCollectionTabState
 
   bool _isLoading = false;
   bool _isSaving = false;
-  bool _isExporting = false;
 
   String _sessionStatus = 'DRAFT';
   final TextEditingController _notesController = TextEditingController();
@@ -226,39 +226,6 @@ class _OriginalDocumentsCollectionTabState
     }
   }
 
-  Future<void> _handleExportExcel() async {
-    final l = context.l10n;
-    if (_selectedImportFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.selectImportFileFirstWarning), backgroundColor: Colors.red),
-      );
-      return;
-    }
-
-    setState(() => _isExporting = true);
-    try {
-      final notifier = ref.read(originalDocumentsSessionsProvider.notifier);
-      final bytes = await notifier.downloadExcel(_selectedImportFile!.importFileId);
-
-      if (!mounted) return;
-      final defaultName = 'Phase4_Original_Documents_Collection_${_selectedImportFile!.importFileCode}.xlsx';
-      await FileSaveHelper.saveBytes(
-        context: context,
-        bytes: bytes,
-        defaultFileName: defaultName,
-        dialogTitle: 'حفظ مستندات وأصول الشحنة بصيغة Excel',
-        allowedExtensions: ['xlsx', 'xls'],
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.excelExportError(e)), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) setState(() => _isExporting = false);
-    }
-  }
-
   String _getDocCategoryLabel(String category, AppLocalizations l) {
     switch (category) {
       case 'Commercial':
@@ -282,6 +249,18 @@ class _OriginalDocumentsCollectionTabState
 
   String _getCourierCompanyLabel(String company, AppLocalizations l) {
     switch (company) {
+      case 'DHL':
+        return l.courierCompanyDhl;
+      case 'FedEx':
+        return l.courierCompanyFedex;
+      case 'Aramex':
+        return l.courierCompanyAramex;
+      case 'UPS':
+        return l.courierCompanyUps;
+      case 'Naqel':
+        return l.courierCompanyNaqel;
+      case 'SMSA':
+        return l.courierCompanySmsa;
       case 'Hand Delivery':
         return l.courierCompanyHandDelivery;
       case 'Other':
@@ -352,6 +331,18 @@ class _OriginalDocumentsCollectionTabState
     }
   }
 
+  String _getRequirementLabel(String req, AppLocalizations l) {
+    switch (req) {
+      case 'Yes':
+        return l.reqBadgeYes;
+      case 'Conditional':
+        return l.reqBadgeConditional;
+      case 'No':
+      default:
+        return l.reqBadgeNo;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -360,35 +351,37 @@ class _OriginalDocumentsCollectionTabState
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildHeader(l),
-              if (_isLoading) ...[
-                const SizedBox(height: 8),
-                const LinearProgressIndicator(),
+      body: SelectionArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeader(l),
+                if (_isLoading) ...[
+                  const SizedBox(height: 8),
+                  const LinearProgressIndicator(),
+                ],
+                const SizedBox(height: 16),
+                _buildFileSelector(l, filesAsync),
+                if (_selectedImportFile != null) ...[
+                  const SizedBox(height: 16),
+                  _buildStatisticsCards(l),
+                  const SizedBox(height: 16),
+                  _buildCouriersManagementCard(l),
+                  const SizedBox(height: 16),
+                  _buildDocumentsCollectionGrid(l),
+                  const SizedBox(height: 16),
+                  _buildSessionNotesCard(l),
+                  const SizedBox(height: 16),
+                  _buildActionToolbar(l),
+                ],
+                const SizedBox(height: 24),
+                _buildRegistrySection(l, sessionsAsync),
               ],
-              const SizedBox(height: 16),
-              _buildFileSelector(l, filesAsync),
-              if (_selectedImportFile != null) ...[
-                const SizedBox(height: 16),
-                _buildStatisticsCards(l),
-                const SizedBox(height: 16),
-                _buildCouriersManagementCard(l),
-                const SizedBox(height: 16),
-                _buildDocumentsCollectionGrid(l),
-                const SizedBox(height: 16),
-                _buildSessionNotesCard(l),
-                const SizedBox(height: 16),
-                _buildActionToolbar(l),
-              ],
-              const SizedBox(height: 24),
-              _buildRegistrySection(l, sessionsAsync),
-            ],
+            ),
           ),
         ),
       ),
@@ -433,22 +426,32 @@ class _OriginalDocumentsCollectionTabState
             ),
           ),
           if (_existingSession != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF27AE60).withOpacity(0.12),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF27AE60)),
+            InkWell(
+              onTap: () => CopyHelper.copy(
+                context,
+                _existingSession!.collectionCode,
+                customMessage: l.originalDocsCopyRowSuccess,
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle_outline, color: Color(0xFF27AE60), size: 18),
-                  const SizedBox(width: 6),
-                  Text(
-                    l.savedSessionBadge(_existingSession!.collectionCode),
-                    style: const TextStyle(color: Color(0xFF27AE60), fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                ],
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF27AE60).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF27AE60)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline, color: Color(0xFF27AE60), size: 18),
+                    const SizedBox(width: 6),
+                    Text(
+                      l.savedSessionBadge(_existingSession!.collectionCode),
+                      style: const TextStyle(color: Color(0xFF27AE60), fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.copy, size: 14, color: Color(0xFF27AE60)),
+                  ],
+                ),
               ),
             ),
         ],
@@ -457,6 +460,9 @@ class _OriginalDocumentsCollectionTabState
   }
 
   Widget _buildFileSelector(AppLocalizations l, AsyncValue<List<ImportFileModel>> filesAsync) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final acidLabel = isAr ? 'الرقم المبدئي' : 'ACID';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -478,7 +484,7 @@ class _OriginalDocumentsCollectionTabState
                   items: files
                       .map((f) => SearchableDropdownItem<int>(
                             value: f.importFileId,
-                            label: '${f.primaryNameWithCode} — ${f.supplierName} (${f.companyName}) [ACID: ${f.acidNumber ?? "N/A"}]',
+                            label: '${f.primaryNameWithCode} — ${f.supplierName} (${f.companyName}) [$acidLabel: ${f.acidNumber ?? "—"}]',
                             searchValue: '${f.primaryNameWithCode} ${f.supplierName} ${f.companyName} ${f.acidNumber ?? ""}',
                           ))
                       .toList(),
@@ -639,6 +645,13 @@ class _OriginalDocumentsCollectionTabState
                           labelText: l.courierTrackingNoField,
                           isDense: true,
                           border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy, size: 14, color: AppTheme.cobalt),
+                            tooltip: l.originalDocsCopyRowSuccess,
+                            onPressed: c.courierNo.isNotEmpty
+                                ? () => CopyHelper.copy(context, c.courierNo, customMessage: l.originalDocsCopyRowSuccess)
+                                : null,
+                          ),
                         ),
                         onChanged: (val) => c.courierNo = val.trim(),
                       ),
@@ -675,6 +688,13 @@ class _OriginalDocumentsCollectionTabState
                           labelText: l.dispatchDateField,
                           isDense: true,
                           border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy, size: 14, color: AppTheme.cobalt),
+                            tooltip: l.originalDocsCopyRowSuccess,
+                            onPressed: (c.dispatchDate != null && c.dispatchDate!.isNotEmpty)
+                                ? () => CopyHelper.copy(context, c.dispatchDate!, customMessage: l.originalDocsCopyRowSuccess)
+                                : null,
+                          ),
                         ),
                         onChanged: (val) => c.dispatchDate = val.trim(),
                       ),
@@ -706,6 +726,13 @@ class _OriginalDocumentsCollectionTabState
                           labelText: l.receivedByNameField,
                           isDense: true,
                           border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy, size: 14, color: AppTheme.cobalt),
+                            tooltip: l.originalDocsCopyRowSuccess,
+                            onPressed: (c.receivedBy != null && c.receivedBy!.isNotEmpty)
+                                ? () => CopyHelper.copy(context, c.receivedBy!, customMessage: l.originalDocsCopyRowSuccess)
+                                : null,
+                          ),
                         ),
                         onChanged: (val) => c.receivedBy = val.trim(),
                       ),
@@ -786,150 +813,226 @@ class _OriginalDocumentsCollectionTabState
               ],
               rows: List.generate(_documents.length, (index) {
                 final doc = _documents[index];
+                final rowSummary = '${doc.documentName} | ${_getDocCategoryLabel(doc.category, l)} | '
+                    '${_getRequirementLabel(doc.isRequired, l)} | ${_getResponsiblePartyLabel(doc.responsibleParty, l)} | '
+                    '${doc.courierNo ?? "—"} | ${_getStatusLabel(doc.status, l)} | '
+                    '${l.colPhysicalReceived}: ${doc.isReceived ? "Yes" : "No"} (${doc.receivedDate ?? "—"}) | '
+                    '${l.colVerified}: ${doc.isVerified ? "Yes" : "No"} (${doc.verificationDate ?? "—"} - ${doc.verifiedBy ?? "—"})';
+
                 return DataRow(
                   cells: [
                     // Courier No
                     DataCell(
-                      SizedBox(
-                        width: 140,
-                        child: DropdownButtonFormField<String>(
-                          value: _couriers.any((c) => c.courierNo == doc.courierNo && c.courierNo.isNotEmpty)
-                              ? doc.courierNo
-                              : null,
-                          isDense: true,
-                          hint: Text(l.selectCourierPlaceholder, style: const TextStyle(fontSize: 11)),
-                          decoration: const InputDecoration(border: InputBorder.none),
-                          items: _couriers
-                              .where((c) => c.courierNo.isNotEmpty)
-                              .map((c) => DropdownMenuItem(value: c.courierNo, child: Text(c.courierNo, style: const TextStyle(fontSize: 11))))
-                              .toList(),
-                          onChanged: (val) {
-                            setState(() => doc.courierNo = val);
-                          },
+                      CopyableTableCell(
+                        value: doc.courierNo ?? '',
+                        rowSummary: rowSummary,
+                        child: SizedBox(
+                          width: 140,
+                          child: DropdownButtonFormField<String>(
+                            value: _couriers.any((c) => c.courierNo == doc.courierNo && c.courierNo.isNotEmpty)
+                                ? doc.courierNo
+                                : null,
+                            isDense: true,
+                            hint: Text(l.selectCourierPlaceholder, style: const TextStyle(fontSize: 11)),
+                            decoration: const InputDecoration(border: InputBorder.none),
+                            items: _couriers
+                                .where((c) => c.courierNo.isNotEmpty)
+                                .map((c) => DropdownMenuItem(value: c.courierNo, child: Text(c.courierNo, style: const TextStyle(fontSize: 11))))
+                                .toList(),
+                            onChanged: (val) {
+                              setState(() => doc.courierNo = val);
+                            },
+                          ),
                         ),
                       ),
                     ),
                     // Category
                     DataCell(
-                      SizedBox(
-                        width: 110,
-                        child: DropdownButtonFormField<String>(
-                          value: doc.category,
-                          isDense: true,
-                          decoration: const InputDecoration(border: InputBorder.none),
-                          items: ['Commercial', 'Certificate', 'Shipping', 'Egypt Import', 'Banking', 'Regulatory', 'Other']
-                              .map((cat) => DropdownMenuItem(
-                                    value: cat,
-                                    child: Text(_getDocCategoryLabel(cat, l), style: const TextStyle(fontSize: 11)),
-                                  ))
-                              .toList(),
-                          onChanged: (val) {
-                            if (val != null) setState(() => doc.category = val);
-                          },
+                      CopyableTableCell(
+                        value: _getDocCategoryLabel(doc.category, l),
+                        rowSummary: rowSummary,
+                        child: SizedBox(
+                          width: 110,
+                          child: DropdownButtonFormField<String>(
+                            value: doc.category,
+                            isDense: true,
+                            decoration: const InputDecoration(border: InputBorder.none),
+                            items: ['Commercial', 'Certificate', 'Shipping', 'Egypt Import', 'Banking', 'Regulatory', 'Other']
+                                .map((cat) => DropdownMenuItem(
+                                      value: cat,
+                                      child: Text(_getDocCategoryLabel(cat, l), style: const TextStyle(fontSize: 11)),
+                                    ))
+                                .toList(),
+                            onChanged: (val) {
+                              if (val != null) setState(() => doc.category = val);
+                            },
+                          ),
                         ),
                       ),
                     ),
                     // Document Name
                     DataCell(
-                      SizedBox(
-                        width: 170,
-                        child: TextFormField(
-                          initialValue: doc.documentName,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          decoration: const InputDecoration(border: InputBorder.none),
-                          onChanged: (val) => doc.documentName = val.trim(),
+                      CopyableTableCell(
+                        value: doc.documentName,
+                        rowSummary: rowSummary,
+                        child: SizedBox(
+                          width: 170,
+                          child: TextFormField(
+                            initialValue: doc.documentName,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.copy, size: 14, color: AppTheme.cobalt),
+                                tooltip: l.originalDocsCopyRowSuccess,
+                                onPressed: doc.documentName.isNotEmpty
+                                    ? () => CopyHelper.copy(context, doc.documentName, customMessage: l.originalDocsCopyRowSuccess)
+                                    : null,
+                              ),
+                            ),
+                            onChanged: (val) => doc.documentName = val.trim(),
+                          ),
                         ),
                       ),
                     ),
                     // Required
-                    DataCell(_buildRequiredBadge(doc.isRequired, l)),
+                    DataCell(
+                      CopyableTableCell(
+                        value: _getRequirementLabel(doc.isRequired, l),
+                        rowSummary: rowSummary,
+                        child: _buildRequiredBadge(doc.isRequired, l),
+                      ),
+                    ),
                     // Responsible Party
-                    DataCell(Text(_getResponsiblePartyLabel(doc.responsibleParty, l), style: const TextStyle(fontSize: 11))),
+                    DataCell(
+                      CopyableTableCell(
+                        value: _getResponsiblePartyLabel(doc.responsibleParty, l),
+                        rowSummary: rowSummary,
+                        child: Text(_getResponsiblePartyLabel(doc.responsibleParty, l), style: const TextStyle(fontSize: 11)),
+                      ),
+                    ),
                     // Received Checkbox
                     DataCell(
-                      Checkbox(
-                        value: doc.isReceived,
-                        activeColor: const Color(0xFF3498DB),
-                        onChanged: (val) {
-                          setState(() {
-                            doc.isReceived = val ?? false;
-                            if (doc.isReceived && (doc.receivedDate == null || doc.receivedDate!.isEmpty)) {
-                              doc.receivedDate = DateTime.now().toIso8601String().substring(0, 10);
-                            }
-                            if (doc.isReceived && doc.status == 'Pending') {
-                              doc.status = 'Received';
-                            }
-                          });
-                        },
+                      CopyableTableCell(
+                        value: doc.isReceived ? 'Yes' : 'No',
+                        rowSummary: rowSummary,
+                        child: Checkbox(
+                          value: doc.isReceived,
+                          activeColor: const Color(0xFF3498DB),
+                          onChanged: (val) {
+                            setState(() {
+                              doc.isReceived = val ?? false;
+                              if (doc.isReceived && (doc.receivedDate == null || doc.receivedDate!.isEmpty)) {
+                                doc.receivedDate = DateTime.now().toIso8601String().substring(0, 10);
+                              }
+                              if (doc.isReceived && doc.status == 'Pending') {
+                                doc.status = 'Received';
+                              }
+                            });
+                          },
+                        ),
                       ),
                     ),
                     // Received Date
                     DataCell(
-                      SizedBox(
-                        width: 100,
-                        child: TextFormField(
-                          initialValue: doc.receivedDate,
-                          style: const TextStyle(fontSize: 11),
-                          decoration: const InputDecoration(hintText: 'YYYY-MM-DD', border: InputBorder.none),
-                          onChanged: (val) => doc.receivedDate = val.trim(),
+                      CopyableTableCell(
+                        value: doc.receivedDate ?? '',
+                        rowSummary: rowSummary,
+                        child: SizedBox(
+                          width: 100,
+                          child: TextFormField(
+                            initialValue: doc.receivedDate,
+                            style: const TextStyle(fontSize: 11),
+                            decoration: const InputDecoration(hintText: 'YYYY-MM-DD', border: InputBorder.none),
+                            onChanged: (val) => doc.receivedDate = val.trim(),
+                          ),
                         ),
                       ),
                     ),
                     // Verified Checkbox
                     DataCell(
-                      Checkbox(
-                        value: doc.isVerified,
-                        activeColor: const Color(0xFF27AE60),
-                        onChanged: (val) {
-                          setState(() {
-                            doc.isVerified = val ?? false;
-                            if (doc.isVerified) {
-                              doc.isReceived = true;
-                              doc.status = 'Verified';
-                              if (doc.verificationDate == null || doc.verificationDate!.isEmpty) {
-                                doc.verificationDate = DateTime.now().toIso8601String().substring(0, 10);
+                      CopyableTableCell(
+                        value: doc.isVerified ? 'Yes' : 'No',
+                        rowSummary: rowSummary,
+                        child: Checkbox(
+                          value: doc.isVerified,
+                          activeColor: const Color(0xFF27AE60),
+                          onChanged: (val) {
+                            setState(() {
+                              doc.isVerified = val ?? false;
+                              if (doc.isVerified) {
+                                doc.isReceived = true;
+                                doc.status = 'Verified';
+                                if (doc.verificationDate == null || doc.verificationDate!.isEmpty) {
+                                  doc.verificationDate = DateTime.now().toIso8601String().substring(0, 10);
+                                }
+                                if (doc.verifiedBy == null || doc.verifiedBy!.isEmpty) {
+                                  doc.verifiedBy = 'Kamal';
+                                }
+                              } else {
+                                doc.status = doc.isReceived ? 'Received' : 'Pending';
                               }
-                              if (doc.verifiedBy == null || doc.verifiedBy!.isEmpty) {
-                                doc.verifiedBy = 'Kamal';
-                              }
-                            } else {
-                              doc.status = doc.isReceived ? 'Received' : 'Pending';
-                            }
-                          });
-                        },
+                            });
+                          },
+                        ),
                       ),
                     ),
                     // Verified By
                     DataCell(
-                      SizedBox(
-                        width: 100,
-                        child: TextFormField(
-                          initialValue: doc.verifiedBy,
-                          style: const TextStyle(fontSize: 11),
-                          decoration: InputDecoration(hintText: l.hintAuditor, border: InputBorder.none),
-                          onChanged: (val) => doc.verifiedBy = val.trim(),
+                      CopyableTableCell(
+                        value: doc.verifiedBy ?? '',
+                        rowSummary: rowSummary,
+                        child: SizedBox(
+                          width: 100,
+                          child: TextFormField(
+                            initialValue: doc.verifiedBy,
+                            style: const TextStyle(fontSize: 11),
+                            decoration: InputDecoration(hintText: l.hintAuditor, border: InputBorder.none),
+                            onChanged: (val) => doc.verifiedBy = val.trim(),
+                          ),
                         ),
                       ),
                     ),
                     // Status Badge
-                    DataCell(_buildStatusBadge(doc.status, l)),
+                    DataCell(
+                      CopyableTableCell(
+                        value: _getStatusLabel(doc.status, l),
+                        rowSummary: rowSummary,
+                        child: _buildStatusBadge(doc.status, l),
+                      ),
+                    ),
                     // Remarks
                     DataCell(
-                      SizedBox(
-                        width: 140,
-                        child: TextFormField(
-                          initialValue: doc.remarks,
-                          style: const TextStyle(fontSize: 11),
-                          decoration: InputDecoration(hintText: l.hintRemarks, border: InputBorder.none),
-                          onChanged: (val) => doc.remarks = val.trim(),
+                      CopyableTableCell(
+                        value: doc.remarks ?? '',
+                        rowSummary: rowSummary,
+                        child: SizedBox(
+                          width: 140,
+                          child: TextFormField(
+                            initialValue: doc.remarks,
+                            style: const TextStyle(fontSize: 11),
+                            decoration: InputDecoration(hintText: l.hintRemarks, border: InputBorder.none),
+                            onChanged: (val) => doc.remarks = val.trim(),
+                          ),
                         ),
                       ),
                     ),
                     // Actions
                     DataCell(
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                        onPressed: () => _removeDocument(index),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.copy, size: 18, color: AppTheme.cobalt),
+                            tooltip: l.originalDocsCopyRowSuccess,
+                            onPressed: () => CopyHelper.copy(context, rowSummary, customMessage: l.originalDocsCopyRowSuccess),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                            tooltip: l.colAction,
+                            onPressed: () => _removeDocument(index),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -962,6 +1065,15 @@ class _OriginalDocumentsCollectionTabState
               labelText: l.sessionNotesLabel,
               border: const OutlineInputBorder(),
               isDense: true,
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.copy, size: 18, color: AppTheme.cobalt),
+                tooltip: l.originalDocsCopyRowSuccess,
+                onPressed: () {
+                  if (_notesController.text.trim().isNotEmpty) {
+                    CopyHelper.copy(context, _notesController.text.trim(), customMessage: l.originalDocsCopyRowSuccess);
+                  }
+                },
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -972,6 +1084,15 @@ class _OriginalDocumentsCollectionTabState
               labelText: l.overrideReasonLabel,
               border: const OutlineInputBorder(),
               isDense: true,
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.copy, size: 18, color: AppTheme.cobalt),
+                tooltip: l.originalDocsCopyRowSuccess,
+                onPressed: () {
+                  if (_overrideReasonController.text.trim().isNotEmpty) {
+                    CopyHelper.copy(context, _overrideReasonController.text.trim(), customMessage: l.originalDocsCopyRowSuccess);
+                  }
+                },
+              ),
             ),
           ),
         ],
@@ -1080,12 +1201,76 @@ class _OriginalDocumentsCollectionTabState
             Row(
               children: [
                 OutlinedButton.icon(
-                  onPressed: _isExporting ? null : _handleExportExcel,
-                  icon: const Icon(Icons.table_chart, size: 18, color: Color(0xFF27AE60)),
-                  label: Text(l.exportExcelBtn, style: const TextStyle(color: Color(0xFF27AE60), fontWeight: FontWeight.bold)),
+                  onPressed: _selectedImportFile == null
+                      ? null
+                      : () => OriginalDocsExportService.exportDocumentsTsv(
+                            context: context,
+                            file: _selectedImportFile!,
+                            documents: _documents,
+                            couriers: _couriers,
+                          ),
+                  icon: const Icon(Icons.table_chart_outlined, size: 18, color: AppTheme.cobalt),
+                  label: Text(l.originalDocsExportTsvBtn, style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppTheme.cobalt),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _selectedImportFile == null
+                      ? null
+                      : () => OriginalDocsExportService.exportDocumentsExcel(
+                            context: context,
+                            file: _selectedImportFile!,
+                            documents: _documents,
+                            couriers: _couriers,
+                          ),
+                  icon: const Icon(Icons.file_download_outlined, size: 18, color: Color(0xFF27AE60)),
+                  label: Text(l.originalDocsExportExcelBtn, style: const TextStyle(color: Color(0xFF27AE60), fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF27AE60)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _selectedImportFile == null
+                      ? null
+                      : () => OriginalDocsExportService.printDocumentsPdf(
+                            context: context,
+                            file: _selectedImportFile!,
+                            documents: _documents,
+                            couriers: _couriers,
+                            session: _existingSession,
+                            notes: _notesController.text,
+                            overrideReason: _overrideReasonController.text,
+                          ),
+                  icon: const Icon(Icons.print_outlined, size: 18, color: Color(0xFF8E44AD)),
+                  label: Text(l.originalDocsPrintPdfBtn, style: const TextStyle(color: Color(0xFF8E44AD), fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF8E44AD)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _selectedImportFile == null
+                      ? null
+                      : () => OriginalDocsExportService.copyDocumentsDossier(
+                            context: context,
+                            file: _selectedImportFile!,
+                            documents: _documents,
+                            couriers: _couriers,
+                            session: _existingSession,
+                            notes: _notesController.text,
+                            overrideReason: _overrideReasonController.text,
+                          ),
+                  icon: const Icon(Icons.copy_all_outlined, size: 18, color: AppTheme.charcoal),
+                  label: Text(l.originalDocsCopyDossierBtn, style: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppTheme.charcoal),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                   ),
                 ),
               ],
@@ -1097,6 +1282,9 @@ class _OriginalDocumentsCollectionTabState
   }
 
   Widget _buildRegistrySection(AppLocalizations l, AsyncValue<List<OriginalDocumentsCollectionSessionModel>> sessionsAsync) {
+    final sessions = sessionsAsync.asData?.value ?? [];
+    final hasSessions = sessions.isNotEmpty;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1134,6 +1322,17 @@ class _OriginalDocumentsCollectionTabState
                         decoration: InputDecoration(
                           hintText: l.searchRegistryHint,
                           prefixIcon: const Icon(Icons.search, size: 18),
+                          suffixIcon: _registrySearchController.text.trim().isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.copy, size: 15),
+                                  tooltip: l.copyTooltip,
+                                  onPressed: () => CopyHelper.copy(
+                                    context,
+                                    _registrySearchController.text.trim(),
+                                    customMessage: l.copiedToClipboard(_registrySearchController.text.trim()),
+                                  ),
+                                )
+                              : null,
                           isDense: true,
                           border: const OutlineInputBorder(),
                         ),
@@ -1164,6 +1363,70 @@ class _OriginalDocumentsCollectionTabState
                         }
                       },
                     ),
+                    const SizedBox(width: 16),
+                    OutlinedButton.icon(
+                      onPressed: !hasSessions
+                          ? null
+                          : () => OriginalDocsExportService.exportRegistryTsv(
+                                context: context,
+                                sessions: sessions,
+                              ),
+                      icon: const Icon(Icons.table_view_outlined, size: 16, color: Color(0xFF16A085)),
+                      label: Text(l.originalDocsExportTsvBtn,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF16A085), fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF16A085)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: !hasSessions
+                          ? null
+                          : () => OriginalDocsExportService.exportRegistryExcel(
+                                context: context,
+                                sessions: sessions,
+                              ),
+                      icon: const Icon(Icons.file_download_outlined, size: 16, color: AppTheme.emerald),
+                      label: Text(l.originalDocsExportExcelBtn,
+                          style: const TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppTheme.emerald),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: !hasSessions
+                          ? null
+                          : () => OriginalDocsExportService.printRegistryPdf(
+                                context: context,
+                                sessions: sessions,
+                              ),
+                      icon: const Icon(Icons.print_outlined, size: 16, color: Color(0xFF8E44AD)),
+                      label: Text(l.originalDocsPrintPdfBtn,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF8E44AD), fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF8E44AD)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: !hasSessions
+                          ? null
+                          : () => OriginalDocsExportService.copyRegistryDossier(
+                                context: context,
+                                sessions: sessions,
+                              ),
+                      icon: const Icon(Icons.copy_all_outlined, size: 16, color: AppTheme.charcoal),
+                      label: Text(l.originalDocsCopyDossierBtn,
+                          style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppTheme.charcoal),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -1171,8 +1434,8 @@ class _OriginalDocumentsCollectionTabState
           ),
           const SizedBox(height: 16),
           sessionsAsync.when(
-            data: (sessions) {
-              if (sessions.isEmpty) {
+            data: (sessionsList) {
+              if (sessionsList.isEmpty) {
                 return Container(
                   padding: const EdgeInsets.all(24),
                   alignment: Alignment.center,
@@ -1196,34 +1459,203 @@ class _OriginalDocumentsCollectionTabState
                     DataColumn(label: Text(l.colCompletionPercentage)),
                     DataColumn(label: Text(l.colDocStatus)),
                     DataColumn(label: Text(l.colUpdatedAt)),
+                    DataColumn(label: Text(l.colAction)),
                   ],
-                  rows: sessions.map((s) {
+                  rows: sessionsList.map((s) {
+                    final statusStr = _getRegistryStatusFilterLabel(s.status, l);
+                    final updatedStr = _formatDateTime(s.updatedAt);
+                    final sessionSummary =
+                        '${s.collectionCode} | ${s.importFileCode} | ${s.acidNumber ?? "—"} | ${s.supplierName ?? "—"} | ${s.totalDocumentsCount} | ${s.receivedDocumentsCount} | ${s.verifiedDocumentsCount} | ${s.completionPercentage}% | $statusStr | $updatedStr';
+
                     return DataRow(
                       cells: [
-                        DataCell(Text(s.collectionCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataCell(Text(s.importFileCode)),
-                        DataCell(Text(s.acidNumber ?? '—')),
-                        DataCell(Text(s.supplierName ?? '—')),
-                        DataCell(Text('${s.totalDocumentsCount}')),
-                        DataCell(Text('${s.receivedDocumentsCount}')),
-                        DataCell(Text('${s.verifiedDocumentsCount}')),
                         DataCell(
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: s.completionPercentage == 100 ? Colors.green.shade100 : Colors.amber.shade100,
+                          CopyableTableCell(
+                            value: s.collectionCode,
+                            rowSummary: sessionSummary,
+                            child: InkWell(
+                              onTap: () => CopyHelper.copy(
+                                context,
+                                s.collectionCode,
+                                customMessage: l.copiedToClipboard(s.collectionCode),
+                              ),
                               borderRadius: BorderRadius.circular(4),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cobalt.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      s.collectionCode,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
+                                  ],
+                                ),
+                              ),
                             ),
-                            child: Text('${s.completionPercentage}%',
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: s.importFileCode,
+                            rowSummary: sessionSummary,
+                            child: InkWell(
+                              onTap: () => CopyHelper.copy(
+                                context,
+                                s.importFileCode,
+                                customMessage: l.copiedToClipboard(s.importFileCode),
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.blueGrey.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      s.importFileCode,
+                                      style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.copy, size: 12, color: Colors.blueGrey),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: s.acidNumber ?? '—',
+                            rowSummary: sessionSummary,
+                            child: s.acidNumber != null && s.acidNumber!.isNotEmpty
+                                ? InkWell(
+                                    onTap: () => CopyHelper.copy(
+                                      context,
+                                      s.acidNumber!,
+                                      customMessage: l.copiedToClipboard(s.acidNumber!),
+                                    ),
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            s.acidNumber!,
+                                            style: const TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.deepOrange,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          const Icon(Icons.copy, size: 12, color: Colors.deepOrange),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                : const Text('—'),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: s.supplierName ?? '—',
+                            rowSummary: sessionSummary,
+                            child: Text(s.supplierName ?? '—'),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: '${s.totalDocumentsCount}',
+                            rowSummary: sessionSummary,
+                            child: Text('${s.totalDocumentsCount}'),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: '${s.receivedDocumentsCount}',
+                            rowSummary: sessionSummary,
+                            child: Text('${s.receivedDocumentsCount}'),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: '${s.verifiedDocumentsCount}',
+                            rowSummary: sessionSummary,
+                            child: Text('${s.verifiedDocumentsCount}'),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: '${s.completionPercentage}%',
+                            rowSummary: sessionSummary,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: s.completionPercentage == 100 ? Colors.green.shade100 : Colors.amber.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '${s.completionPercentage}%',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                   color: s.completionPercentage == 100 ? Colors.green.shade800 : Colors.amber.shade900,
-                                )),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                        DataCell(_buildStatusBadge(s.status, l)),
-                        DataCell(Text(_formatDateTime(s.updatedAt))),
+                        DataCell(
+                          CopyableTableCell(
+                            value: statusStr,
+                            rowSummary: sessionSummary,
+                            child: _buildStatusBadge(s.status, l),
+                          ),
+                        ),
+                        DataCell(
+                          CopyableTableCell(
+                            value: updatedStr,
+                            rowSummary: sessionSummary,
+                            child: Text(updatedStr),
+                          ),
+                        ),
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
+                                tooltip: l.copyRow,
+                                onPressed: () => CopyHelper.copy(
+                                  context,
+                                  sessionSummary,
+                                  customMessage: l.originalDocsCopyRowSuccess,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.folder_open_outlined, size: 16, color: AppTheme.charcoal),
+                                tooltip: l.originalDocsLoadSessionTooltip,
+                                onPressed: () => _loadInitialFile(s.importFileId),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     );
                   }).toList(),

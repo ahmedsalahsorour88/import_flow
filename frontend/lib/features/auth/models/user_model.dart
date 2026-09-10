@@ -19,6 +19,7 @@ class UserModel {
   bool get isManager => role.toUpperCase() == 'MANAGER';
   bool get isOperator => role.toUpperCase() == 'OPERATOR';
   bool get canViewAllRecords => isAdmin || isManager;
+  bool get canManageStepConfig => isAdmin || isManager;
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(

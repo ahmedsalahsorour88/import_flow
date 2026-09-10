@@ -1872,7 +1872,7 @@ def match_invoice_with_bl(
             "Please issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\n"
             "Best Regards,\n"
             "Import Operations & Customs Clearance Department\n"
-            "ImportFlow ERP System"
+            "Sorour Logistics ERP System"
         )
 
     return {

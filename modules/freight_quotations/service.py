@@ -238,6 +238,10 @@ class FreightQuotationService:
             # 4. Partner Reliability (10 points)
             partner_score = 10.0 if q.is_awarded else 8.5
 
+            cost_score = round(cost_score, 1)
+            free_days_score = round(free_days_score, 1)
+            transit_score = round(transit_score, 1)
+            partner_score = round(partner_score, 1)
             composite_score = round(cost_score + free_days_score + transit_score + partner_score, 1)
             cost_saving = round(avg_cost - q.total_cost, 2)
 
@@ -256,6 +260,10 @@ class FreightQuotationService:
 
             scored_quotes.append({
                 "quote": q,
+                "cost_score": round(cost_score, 1),
+                "free_days_score": round(free_days_score, 1),
+                "transit_score": round(transit_score, 1),
+                "reliability_score": round(partner_score, 1),
                 "composite_score": composite_score,
                 "cost_saving": cost_saving,
                 "advantages": advantages,
@@ -278,6 +286,10 @@ class FreightQuotationService:
                     currency_code=q_entity.currency_code,
                     transit_days=q_entity.transit_days,
                     free_days_at_pod=q_entity.free_days_at_pod,
+                    cost_score=item["cost_score"],
+                    free_days_score=item["free_days_score"],
+                    transit_score=item["transit_score"],
+                    reliability_score=item["reliability_score"],
                     composite_score=item["composite_score"],
                     cost_saving_vs_average=item["cost_saving"],
                     key_advantages=item["advantages"],

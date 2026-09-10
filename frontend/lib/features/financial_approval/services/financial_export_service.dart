@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../models/financial_approval_model.dart';
 
@@ -749,6 +750,315 @@ _تم الإنشاء عبر Sorour Logistics ERP_
 فريق العمليات وإدارة الاستيراد
 Sorour Logistics ERP
 '''.trim();
+  }
+
+  /// Exports SWIFT reconciliation table to clean unmerged CSV/Excel with UTF-8 BOM
+  static Future<String?> exportSwiftReconciliationToExcel({
+    required BuildContext context,
+    required List<PaymentRequestModel> payments,
+  }) async {
+    final l10n = context.l10n;
+    final buffer = StringBuffer();
+    buffer.write('\uFEFF'); // UTF-8 BOM
+
+    // Headers
+    buffer.writeln([
+      l10n.swiftTsvHeaderPaymentCode,
+      l10n.swiftTsvHeaderImportFile,
+      l10n.swiftTsvHeaderBeneficiary,
+      l10n.swiftTsvHeaderBank,
+      l10n.swiftTsvHeaderRequestDate,
+      l10n.swiftTsvHeaderSwiftReceiptDate,
+      l10n.swiftTsvHeaderProcessingDays,
+      l10n.swiftTsvHeaderRequestedAmount,
+      l10n.swiftTsvHeaderTransferredAmount,
+      l10n.swiftTsvHeaderVariance,
+      l10n.swiftTsvHeaderSwiftRef,
+      l10n.swiftTsvHeaderStatus,
+    ].map((h) => '"${h.replaceAll('"', '""')}"').join(','));
+
+    // Rows
+    for (final p in payments) {
+      final days = p.swiftProcessingDays != null ? '${p.swiftProcessingDays}' : '-';
+      final transferred = p.swiftTransferredAmount != null ? '${p.swiftTransferredAmount} ${p.swiftTransferredCurrency ?? p.currencyCode}' : '-';
+      final variance = p.swiftVarianceAmount != null ? '${p.swiftVarianceAmount} ${p.swiftTransferredCurrency ?? p.currencyCode}' : '-';
+      final status = p.swiftVarianceStatus ?? (p.swiftReferenceNo != null && p.swiftReferenceNo!.isNotEmpty ? l10n.swiftBadgeMatchedFull : l10n.swiftBadgePending);
+
+      buffer.writeln([
+        p.paymentCode,
+        p.importFileCode ?? '-',
+        p.beneficiaryName ?? p.supplierName,
+        p.bankName ?? '-',
+        p.requestDate,
+        p.swiftReceiptDate ?? '-',
+        days,
+        '${p.requestedAmount} ${p.currencyCode}',
+        transferred,
+        variance,
+        p.swiftReferenceNo ?? '-',
+        status,
+      ].map((v) => '"${v.replaceAll('"', '""')}"').join(','));
+    }
+
+    final filename = 'SWIFT_Reconciliation_${DateTime.now().millisecondsSinceEpoch}.csv';
+    return FileSaveHelper.saveText(
+      context: context,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
+      dialogTitle: l10n.swiftExportExcelBtn,
+      allowedExtensions: ['csv', 'xlsx'],
+    );
+  }
+
+  /// Generates printable & saveable PDF for SWIFT Reconciliation Slip
+  static Future<void> printOrSaveSwiftSlipPdf({
+    required BuildContext context,
+    required PaymentRequestModel payment,
+  }) async {
+    final l10n = context.l10n;
+    final pdf = pw.Document();
+    final arabicFont = await PdfGoogleFonts.cairoRegular();
+    final arabicBold = await PdfGoogleFonts.cairoBold();
+
+    final reqAmountStr = '${payment.requestedAmount.toStringAsFixed(2)} ${payment.currencyCode}';
+    final transferredStr = payment.swiftTransferredAmount != null
+        ? '${payment.swiftTransferredAmount!.toStringAsFixed(2)} ${payment.swiftTransferredCurrency ?? payment.currencyCode}'
+        : '-';
+    final varianceStr = payment.swiftVarianceAmount != null
+        ? '${payment.swiftVarianceAmount!.toStringAsFixed(2)} ${payment.swiftTransferredCurrency ?? payment.currencyCode}'
+        : '-';
+    final statusStr = payment.swiftVarianceStatus ??
+        (payment.swiftReferenceNo != null && payment.swiftReferenceNo!.isNotEmpty
+            ? l10n.swiftBadgeMatchedFull
+            : l10n.swiftBadgePending);
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        theme: pw.ThemeData.withFont(base: arabicFont, bold: arabicBold),
+        build: (pw.Context ctx) {
+          return pw.Directionality(
+            textDirection: pw.TextDirection.rtl,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Header Banner
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(12),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#2C3E50'),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'Sorour Logistics ERP — إشعار مطابقة وتأكيد السويفت البنكي',
+                            style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.Text(
+                            'وثيقة رسمية لاعتماد التحويل الخارجي ومطابقة إشعار البنك',
+                            style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
+                          ),
+                        ],
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: pw.BoxDecoration(
+                          color: PdfColor.fromHex('#3498DB'),
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                        ),
+                        child: pw.Text(
+                          payment.paymentCode,
+                          style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 11),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+
+                // Main Info Box
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#F8F9F9'),
+                    border: pw.Border.all(color: PdfColors.grey300),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('عنوان الطلب: ${payment.title}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                          pw.Text('ملف الشحنة المربوط: ${payment.importFileCode ?? "-"}', style: const pw.TextStyle(fontSize: 10)),
+                        ],
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('المورد المستفيد: ${payment.beneficiaryName ?? payment.supplierName}', style: const pw.TextStyle(fontSize: 9)),
+                          pw.Text('البنك المحول إليه: ${payment.bankName ?? "-"}', style: const pw.TextStyle(fontSize: 9)),
+                        ],
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('رقم الحساب / الآيبان: ${payment.ibanAccountNo ?? "-"}', style: const pw.TextStyle(fontSize: 9)),
+                          pw.Text('كود السويفت للبنك: ${payment.swiftCode ?? "-"}', style: const pw.TextStyle(fontSize: 9)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+
+                // SWIFT & Reconciliation Box
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#EBF5FB'),
+                    border: pw.Border.all(color: PdfColor.fromHex('#3498DB')),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('بيانات إشعار السويفت البنكي:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50'))),
+                      pw.SizedBox(height: 6),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('رقم السويفت المرجعي: ${payment.swiftReferenceNo ?? "-"}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2980B9'))),
+                          pw.Text('تاريخ استلام السويفت: ${payment.swiftReceiptDate ?? "-"}', style: const pw.TextStyle(fontSize: 9)),
+                        ],
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('تاريخ تقديم الطلب: ${payment.requestDate}', style: const pw.TextStyle(fontSize: 9)),
+                          pw.Text('مدة التنفيذ: ${payment.swiftProcessingDays != null ? "${payment.swiftProcessingDays} يوم" : "-"}', style: const pw.TextStyle(fontSize: 9)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+
+                // Financial Matching Comparison Table
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+                  children: [
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('البيان المالي', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('المبلغ المسجل', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('الملاحظات وحالة الفارق', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('المبلغ المطلوب سداده', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(reqAmountStr, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('حسب الفاتورة / أمر الشراء', style: const pw.TextStyle(fontSize: 9))),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('المبلغ المنفذ بالسويفت البنكي', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(transferredStr, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColor.fromHex('#27AE60')))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('وفقاً لإشعار الخصم والتحويل البنكي', style: const pw.TextStyle(fontSize: 9))),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('فارق المطابقة (عجز / زيادة)', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(varianceStr, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: (payment.swiftVarianceAmount ?? 0) != 0 ? PdfColor.fromHex('#E67E22') : PdfColors.black))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(statusStr, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 12),
+
+                // Notes Box if any
+                if (payment.swiftReconciliationNotes != null && payment.swiftReconciliationNotes!.isNotEmpty) ...[
+                  pw.Container(
+                    width: double.infinity,
+                    padding: const pw.EdgeInsets.all(8),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.grey100,
+                      border: pw.Border.all(color: PdfColors.grey300),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('ملاحظات المطابقة والفروقات:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                        pw.SizedBox(height: 2),
+                        pw.Text(payment.swiftReconciliationNotes!, style: const pw.TextStyle(fontSize: 8)),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
+
+                pw.Spacer(),
+
+                // Signatures Block
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Column(
+                      children: [
+                        pw.Text('المحاسب المالي المختص', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                        pw.SizedBox(height: 30),
+                        pw.Text('........................................', style: const pw.TextStyle(fontSize: 9)),
+                      ],
+                    ),
+                    pw.Column(
+                      children: [
+                        pw.Text('مدير إدارة العمليات والاستيراد', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                        pw.SizedBox(height: 30),
+                        pw.Text('........................................', style: const pw.TextStyle(fontSize: 9)),
+                      ],
+                    ),
+                    pw.Column(
+                      children: [
+                        pw.Text('اعتماد الإدارة المالية العليا', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                        pw.SizedBox(height: 30),
+                        pw.Text('........................................', style: const pw.TextStyle(fontSize: 9)),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 10),
+                pw.Center(
+                  child: pw.Text(
+                    'تم إصدار الإشعار آلياً عبر نظام Sorour Logistics ERP في: ${DateTime.now().toString().split(".")[0]}',
+                    style: const pw.TextStyle(color: PdfColors.grey600, fontSize: 8),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'SWIFT_Slip_${payment.paymentCode}.pdf',
+    );
   }
 
   static Future<void> launchUrlNative(String url) async {

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/adaptive_tab_scaffold.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
 
@@ -42,19 +45,6 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
   CustomsDutyBreakdownModel? _dutyBreakdown;
   bool _isCalculating = false;
 
-  final List<String> _quickQueries = [
-    '8415820010',
-    '3925900090',
-    '0202300000',
-    '1001990000',
-    '1507100000',
-    '1701999000',
-    'تكييف',
-    'لدائن',
-    'لحوم',
-    'قمح',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -93,11 +83,98 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
     }
   }
 
+  void _copyFilteredTariffsTsv(BuildContext context, List<CustomsTariffModel> items) {
+    final l = context.l10n;
+    final sb = StringBuffer();
+    sb.writeln([
+      l.hsExplorerTsvHeaderHsCode,
+      l.hsExplorerTsvHeaderDescription,
+      l.hsExplorerTsvHeaderCategory,
+      l.hsExplorerTsvHeaderDutyRate,
+      l.hsExplorerTsvHeaderVatRate,
+      l.hsExplorerTsvHeaderScheduleRate,
+      l.hsExplorerTsvHeaderDevFeeRate,
+      l.hsExplorerTsvHeaderImportFeeRate,
+      l.hsExplorerTsvHeaderServiceFeeRate,
+      l.hsExplorerTsvHeaderRegulatoryAuthority,
+      l.hsExplorerTsvHeaderAcidRequired,
+      l.hsExplorerTsvHeaderCooRequired,
+      l.hsExplorerTsvHeaderInspectionRequired,
+      l.hsExplorerTsvHeaderStatus,
+    ].join('\t'));
+
+    for (final t in items) {
+      sb.writeln([
+        t.hsCode,
+        t.hsDescription.replaceAll('\t', ' ').replaceAll('\n', ' '),
+        t.customsCategory ?? '—',
+        t.customsDutyRate,
+        t.vatRate,
+        t.scheduleTaxRate,
+        t.developmentFeeRate,
+        t.importFeeRate,
+        t.customsServiceFeeRate,
+        t.regulatoryAuthority ?? '—',
+        t.requiresAcid ? '1' : '0',
+        t.requiresCoo ? '1' : '0',
+        t.requiresInspection ? '1' : '0',
+        t.isActive ? '1' : '0',
+      ].join('\t'));
+    }
+
+    CopyHelper.copy(
+      context,
+      sb.toString(),
+      customMessage: l.hsExplorerExportTsvSuccess,
+    );
+  }
+
+  void _copyTariffSummary(BuildContext context, CustomsTariffModel tariff, List<Map<String, dynamic>> agreements) {
+    final l = context.l10n;
+    final text = MasterDataExportService.generateTariffWhatsAppText(tariff, agreements);
+    CopyHelper.copy(context, text, customMessage: l.hsExplorerCopySummarySuccess);
+  }
+
+  void _copyDutyBreakdownSummary(BuildContext context, CustomsTariffModel tariff, CustomsDutyBreakdownModel b) {
+    final l = context.l10n;
+    final sb = StringBuffer();
+    sb.writeln('📋 ${l.hsCalculatorSectionHeader}');
+    sb.writeln('🏷️ ${l.tariffHsCodeCol}: ${tariff.hsCode}');
+    sb.writeln('📝 ${l.tariffDescAndAuthorityCol}: ${tariff.hsDescription}');
+    sb.writeln('💰 ${l.hsCifValueLabel}: ${_cifValueCtrl.text}');
+    sb.writeln('🚢 ${l.hsFreightValueLabel}: ${_freightCtrl.text}');
+    sb.writeln('🌍 ${l.hsOriginCountryLabel}: $_selectedOriginCountry');
+    sb.writeln('----------------------------------------');
+    sb.writeln(l.hsImportDutyBreakdown(b.customsDutyRate, b.importDutyAmount.toStringAsFixed(2)));
+    sb.writeln(l.hsVatBreakdown(b.vatRate, b.vatAmount.toStringAsFixed(2)));
+    if (b.scheduleTaxAmount > 0) sb.writeln(l.hsScheduleBreakdown(b.scheduleTaxAmount.toStringAsFixed(2)));
+    if (b.customsServiceFeeAmount > 0) sb.writeln(l.hsServiceFeeBreakdown(b.customsServiceFeeAmount.toStringAsFixed(2)));
+    sb.writeln('========================================');
+    sb.writeln(l.hsTotalTaxesAndFeesDue(b.totalTaxesAndFees.toStringAsFixed(2)));
+    if (b.conditionsNote != null && b.conditionsNote!.isNotEmpty) {
+      sb.writeln(l.hsNotePrefix(b.conditionsNote!));
+    }
+    CopyHelper.copy(context, sb.toString(), customMessage: l.hsExplorerCopyDutyBreakdownSuccess);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final tariffsAsync = ref.watch(customsTariffProvider);
     final allTariffs = tariffsAsync.valueOrNull ?? [];
+
+    final quickQueries = [
+      '8415820010',
+      '3925900090',
+      '0202300000',
+      '1001990000',
+      '1507100000',
+      '1701999000',
+      l.hsQuickQueryAc,
+      l.hsQuickQueryPlastics,
+      l.hsQuickQueryMeat,
+      l.hsQuickQueryWheat,
+    ];
 
     final query = _searchCtrl.text.trim().toLowerCase().replaceAll('.', '');
     final filtered = query.isEmpty
@@ -122,14 +199,18 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
       _selectedTariff = filtered.isNotEmpty ? filtered.first : null;
     }
 
-    final bodyContent = Padding(
+    final bodyContent = SelectionArea(
+      child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top Bar Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 16,
+              runSpacing: 12,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,7 +236,32 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                     ),
                   ],
                 ),
-                const BackToDashboardButton(),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    const BackToDashboardButton(),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.cobalt,
+                        side: const BorderSide(color: AppTheme.cobalt),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.table_chart_outlined, size: 16),
+                      label: Text(l.hsExplorerExportTsvBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      onPressed: () => _copyFilteredTariffsTsv(context, filtered),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.cobalt,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.file_download_outlined, size: 16),
+                      label: Text(l.hsExplorerExportExcelBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      onPressed: () => MasterDataExportService.exportTariffsToExcel(context, filtered),
+                    ),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -185,15 +291,25 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                               decoration: InputDecoration(
                                 hintText: l.hsSearchPlaceholder,
                                 prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
-                                suffixIcon: val.text.isNotEmpty
-                                    ? IconButton(
+                                suffixIcon: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (val.text.isNotEmpty) ...[
+                                      IconButton(
+                                        icon: const Icon(Icons.copy_rounded, size: 18, color: AppTheme.cobalt),
+                                        tooltip: l.hsExplorerCopyHsCodeTooltip,
+                                        onPressed: () => CopyHelper.copy(context, _searchCtrl.text),
+                                      ),
+                                      IconButton(
                                         icon: const Icon(Icons.clear, color: Colors.grey),
                                         onPressed: () {
                                           _searchCtrl.clear();
                                           setState(() {});
                                         },
-                                      )
-                                    : null,
+                                      ),
+                                    ],
+                                  ],
+                                ),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                 filled: true,
                                 fillColor: Colors.grey.shade50,
@@ -216,34 +332,34 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
-                            children: _quickQueries.map((q) {
+                            children: quickQueries.map((q) {
                               return Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: ActionChip(
-                                label: Text(q, style: const TextStyle(fontSize: 11)),
-                                backgroundColor: _searchCtrl.text == q
-                                    ? AppTheme.cobalt.withOpacity(0.15)
-                                    : Colors.grey.shade100,
-                                labelStyle: TextStyle(
-                                  color: _searchCtrl.text == q ? AppTheme.cobalt : Colors.black87,
-                                  fontWeight: _searchCtrl.text == q ? FontWeight.bold : FontWeight.normal,
+                                padding: const EdgeInsets.only(right: 6),
+                                child: ActionChip(
+                                  label: Text(q, style: const TextStyle(fontSize: 11)),
+                                  backgroundColor: _searchCtrl.text == q
+                                      ? AppTheme.cobalt.withOpacity(0.15)
+                                      : Colors.grey.shade100,
+                                  labelStyle: TextStyle(
+                                    color: _searchCtrl.text == q ? AppTheme.cobalt : Colors.black87,
+                                    fontWeight: _searchCtrl.text == q ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                  onPressed: () {
+                                    _searchCtrl.text = q;
+                                    setState(() {});
+                                  },
                                 ),
-                                onPressed: () {
-                                  _searchCtrl.text = q;
-                                  setState(() {});
-                                },
-                              ),
-                            );
-                          }).toList(),
+                              );
+                            }).toList(),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
           // Main Content Area: Left Master List / Right Detail 360° Explorer
           Expanded(
@@ -316,20 +432,36 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                             : ListView.separated(
                                 itemCount: filtered.length,
                                 separatorBuilder: (_, __) => const Divider(height: 1),
-                                itemBuilder: (context, idx) {
+                                itemBuilder: (_, idx) {
                                   final item = filtered[idx];
                                   final isSelected = _selectedTariff?.tariffId == item.tariffId;
 
                                   return ListTile(
                                     selected: isSelected,
                                     selectedTileColor: AppTheme.cobalt.withOpacity(0.08),
-                                    title: Text(
-                                      item.hsCode,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                        color: isSelected ? AppTheme.cobalt : AppTheme.charcoal,
-                                      ),
+                                    title: Row(
+                                      children: [
+                                        Text(
+                                          item.hsCode,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: isSelected ? AppTheme.cobalt : AppTheme.charcoal,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        InkWell(
+                                          onTap: () => CopyHelper.copy(context, item.hsCode, customMessage: l.hsExplorerCopySummarySuccess),
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: Tooltip(
+                                            message: l.hsExplorerCopyHsCodeTooltip,
+                                            child: const Padding(
+                                              padding: EdgeInsets.all(2.0),
+                                              child: Icon(Icons.copy_rounded, size: 13, color: AppTheme.cobalt),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                     subtitle: Text(
                                       item.hsDescription,
@@ -337,21 +469,38 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(fontSize: 11),
                                     ),
-                                    trailing: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.shade50,
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: Colors.green.shade300),
-                                      ),
-                                      child: Text(
-                                        l.hsDutyRateTag(item.customsDutyRate),
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.green.shade800,
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.shade50,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: Colors.green.shade300),
+                                          ),
+                                          child: Text(
+                                            l.hsDutyRateTag(item.customsDutyRate),
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.green.shade800,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          icon: const Icon(Icons.copy_all_rounded, size: 16, color: Colors.grey),
+                                          tooltip: l.hsExplorerCopySummaryBtn,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                                          onPressed: () async {
+                                            final ags = await ref.read(customsTariffProvider.notifier).fetchAgreements(item.hsCode);
+                                            if (!mounted) return;
+                                            _copyTariffSummary(this.context, item, ags);
+                                          },
+                                        ),
+                                      ],
                                     ),
                                     onTap: () {
                                       setState(() {
@@ -388,7 +537,8 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
           ),
         ],
       ),
-    );
+    ),
+  );
 
     if (widget.isEmbedded) {
       return bodyContent;
@@ -424,19 +574,33 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cobalt,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    tariff.hsCode,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      letterSpacing: 1,
+                InkWell(
+                  onTap: () => CopyHelper.copy(context, tariff.hsCode, customMessage: l.hsExplorerCopySummarySuccess),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          tariff.hsCode,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Tooltip(
+                          message: l.hsExplorerCopyHsCodeTooltip,
+                          child: const Icon(Icons.copy_rounded, size: 14, color: Colors.white70),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -472,6 +636,61 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                 ),
                 const SizedBox(width: 12),
                 InkWell(
+                  onTap: () async {
+                    final ags = await ref.read(customsTariffProvider.notifier).fetchAgreements(tariff.hsCode);
+                    if (!mounted) return;
+                    _copyTariffSummary(context, tariff, ags);
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.copy_all_rounded, color: Colors.white, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          l.hsExplorerCopySummaryBtn,
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () async {
+                    final ags = await ref.read(customsTariffProvider.notifier).fetchAgreements(tariff.hsCode);
+                    await MasterDataExportService.printOrSaveTariffPdf(tariff, ags);
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.emerald.withOpacity(0.25),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.emerald),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.picture_as_pdf_outlined, color: Colors.white, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          l.hsExplorerExportPdfBtn,
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
                   onTap: () => _tabController.animateTo(3),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -497,35 +716,36 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
             ),
           ),
 
-          // Tab Bar
-          Container(
-            color: Colors.grey.shade100,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: AppTheme.cobalt,
-              unselectedLabelColor: Colors.grey.shade700,
-              indicatorColor: AppTheme.cobalt,
-              indicatorWeight: 3,
-              tabs: [
-                Tab(icon: const Icon(Icons.calculate_outlined, size: 18), text: l.hsTabTaxRates),
-                Tab(icon: const Icon(Icons.public_outlined, size: 18), text: l.hsTabAgreements),
-                Tab(icon: const Icon(Icons.account_balance_outlined, size: 18), text: l.hsTabRegulatory),
-                Tab(icon: const Icon(Icons.history_edu_outlined, size: 18), text: l.hsTabHistory),
-                Tab(icon: const Icon(Icons.point_of_sale_outlined, size: 18), text: l.hsTabQuickCalculator),
-              ],
-            ),
-          ),
-
-          // Tab Content
+          // Adaptive Tab Navigation
           Expanded(
-            child: TabBarView(
+            child: AdaptiveTabScaffold(
               controller: _tabController,
-              children: [
-                _buildTaxRatesTab(tariff),
-                _buildAgreementsTab(tariff),
-                _buildRegulatoryTab(tariff),
-                _buildHistoryTab(tariff),
-                _buildQuickCalculatorTab(tariff),
+              tabs: [
+                AdaptiveTabItem(
+                  icon: Icons.calculate_outlined,
+                  label: l.hsTabTaxRates,
+                  content: _buildTaxRatesTab(tariff),
+                ),
+                AdaptiveTabItem(
+                  icon: Icons.public_outlined,
+                  label: l.hsTabAgreements,
+                  content: _buildAgreementsTab(tariff),
+                ),
+                AdaptiveTabItem(
+                  icon: Icons.account_balance_outlined,
+                  label: l.hsTabRegulatory,
+                  content: _buildRegulatoryTab(tariff),
+                ),
+                AdaptiveTabItem(
+                  icon: Icons.history_edu_outlined,
+                  label: l.hsTabHistory,
+                  content: _buildHistoryTab(tariff),
+                ),
+                AdaptiveTabItem(
+                  icon: Icons.point_of_sale_outlined,
+                  label: l.hsTabQuickCalculator,
+                  content: _buildQuickCalculatorTab(tariff),
+                ),
               ],
             ),
           ),
@@ -976,22 +1196,48 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
   }
 
   Widget _taxCard(String title, String rate, String subtitle, MaterialColor color) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: color.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color.shade900)),
-          const SizedBox(height: 2),
-          Text(rate, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color.shade800)),
-          Text(subtitle, style: TextStyle(fontSize: 9, color: color.shade700)),
-        ],
+    final l = context.l10n;
+    return InkWell(
+      onTap: () => CopyHelper.copy(context, rate, customMessage: '$title: $rate'),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color.shade900),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Tooltip(
+                  message: l.hsExplorerCopyCardRateTooltip,
+                  child: Icon(Icons.copy_rounded, size: 12, color: color.shade700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(rate, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color.shade800)),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 9, color: color.shade700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1074,21 +1320,38 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                     ],
                   ),
                 ),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isZero ? Colors.green.shade50 : Colors.amber.shade50,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: isZero ? Colors.green.shade300 : Colors.amber.shade300),
-                  ),
-                  child: Text(
-                    isZero ? l.hsFullExemptionBadge : l.hsReducedRateBadge(prefRate),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                      color: isZero ? Colors.green.shade800 : Colors.amber.shade900,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isZero ? Colors.green.shade50 : Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: isZero ? Colors.green.shade300 : Colors.amber.shade300),
+                      ),
+                      child: Text(
+                        isZero ? l.hsFullExemptionBadge : l.hsReducedRateBadge(prefRate),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          color: isZero ? Colors.green.shade800 : Colors.amber.shade900,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                      tooltip: l.hsExplorerCopyCardRateTooltip,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                      onPressed: () {
+                        final agName = ag['agreement_name'] ?? l.hsDefaultAgreementName;
+                        final rateText = isZero ? l.hsFullExemptionBadge : l.hsReducedRateBadge(prefRate);
+                        CopyHelper.copy(context, '$agName: $rateText');
+                      },
+                    ),
+                  ],
                 ),
               ),
             );
@@ -1137,6 +1400,13 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.purple),
                     ),
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.purple),
+                    tooltip: l.hsExplorerCopyCardRateTooltip,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                    onPressed: () => CopyHelper.copy(context, tariff.regulatoryAuthority!),
+                  ),
                 ],
               ),
             ),
@@ -1157,9 +1427,18 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                     children: [
                       const Icon(Icons.rule, color: AppTheme.orange, size: 18),
                       const SizedBox(width: 6),
-                      Text(
-                        l.hsDecreesAndNotesHeader,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                      Expanded(
+                        child: Text(
+                          l.hsDecreesAndNotesHeader,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.orange),
+                        tooltip: l.hsExplorerCopyCardRateTooltip,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                        onPressed: () => CopyHelper.copy(context, tariff.priorApprovalNote!),
                       ),
                     ],
                   ),
@@ -1218,6 +1497,11 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                     labelText: l.hsCifValueLabel,
                     border: const OutlineInputBorder(),
                     isDense: true,
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                      tooltip: l.hsExplorerCopyCardRateTooltip,
+                      onPressed: () => CopyHelper.copy(context, _cifValueCtrl.text),
+                    ),
                   ),
                 ),
               ),
@@ -1230,6 +1514,11 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                     labelText: l.hsFreightValueLabel,
                     border: const OutlineInputBorder(),
                     isDense: true,
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                      tooltip: l.hsExplorerCopyCardRateTooltip,
+                      onPressed: () => CopyHelper.copy(context, _freightCtrl.text),
+                    ),
                   ),
                 ),
               ),
@@ -1286,22 +1575,38 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        l.hsTotalTaxesAndFeesDue(_dutyBreakdown!.totalTaxesAndFees.toStringAsFixed(2)),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade900,
+                      Expanded(
+                        child: Text(
+                          l.hsTotalTaxesAndFeesDue(_dutyBreakdown!.totalTaxesAndFees.toStringAsFixed(2)),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade900,
+                          ),
                         ),
                       ),
-                      if (_dutyBreakdown!.conditionsNote != null && _dutyBreakdown!.conditionsNote!.isNotEmpty)
+                      if (_dutyBreakdown!.conditionsNote != null && _dutyBreakdown!.conditionsNote!.isNotEmpty) ...[
                         Chip(
                           label: Text(l.hsNotePrefix(_dutyBreakdown!.conditionsNote!)),
                           backgroundColor: Colors.white,
                           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                         ),
+                        const SizedBox(width: 8),
+                      ],
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.emerald,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        icon: const Icon(Icons.copy_all_rounded, size: 16),
+                        label: Text(
+                          l.hsExplorerCopyDutyBreakdownBtn,
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: () => _copyDutyBreakdownSummary(context, tariff, _dutyBreakdown!),
+                      ),
                     ],
                   ),
                   const Divider(height: 20),

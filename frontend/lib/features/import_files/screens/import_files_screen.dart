@@ -3,6 +3,8 @@ import '../widgets/import_file_form_dialog.dart';
 import '../widgets/freight_rfq_dialog.dart';
 import '../../import_documentation/widgets/smart_invoice_bl_extractor_dialog.dart';
 import '../../simulation/widgets/what_if_simulator_dialog.dart';
+import '../../lifecycle_board/widgets/skip_step_dialog_helper.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter/services.dart';
@@ -1445,6 +1447,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                           Text(file.displayName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline)),
                                           if (file.displayName != file.importFileCode)
                                             Text(file.importFileCode, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                          if (file.clonedFromCode != null && file.clonedFromCode!.isNotEmpty)
+                                            Text(
+                                              l.clonedFromBadge(file.clonedFromCode!),
+                                              style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -1588,6 +1595,68 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                             importFileId: file.importFileId,
                                             importFileCode: file.importFileCode,
                                             customFileNumber: file.customFileNumber,
+                                          );
+                                        },
+                                      ),
+                                      if (file.status != 'Closed')
+                                        IconButton(
+                                          icon: const Icon(Icons.fast_forward_rounded, color: AppTheme.orange, size: 18),
+                                          tooltip: '${l.skipStepBtn}: ${file.currentStage}',
+                                          onPressed: () => SkipStepDialogHelper.show(
+                                            context: context,
+                                            ref: ref,
+                                            importFileCode: file.importFileCode,
+                                            currentStepCode: file.currentStage,
+                                            currentStepName: file.currentModule,
+                                            onSuccess: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page),
+                                          ),
+                                        ),
+                                      IconButton(
+                                        icon: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.cobalt, size: 18),
+                                        tooltip: l.cloneImportFileDialogTitle,
+                                        onPressed: () {
+                                          final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                                          CloneEntityReviewDialog.show(
+                                            context,
+                                            entityType: l.cloneImportFileDialogTitle,
+                                            sourceCode: file.importFileCode,
+                                            suggestedNewCode: '${file.importFileCode}-CLONE',
+                                            sourceTitle: file.customFileNumber ?? file.companyName,
+                                            copiedFieldsSummary: {
+                                              isAr ? 'الشركة المستوردة' : 'Importer': file.companyName.isNotEmpty ? file.companyName : '-',
+                                              isAr ? 'المورد الأجنبي' : 'Supplier': file.supplierName.isNotEmpty ? file.supplierName : '-',
+                                              isAr ? 'ميناء الشحن / الوصول' : 'Port': '${file.portOfLoading ?? '-'} ➔ ${file.portOfDischarge ?? '-'}',
+                                              isAr ? 'طريقة الشحن / الشرط' : 'Mode / Incoterm': '${file.shipmentMode} (${file.incotermCode})',
+                                            },
+                                            mandatorilyResetFields: [
+                                              l.cloneFieldStatusDraftBadge,
+                                              l.cloneFieldCustomsClearedReset,
+                                              l.cloneFieldFinancialReset,
+                                              isAr ? 'تصفير رقم وتاريخ ACID' : 'Reset ACID number and date',
+                                              isAr ? 'تصفير الربط مع أوامر الشراء' : 'Reset Purchase Orders link',
+                                            ],
+                                            allowCopyLineItems: true,
+                                            allowCopyAttachments: false,
+                                            initialCopyLineItems: true,
+                                            initialCopyAttachments: false,
+                                            onConfirm: ({
+                                              required String newCode,
+                                              required String newTitle,
+                                              required bool copyLineItems,
+                                              required bool copyAttachments,
+                                              String? notes,
+                                            }) async {
+                                              await ref.read(importFilesProvider.notifier).cloneImportFile(
+                                                file.importFileId,
+                                                {
+                                                  'new_import_file_code': newCode,
+                                                  'copy_items': copyLineItems,
+                                                  'copy_attachments': copyAttachments,
+                                                  if (notes != null) 'notes': notes,
+                                                },
+                                              );
+                                              ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page);
+                                            },
                                           );
                                         },
                                       ),

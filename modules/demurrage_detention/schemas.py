@@ -162,7 +162,7 @@ class DemurrageSimulationResponse(BaseModel):
 class PushToSettlementRequest(BaseModel):
     tracking_id: int
     import_file_id: Optional[int] = None
-    accountant_name: Optional[str] = "ImportFlow Accountant"
+    accountant_name: Optional[str] = "Sorour Logistics Accountant"
 
 
 # =========================================================================

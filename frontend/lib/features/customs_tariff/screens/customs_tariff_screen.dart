@@ -2,8 +2,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../models/customs_tariff_model.dart';
@@ -59,51 +61,64 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.cloudWhite,
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Bar Header
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 16,
-              runSpacing: 12,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.customsTariffScreenTitle,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.charcoal,
+      body: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Bar Header
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 16,
+                runSpacing: 12,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.customsTariffScreenTitle,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.charcoal,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.customsTariffScreenSubtitle,
-                      style: const TextStyle(color: Colors.grey, fontSize: 13),
-                    ),
-                  ],
-                ),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 8,
-                  children: [
-                    const BackToDashboardButton(),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
+                      const SizedBox(height: 4),
+                      Text(
+                        l10n.customsTariffScreenSubtitle,
+                        style: const TextStyle(color: Colors.grey, fontSize: 13),
                       ),
-                      icon: const Icon(Icons.file_upload_outlined, size: 18),
-                      label: Text(l10n.importExcelCsvBtn),
-                      onPressed: () => _handleExcelImport(context, ref),
-                    ),
+                    ],
+                  ),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: [
+                      const BackToDashboardButton(),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.cobalt,
+                          side: const BorderSide(color: AppTheme.cobalt),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                        ),
+                        icon: const Icon(Icons.table_chart_outlined, size: 18),
+                        label: Text(l10n.customsTariffExportTsvBtn),
+                        onPressed: () => _copyTariffsTsv(
+                            context, ref.read(customsTariffProvider).value ?? []),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                        ),
+                        icon: const Icon(Icons.file_upload_outlined, size: 18),
+                        label: Text(l10n.importExcelCsvBtn),
+                        onPressed: () => _handleExcelImport(context, ref),
+                      ),
                     SegmentedButton<int>(
                       style: ButtonStyle(
                         visualDensity: VisualDensity.compact,
@@ -297,8 +312,9 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Color _getCategoryColor(String? category) {
     switch (category) {
@@ -325,7 +341,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
     final l10n = context.l10n;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final tableWidth = constraints.maxWidth < 1150 ? 1150.0 : constraints.maxWidth;
+        final tableWidth = constraints.maxWidth < 1180 ? 1180.0 : constraints.maxWidth;
 
         return Container(
           width: double.infinity,
@@ -352,13 +368,13 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                   child: Table(
                     defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                     columnWidths: const {
-                      0: FixedColumnWidth(130),
+                      0: FixedColumnWidth(140),
                       1: FlexColumnWidth(3),
                       2: FixedColumnWidth(140),
                       3: FixedColumnWidth(180),
                       4: FixedColumnWidth(140),
                       5: FixedColumnWidth(90),
-                      6: FixedColumnWidth(160),
+                      6: FixedColumnWidth(210),
                     },
                     children: [
                   // Header Row
@@ -393,6 +409,20 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                     final tariff = entry.value;
                     final isEven = entry.key % 2 == 0;
                     final catColor = _getCategoryColor(tariff.customsCategory);
+                    final rowSummary = _buildTariffRowSummary(l10n, tariff);
+
+                    final reqsList = <String>[];
+                    if (tariff.requiresAcid) reqsList.add('ACID');
+                    if (tariff.requiresCoo) reqsList.add('COO');
+                    if (tariff.requiresInspection) reqsList.add('INSP');
+                    final reqsStr = reqsList.join(', ');
+
+                    final taxRatesStr = [
+                      'Duty: ${tariff.customsDutyRate}%',
+                      'VAT: ${tariff.vatRate}%',
+                      if (tariff.scheduleTaxRate > 0) 'Sched: ${tariff.scheduleTaxRate}%',
+                      if (tariff.developmentFeeRate > 0) 'Dev: ${tariff.developmentFeeRate}%',
+                    ].join(', ');
 
                     return TableRow(
                       decoration: BoxDecoration(
@@ -401,6 +431,8 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                       children: [
                         // HS Code Badge
                         _cell(
+                          value: tariff.hsCode,
+                          rowSummary: rowSummary,
                           child: InkWell(
                             onTap: () =>
                                 showNafezaDetailsDialog(context, ref, tariff),
@@ -414,13 +446,24 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                                 border: Border.all(
                                     color: AppTheme.cobalt.withOpacity(0.3)),
                               ),
-                              child: Text(
-                                tariff.hsCode,
-                                style: const TextStyle(
-                                  color: AppTheme.cobalt,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    tariff.hsCode,
+                                    style: const TextStyle(
+                                      color: AppTheme.cobalt,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  InkWell(
+                                    onTap: () => CopyHelper.copy(context, tariff.hsCode),
+                                    child: const Icon(Icons.copy_rounded,
+                                        size: 12, color: AppTheme.cobalt),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -428,6 +471,8 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
 
                         // Description & Regulatory Authority
                         _cell(
+                          value: '${tariff.hsDescription}${tariff.regulatoryAuthority != null ? " - ${tariff.regulatoryAuthority}" : ""}',
+                          rowSummary: rowSummary,
                           child: InkWell(
                             onTap: () =>
                                 showNafezaDetailsDialog(context, ref, tariff),
@@ -464,6 +509,8 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
 
                         // Category
                         _cell(
+                          value: tariff.customsCategory ?? '—',
+                          rowSummary: rowSummary,
                           child: tariff.customsCategory != null
                               ? Container(
                                   padding: const EdgeInsets.symmetric(
@@ -487,6 +534,8 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
 
                         // Tax Rates Breakdown
                         _cell(
+                          value: taxRatesStr,
+                          rowSummary: rowSummary,
                           child: Wrap(
                             spacing: 4,
                             runSpacing: 4,
@@ -509,6 +558,8 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
 
                         // Requirements (COO, Inspection, ACID)
                         _cell(
+                          value: reqsStr.isNotEmpty ? reqsStr : '—',
+                          rowSummary: rowSummary,
                           child: Row(
                             children: [
                               _reqIcon('ACID', tariff.requiresAcid),
@@ -522,6 +573,8 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
 
                         // Status
                         _cell(
+                          value: tariff.isActive ? l10n.statusActive : l10n.statusInactive,
+                          rowSummary: rowSummary,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
@@ -544,46 +597,59 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                           ),
                         ),
 
-                        // Actions: View (Nafeza Details), Edit, Print, Delete
+                        // Actions: Quick Copy Summary, View, Edit, Print, Delete
                         _cell(
-                          child: RowActionsPill(
-                            onView: () => showNafezaDetailsDialog(context, ref, tariff),
-                            onEdit: () => showTariffDialog(context, ref, tariff: tariff),
-                            onPrint: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l10n.printTariffSnack(tariff.hsCode, tariff.hsDescription)),
-                                  backgroundColor: AppTheme.charcoal,
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                            onDelete: () async {
-                              final isActive = tariff.isActive;
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: Text(l10n.confirmActionTitle),
-                                  content: Text(isActive
-                                      ? l10n.confirmDeactivateTariff(tariff.hsCode)
-                                      : l10n.confirmActivateTariff(tariff.hsCode)),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                                    ElevatedButton(
-                                      onPressed: () => Navigator.pop(ctx, true),
-                                      style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                      child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.copy_all_rounded,
+                                    size: 18, color: AppTheme.cobalt),
+                                tooltip: l10n.tariffCopySummaryBtn,
+                                onPressed: () =>
+                                    _copySingleTariffSummary(context, tariff),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              RowActionsPill(
+                                onView: () => showNafezaDetailsDialog(context, ref, tariff),
+                                onEdit: () => showTariffDialog(context, ref, tariff: tariff),
+                                onPrint: () async {
+                                  final agreements = await ref
+                                      .read(customsTariffProvider.notifier)
+                                      .fetchAgreements(tariff.hsCode);
+                                  if (context.mounted) {
+                                    await MasterDataExportService.printOrSaveTariffPdf(
+                                        tariff, agreements);
+                                  }
+                                },
+                                onDelete: () async {
+                                  final isActive = tariff.isActive;
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: Text(l10n.confirmActionTitle),
+                                      content: Text(isActive
+                                          ? l10n.confirmDeactivateTariff(tariff.hsCode)
+                                          : l10n.confirmActivateTariff(tariff.hsCode)),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+                                        ElevatedButton(
+                                          onPressed: () => Navigator.pop(ctx, true),
+                                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              );
-                              if (confirm == true) {
-                                await ref
-                                    .read(customsTariffProvider.notifier)
-                                    .toggleActive(tariff.tariffId, tariff.isActive);
-                              }
-                            },
-                            deleteTooltip: tariff.isActive ? l10n.deactivateTariffTooltip : l10n.activateTariffTooltip,
+                                  );
+                                  if (confirm == true) {
+                                    await ref
+                                        .read(customsTariffProvider.notifier)
+                                        .toggleActive(tariff.tariffId, tariff.isActive);
+                                  }
+                                },
+                                deleteTooltip: tariff.isActive ? l10n.deactivateTariffTooltip : l10n.activateTariffTooltip,
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -637,13 +703,105 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
     );
   }
 
-  Widget _cell({required Widget child}) => TableRowInkWell(
-        onTap: () {},
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Align(alignment: Alignment.centerLeft, child: child),
-        ),
+  Widget _cell({
+    required Widget child,
+    String? value,
+    String? rowSummary,
+  }) {
+    Widget content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Align(alignment: Alignment.centerLeft, child: child),
+    );
+    if (value != null) {
+      content = CopyableTableCell(
+        value: value,
+        rowSummary: rowSummary,
+        child: content,
       );
+    }
+    return TableRowInkWell(
+      onTap: () {},
+      child: content,
+    );
+  }
+
+  void _copyTariffsTsv(BuildContext context, List<CustomsTariffModel> tariffs) {
+    final l10n = context.l10n;
+    final headers = [
+      l10n.tariffTsvHeaderHsCode,
+      l10n.tariffTsvHeaderDescription,
+      l10n.tariffTsvHeaderCategory,
+      l10n.tariffTsvHeaderDutyRate,
+      l10n.tariffTsvHeaderVatRate,
+      l10n.tariffTsvHeaderScheduleTax,
+      l10n.tariffTsvHeaderDevFee,
+      l10n.tariffTsvHeaderImportFee,
+      l10n.tariffTsvHeaderAuthority,
+      l10n.tariffTsvHeaderRequirements,
+      l10n.tariffTsvHeaderStatus,
+    ];
+    final rows = tariffs.map((t) {
+      final reqs = <String>[];
+      if (t.requiresAcid) reqs.add('ACID');
+      if (t.requiresCoo) reqs.add('COO');
+      if (t.requiresInspection) reqs.add('INSP');
+      return [
+        t.hsCode,
+        t.hsDescription,
+        t.customsCategory ?? '',
+        '${t.customsDutyRate}%',
+        '${t.vatRate}%',
+        '${t.scheduleTaxRate}%',
+        '${t.developmentFeeRate}%',
+        '${t.importFeeRate}%',
+        t.regulatoryAuthority ?? '',
+        reqs.join(', '),
+        t.isActive ? l10n.statusActive : l10n.statusInactive,
+      ];
+    });
+    final tsv = [
+      headers.join('\t'),
+      ...rows.map((r) => r.map((c) => c.replaceAll('\t', ' ').replaceAll('\n', ' ')).join('\t')),
+    ].join('\n');
+    CopyHelper.copy(context, tsv, customMessage: l10n.customsTariffExportTsvSuccess);
+  }
+
+  String _buildTariffRowSummary(AppLocalizations l10n, CustomsTariffModel t) {
+    final b = StringBuffer();
+    b.writeln('📋 ${l10n.customsTariffScreenTitle}');
+    b.writeln('${l10n.tariffCodeBadgeLabel}${t.hsCode}');
+    b.writeln('${l10n.tariffTsvHeaderDescription}: ${t.hsDescription}');
+    if (t.customsCategory != null && t.customsCategory!.isNotEmpty) {
+      b.writeln('${l10n.tariffTsvHeaderCategory}: ${t.customsCategory}');
+    }
+    b.writeln('${l10n.taxRatesBreakdownSection}:');
+    b.writeln('  • ${l10n.tariffTsvHeaderDutyRate}: ${t.customsDutyRate}%');
+    b.writeln('  • ${l10n.tariffTsvHeaderVatRate}: ${t.vatRate}%');
+    if (t.scheduleTaxRate > 0) {
+      b.writeln('  • ${l10n.tariffTsvHeaderScheduleTax}: ${t.scheduleTaxRate}%');
+    }
+    if (t.developmentFeeRate > 0) {
+      b.writeln('  • ${l10n.tariffTsvHeaderDevFee}: ${t.developmentFeeRate}%');
+    }
+    if (t.regulatoryAuthority != null && t.regulatoryAuthority!.isNotEmpty) {
+      b.writeln('${l10n.tariffTsvHeaderAuthority}: ${t.regulatoryAuthority}');
+    }
+    final reqs = <String>[];
+    if (t.requiresAcid) reqs.add('ACID');
+    if (t.requiresCoo) reqs.add('COO');
+    if (t.requiresInspection) reqs.add('INSP');
+    if (reqs.isNotEmpty) {
+      b.writeln('${l10n.tariffTsvHeaderRequirements}: ${reqs.join(", ")}');
+    }
+    b.writeln('${l10n.tariffTsvHeaderStatus}: ${t.isActive ? l10n.statusActive : l10n.statusInactive}');
+    return b.toString().trim();
+  }
+
+  void _copySingleTariffSummary(BuildContext context, CustomsTariffModel tariff) {
+    final l10n = context.l10n;
+    final summary = _buildTariffRowSummary(l10n, tariff);
+    CopyHelper.copy(context, summary, customMessage: l10n.tariffCopySummarySuccess);
+  }
 
   // ==================================================
   // Add / Edit Customs Tariff Dialog (MD-008) - Smart Text & Manual Modes

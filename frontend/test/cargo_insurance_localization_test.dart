@@ -13,10 +13,10 @@ void main() {
       'insuranceTabNewCertificate': [ar.insuranceTabNewCertificate, en.insuranceTabNewCertificate],
       'insuranceAiExtractorBtn': [ar.insuranceAiExtractorBtn, en.insuranceAiExtractorBtn],
       'insuranceSmartUploadBtn': [ar.insuranceSmartUploadBtn, en.insuranceSmartUploadBtn],
-      'insuranceExtractedSnackbar': [ar.insuranceExtractedSnackbar('TEST-001'), en.insuranceExtractedSnackbar('TEST-001')],
+      'insuranceExtractedSnackbar': [ar.insuranceExtractedSnackbar('1001'), en.insuranceExtractedSnackbar('TEST-001')],
       'insuranceExtractedDone': [ar.insuranceExtractedDone, en.insuranceExtractedDone],
       'insuranceRefreshTooltip': [ar.insuranceRefreshTooltip, en.insuranceRefreshTooltip],
-      'insuranceFetchError': [ar.insuranceFetchError('Server Error'), en.insuranceFetchError('Server Error')],
+      'insuranceFetchError': [ar.insuranceFetchError('خطأ تجريبي في الخادم'), en.insuranceFetchError('Server Error')],
       'insuranceRetryBtn': [ar.insuranceRetryBtn, en.insuranceRetryBtn],
       'insuranceKpiTotalPolicies': [ar.insuranceKpiTotalPolicies, en.insuranceKpiTotalPolicies],
       'insuranceKpiIssuedValid': [ar.insuranceKpiIssuedValid, en.insuranceKpiIssuedValid],
@@ -54,14 +54,14 @@ void main() {
       'insuranceDeleteTooltip': [ar.insuranceDeleteTooltip, en.insuranceDeleteTooltip],
       'insuranceIssueCertificateTooltip': [ar.insuranceIssueCertificateTooltip, en.insuranceIssueCertificateTooltip],
       'insuranceConfirmIssueTitle': [ar.insuranceConfirmIssueTitle, en.insuranceConfirmIssueTitle],
-      'insuranceConfirmIssueMsg': [ar.insuranceConfirmIssueMsg('POL-01'), en.insuranceConfirmIssueMsg('POL-01')],
+      'insuranceConfirmIssueMsg': [ar.insuranceConfirmIssueMsg('1001'), en.insuranceConfirmIssueMsg('POL-01')],
       'insuranceConfirmIssueBtn': [ar.insuranceConfirmIssueBtn, en.insuranceConfirmIssueBtn],
       'insuranceIssueSuccessMsg': [ar.insuranceIssueSuccessMsg, en.insuranceIssueSuccessMsg],
       'insuranceConfirmDeleteTitle': [ar.insuranceConfirmDeleteTitle, en.insuranceConfirmDeleteTitle],
       'insuranceConfirmDeleteMsg': [ar.insuranceConfirmDeleteMsg, en.insuranceConfirmDeleteMsg],
       'insuranceDeleteBtn': [ar.insuranceDeleteBtn, en.insuranceDeleteBtn],
       'insuranceDialogNewTitle': [ar.insuranceDialogNewTitle, en.insuranceDialogNewTitle],
-      'insuranceDialogEditTitle': [ar.insuranceDialogEditTitle('POL-01'), en.insuranceDialogEditTitle('POL-01')],
+      'insuranceDialogEditTitle': [ar.insuranceDialogEditTitle('1001'), en.insuranceDialogEditTitle('POL-01')],
       'insuranceDialogSubtitle': [ar.insuranceDialogSubtitle, en.insuranceDialogSubtitle],
       'insuranceFieldLinkImportFile': [ar.insuranceFieldLinkImportFile, en.insuranceFieldLinkImportFile],
       'insuranceFieldLinkImportFileHint': [ar.insuranceFieldLinkImportFileHint, en.insuranceFieldLinkImportFileHint],
@@ -120,7 +120,7 @@ void main() {
       'insuranceSaveDraftBtn': [ar.insuranceSaveDraftBtn, en.insuranceSaveDraftBtn],
       'insuranceCreatedSuccessMsg': [ar.insuranceCreatedSuccessMsg, en.insuranceCreatedSuccessMsg],
       'insuranceUpdatedSuccessMsg': [ar.insuranceUpdatedSuccessMsg, en.insuranceUpdatedSuccessMsg],
-      'insuranceSaveErrorMsg': [ar.insuranceSaveErrorMsg('Connection timeout'), en.insuranceSaveErrorMsg('Connection timeout')],
+      'insuranceSaveErrorMsg': [ar.insuranceSaveErrorMsg('خطأ تجريبي في الشبكة'), en.insuranceSaveErrorMsg('Connection timeout')],
       'insurancePreviewCertificateHeader': [ar.insurancePreviewCertificateHeader, en.insurancePreviewCertificateHeader],
       'insurancePreviewOfficialIssuedBadge': [ar.insurancePreviewOfficialIssuedBadge, en.insurancePreviewOfficialIssuedBadge],
       'insurancePreviewDraftBadge': [ar.insurancePreviewDraftBadge, en.insurancePreviewDraftBadge],
@@ -155,12 +155,33 @@ void main() {
       'insurancePreviewLegalDisclaimer': [ar.insurancePreviewLegalDisclaimer, en.insurancePreviewLegalDisclaimer],
       'insurancePreviewPrintBtn': [ar.insurancePreviewPrintBtn, en.insurancePreviewPrintBtn],
       'insurancePreviewPrintReadySnack': [ar.insurancePreviewPrintReadySnack, en.insurancePreviewPrintReadySnack],
+
+      // Screen 65 Export & Copy Getters
+      'insuranceExportTsvBtn': [ar.insuranceExportTsvBtn, en.insuranceExportTsvBtn],
+      'insuranceExportExcelBtn': [ar.insuranceExportExcelBtn, en.insuranceExportExcelBtn],
+      'insurancePrintPdfBtn': [ar.insurancePrintPdfBtn, en.insurancePrintPdfBtn],
+      'insuranceCopyDossierBtn': [ar.insuranceCopyDossierBtn, en.insuranceCopyDossierBtn],
+      'insuranceCopiedTsvSuccess': [ar.insuranceCopiedTsvSuccess, en.insuranceCopiedTsvSuccess],
+      'insuranceCopiedExcelSuccess': [ar.insuranceCopiedExcelSuccess, en.insuranceCopiedExcelSuccess],
+      'insuranceCopiedDossierSuccess': [ar.insuranceCopiedDossierSuccess, en.insuranceCopiedDossierSuccess],
+      'insuranceCopyRowSummaryBtn': [ar.insuranceCopyRowSummaryBtn, en.insuranceCopyRowSummaryBtn],
+      'insuranceCopyRowSummarySuccess': [ar.insuranceCopyRowSummarySuccess, en.insuranceCopyRowSummarySuccess],
+      'insuranceCopyFieldTooltip': [ar.insuranceCopyFieldTooltip, en.insuranceCopyFieldTooltip],
+      'insuranceSearchCopied': [ar.insuranceSearchCopied, en.insuranceSearchCopied],
+      'insuranceCopyBadgeSuccess': [ar.insuranceCopyBadgeSuccess('رقم الوثيقة', '101'), en.insuranceCopyBadgeSuccess('Policy No', '101')],
+      'insurancePdfTitle': [ar.insurancePdfTitle, en.insurancePdfTitle],
+      'insurancePdfSubtitle': [ar.insurancePdfSubtitle, en.insurancePdfSubtitle],
+      'insuranceDossierHeader': [ar.insuranceDossierHeader, en.insuranceDossierHeader],
+      'insuranceDossierKpiSummary': [ar.insuranceDossierKpiSummary, en.insuranceDossierKpiSummary],
+      'insuranceDossierRecordsDetails': [ar.insuranceDossierRecordsDetails, en.insuranceDossierRecordsDetails],
+      'insuranceDossierFooter': [ar.insuranceDossierFooter, en.insuranceDossierFooter],
     };
 
     final arabicRegex = RegExp(r'[\u0600-\u06FF]');
+    final latinRegex = RegExp(r'[a-zA-Z]');
 
     test('All Screen 65 getters are defined and non-empty in Arabic & English', () {
-      expect(insuranceGetters.length, greaterThanOrEqualTo(85));
+      expect(insuranceGetters.length, greaterThanOrEqualTo(100));
       for (final entry in insuranceGetters.entries) {
         final key = entry.key;
         final arVal = entry.value[0];
@@ -168,6 +189,30 @@ void main() {
 
         expect(arVal.trim().isNotEmpty, isTrue, reason: '$key (Arabic) must not be empty');
         expect(enVal.trim().isNotEmpty, isTrue, reason: '$key (English) must not be empty');
+      }
+    });
+
+    test('Arabic strings must NEVER contain Latin characters [a-zA-Z]', () {
+      for (final entry in insuranceGetters.entries) {
+        final key = entry.key;
+        final arVal = entry.value[0];
+        expect(
+          latinRegex.hasMatch(arVal),
+          isFalse,
+          reason: 'Arabic key "$key" contains forbidden Latin characters: "$arVal"',
+        );
+      }
+    });
+
+    test('Arabic strings must NEVER contain bilingual slashes "/"', () {
+      for (final entry in insuranceGetters.entries) {
+        final key = entry.key;
+        final arVal = entry.value[0];
+        expect(
+          arVal.contains('/'),
+          isFalse,
+          reason: 'Arabic key "$key" contains forbidden slash "/": "$arVal"',
+        );
       }
     });
 

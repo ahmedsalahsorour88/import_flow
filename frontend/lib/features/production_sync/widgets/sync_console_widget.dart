@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 class ConsoleLogLine {
   final String text;
@@ -53,17 +54,17 @@ class _SyncConsoleWidgetState extends State<SyncConsoleWidget> {
 
   void _copyAllLogs() {
     final text = widget.logs.map((l) => l.text).join('\n');
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('📋 تم نسخ سجل المخرجات بالكامل إلى الحافظة'),
-        duration: Duration(seconds: 2),
-      ),
+    CopyHelper.copy(
+      context,
+      text,
+      customMessage: context.l10n.prodSyncTerminalCopiedToast,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B), // Slate 900
@@ -98,10 +99,10 @@ class _SyncConsoleWidgetState extends State<SyncConsoleWidget> {
                 const SizedBox(width: 12),
                 const Icon(Icons.terminal_rounded, color: Colors.white70, size: 16),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'سجل التنفيذ المباشر (Production Sync Terminal)',
-                    style: TextStyle(
+                    l.prodSyncTerminalTitle,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -121,15 +122,15 @@ class _SyncConsoleWidgetState extends State<SyncConsoleWidget> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  const Text(
-                    'جاري التنفيذ...',
-                    style: TextStyle(color: Color(0xFF38BDF8), fontSize: 11),
+                  Text(
+                    l.prodSyncTerminalRunningMsg,
+                    style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 11),
                   ),
                 ],
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.copy_rounded, color: Colors.white60, size: 15),
-                  tooltip: 'نسخ السجل',
+                  tooltip: l.prodSyncTerminalCopyTooltip,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   onPressed: widget.logs.isNotEmpty ? _copyAllLogs : null,
@@ -137,7 +138,7 @@ class _SyncConsoleWidgetState extends State<SyncConsoleWidget> {
                 const SizedBox(width: 12),
                 IconButton(
                   icon: const Icon(Icons.clear_all_rounded, color: Colors.white60, size: 16),
-                  tooltip: 'مسح الشاشة',
+                  tooltip: l.prodSyncTerminalClearTooltip,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   onPressed: widget.onClear,
@@ -149,10 +150,10 @@ class _SyncConsoleWidgetState extends State<SyncConsoleWidget> {
           // Output Area
           Expanded(
             child: widget.logs.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      'جاهز للتشغيل. اختر العملية المطلوبة من الأعلى للبدء.',
-                      style: TextStyle(color: Colors.white38, fontSize: 12, fontFamily: 'monospace'),
+                      l.prodSyncTerminalReadyMsg,
+                      style: const TextStyle(color: Colors.white38, fontSize: 12, fontFamily: 'monospace'),
                     ),
                   )
                 : SelectionArea(

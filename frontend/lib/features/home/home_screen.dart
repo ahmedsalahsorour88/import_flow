@@ -42,6 +42,7 @@ import '../notifications/widgets/notification_bell_widget.dart';
 import '../operational_dashboard/screens/operational_dashboard_screen.dart';
 import '../projects/screens/projects_screen.dart';
 import '../lifecycle_board/screens/lifecycle_board_screen.dart';
+import '../lifecycle_board/screens/step_config_management_screen.dart';
 import '../purchase_orders/screens/purchase_orders_screen.dart';
 import '../shipment_updates/screens/shipment_update_engine_screen.dart';
 import '../smart_tasks/screens/smart_tasks_screen.dart';
@@ -52,7 +53,9 @@ import '../production_sync/screens/production_sync_screen.dart';
 import '../production_sync/widgets/production_sync_hub_dialog.dart';
 import '../production_sync/providers/production_sync_provider.dart';
 import '../auth/screens/users_management_screen.dart';
+import '../shipment_inquiry/screens/shipment_inquiry_screen.dart';
 import '../../core/widgets/ai_assistant_panel.dart';
+import '../../core/widgets/system_live_clock_widget.dart';
 
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -192,6 +195,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 66: Users Management & RBAC (ADMIN only)
         UsersManagementScreen(),
+
+        // 67: Configurable Step Skip-Risk Classification & Governance (Manager Only - Section 10)
+        StepConfigManagementScreen(),
+
+        // 68: Smart Shipment Inquiry, History & Cloning (KB-INQ-013)
+        ShipmentInquiryScreen(),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -228,6 +237,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Expanded(
                 child: Column(
                   children: [
+                    const SystemWorldClocksHeader(),
                     const MultiTabWorkspaceBar(),
                     Expanded(
                       child: tabsState.tabs.isEmpty
@@ -597,6 +607,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: Colors.indigoAccent,
                 initiallyExpanded: false,
                 children: [
+                  _buildMenuItem(Icons.travel_explore_rounded, 'Shipment History & Inquiry', 'استعلام وسجل الشحنات والتكاليف التاريخية', 68, selectedIndex),
                   _buildMenuItem(Icons.request_quote_outlined, 'Freight RFQ & Quotations Comparison', 'طلب ومقارنة عروض النولون والترسية', 49, selectedIndex),
                   _buildMenuItem(Icons.calculate_outlined, 'Cargo Measurement Engine', 'حاسبة الأحجام وتوزيع الحاويات (CBM)', 3, selectedIndex),
                 ],
@@ -620,9 +631,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildMenuItem(Icons.task_alt_outlined, 'Smart Tasks & Alerts', 'المهام والتنبيهات الذكية', 40, selectedIndex),
                   _buildMenuItem(Icons.history_edu_outlined, 'System Audit Logs', 'سجل التدقيق والرقابة', 39, selectedIndex),
                   _buildMenuItem(Icons.sync_alt_rounded, 'Production Sync Hub', 'مركز مزامنة وتحديث الإنتاج', 59, selectedIndex),
-                  // Users Management — ADMIN only
-                  if (user != null && user.role.toUpperCase() == 'ADMIN')
+                  // Users Management & RBAC — ADMIN and MANAGER
+                  if (user == null || user.isAdmin || user.isManager)
                     _buildMenuItem(Icons.manage_accounts_rounded, 'Users & Permissions', 'إدارة المستخدمين والصلاحيات', 66, selectedIndex),
+                  // Step Skip-Risk Classification Settings — Manager / Admin only (Section 10.7)
+                  if (user != null && user.canManageStepConfig)
+                    _buildMenuItem(Icons.admin_panel_settings_rounded, 'Step Risk & Skip Config', 'إعدادات تصنيف مخاطر المراحل وحوكمة التخطي', 67, selectedIndex),
                 ],
               ),
             ],
@@ -705,7 +719,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final versionText = versionAsync.when(
                   data: (info) => 'v${info.version} (Build ${info.buildNumber})',
                   loading: () => 'v... (Loading)',
-                  error: (_, __) => 'v1.0.155 (Build 156)',
+                  error: (_, __) => 'v1.0.158 (Build 159)',
                 );
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -923,9 +937,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'ImportFlow ERP',
-                          style: TextStyle(
+                        Text(
+                          l.appTitle,
+                          style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 16),

@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/services/file_save_helper.dart';
+import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/import_file_po_linker.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../projects/providers/projects_provider.dart';
@@ -390,6 +388,8 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
   }
 
   String _getCellValue(ImportFileModel file, String colId) {
+    final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     switch (colId) {
       // File & Project
       case 'importFileCode':
@@ -462,7 +462,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
       case 'requiredEta':
         return file.requiredEta ?? '-';
       case 'targetFreeDays':
-        return '${file.targetFreeDays} Days';
+        return file.targetFreeDays != null ? l.dynDaysCount(file.targetFreeDays!) : '-';
 
       // Packages & CBM
       case 'totalPackages':
@@ -471,11 +471,11 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
             : '-';
       case 'grossWeightKg':
         return file.packingListsData.isNotEmpty
-            ? '${file.packingListsData.fold<double>(0.0, (sum, p) => sum + p.grossWeightKg).toStringAsFixed(1)} kg'
+            ? l.dynGrossWeightKg(file.packingListsData.fold<double>(0.0, (sum, p) => sum + p.grossWeightKg).toStringAsFixed(1))
             : '-';
       case 'totalCbm':
         return file.packingListsData.isNotEmpty
-            ? '${file.packingListsData.fold<double>(0.0, (sum, p) => sum + p.cbm).toStringAsFixed(2)} CBM'
+            ? l.dynTotalCbm(file.packingListsData.fold<double>(0.0, (sum, p) => sum + p.cbm).toStringAsFixed(2))
             : '-';
 
       // Customs & Nafeza
@@ -488,7 +488,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
       case 'form46No':
         return file.form46No ?? '-';
       case 'customsReleaseStatus':
-        return file.isCustomsReleased ? 'مفرج عنه (Released)' : (file.status == 'Under Clearance' ? 'قيد التخليص' : file.status);
+        return file.isCustomsReleased ? l.dynCustomsReleased : (file.status == 'Under Clearance' ? l.dynCustomsUnderClearance : file.status);
       case 'customsReleasedAt':
         return file.customsReleasedAt ?? '-';
 
@@ -568,9 +568,9 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
 
       // ECO Radar / Document & Milestone Specific
       case 'scasProjectFileAcid':
-        final proj = file.projectNames != null ? 'Project: ${file.projectNames}' : (file.companyName.isNotEmpty ? 'Project: ${file.companyName}' : 'Project: General');
-        final fCode = 'File: ${file.displayName}';
-        final acid = file.acidNumber != null ? 'ACID: ${file.acidNumber}' : 'ACID: -';
+        final proj = file.projectNames != null ? '${isAr ? "المشروع" : "Project"}: ${file.projectNames}' : (file.companyName.isNotEmpty ? '${isAr ? "المشروع" : "Project"}: ${file.companyName}' : (isAr ? "المشروع: عام" : "Project: General"));
+        final fCode = '${isAr ? "الملف" : "File"}: ${file.displayName}';
+        final acid = file.acidNumber != null ? '${isAr ? "القيد الجمركي" : "ACID"}: ${file.acidNumber}' : (isAr ? "القيد الجمركي: -" : "ACID: -");
         return '$proj\n$fCode\n$acid'.trim();
       case 'scasExFactory':
         final dateVal = file.cargoReadyDate ?? file.fileOpeningDate ?? '-';
@@ -580,7 +580,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
         return '$dateVal\n$valStr';
       case 'scasOrderToOrigin':
         final stage = file.currentStage.toLowerCase();
-        return (stage.contains('feasibility') || stage.contains('planning')) ? 'Pending' : 'Done';
+        return (stage.contains('feasibility') || stage.contains('planning')) ? l.dynStatusPending : l.dynStatusDone;
       case 'scasPickUpDate':
         return file.cargoReadyDate ?? file.fileOpeningDate ?? '-';
       case 'scasDeparturePort':
@@ -589,177 +589,92 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
         return file.requiredEta ?? '-';
       case 'scasOrigInvoice':
         return file.invoicesData.isNotEmpty
-            ? 'Received\n${file.invoicesData.first.date ?? file.invoicesData.first.invoiceNo}'
-            : 'Received';
+            ? '${l.dynStatusReceived}\n${file.invoicesData.first.date ?? file.invoicesData.first.invoiceNo}'
+            : l.dynStatusReceived;
       case 'scasOrigPackingList':
         return file.packingListsData.isNotEmpty
-            ? 'Received\n${file.packingListsData.first.date ?? file.packingListsData.first.plNo}'
-            : 'Received';
+            ? '${l.dynStatusReceived}\n${file.packingListsData.first.date ?? file.packingListsData.first.plNo}'
+            : l.dynStatusReceived;
       case 'scasOrigCoo':
-        return file.supplierName.isNotEmpty ? 'Received\nOrigin OK' : 'Received';
+        return file.supplierName.isNotEmpty ? '${l.dynStatusReceived}\n${l.dynCellOriginOk}' : l.dynStatusReceived;
       case 'scasOrigBl':
         return file.selectedScenario != null && file.selectedScenario!.isNotEmpty
-            ? 'Received\n${file.selectedScenario}'
-            : 'Received Express';
+            ? '${l.dynStatusReceived}\n${file.selectedScenario}'
+            : '${l.dynStatusReceived} ${l.dynCellExpressBl}';
       case 'scasOrigInsurance':
         final inc = file.incotermCode.toUpperCase();
-        return (inc == 'CIF' || inc == 'CIP') ? 'Covered (Origin)' : 'Received / Issued';
+        return (inc == 'CIF' || inc == 'CIP') ? l.dynCellOriginCovered : l.dynCellIssuedReceived;
       case 'scasInsertNafeza':
-        return file.acidNumber != null ? 'Done\n(${file.acidIssueDate ?? "Active"})' : 'Pending ACID';
+        return file.acidNumber != null ? '${l.dynStatusDone}\n(${file.acidIssueDate ?? (isAr ? "سارٍ" : "Active")})' : l.dynCellPendingAcid;
       case 'scasBankForm4':
-        return file.form4No != null ? 'Received (Form 4)\nNo: ${file.form4No}' : 'Pending Bank';
+        return file.form4No != null ? '${l.dynStatusReceived}\n${isAr ? "رقم" : "No"}: ${file.form4No}' : l.dynCellPendingBank;
       case 'scasDeclare3A':
-        return file.form46No != null ? 'Done (Form 46)\nNo: ${file.form46No}' : 'Pending 46';
+        return file.form46No != null ? '${l.dynStatusDone}\n${isAr ? "رقم" : "No"}: ${file.form46No}' : l.dynCellPending46;
       case 'scasMaterialReceived':
         return file.isCustomsReleased
-            ? 'Delivered / Store\n(${file.customsReleasedAt ?? "Released"})'
-            : (file.status == 'Under Clearance' ? 'In Clearance (Port)' : file.status);
+            ? '${l.dynCellDeliveredWarehouse}\n(${file.customsReleasedAt ?? l.dynCustomsReleased})'
+            : (file.status == 'Under Clearance' ? l.dynCellInClearancePort : file.status);
 
       default:
         return '-';
     }
   }
 
+  String _buildRowSummary(ImportFileModel file, List<DynamicReportColumn> cols) {
+    final buffer = StringBuffer();
+    buffer.writeln('${file.displayName} — ${file.companyName}');
+    for (final col in cols) {
+      final label = _getColumnLabel(context, col.id);
+      final val = _getCellValue(file, col.id).replaceAll('\n', ' ');
+      buffer.writeln('$label: $val');
+    }
+    return buffer.toString().trim();
+  }
+
   Future<void> _exportToCSV(List<ImportFileModel> files) async {
     final l = context.l10n;
     final visibleCols = _getActiveColumns();
-    const bom = '\uFEFF';
+    final columnLabels = {for (var c in visibleCols) c.id: _getColumnLabel(context, c.id)};
     final timestampStr = _formatDateTime(_lastUpdatedAt);
-    final headerMeta = '# ${l.dynTemplatePresetLabel}: ${_getTemplateTitle(context)} | ${l.dynLastUpdatedLabel(timestampStr)} | Records: ${files.length}';
-    final headerRow = visibleCols.map((c) => _getColumnLabel(context, c.id)).join(',');
 
-    final rows = files.map((f) {
-      return visibleCols.map((c) {
-        final val = _getCellValue(f, c.id).replaceAll('\n', ' / ');
-        return '"${val.replaceAll('"', '""')}"';
-      }).join(',');
-    }).toList();
-
-    final csvContent = '$bom$headerMeta\n$headerRow\n${rows.join('\n')}';
-    final filename = 'Reports_${_templateMode.name.toUpperCase()}_${DateTime.now().millisecondsSinceEpoch}.csv';
-
-    await FileSaveHelper.saveText(
+    await MasterDataExportService.exportDynamicReportToExcel(
       context: context,
-      textContent: csvContent,
-      defaultFileName: filename,
-      dialogTitle: 'تصدير التقرير بصيغة Excel / CSV',
-      allowedExtensions: ['csv', 'xlsx'],
+      files: files,
+      visibleColumnIds: visibleCols.map((c) => c.id).toList(),
+      columnLabels: columnLabels,
+      cellValueGetter: (f, colId) => _getCellValue(f, colId),
+      templateTitle: _getTemplateTitle(context),
+      timestamp: timestampStr,
+      dialogTitle: l.dynExportExcelDialogTitle,
+      fileNamePrefix: 'Reports_${_templateMode.name.toUpperCase()}',
     );
   }
 
   Future<void> _exportToPDF(List<ImportFileModel> files) async {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final visibleCols = _getActiveColumns();
-    final doc = pw.Document();
+    final columnLabels = {for (var c in visibleCols) c.id: _getColumnLabel(context, c.id)};
     final timestampStr = _formatDateTime(_lastUpdatedAt);
-    final templateTitle = _getTemplateTitle(context);
 
-    final headers = visibleCols.map((c) => _getColumnLabel(context, c.id)).toList();
-    final tableData = files.map((f) {
-      return visibleCols.map((c) => _getCellValue(f, c.id).replaceAll('\n', ' ')).toList();
-    }).toList();
-
-    doc.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4.landscape,
-        margin: const pw.EdgeInsets.all(18),
-        build: (pw.Context pdfContext) => [
-          pw.Container(
-            padding: const pw.EdgeInsets.only(bottom: 8),
-            decoration: const pw.BoxDecoration(
-              border: pw.Border(bottom: pw.BorderSide(color: PdfColors.blueGrey800, width: 2)),
-            ),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      l.dynPdfReportTitle,
-                      style: pw.TextStyle(
-                        fontSize: 16,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.blueGrey800,
-                      ),
-                    ),
-                    pw.SizedBox(height: 3),
-                    pw.Text(
-                      '${l.dynTemplatePresetLabel}: $templateTitle | ${l.dynLastUpdatedLabel(timestampStr)} | Records: ${files.length}',
-                      style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          pw.SizedBox(height: 10),
-          pw.Table(
-            border: pw.TableBorder.all(color: PdfColors.blueGrey200, width: 0.5),
-            columnWidths: {
-              for (int i = 0; i < headers.length; i++)
-                i: const pw.FlexColumnWidth(1),
-            },
-            children: [
-              pw.TableRow(
-                decoration: const pw.BoxDecoration(color: PdfColors.blueGrey800),
-                children: headers.map((h) => pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                  child: pw.Text(
-                    h,
-                    style: pw.TextStyle(
-                      color: PdfColors.white,
-                      fontSize: 7,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                    textDirection: pw.TextDirection.rtl,
-                  ),
-                )).toList(),
-              ),
-              ...tableData.asMap().entries.map((entry) {
-                final isEven = entry.key.isEven;
-                return pw.TableRow(
-                  decoration: pw.BoxDecoration(
-                    color: isEven ? PdfColors.blueGrey50 : PdfColors.white,
-                  ),
-                  children: entry.value.map((cell) => pw.Padding(
-                    padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-                    child: pw.Text(
-                      cell,
-                      style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.blueGrey900),
-                      textDirection: pw.TextDirection.rtl,
-                    ),
-                  )).toList(),
-                );
-              }),
-            ],
-          ),
-          pw.SizedBox(height: 10),
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Text(l.dynPdfConfidential, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-              pw.Text('${files.length} records', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-            ],
-          ),
-        ],
-      ),
-    );
-
-    final bytes = await doc.save();
-    final filename = 'Reports_${_templateMode.name.toUpperCase()}_${DateTime.now().millisecondsSinceEpoch}.pdf';
-
-    if (!mounted) return;
-    await FileSaveHelper.saveBytes(
+    await MasterDataExportService.printOrSaveDynamicReportPdf(
       context: context,
-      bytes: bytes,
-      defaultFileName: filename,
-      dialogTitle: 'تصدير التقرير بصيغة PDF',
-      allowedExtensions: ['pdf'],
+      files: files,
+      visibleColumnIds: visibleCols.map((c) => c.id).toList(),
+      columnLabels: columnLabels,
+      cellValueGetter: (f, colId) => _getCellValue(f, colId),
+      templateTitle: _getTemplateTitle(context),
+      timestamp: timestampStr,
+      isAr: isAr,
+      reportTitle: l.dynPdfReportTitle,
+      confidentialText: l.dynPdfConfidential,
+      dialogTitle: l.dynExportPdfDialogTitle,
+      fileNamePrefix: 'Reports_${_templateMode.name.toUpperCase()}',
     );
   }
 
   Future<void> _copyDataToClipboard(List<ImportFileModel> files) async {
+    final l = context.l10n;
     final visibleCols = _getActiveColumns();
     final headers = visibleCols.map((c) => _getColumnLabel(context, c.id)).join('\t');
     final rows = files.map((f) {
@@ -767,14 +682,10 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
     }).join('\n');
 
     final content = '$headers\n$rows';
-    await Clipboard.setData(ClipboardData(text: content));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('تم نسخ بيانات ${files.length} شحنة إلى الحافظة بنجاح (جاهزة للصق المباشر في Excel)'),
-        backgroundColor: AppTheme.emerald,
-        duration: const Duration(seconds: 3),
-      ),
+    await CopyHelper.copy(
+      context,
+      content,
+      customMessage: l.dynTsvCopiedMsg(files.length),
     );
   }
 
@@ -800,178 +711,180 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
               'scas_tracker',
             ];
 
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.82,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              ),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.view_column, color: AppTheme.cobalt, size: 26),
-                      const SizedBox(width: 10),
-                      Text(l.dynColumnPickerTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                      const Spacer(),
-                      IconButton(onPressed: () => Navigator.pop(c), icon: const Icon(Icons.close)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'اختر الحقول المطلوب إدراجها بالتقرير، أو استخدم القوالب الجاهزة (ECO / SCAS)',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: l.dynSearchColumnsPlaceholder,
-                            prefixIcon: const Icon(Icons.search, size: 20),
-                            isDense: true,
-                            border: const OutlineInputBorder(),
+            return SelectionArea(
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.82,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.view_column, color: AppTheme.cobalt, size: 26),
+                        const SizedBox(width: 10),
+                        Text(l.dynColumnPickerTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                        const Spacer(),
+                        IconButton(onPressed: () => Navigator.pop(c), icon: const Icon(Icons.close)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      l.dynColumnPickerSubtitle,
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: l.dynSearchColumnsPlaceholder,
+                              prefixIcon: const Icon(Icons.search, size: 20),
+                              isDense: true,
+                              border: const OutlineInputBorder(),
+                            ),
+                            onChanged: (val) {
+                              setSheetState(() => filterText = val.trim().toLowerCase());
+                            },
                           ),
-                          onChanged: (val) {
-                            setSheetState(() => filterText = val.trim().toLowerCase());
-                          },
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
-                        onPressed: () {
-                          setSheetState(() {
-                            for (var col in _masterColumns) {
-                              col.isVisible = true;
-                            }
-                          });
-                          setState(() {});
-                        },
-                        icon: const Icon(Icons.select_all, size: 18),
-                        label: Text(l.dynSelectAll),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
-                        onPressed: () {
-                          setSheetState(() {
-                            for (var col in _masterColumns) {
-                              col.isVisible = false;
-                            }
-                          });
-                          setState(() {});
-                        },
-                        icon: const Icon(Icons.deselect, size: 18),
-                        label: Text(l.dynDeselectAll),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const Divider(),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: categories.length,
-                      itemBuilder: (context, catIdx) {
-                        final catId = categories[catIdx];
-                        final catCols = _masterColumns.where((col) {
-                          if (col.categoryId != catId) return false;
-                          if (filterText.isEmpty) return true;
-                          final label = _getColumnLabel(context, col.id).toLowerCase();
-                          return label.contains(filterText) || col.id.toLowerCase().contains(filterText);
-                        }).toList();
+                        const SizedBox(width: 10),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                          onPressed: () {
+                            setSheetState(() {
+                              for (var col in _masterColumns) {
+                                col.isVisible = true;
+                              }
+                            });
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.select_all, size: 18),
+                          label: Text(l.dynSelectAll),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                          onPressed: () {
+                            setSheetState(() {
+                              for (var col in _masterColumns) {
+                                col.isVisible = false;
+                              }
+                            });
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.deselect, size: 18),
+                          label: Text(l.dynDeselectAll),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Divider(),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: categories.length,
+                        itemBuilder: (context, catIdx) {
+                          final catId = categories[catIdx];
+                          final catCols = _masterColumns.where((col) {
+                            if (col.categoryId != catId) return false;
+                            if (filterText.isEmpty) return true;
+                            final label = _getColumnLabel(context, col.id).toLowerCase();
+                            return label.contains(filterText) || col.id.toLowerCase().contains(filterText);
+                          }).toList();
 
-                        if (catCols.isEmpty) return const SizedBox.shrink();
+                          if (catCols.isEmpty) return const SizedBox.shrink();
 
-                        final allChecked = catCols.every((c) => c.isVisible);
+                          final allChecked = catCols.every((c) => c.isVisible);
 
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          elevation: 1,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          child: Theme(
-                            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                            child: ExpansionTile(
-                              initiallyExpanded: true,
-                              title: Row(
-                                children: [
-                                  Text(
-                                    _getCategoryTitle(context, catId),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.cobalt.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            elevation: 1,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            child: Theme(
+                              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                              child: ExpansionTile(
+                                initiallyExpanded: true,
+                                title: Row(
+                                  children: [
+                                    Text(
+                                      _getCategoryTitle(context, catId),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                     ),
-                                    child: Text(
-                                      '${catCols.where((c) => c.isVisible).length}/${catCols.length}',
-                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.cobalt.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        '${catCols.where((c) => c.isVisible).length}/${catCols.length}',
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(allChecked ? Icons.check_box : Icons.check_box_outline_blank, color: AppTheme.cobalt),
+                                  tooltip: allChecked ? l.dynDeselectAll : l.dynSelectAll,
+                                  onPressed: () {
+                                    setSheetState(() {
+                                      final target = !allChecked;
+                                      for (var col in catCols) {
+                                        col.isVisible = target;
+                                      }
+                                    });
+                                    setState(() {});
+                                  },
+                                ),
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    child: Wrap(
+                                      spacing: 8,
+                                      runSpacing: 4,
+                                      children: catCols.map((col) {
+                                        return FilterChip(
+                                          selected: col.isVisible,
+                                          label: Text(_getColumnLabel(context, col.id), style: const TextStyle(fontSize: 12)),
+                                          selectedColor: AppTheme.cobalt.withOpacity(0.2),
+                                          checkmarkColor: AppTheme.cobalt,
+                                          onSelected: (val) {
+                                            setSheetState(() => col.isVisible = val);
+                                            setState(() {});
+                                          },
+                                        );
+                                      }).toList(),
                                     ),
                                   ),
                                 ],
                               ),
-                              trailing: IconButton(
-                                icon: Icon(allChecked ? Icons.check_box : Icons.check_box_outline_blank, color: AppTheme.cobalt),
-                                tooltip: allChecked ? l.dynDeselectAll : l.dynSelectAll,
-                                onPressed: () {
-                                  setSheetState(() {
-                                    final target = !allChecked;
-                                    for (var col in catCols) {
-                                      col.isVisible = target;
-                                    }
-                                  });
-                                  setState(() {});
-                                },
-                              ),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    children: catCols.map((col) {
-                                      return FilterChip(
-                                        selected: col.isVisible,
-                                        label: Text(_getColumnLabel(context, col.id), style: const TextStyle(fontSize: 12)),
-                                        selectedColor: AppTheme.cobalt.withOpacity(0.2),
-                                        checkmarkColor: AppTheme.cobalt,
-                                        onSelected: (val) {
-                                          setSheetState(() => col.isVisible = val);
-                                          setState(() {});
-                                        },
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                              ],
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, minimumSize: const Size.fromHeight(48)),
-                    onPressed: () {
-                      setState(() {
-                        _templateMode = ReportTemplateMode.custom;
-                      });
-                      Navigator.pop(c);
-                    },
-                    icon: const Icon(Icons.check, color: Colors.white),
-                    label: Text(l.dynApplyColumnsBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-                  ),
-                ],
+                    const SizedBox(height: 10),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, minimumSize: const Size.fromHeight(48)),
+                      onPressed: () {
+                        setState(() {
+                          _templateMode = ReportTemplateMode.custom;
+                        });
+                        Navigator.pop(c);
+                      },
+                      icon: const Icon(Icons.check, color: Colors.white),
+                      label: Text(l.dynApplyColumnsBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -1021,7 +934,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'تحديث البيانات والوقت',
+            tooltip: l.dynRefreshTooltip,
             onPressed: _refreshData,
           ),
           const BackToDashboardButton(),
@@ -1102,7 +1015,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                             label: Text(
                               _templateMode == ReportTemplateMode.custom
                                   ? l.dynCustomizeColumnsBtn(activeCols.length, _masterColumns.length)
-                                  : 'تخصيص أعمدة التقرير',
+                                  : l.dynCustomizeColumnsGenericBtn,
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                             ),
                           ),
@@ -1143,7 +1056,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                                     ),
                                     onPressed: () => _copyDataToClipboard(filtered),
                                     icon: const Icon(Icons.copy, color: Colors.white, size: 18),
-                                    label: const Text('نسخ كـ Excel', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                    label: Text(l.dynCopyTsvBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                                   ),
                                 ],
                               );
@@ -1165,19 +1078,29 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                                 return TextField(
                                   controller: _searchController,
                                   decoration: InputDecoration(
-                                    hintText: 'ابحث بكود الملف، العميل، المورد، المشروع، رقم ACID أو المخلص...',
+                                    hintText: l.dynSearchPlaceholder,
                                     prefixIcon: const Icon(Icons.search, size: 20),
                                     isDense: true,
                                     border: const OutlineInputBorder(),
-                                    suffixIcon: val.text.isNotEmpty
-                                        ? IconButton(
+                                    suffixIcon: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (val.text.isNotEmpty)
+                                          IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 18, color: AppTheme.cobalt),
+                                            tooltip: l.copyValue,
+                                            onPressed: () => CopyHelper.copy(context, val.text),
+                                          ),
+                                        if (val.text.isNotEmpty)
+                                          IconButton(
                                             icon: const Icon(Icons.clear, size: 18),
                                             onPressed: () {
                                               _searchController.clear();
                                               setState(() => _searchQuery = '');
                                             },
-                                          )
-                                        : null,
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                   onChanged: (v) => setState(() => _searchQuery = v.trim()),
                                 );
@@ -1238,7 +1161,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                                 const Icon(Icons.view_column, size: 16, color: AppTheme.cobalt),
                                 const SizedBox(width: 6),
                                 Text(
-                                  'الأعمدة: ${activeCols.length}',
+                                  l.dynActiveColumnsCount(activeCols.length),
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt),
                                 ),
                               ],
@@ -1284,6 +1207,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                             rows: filtered.asMap().entries.map((entry) {
                               final isEven = entry.key.isEven;
                               final file = entry.value;
+                              final rowSummary = _buildRowSummary(file, activeCols);
 
                               return DataRow(
                                 color: WidgetStateProperty.all(isEven ? Colors.grey.shade50 : Colors.white),
@@ -1291,19 +1215,57 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                                   final textVal = _getCellValue(file, col.id);
 
                                   // Highlighted columns
-                                  final isCode = col.id == 'importFileCode' || col.id == 'ecoShipmentNo';
+                                  final isCode = col.id == 'importFileCode' || col.id == 'ecoShipmentNo' || col.id == 'acidNumber' || col.id == 'form4No';
                                   final isStatus = col.id == 'status' || col.id == 'currentStage';
+                                  final isFirstCol = col.id == activeCols.first.id;
 
                                   return DataCell(
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 4),
-                                      child: Text(
-                                        textVal,
-                                        style: TextStyle(
-                                          fontWeight: isCode ? FontWeight.bold : FontWeight.normal,
-                                          color: isCode
-                                              ? AppTheme.cobalt
-                                              : (isStatus ? AppTheme.charcoal : Colors.grey.shade900),
+                                    CopyableTableCell(
+                                      value: textVal,
+                                      rowSummary: rowSummary,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 4),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (isFirstCol) ...[
+                                              InkWell(
+                                                onTap: () => CopyHelper.copy(context, rowSummary, customMessage: l.copiedToClipboardGeneric),
+                                                borderRadius: BorderRadius.circular(4),
+                                                child: Tooltip(
+                                                  message: l.dynCopyRowTooltip,
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.all(2),
+                                                    child: Icon(Icons.table_rows_rounded, size: 13, color: AppTheme.emerald.withOpacity(0.85)),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                            ],
+                                            Text(
+                                              textVal,
+                                              style: TextStyle(
+                                                fontWeight: isCode ? FontWeight.bold : FontWeight.normal,
+                                                color: isCode
+                                                    ? AppTheme.cobalt
+                                                    : (isStatus ? AppTheme.charcoal : Colors.grey.shade900),
+                                              ),
+                                            ),
+                                            if (isCode && textVal != '-' && textVal.isNotEmpty) ...[
+                                              const SizedBox(width: 4),
+                                              InkWell(
+                                                onTap: () => CopyHelper.copy(context, textVal),
+                                                borderRadius: BorderRadius.circular(4),
+                                                child: Tooltip(
+                                                  message: l.copyValue,
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.all(2),
+                                                    child: Icon(Icons.copy_rounded, size: 13, color: AppTheme.cobalt.withOpacity(0.7)),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
                                         ),
                                       ),
                                     ),

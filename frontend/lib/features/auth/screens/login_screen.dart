@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -74,151 +75,185 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Card(
                 elevation: 10,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Container(
-                  width: 440,
-                  padding: const EdgeInsets.all(36),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Language Switcher in Card Header
-                        Align(
-                          alignment: AlignmentDirectional.topEnd,
-                          child: TextButton.icon(
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppTheme.cobalt,
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            ),
-                            icon: const Icon(Icons.language_rounded, size: 18),
-                            label: Text(
-                              currentLocale.languageCode == 'ar' ? 'English' : 'العربية',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                            ),
-                            onPressed: () {
-                              ref.read(localeProvider.notifier).toggleLocale();
-                            },
-                          ),
-                        ),
-
-                        // System Logo & Branding
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: AppTheme.cobalt.withOpacity(0.12),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.local_shipping_rounded, size: 48, color: AppTheme.cobalt),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          l.appTitle,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.charcoal,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          l.loginScreenSubtitle,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                        ),
-                        const SizedBox(height: 28),
-
-                        // Username Field
-                        TextFormField(
-                          controller: _usernameCtrl,
-                          decoration: InputDecoration(
-                            labelText: l.loginUsernameLabel,
-                            prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
-                            hintText: 'admin / manager / operator1',
-                          ),
-                          validator: (v) => (v == null || v.trim().isEmpty) ? l.loginUsernameRequired : null,
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Password Field
-                        TextFormField(
-                          controller: _passwordCtrl,
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            labelText: l.loginPasswordLabel,
-                            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                size: 20,
+                child: SelectionArea(
+                  child: Container(
+                    width: 440,
+                    padding: const EdgeInsets.all(36),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Language Switcher in Card Header
+                          Align(
+                            alignment: AlignmentDirectional.topEnd,
+                            child: TextButton.icon(
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppTheme.cobalt,
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               ),
-                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              icon: const Icon(Icons.language_rounded, size: 18),
+                              label: Text(
+                                currentLocale.languageCode == 'ar' ? 'English' : 'العربية',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                              onPressed: () {
+                                ref.read(localeProvider.notifier).toggleLocale();
+                              },
                             ),
                           ),
-                          validator: (v) => (v == null || v.trim().isEmpty) ? l.loginPasswordRequired : null,
-                          onFieldSubmitted: (_) => _handleLogin(),
-                        ),
-                        const SizedBox(height: 24),
 
-                        // Login Button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            onPressed: authState.isLoading ? null : _handleLogin,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.cobalt,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              elevation: 2,
+                          // System Logo & Branding
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cobalt.withOpacity(0.12),
+                              shape: BoxShape.circle,
                             ),
-                            icon: authState.isLoading
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                  )
-                                : const Icon(Icons.login_rounded, size: 20),
-                            label: Text(
-                              authState.isLoading ? l.loginAuthenticating : l.loginButtonLabel,
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                            child: const Icon(Icons.local_shipping_rounded, size: 48, color: AppTheme.cobalt),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            l.appTitle,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.charcoal,
+                              letterSpacing: 0.5,
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 4),
+                          Text(
+                            l.loginScreenSubtitle,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                          ),
+                          const SizedBox(height: 28),
 
-                        const SizedBox(height: 24),
-                        Divider(color: Colors.grey.shade300),
-                        const SizedBox(height: 12),
+                          // Username Field
+                          TextFormField(
+                            controller: _usernameCtrl,
+                            decoration: InputDecoration(
+                              labelText: l.loginUsernameLabel,
+                              prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
+                              hintText: l.loginUsernameHint,
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 18),
+                                tooltip: l.loginCopyUsernameTooltip,
+                                onPressed: () => CopyHelper.copy(
+                                  context,
+                                  _usernameCtrl.text,
+                                  customMessage: l.loginUsernameCopied,
+                                ),
+                              ),
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty) ? l.loginUsernameRequired : null,
+                          ),
+                          const SizedBox(height: 16),
 
-                        // Quick Dev Logins
-                        Text(
-                          l.loginQuickDemoAccess,
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            ActionChip(
-                              avatar: const Icon(Icons.admin_panel_settings_rounded, size: 14, color: AppTheme.crimson),
-                              label: Text(l.loginRoleAdmin, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                              onPressed: () => _quickFill('admin', 'admin123'),
+                          // Password Field
+                          TextFormField(
+                            controller: _passwordCtrl,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: l.loginPasswordLabel,
+                              prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                              suffixIcon: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.copy_rounded, size: 18),
+                                    tooltip: l.loginCopyPasswordTooltip,
+                                    onPressed: () => CopyHelper.copy(
+                                      context,
+                                      _passwordCtrl.text,
+                                      customMessage: l.loginPasswordCopied,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                      size: 20,
+                                    ),
+                                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                  ),
+                                ],
+                              ),
                             ),
-                            ActionChip(
-                              avatar: const Icon(Icons.manage_accounts_rounded, size: 14, color: AppTheme.cobalt),
-                              label: Text(l.loginRoleManager, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                              onPressed: () => _quickFill('manager', 'manager123'),
+                            validator: (v) => (v == null || v.trim().isEmpty) ? l.loginPasswordRequired : null,
+                            onFieldSubmitted: (_) => _handleLogin(),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Login Button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: ElevatedButton.icon(
+                              onPressed: authState.isLoading ? null : _handleLogin,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.cobalt,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                elevation: 2,
+                              ),
+                              icon: authState.isLoading
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.login_rounded, size: 20),
+                              label: Text(
+                                authState.isLoading ? l.loginAuthenticating : l.loginButtonLabel,
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
                             ),
-                            ActionChip(
-                              avatar: const Icon(Icons.badge_rounded, size: 14, color: AppTheme.emerald),
-                              label: Text(l.loginRoleSpecialist, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                              onPressed: () => _quickFill('operator1', 'operator123'),
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+
+                          const SizedBox(height: 24),
+                          Divider(color: Colors.grey.shade300),
+                          const SizedBox(height: 12),
+
+                          // Quick Dev Logins
+                          Text(
+                            l.loginQuickDemoAccess,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              _buildQuickDemoChip(
+                                icon: Icons.admin_panel_settings_rounded,
+                                color: AppTheme.crimson,
+                                roleLabel: l.loginRoleAdmin,
+                                username: 'admin',
+                                password: 'admin123',
+                                l: l,
+                              ),
+                              _buildQuickDemoChip(
+                                icon: Icons.manage_accounts_rounded,
+                                color: AppTheme.cobalt,
+                                roleLabel: l.loginRoleManager,
+                                username: 'manager',
+                                password: 'manager123',
+                                l: l,
+                              ),
+                              _buildQuickDemoChip(
+                                icon: Icons.badge_rounded,
+                                color: AppTheme.emerald,
+                                roleLabel: l.loginRoleSpecialist,
+                                username: 'operator1',
+                                password: 'operator123',
+                                l: l,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -226,6 +261,71 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildQuickDemoChip({
+    required IconData icon,
+    required Color color,
+    required String roleLabel,
+    required String username,
+    required String password,
+    required AppLocalizations l,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.28)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: () => _quickFill(username, password),
+            borderRadius: const BorderRadius.horizontal(
+              left: Radius.circular(20),
+              right: Radius.circular(4),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 14, color: color),
+                  const SizedBox(width: 6),
+                  Text(
+                    roleLabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: () => CopyHelper.copy(
+              context,
+              '$username ($password)',
+              customMessage: l.loginDemoCredentialsCopied,
+            ),
+            borderRadius: const BorderRadius.horizontal(
+              left: Radius.circular(4),
+              right: Radius.circular(20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Tooltip(
+                message: l.loginDemoCredentialsTooltip,
+                child: Icon(Icons.copy_rounded, size: 13, color: color.withOpacity(0.85)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

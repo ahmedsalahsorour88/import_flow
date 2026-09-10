@@ -1,9 +1,9 @@
 @echo off
-title ImportFlow ERP - Build Setup Wizard (.EXE Installer)
+title Sorour Logistics ERP - Build Setup Wizard (.EXE Installer)
 setlocal
 
 echo ===============================================================================
-echo            ImportFlow ERP - Windows Setup Wizard (.EXE) Builder
+echo            Sorour Logistics ERP - Windows Setup Wizard (.EXE) Builder
 echo ===============================================================================
 echo.
 
@@ -19,8 +19,8 @@ if "%ISCC_PATH%"=="" (
     exit /b 1
 )
 
-echo [1/2] Verifying Standalone package in dist\ImportFlow_Standalone...
-if not exist "%~dp0dist\ImportFlow_Standalone\backend.exe" (
+echo [1/2] Verifying Standalone package in dist\Sorour_Logistics_Standalone...
+if not exist "%~dp0dist\Sorour_Logistics_Standalone\backend.exe" (
     echo [INFO] Standalone package not found. Generating now...
     python package_production.py
 )
@@ -37,7 +37,7 @@ if errorlevel 1 (
 echo.
 echo ===============================================================================
 echo [SUCCESS] Windows Setup Installer Created Successfully!
-echo Installer Location: %~dp0dist\releases\ImportFlow_Setup_v1.0.0.exe
+echo Installer Location in: %~dp0dist\releases\
 echo ===============================================================================
 echo.
 pause

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from database.database import get_db
-from .schemas import SupplierCreate, SupplierUpdate, SupplierResponse
+from .schemas import SupplierCreate, SupplierUpdate, SupplierResponse, SupplierScorecardResponse
 from .service import (
     create_supplier_service,
     get_all_suppliers_service,
@@ -11,6 +11,7 @@ from .service import (
     update_supplier_service,
     delete_supplier_service,
     restore_supplier_service,
+    get_supplier_scorecard_service,
 )
 
 # ==================================================
@@ -293,3 +294,21 @@ def restore_supplier(supplier_id: int, db: Session = Depends(get_db)):
             detail=f"Supplier with ID {supplier_id} not found."
         )
     return restored
+
+
+# ==================================================
+# Supplier Scorecard Endpoint (LOG-KPIS-005)
+# ==================================================
+
+@supplier_router.get(
+    "/{supplier_id}/scorecard",
+    response_model=SupplierScorecardResponse
+)
+def get_supplier_scorecard(supplier_id: int, db: Session = Depends(get_db)):
+    scorecard = get_supplier_scorecard_service(db, supplier_id)
+    if not scorecard:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier with ID {supplier_id} not found."
+        )
+    return scorecard

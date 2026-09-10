@@ -38,11 +38,11 @@ def calculate_sha256(file_path):
 
 def create_release_zip(version):
     RELEASES_DIR.mkdir(parents=True, exist_ok=True)
-    zip_filename = f"ImportFlow_v{version}_Windows_Portable.zip"
+    zip_filename = f"Sorour_Logistics_v{version}_Windows_Portable.zip"
     zip_path = RELEASES_DIR / zip_filename
 
     print("===============================================================================")
-    print(f"       ImportFlow ERP - Packaging Release v{version} for Cloud/Server Upload    ")
+    print(f"       Sorour Logistics ERP - Packaging Release v{version} for Cloud/Server Upload    ")
     print("===============================================================================")
 
     if not STANDALONE_DIR.exists():
@@ -68,7 +68,7 @@ def create_release_zip(version):
 
     print("[3/3] Generating Version Manifest (`latest_release.json`)...")
     manifest = {
-        "app_name": "ImportFlow ERP",
+        "app_name": "Sorour Logistics ERP",
         "version": version,
         "release_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "package_name": zip_filename,

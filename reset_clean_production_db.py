@@ -92,7 +92,7 @@ def build_clean_production_db():
         users = [
             User(
                 username="admin",
-                email="admin@importflow.com",
+                email="admin@sorourlogistics.com",
                 full_name="System Admin",
                 hashed_password=hash_password("admin123"),
                 role="ADMIN",
@@ -100,7 +100,7 @@ def build_clean_production_db():
             ),
             User(
                 username="manager",
-                email="manager@importflow.com",
+                email="manager@sorourlogistics.com",
                 full_name="General Logistics Manager",
                 hashed_password=hash_password("manager123"),
                 role="MANAGER",
@@ -108,7 +108,7 @@ def build_clean_production_db():
             ),
             User(
                 username="operator1",
-                email="operator1@importflow.com",
+                email="operator1@sorourlogistics.com",
                 full_name="Ahmed Import Specialist",
                 hashed_password=hash_password("operator123"),
                 role="OPERATOR",
@@ -116,7 +116,7 @@ def build_clean_production_db():
             ),
             User(
                 username="operator2",
-                email="operator2@importflow.com",
+                email="operator2@sorourlogistics.com",
                 full_name="Sara Customs Operator",
                 hashed_password=hash_password("operator123"),
                 role="OPERATOR",

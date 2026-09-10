@@ -566,7 +566,7 @@ void main() {
       expect(ar.freightBookingAiForwarderBtn.contains('Forwarder'), isFalse);
       expect(ar.freightBookingDraftPendingLabel.contains('Draft'), isFalse);
       expect(ar.freightBookingNetDifference.contains('Net'), isFalse);
-      expect(ar.freightBookingPrintSystemHeader.contains('IMPORTFLOW ERP'), isTrue); // system brand kept
+      expect(ar.freightBookingPrintSystemHeader.contains('SOROUR LOGISTICS ERP'), isTrue); // system brand kept
     });
 
     test('New keys: English translations do NOT contain Arabic-only phrases', () {

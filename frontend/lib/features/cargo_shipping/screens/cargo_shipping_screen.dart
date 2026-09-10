@@ -15,8 +15,10 @@ import '../../freight_booking/providers/freight_booking_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../import_documentation/widgets/smart_invoice_bl_extractor_dialog.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../models/cargo_shipping_model.dart';
 import '../providers/cargo_shipping_provider.dart';
+import '../services/cargo_shipping_sla_export_service.dart';
 
 
 class CargoShippingScreen extends ConsumerStatefulWidget {
@@ -750,7 +752,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     return VerticalStageScaffold(
       stageCode: isTrackingTab ? 'STEP-08' : 'STEP-07',
       titleEn: isTrackingTab ? 'Cargo Shipping Tracking (48h SLA)' : 'Freight Allocations & Cargo Shipping (VGM)',
-      titleAr: isTrackingTab ? 'متابعة حركة الشحن وتحميل وتوريد الحاويات (48h SLA)' : 'تخصيص وتوزيع الحاويات ومتابعة حركة الشحن (VGM)',
+      titleAr: isTrackingTab ? context.l10n.cargoShippingSlaStageTitle : context.l10n.cargoShippingAllocationsTitle,
       headerIcon: isTrackingTab ? Icons.directions_boat_outlined : Icons.grid_view_outlined,
       headerColor: isTrackingTab ? AppTheme.cobalt : AppTheme.emerald,
       tabs: tabs,
@@ -1563,9 +1565,50 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       const Icon(Icons.check_circle, color: AppTheme.cobalt, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          '${context.l10n.cargoShippingLinkedFileBannerPrefix} ${curFile.primaryNameWithCode} - ${curFile.companyName} | ${context.l10n.cargoShippingSupplierLabel} ${curFile.supplierName} | ACID: ${curFile.acidNumber ?? "N/A"}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 4,
+                          children: [
+                            Text(
+                              '${context.l10n.cargoShippingLinkedFileBannerPrefix} ',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                            ),
+                            CopyableText(
+                              curFile.primaryNameWithCode,
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
+                              tooltip: context.l10n.cargoShippingCopyFieldTooltip,
+                            ),
+                            Text(
+                              ' - ${curFile.companyName} | ${context.l10n.cargoShippingSupplierLabel} ',
+                              style: const TextStyle(fontSize: 12, color: AppTheme.charcoal),
+                            ),
+                            CopyableText(
+                              curFile.supplierName,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                              tooltip: context.l10n.cargoShippingCopyFieldTooltip,
+                            ),
+                            if (curFile.acidNumber != null) ...[
+                              Text(
+                                ' | ${context.l10n.cargoShippingAcidPrefix}: ',
+                                style: const TextStyle(fontSize: 12, color: AppTheme.charcoal),
+                              ),
+                              CopyableText(
+                                curFile.acidNumber!,
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12),
+                                tooltip: context.l10n.cargoShippingCopyFieldTooltip,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      Tooltip(
+                        message: context.l10n.cargoShippingCopyFieldTooltip,
+                        child: IconButton(
+                          icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
+                          onPressed: () => CopyHelper.copy(
+                            context,
+                            '${curFile.primaryNameWithCode} | ${curFile.companyName} | ${curFile.supplierName} | ACID: ${curFile.acidNumber ?? "-"}',
+                          ),
                         ),
                       ),
                     ],
@@ -1575,6 +1618,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             ],
           ),
         ),
+
+        // SLA Export Toolbar (TSV, Excel, Print/PDF, Dossier)
+        _buildSlaExportToolbar(curFile, totalCount, inProgressCount, gatedInCount, breachedCount),
 
         // Top Summary Dashboard Cards
         Row(
@@ -1610,44 +1656,138 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     );
   }
 
+  /// Toolbar providing TSV, Excel, Vector PDF, and Dossier exports for 48h SLA Tracking.
+  Widget _buildSlaExportToolbar(dynamic curFile, int totalCount, int inProgressCount, int gatedInCount, int breachedCount) {
+    final l10n = context.l10n;
+    final fileModel = curFile is ImportFileModel ? curFile : null;
+    final exportService = CargoShippingSlaExportService(
+      context: context,
+      importFile: fileModel,
+      shipmentType: _shipmentType,
+      containers: _containers,
+      lclTracking: _lclTracking,
+      cfsWarehouse: _cfsWarehouseCtrl.text.trim(),
+      totalCount: totalCount,
+      inProgressCount: inProgressCount,
+      gatedInCount: gatedInCount,
+      breachedCount: breachedCount,
+    );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.charcoal,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            icon: const Icon(Icons.table_chart_outlined, size: 16),
+            label: Text(l10n.cargoShippingSlaExportTsvBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+            onPressed: () => exportService.exportToTsv(),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.emerald,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            icon: const Icon(Icons.file_download_outlined, size: 16),
+            label: Text(l10n.cargoShippingSlaExportExcelBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+            onPressed: () => exportService.exportToExcel(),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.crimson,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+            label: Text(l10n.cargoShippingSlaPrintPdfBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+            onPressed: () => exportService.printOrSavePdf(),
+          ),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.cobalt,
+              side: const BorderSide(color: AppTheme.cobalt),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            icon: const Icon(Icons.copy_all_outlined, size: 16),
+            label: Text(l10n.cargoShippingSlaCopyDossierBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+            onPressed: () => exportService.copyDossierToClipboard(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMetricSummaryCard(String title, String value, IconData icon, Color color) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
+      child: Tooltip(
+        message: context.l10n.cargoShippingCopyFieldTooltip,
+        child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.3)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 3)],
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: color.withOpacity(0.12),
-              child: Icon(icon, size: 18, color: color),
+          onTap: () => CopyHelper.copy(context, '$title: $value'),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: color.withOpacity(0.3)),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 3)],
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: color.withOpacity(0.12),
+                  child: Icon(icon, size: 18, color: color),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        value,
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  Text(
-                    value,
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
+                ),
+                Icon(Icons.copy, size: 12, color: color.withOpacity(0.4)),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1676,41 +1816,91 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 20),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  context.l10n.cargoShippingContainerCardHeader(index + 1, c.containerNo, c.containerType, c.sealNo),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                  overflow: TextOverflow.ellipsis,
+                child: Tooltip(
+                  message: context.l10n.cargoShippingCopyFieldTooltip,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(4),
+                    onTap: () => CopyHelper.copy(
+                      context,
+                      '${context.l10n.cargoShippingContainerNo}: ${c.containerNo.isNotEmpty ? c.containerNo : "-"} | ${context.l10n.cargoShippingSealNo}: ${c.sealNo.isNotEmpty ? c.sealNo : "-"}',
+                      customMessage: context.l10n.cargoShippingSlaCopyContainerSuccess,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            context.l10n.cargoShippingContainerCardHeader(index + 1, c.containerNo, c.containerType, c.sealNo),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.copy, size: 13, color: Colors.grey.shade500),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: c.statusColor.withOpacity(0.12),
+              Tooltip(
+                message: context.l10n.cargoShippingCopyFieldTooltip,
+                child: InkWell(
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: c.statusColor),
-                ),
-                child: Text(
-                  c.getLocalizedStatus(context.l10n),
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: c.statusColor),
+                  onTap: () => CopyHelper.copy(
+                    context,
+                    c.getLocalizedStatus(context.l10n),
+                    customMessage: '${context.l10n.cargoShippingSlaTsvHeaderTrackingStatus}: ${c.getLocalizedStatus(context.l10n)}',
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: c.statusColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: c.statusColor),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          c.getLocalizedStatus(context.l10n),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: c.statusColor),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.copy, size: 10, color: c.statusColor),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               if (c.isSlaBreached)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.crimson.withOpacity(0.12),
+                Tooltip(
+                  message: context.l10n.cargoShippingCopyFieldTooltip,
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.crimson),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.alarm_off, size: 14, color: AppTheme.crimson),
-                      const SizedBox(width: 4),
-                      Text(context.l10n.cargoShippingSlaBreachedBadge, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: AppTheme.crimson)),
-                    ],
+                    onTap: () => CopyHelper.copy(
+                      context,
+                      context.l10n.cargoShippingSlaBreachedBadge,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.crimson.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.crimson),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.alarm_off, size: 14, color: AppTheme.crimson),
+                          const SizedBox(width: 4),
+                          Text(context.l10n.cargoShippingSlaBreachedBadge, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: AppTheme.crimson)),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.copy, size: 10, color: AppTheme.crimson),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               const SizedBox(width: 8),
@@ -1946,33 +2136,56 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (hasValue) ...[
+                    const SizedBox(width: 4),
+                    Tooltip(
+                      message: context.l10n.cargoShippingCopyFieldTooltip,
+                      child: InkWell(
+                        onTap: () => CopyHelper.copy(
+                          context,
+                          _formatDisplayDateTime(valueText, context),
+                          customMessage: context.l10n.cargoShippingSlaCopyMilestoneSuccess,
+                        ),
+                        child: const Icon(Icons.copy, size: 12, color: AppTheme.emerald),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
           if (hasNote) ...[
             const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7),
+            Tooltip(
+              message: context.l10n.cargoShippingCopyFieldTooltip,
+              child: InkWell(
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.amber.shade400),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.note_alt, size: 12, color: Colors.amber),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      noteText,
-                      style: TextStyle(fontSize: 10, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                onTap: () => CopyHelper.copy(context, noteText),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.amber.shade400),
                   ),
-                ],
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.note_alt, size: 12, color: Colors.amber),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          noteText,
+                          style: TextStyle(fontSize: 10, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.copy, size: 10, color: Colors.amber.shade800),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
@@ -2264,23 +2477,60 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               const Icon(Icons.warehouse, color: AppTheme.cobalt, size: 20),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  context.l10n.cargoShippingLclTrackingHeader(_cfsWarehouseCtrl.text),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                  overflow: TextOverflow.ellipsis,
+                child: Tooltip(
+                  message: context.l10n.cargoShippingCopyFieldTooltip,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(4),
+                    onTap: () => CopyHelper.copy(
+                      context,
+                      _cfsWarehouseCtrl.text.isNotEmpty ? _cfsWarehouseCtrl.text : context.l10n.cargoShippingCfsWarehouseLabel,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            context.l10n.cargoShippingLclTrackingHeader(_cfsWarehouseCtrl.text),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.copy, size: 13, color: Colors.grey.shade500),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: lcl.statusColor.withOpacity(0.12),
+              Tooltip(
+                message: context.l10n.cargoShippingCopyFieldTooltip,
+                child: InkWell(
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: lcl.statusColor),
-                ),
-                child: Text(
-                  lcl.getLocalizedStatus(context.l10n),
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: lcl.statusColor),
+                  onTap: () => CopyHelper.copy(
+                    context,
+                    lcl.getLocalizedStatus(context.l10n),
+                    customMessage: '${context.l10n.cargoShippingSlaTsvHeaderTrackingStatus}: ${lcl.getLocalizedStatus(context.l10n)}',
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: lcl.statusColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: lcl.statusColor),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          lcl.getLocalizedStatus(context.l10n),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: lcl.statusColor),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.copy, size: 10, color: lcl.statusColor),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),

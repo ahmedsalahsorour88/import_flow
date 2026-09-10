@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/audit_log_model.dart';
 import '../providers/audit_logs_provider.dart';
+import '../widgets/row_history_dialog.dart';
 
 class AuditLogsScreen extends ConsumerStatefulWidget {
   const AuditLogsScreen({super.key});
@@ -51,6 +54,62 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
     super.dispose();
   }
 
+  List<AuditLogModel> _getFilteredLogs(List<AuditLogModel> logs) {
+    return logs.where((log) {
+      final matchesEntity = _selectedEntityType == 'All' || log.entityType == _selectedEntityType;
+      final matchesAction = _selectedAction == 'All' || log.action.toUpperCase() == _selectedAction.toUpperCase();
+      final matchesSearch = _searchQuery.isEmpty ||
+          (log.entityCode ?? '').toLowerCase().contains(_searchQuery) ||
+          log.performedBy.toLowerCase().contains(_searchQuery) ||
+          (log.changesSummary ?? '').toLowerCase().contains(_searchQuery);
+
+      return matchesEntity && matchesAction && matchesSearch;
+    }).toList();
+  }
+
+  void _copyAuditLogsTsv(List<AuditLogModel> logs) {
+    final l10n = context.l10n;
+    final buffer = StringBuffer();
+    buffer.writeln(
+      '${l10n.auditLogsTsvHeaderLogId}\t'
+      '${l10n.auditLogsTsvHeaderAction}\t'
+      '${l10n.auditLogsTsvHeaderEntityType}\t'
+      '${l10n.auditLogsTsvHeaderEntityCode}\t'
+      '${l10n.auditLogsTsvHeaderSummary}\t'
+      '${l10n.auditLogsTsvHeaderPerformedBy}\t'
+      '${l10n.auditLogsTsvHeaderTimestamp}',
+    );
+
+    for (final l in logs) {
+      buffer.writeln(
+        '${l.logId}\t'
+        '${l10n.auditActionLabel(l.action)}\t'
+        '${l10n.auditEntityLabel(l.entityType)}\t'
+        '${l.entityCode ?? l.entityId}\t'
+        '${(l.changesSummary ?? l10n.systemMutationFallback).replaceAll('\t', ' ').replaceAll('\n', ' ')}\t'
+        '${l.performedBy}\t'
+        '${l.performedAt.toLocal().toString().split('.').first}',
+      );
+    }
+
+    CopyHelper.copy(
+      context,
+      buffer.toString().trimRight(),
+      customMessage: l10n.auditLogsExportTsvSuccess,
+    );
+  }
+
+  String _buildAuditLogRowSummary(AuditLogModel log) {
+    final l10n = context.l10n;
+    final b = StringBuffer();
+    b.writeln('📋 #${log.logId} — ${l10n.auditActionLabel(log.action)}');
+    b.writeln('📦 ${l10n.auditEntityLabel(log.entityType)}: ${log.entityCode ?? log.entityId}');
+    b.writeln('📝 ${log.changesSummary ?? l10n.systemMutationFallback}');
+    b.writeln('👤 ${l10n.performedByUser(log.performedBy)}');
+    b.writeln('⏰ ${log.performedAt.toLocal().toString().split('.').first}');
+    return b.toString().trim();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -58,55 +117,101 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.cloudWhite,
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Bar Header & Refresh Button
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      body: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Bar Header & Action Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.auditLogsScreenTitle,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.charcoal,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          l10n.auditLogsScreenSubtitle,
+                          style: const TextStyle(color: Colors.grey, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text(
-                        l10n.auditLogsScreenTitle,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.charcoal,
+                      const BackToDashboardButton(),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.table_view_rounded, size: 18),
+                        label: Text(l10n.auditLogsExportTsvBtn),
+                        onPressed: () {
+                          final logs = logsAsync.valueOrNull ?? [];
+                          _copyAuditLogsTsv(_getFilteredLogs(logs));
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.emerald,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.auditLogsScreenSubtitle,
-                        style: const TextStyle(color: Colors.grey, fontSize: 14),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.file_download_outlined, size: 18),
+                        label: Text(l10n.exportAuditLogExcelBtn),
+                        onPressed: () {
+                          final logs = logsAsync.valueOrNull ?? [];
+                          MasterDataExportService.exportAuditLogsToExcel(context, _getFilteredLogs(logs));
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.charcoal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                        label: Text(l10n.exportAuditLogPdfBtn),
+                        onPressed: () {
+                          final logs = logsAsync.valueOrNull ?? [];
+                          MasterDataExportService.printOrSaveAuditLogsListPdf(_getFilteredLogs(logs));
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: Text(l10n.liveRefreshBtn),
+                        onPressed: () => ref.invalidate(systemAuditLogsProvider),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.charcoal.withOpacity(0.08),
+                          foregroundColor: AppTheme.charcoal,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
                       ),
                     ],
                   ),
-                ),
-                Row(
-                  children: [
-                    const BackToDashboardButton(),
-                    const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: Text(l10n.liveRefreshBtn),
-                      onPressed: () => ref.invalidate(systemAuditLogsProvider),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
+                ],
+              ),
+              const SizedBox(height: 20),
 
             // Entity Type Filter Chips
             Row(
@@ -299,7 +404,8 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildAuditLogCard(AuditLogModel log) {
@@ -345,31 +451,80 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                     ),
                     const SizedBox(width: 8),
 
-                    // Entity Type & Code
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppTheme.charcoal.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(4),
+                    // Entity Type & Code (Clickable Copy Badge)
+                    InkWell(
+                      onTap: () => CopyHelper.copy(
+                        context,
+                        log.entityCode ?? log.entityId.toString(),
+                        customMessage: l10n.auditLogCopyFieldTooltip,
                       ),
-                      child: Text(
-                        l10n.auditEntityWithCode(
-                          l10n.auditEntityLabel(log.entityType),
-                          log.entityCode ?? log.entityId.toString(),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.charcoal.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(4),
                         ),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              l10n.auditEntityWithCode(
+                                l10n.auditEntityLabel(log.entityType),
+                                log.entityCode ?? log.entityId.toString(),
+                              ),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.copy_rounded, size: 12, color: AppTheme.charcoal),
+                          ],
+                        ),
                       ),
                     ),
                     const Spacer(),
 
-                    // Timestamp
+                    // Timestamp & Action Buttons
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.access_time, size: 14, color: Colors.grey),
                         const SizedBox(width: 4),
                         Text(
                           formattedDate,
                           style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.copy_all_rounded, size: 18, color: Colors.grey),
+                          tooltip: l10n.auditLogCopySummaryBtn,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => CopyHelper.copy(
+                            context,
+                            _buildAuditLogRowSummary(log),
+                            customMessage: l10n.auditLogCopySummarySuccess,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.picture_as_pdf_outlined, size: 18, color: Colors.grey),
+                          tooltip: l10n.exportAuditLogPdfBtn,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => MasterDataExportService.printOrSaveAuditLogPdf(log),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.history_rounded, size: 18, color: AppTheme.cobalt),
+                          tooltip: l10n.viewEntityHistoryBtn,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => RowHistoryDialog.show(
+                            context,
+                            entityType: log.entityType,
+                            entityId: log.entityId,
+                            entityTitle: log.entityCode ?? log.entityId.toString(),
+                          ),
                         ),
                       ],
                     ),
@@ -384,13 +539,23 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                 ),
                 const SizedBox(height: 4),
 
-                // User Info
-                Row(
-                  children: [
-                    const Icon(Icons.person_outline, size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(l10n.performedByUser(log.performedBy), style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  ],
+                // User Info (Clickable Copy)
+                InkWell(
+                  onTap: () => CopyHelper.copy(
+                    context,
+                    log.performedBy,
+                    customMessage: l10n.auditLogCopyFieldTooltip,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.person_outline, size: 14, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(l10n.performedByUser(log.performedBy), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.copy_rounded, size: 11, color: Colors.grey),
+                    ],
+                  ),
                 ),
               ],
             ),

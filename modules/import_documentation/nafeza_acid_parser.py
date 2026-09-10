@@ -449,6 +449,6 @@ def generate_email_request_template(req_data: Dict[str, Any]) -> Dict[str, str]:
         f"تجدون برفقه نسخة من الفاتورة المبدئية للاطلاع.\n"
         f"شاكرين لكم حسن تعاونكم الدائم.\n\n"
         f"قسم الاستيراد والتخليص الجمركي\n"
-        f"ImportFlow ERP System"
+        f"Sorour Logistics ERP System"
     )
     return {"subject": subject, "body": body}

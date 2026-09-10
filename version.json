@@ -1,17 +1,17 @@
 {
   "major": 1,
   "minor": 0,
-  "patch": 155,
-  "version": "1.0.155",
-  "build_number": 156,
-  "updated_at": "2026-09-07 16:36:42",
+  "patch": 158,
+  "version": "1.0.158",
+  "build_number": 159,
+  "updated_at": "2026-09-10 15:35:11",
   "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.151/Sorour_Logistics_Setup_v1.0.151.exe",
   "installer_filename": "Sorour_Logistics_Setup_v1.0.151.exe",
   "installer_size_mb": 198.02,
   "release_notes": [
-    "إزالة شاشة 3 (CBMCalculatorScreen) من قائمة Hub 2 (Shipment Planning).",
-    "إزالة شاشة 49 (FreightQuotationsScreen) من قائمة Phase 1 (Pre-Planning & Studies).",
-    "إضافة قسم ومحور استعلامات الجديد _buildHubTile باسم عربي \"استعلامات\" وإنجليزي \"Inquiries\" يضم الشاشتين 49 و 3.",
-    "إضافة أيقونة استعلامات في شريط الأيقونات المصغر _buildCollapsedRail."
+    "تم نقل عمود الإجراءات بالكامل ليكون العمود الثاني مباشرة بعد كود البند (الكود ثم الإجراءات ثم الاسم بالعربي ثم الاسم بالإنجليزي ثم التصنيف ثم وحدة الحساب ثم العملة).",
+    "أصبح زر التعديل (✏️ أزرق كوبالت) وزر الحذف (🗑️ أحمر) وزر النسخ (📋) ظاهرين في مقدمة كل صف بجوار الكود مباشرة دون الحاجة لأي تمرير أفقي نهائياً.",
+    "تغليف الجدول بـ LayoutBuilder و ConstrainedBox(constraints: BoxConstraints(minWidth: constraints.maxWidth)) ليتمدد الجدول ويشغل 100% من عرض البطاقة المتاح.",
+    "تقليل التباعد الأفقي columnSpacing من 56 بكسل إلى 14 بكسل و horizontalMargin إلى 12 بكسل لتوفير أكثر من 300 بكسل من الفراغات غير المستغلة."
   ]
 }

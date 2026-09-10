@@ -33,76 +33,8 @@ import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
-
-class CustomsItemCalcRow {
-  final String hsCode;
-  final String description;
-  final double qty;
-  final String unit;
-  final double foreignPrice;
-  final double fobEgp;
-  final double freightEgp;
-  final double insuranceEgp;
-  final double cifEgp;
-  final double dutyRate;
-  final double baseDutyRate;
-  final double dutyAmountEgp;
-  final double vatRate;
-  final double vatBaseEgp;
-  final double vatAmountEgp;
-  final double scheduleTaxRate;
-  final double scheduleTaxAmountEgp;
-  final double developmentFeeRate;
-  final double developmentFeeAmountEgp;
-  final double customsServiceFeeRate;
-  final double customsServiceFeeAmountEgp;
-  final double totalTaxesAndDutiesEgp;
-  final bool requiresCoo;
-  final bool requiresInspection;
-  final bool requiresAcid;
-  final String? regulatoryAuthority;
-  final String? priorApprovalNote;
-  final String? countryOfOrigin;
-  final String? appliedAgreementName;
-  final bool hasExemption;
-  final String? exemptionConditionsNote;
-  final String? requiredDocument;
-
-  CustomsItemCalcRow({
-    required this.hsCode,
-    required this.description,
-    required this.qty,
-    required this.unit,
-    required this.foreignPrice,
-    required this.fobEgp,
-    required this.freightEgp,
-    required this.insuranceEgp,
-    required this.cifEgp,
-    required this.dutyRate,
-    required this.baseDutyRate,
-    required this.dutyAmountEgp,
-    required this.vatRate,
-    required this.vatBaseEgp,
-    required this.vatAmountEgp,
-    required this.scheduleTaxRate,
-    required this.scheduleTaxAmountEgp,
-    required this.developmentFeeRate,
-    required this.developmentFeeAmountEgp,
-    required this.customsServiceFeeRate,
-    required this.customsServiceFeeAmountEgp,
-    required this.totalTaxesAndDutiesEgp,
-    required this.requiresCoo,
-    required this.requiresInspection,
-    required this.requiresAcid,
-    this.regulatoryAuthority,
-    this.priorApprovalNote,
-    this.countryOfOrigin,
-    this.appliedAgreementName,
-    this.hasExemption = false,
-    this.exemptionConditionsNote,
-    this.requiredDocument,
-  });
-}
+import '../services/customs_export_service.dart';
+import '../services/customs_consultation_pdf_service.dart';
 
 class CustomsConsultationScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -1347,6 +1279,103 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     );
   }
 
+  Future<void> _copyCustomsStudyTsv(List<CustomsItemCalcRow> calcLines) async {
+    await CustomsExportService.exportCustomsLinesTsv(
+      context: context,
+      calcLines: calcLines,
+      currency: _customsCurrency,
+    );
+  }
+
+  Future<void> _exportCustomsStudyExcel(
+    List<CustomsItemCalcRow> calcLines,
+    double totalFreightEgp,
+    double totalInsuranceEgp,
+    double exchangeRate,
+  ) async {
+    final nafezaResult = CustomsExportService.computeNafezaFeeBreakdown(
+      totalDutyEgp: calcLines.fold(0.0, (s, l) => s + l.dutyAmountEgp),
+      totalVatEgp: calcLines.fold(0.0, (s, l) => s + l.vatAmountEgp),
+      totalServiceFeeEgp: calcLines.fold(0.0, (s, l) => s + l.customsServiceFeeAmountEgp),
+      totalScheduleTaxEgp: calcLines.fold(0.0, (s, l) => s + l.scheduleTaxAmountEgp),
+    );
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final savedFile = await CustomsExportService.exportCustomsStudyToExcel(
+      context: context,
+      title: _titleController.text.trim(),
+      importFileCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : null,
+      brokerName: _selectedBrokerName.isNotEmpty ? _selectedBrokerName : (isArabic ? 'مكتب تخليص' : 'Customs Broker'),
+      currency: _customsCurrency,
+      exchangeRate: exchangeRate,
+      totalFreightEgp: totalFreightEgp,
+      totalInsuranceEgp: totalInsuranceEgp,
+      calcLines: calcLines,
+      nafezaResult: nafezaResult,
+      brokerQuoteItems: _brokerQuoteItems,
+    );
+    if (savedFile != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('✅ $savedFile'), backgroundColor: AppTheme.emerald),
+      );
+    }
+  }
+
+  Future<void> _printOrSaveCustomsStudyPdf(
+    List<CustomsItemCalcRow> calcLines,
+    double totalFreightEgp,
+    double totalInsuranceEgp,
+    double exchangeRate,
+  ) async {
+    final nafezaResult = CustomsExportService.computeNafezaFeeBreakdown(
+      totalDutyEgp: calcLines.fold(0.0, (s, l) => s + l.dutyAmountEgp),
+      totalVatEgp: calcLines.fold(0.0, (s, l) => s + l.vatAmountEgp),
+      totalServiceFeeEgp: calcLines.fold(0.0, (s, l) => s + l.customsServiceFeeAmountEgp),
+      totalScheduleTaxEgp: calcLines.fold(0.0, (s, l) => s + l.scheduleTaxAmountEgp),
+    );
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    await CustomsConsultationPdfService.printOrPreviewCalculationReportPdf(
+      context: context,
+      title: _titleController.text.trim(),
+      importFileCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : null,
+      brokerName: _selectedBrokerName.isNotEmpty ? _selectedBrokerName : (isArabic ? 'مكتب تخليص' : 'Customs Broker'),
+      currency: _customsCurrency,
+      exchangeRate: exchangeRate,
+      totalFreightEgp: totalFreightEgp,
+      totalInsuranceEgp: totalInsuranceEgp,
+      calcLines: calcLines,
+      nafezaResult: nafezaResult,
+      brokerQuoteItems: _brokerQuoteItems,
+      checklist: _checklist,
+    );
+  }
+
+  Future<void> _copyCustomsStudyDossier(
+    List<CustomsItemCalcRow> calcLines,
+    double totalFreightEgp,
+    double totalInsuranceEgp,
+    double exchangeRate,
+  ) async {
+    final nafezaResult = CustomsExportService.computeNafezaFeeBreakdown(
+      totalDutyEgp: calcLines.fold(0.0, (s, l) => s + l.dutyAmountEgp),
+      totalVatEgp: calcLines.fold(0.0, (s, l) => s + l.vatAmountEgp),
+      totalServiceFeeEgp: calcLines.fold(0.0, (s, l) => s + l.customsServiceFeeAmountEgp),
+      totalScheduleTaxEgp: calcLines.fold(0.0, (s, l) => s + l.scheduleTaxAmountEgp),
+    );
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    await CustomsExportService.copyCustomsDutyDossier(
+      context: context,
+      title: _titleController.text.trim(),
+      importFileCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : null,
+      brokerName: _selectedBrokerName.isNotEmpty ? _selectedBrokerName : (isArabic ? 'مكتب تخليص' : 'Customs Broker'),
+      currency: _customsCurrency,
+      exchangeRate: exchangeRate,
+      totalFreightEgp: totalFreightEgp,
+      totalInsuranceEgp: totalInsuranceEgp,
+      calcLines: calcLines,
+      nafezaResult: nafezaResult,
+    );
+  }
+
   Future<void> _saveConsultation() async {
     final l = context.l10n;
     final validationErrors = <ValidationIssueItem>[];
@@ -1536,6 +1565,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final egpLabel = isArabic ? 'ج.م' : 'EGP';
     final consultationsState = ref.watch(customsConsultationsProvider);
     final consultationsList = consultationsState.valueOrNull ?? [];
     final partnersState = ref.watch(partnersProvider);
@@ -1692,9 +1723,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           },
         ),
       ],
-      body: IndexedStack(
-        index: _tabController.index,
-        children: [
+      body: SelectionArea(
+        child: IndexedStack(
+          index: _tabController.index,
+          children: [
           // TAB 1: CUSTOMS CONSULTATION / DUTY WORKSPACE
           _visitedTabs.contains(0)
               ? SingleChildScrollView(
@@ -1788,7 +1820,55 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         label: Text(l.clearAndStartNew, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
-                      // 3. Smart Clearance Quote Extractor Button (Clearance Mode Only)
+                      // 3. TSV Export/Copy Button
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.charcoal,
+                          side: BorderSide(color: Colors.grey.shade400),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        onPressed: () => _copyCustomsStudyTsv(calcLines),
+                        icon: const Icon(Icons.table_view_outlined, size: 16, color: Colors.blueGrey),
+                        label: Text(l.customsTaxExportTsvBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+
+                      // 4. Excel Export Button
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.charcoal,
+                          side: BorderSide(color: Colors.grey.shade400),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        onPressed: () => _exportCustomsStudyExcel(calcLines, totalFreightEgp, totalInsuranceEgp, exchangeRate),
+                        icon: const Icon(Icons.description_outlined, size: 16, color: AppTheme.emerald),
+                        label: Text(l.customsTaxExportExcelBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+
+                      // 5. PDF Print/Preview Button
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.charcoal,
+                          side: BorderSide(color: Colors.grey.shade400),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        onPressed: () => _printOrSaveCustomsStudyPdf(calcLines, totalFreightEgp, totalInsuranceEgp, exchangeRate),
+                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 16, color: AppTheme.crimson),
+                        label: Text(l.customsTaxPrintPdfBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+
+                      // 6. Dossier Copy Button
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.charcoal,
+                          side: BorderSide(color: Colors.grey.shade400),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        onPressed: () => _copyCustomsStudyDossier(calcLines, totalFreightEgp, totalInsuranceEgp, exchangeRate),
+                        icon: const Icon(Icons.copy_all_outlined, size: 16, color: AppTheme.cobalt),
+                        label: Text(l.customsTaxCopyDossierBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+
+                      // 7. Smart Clearance Quote Extractor Button (Clearance Mode Only)
                       if (!widget.isTaxReviewMode)
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
@@ -1808,7 +1888,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                           },
                         ),
 
-                      // 4. Save Draft & Continue Later
+                      // 8. Save Draft & Continue Later
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFEFF6FF),
@@ -1822,7 +1902,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         label: Text(l.saveDraftContinueLater, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
-                      // 4. Final Save / Update
+                      // 9. Final Save / Update
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _editingConsultationId != null ? Colors.orange.shade700 : AppTheme.emerald,
@@ -1861,9 +1941,42 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  l.activeEditModeBannerTitle(_editingConsultationCode ?? ''),
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.orange.shade900),
+                                Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 8,
+                                  children: [
+                                    Text(
+                                      l.activeEditModeBannerTitle(_editingConsultationCode ?? ''),
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.orange.shade900),
+                                    ),
+                                    if (_editingConsultationCode != null)
+                                      Tooltip(
+                                        message: l.copyTooltip,
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(4),
+                                          onTap: () => CopyHelper.copy(context, _editingConsultationCode!),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange.shade100,
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: Colors.orange.shade300),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  _editingConsultationCode!,
+                                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.orange.shade900),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Icon(Icons.copy, size: 12, color: Colors.orange.shade900),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
@@ -2023,9 +2136,18 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   controller: _estimatedDutiesController,
                                   keyboardType: TextInputType.number,
                                   decoration: InputDecoration(
-                                    labelText: '${l.totalTaxesAndDutiesCol} (EGP)',
+                                    labelText: '${l.totalTaxesAndDutiesCol} ($egpLabel)',
                                     border: const OutlineInputBorder(),
                                     prefixIcon: const Icon(Icons.calculate, color: AppTheme.cobalt),
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy, size: 16),
+                                      tooltip: l.copyTooltip,
+                                      onPressed: () {
+                                        if (_estimatedDutiesController.text.isNotEmpty) {
+                                          CopyHelper.copy(context, _estimatedDutiesController.text);
+                                        }
+                                      },
+                                    ),
                                   ),
                                 ),
                               ),
@@ -2293,6 +2415,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                       labelText: l.customsFxRateLabel,
                                       border: const OutlineInputBorder(),
                                       prefixIcon: const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 18),
+                                      suffixIcon: IconButton(
+                                        icon: const Icon(Icons.copy, size: 16),
+                                        tooltip: l.copyTooltip,
+                                        onPressed: () {
+                                          if (_exchangeRateController.text.isNotEmpty) {
+                                            CopyHelper.copy(context, _exchangeRateController.text);
+                                          }
+                                        },
+                                      ),
                                     ),
                                     onChanged: (_) => setState(() {}),
                                   ),
@@ -2369,6 +2500,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           decoration: InputDecoration(
                                             labelText: l.foreignFreightAmountLabel,
                                             border: const OutlineInputBorder(),
+                                            suffixIcon: IconButton(
+                                              icon: const Icon(Icons.copy, size: 16),
+                                              tooltip: l.copyTooltip,
+                                              onPressed: () {
+                                                if (_freightForeignController.text.isNotEmpty) {
+                                                  CopyHelper.copy(context, _freightForeignController.text);
+                                                }
+                                              },
+                                            ),
                                           ),
                                           onChanged: (_) => setState(() => _recalculateFreightEgp()),
                                         ),
@@ -2412,6 +2552,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                             labelText: l.freightFxRateLabel,
                                             border: const OutlineInputBorder(),
                                             prefixIcon: const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 16),
+                                            suffixIcon: IconButton(
+                                              icon: const Icon(Icons.copy, size: 16),
+                                              tooltip: l.copyTooltip,
+                                              onPressed: () {
+                                                if (_freightExchangeRateController.text.isNotEmpty) {
+                                                  CopyHelper.copy(context, _freightExchangeRateController.text);
+                                                }
+                                              },
+                                            ),
                                           ),
                                           onChanged: (_) => setState(() => _recalculateFreightEgp()),
                                         ),
@@ -2423,9 +2572,18 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           controller: _freightEgpController,
                                           keyboardType: TextInputType.number,
                                           decoration: InputDecoration(
-                                            labelText: '${l.freightEgpLabel} (EGP)',
+                                            labelText: '${l.freightEgpLabel} ($egpLabel)',
                                             border: const OutlineInputBorder(),
                                             prefixIcon: const Icon(Icons.attach_money, color: AppTheme.emerald, size: 18),
+                                            suffixIcon: IconButton(
+                                              icon: const Icon(Icons.copy, size: 16),
+                                              tooltip: l.copyTooltip,
+                                              onPressed: () {
+                                                if (_freightEgpController.text.isNotEmpty) {
+                                                  CopyHelper.copy(context, _freightEgpController.text);
+                                                }
+                                              },
+                                            ),
                                           ),
                                           onChanged: (_) => setState(() {}),
                                         ),
@@ -2478,11 +2636,20 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                       readOnly: _insuranceOption != 'Custom',
                                       keyboardType: TextInputType.number,
                                       decoration: InputDecoration(
-                                        labelText: '${l.insuranceEgpLabel} (EGP)',
+                                        labelText: '${l.insuranceEgpLabel} ($egpLabel)',
                                         border: const OutlineInputBorder(),
                                         filled: _insuranceOption != 'Custom',
                                         fillColor: _insuranceOption != 'Custom' ? Colors.grey.shade100 : null,
                                         helperText: _insuranceOption != 'Custom' ? l.autoCalculatedCandFInsuranceHelper(_insuranceOption) : null,
+                                        suffixIcon: IconButton(
+                                          icon: const Icon(Icons.copy, size: 16),
+                                          tooltip: l.copyTooltip,
+                                          onPressed: () {
+                                            if (_insuranceEgpController.text.isNotEmpty) {
+                                              CopyHelper.copy(context, _insuranceEgpController.text);
+                                            }
+                                          },
+                                        ),
                                       ),
                                       onChanged: (_) => setState(() {}),
                                     ),
@@ -2539,7 +2706,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       CopyableText(
-                                        '${totalCifEgp.toStringAsFixed(2)} EGP',
+                                        '${totalCifEgp.toStringAsFixed(2)} $egpLabel',
                                         style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                                       ),
                                       if (exchangeRate > 0)
@@ -2631,9 +2798,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     DataColumn(label: Text(l.otherTaxesCol)),
                                     DataColumn(label: Text(l.totalTaxesAndDutiesCol)),
                                     DataColumn(label: Text(l.regulatoryRequirementsCol)),
+                                    DataColumn(label: Text(l.actionsCol)),
                                   ],
                                   rows: calcLines.map((line) {
-                                    final rowSummary = '${line.hsCode} | ${line.description} | Qty: ${line.qty.toStringAsFixed(0)} ${line.unit} | FOB: ${line.fobEgp.toStringAsFixed(2)} EGP | CIF: ${line.cifEgp.toStringAsFixed(2)} EGP | Duty: ${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)} EGP) | VAT: ${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)} EGP) | Total: ${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP';
+                                    final rowSummary = isArabic
+                                        ? '${line.hsCode} | ${line.description} | ${l.quantityAndUnitCol}: ${line.qty.toStringAsFixed(0)} ${line.unit} | ${l.fobEgpCol}: ${line.fobEgp.toStringAsFixed(2)} $egpLabel | ${l.cifEgpCol}: ${line.cifEgp.toStringAsFixed(2)} $egpLabel | ${l.customsDutyCol}: ${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)} $egpLabel) | ${l.vatCol}: ${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)} $egpLabel) | ${l.totalTaxesAndDutiesCol}: ${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel'
+                                        : '${line.hsCode} | ${line.description} | Qty: ${line.qty.toStringAsFixed(0)} ${line.unit} | FOB: ${line.fobEgp.toStringAsFixed(2)} $egpLabel | CIF: ${line.cifEgp.toStringAsFixed(2)} $egpLabel | Duty: ${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)} $egpLabel) | VAT: ${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)} $egpLabel) | Total: ${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel';
                                     return DataRow(
                                       cells: [
                                         DataCell(
@@ -2693,21 +2863,21 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: '${line.fobEgp.toStringAsFixed(2)} EGP',
+                                            value: '${line.fobEgp.toStringAsFixed(2)} $egpLabel',
                                             rowSummary: rowSummary,
                                             child: Text(line.fobEgp.toStringAsFixed(2)),
                                           ),
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: '${line.cifEgp.toStringAsFixed(2)} EGP',
+                                            value: '${line.cifEgp.toStringAsFixed(2)} $egpLabel',
                                             rowSummary: rowSummary,
                                             child: Text(line.cifEgp.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
                                           ),
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: '${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)} EGP)',
+                                            value: '${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)} $egpLabel)',
                                             rowSummary: rowSummary,
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2737,7 +2907,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                       border: Border.all(color: Colors.green.shade300),
                                                     ),
                                                     child: Text(
-                                                      line.appliedAgreementName ?? "Exemption",
+                                                      line.appliedAgreementName ?? (isArabic ? 'إعفاء' : 'Exemption'),
                                                       style: TextStyle(fontSize: 9.5, color: Colors.green.shade900, fontWeight: FontWeight.bold),
                                                     ),
                                                   ),
@@ -2750,23 +2920,23 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: '${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)} EGP)',
+                                            value: '${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)} $egpLabel)',
                                             rowSummary: rowSummary,
                                             child: Text('${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)})'),
                                           ),
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: '${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} EGP',
+                                            value: '${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} $egpLabel',
                                             rowSummary: rowSummary,
-                                            child: Text('${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} EGP'),
+                                            child: Text('${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} $egpLabel'),
                                           ),
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: '${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP',
+                                            value: '${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel',
                                             rowSummary: rowSummary,
-                                            child: Text('${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)),
+                                            child: Text('${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)),
                                           ),
                                         ),
                                         DataCell(
@@ -2777,21 +2947,21 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                   margin: const EdgeInsets.only(left: 4),
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                                   decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(4)),
-                                                  child: const Text('ACID', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue)),
+                                                  child: Text(isArabic ? 'تسجيل مسبق' : 'ACID', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue)),
                                                 ),
                                               if (line.requiresCoo)
                                                 Container(
                                                   margin: const EdgeInsets.only(left: 4),
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                                   decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(4)),
-                                                  child: const Text('COO', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                                                  child: Text(isArabic ? 'شهادة منشأ' : 'COO', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
                                                 ),
                                               if (line.requiresInspection)
                                                 Container(
                                                   margin: const EdgeInsets.only(left: 4),
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                                   decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(4)),
-                                                  child: const Text('GOEIC', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),
+                                                  child: Text(isArabic ? 'رقابة صادرات' : 'GOEIC', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),
                                                 ),
                                               if (line.regulatoryAuthority != null)
                                                 Container(
@@ -2800,6 +2970,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                   child: Text(line.regulatoryAuthority!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.purple)),
                                                 ),
                                             ],
+                                          ),
+                                        ),
+                                        DataCell(
+                                          IconButton(
+                                            icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
+                                            tooltip: l.copyTooltip,
+                                            onPressed: () => CopyHelper.copy(context, rowSummary, customMessage: l.customsTaxCopyRowSuccess),
                                           ),
                                         ),
                                       ],
@@ -2828,7 +3005,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
-                                              '⚠️ HS Code: ${line.hsCode}${line.countryOfOrigin != null ? " - ${line.countryOfOrigin}" : ""}',
+                                              '${isArabic ? "⚠️ بند جمركي" : "⚠️ HS Code"}: ${line.hsCode}${line.countryOfOrigin != null ? " - ${line.countryOfOrigin}" : ""}',
                                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber.shade900),
                                             ),
                                           ),
@@ -2841,7 +3018,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                 border: Border.all(color: Colors.green.shade700),
                                               ),
                                               child: Text(
-                                                line.appliedAgreementName ?? 'Exemption',
+                                                line.appliedAgreementName ?? (isArabic ? 'إعفاء' : 'Exemption'),
                                                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green.shade900),
                                               ),
                                             ),
@@ -2890,17 +3067,17 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   children: [
                                     ConsultationMetricBadge(
                                       title: l.fobEgpCol,
-                                      value: '${totalFobForeign.toStringAsFixed(2)} $_customsCurrency\n(${totalFobEgp.toStringAsFixed(2)} EGP)',
+                                      value: '${totalFobForeign.toStringAsFixed(2)} $_customsCurrency\n(${totalFobEgp.toStringAsFixed(2)} $egpLabel)',
                                       color: Colors.grey.shade800,
                                     ),
                                     ConsultationMetricBadge(
                                       title: l.cifEgpCol,
-                                      value: '${totalCifForeign.toStringAsFixed(2)} $_customsCurrency\n(${totalCifEgp.toStringAsFixed(2)} EGP)',
+                                      value: '${totalCifForeign.toStringAsFixed(2)} $_customsCurrency\n(${totalCifEgp.toStringAsFixed(2)} $egpLabel)',
                                       color: AppTheme.cobalt,
                                     ),
-                                    ConsultationMetricBadge(title: l.customsDutyCol, value: '${totalDutyEgp.toStringAsFixed(2)} EGP', color: Colors.indigo),
-                                    ConsultationMetricBadge(title: l.vatCol, value: '${totalVatEgp.toStringAsFixed(2)} EGP', color: Colors.teal),
-                                    ConsultationMetricBadge(title: l.totalTaxesAndDutiesCol, value: '${totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP', color: AppTheme.crimson),
+                                    ConsultationMetricBadge(title: l.customsDutyCol, value: '${totalDutyEgp.toStringAsFixed(2)} $egpLabel', color: Colors.indigo),
+                                    ConsultationMetricBadge(title: l.vatCol, value: '${totalVatEgp.toStringAsFixed(2)} $egpLabel', color: Colors.teal),
+                                    ConsultationMetricBadge(title: l.totalTaxesAndDutiesCol, value: '${totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel', color: AppTheme.crimson),
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
                                       onPressed: () {
@@ -2908,7 +3085,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           _estimatedDutiesController.text = totalTaxesAndDutiesEgp.toStringAsFixed(2);
                                         });
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('✅ ${l.applyAndLinkFinancialEstimate}: ${totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP'), backgroundColor: AppTheme.emerald),
+                                          SnackBar(content: Text('✅ ${l.applyAndLinkFinancialEstimate}: ${totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel'), backgroundColor: AppTheme.emerald),
                                         );
                                       },
                                       icon: const Icon(Icons.done_all, color: Colors.white, size: 16),
@@ -3207,6 +3384,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
               : const SizedBox.shrink(),
         ],
       ],
+        ),
       ),
     );
   }

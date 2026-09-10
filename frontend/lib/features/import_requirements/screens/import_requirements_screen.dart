@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/localization/locale_provider.dart';
+import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../customs_consultation/providers/customs_consultation_provider.dart';
@@ -737,12 +738,14 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           ),
         ],
       ),
-      body: TabBarView(
-        controller: _mainTabController,
-        children: [
-          _buildInteractiveAssessmentFormTab(),
-          _buildSavedAssessmentsRegistryTab(),
-        ],
+      body: SelectionArea(
+        child: TabBarView(
+          controller: _mainTabController,
+          children: [
+            _buildInteractiveAssessmentFormTab(),
+            _buildSavedAssessmentsRegistryTab(),
+          ],
+        ),
       ),
     );
   }
@@ -859,7 +862,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 title: l10n.acidIssuanceStep,
                 subtitle: _acidNumberCtrl.text.isNotEmpty
                     ? _acidNumberCtrl.text
-                    : (ref.watch(localeProvider).languageCode == 'ar' ? 'يُستخرج لاحقاً (مرحلة ACID)' : 'Issued in ACID Phase'),
+                    : l10n.acidIssuedInPhaseText,
                 isCompleted: _acidNumberCtrl.text.isNotEmpty,
                 isActive: true,
               ),
@@ -1007,6 +1010,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     helperStyle: TextStyle(fontSize: 10, color: Colors.blueGrey.shade600),
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.numbers, color: AppTheme.cobalt, size: 18),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: l10n.requirementCopyFieldTooltip,
+                      onPressed: () => CopyHelper.copy(context, _acidNumberCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+                    ),
                   ),
                   validator: null, // Optional in Pre-Planning / Requirements Stage
                 ),
@@ -1106,7 +1114,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                       ),
                       const Spacer(),
                       Text(
-                        'حدد البند لعرض واستيفاء متطلباته الـ 5 بشكل منفصل:',
+                        l10n.requirementSelectHsInstruction,
                         style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                       ),
                     ],
@@ -1215,7 +1223,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                                             Text(
                                               isFullyCompliant
                                                   ? l10n.hsCodeFullyCompliantChip
-                                                  : (isDecree43Warning ? 'قرار 43: غير مسجل' : '$fulfilledCount/5 استيفاء'),
+                                                  : (isDecree43Warning ? l10n.decree43NotRegisteredBadge : l10n.requirementPillarsProgressBadge(fulfilledCount)),
                                               style: TextStyle(
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.bold,
@@ -1257,6 +1265,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     labelText: l10n.hsCodeFieldLabel,
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.qr_code_2, color: AppTheme.cobalt, size: 18),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: l10n.requirementCopyFieldTooltip,
+                      onPressed: () => CopyHelper.copy(context, _hsCodeCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+                    ),
                   ),
                   validator: (v) => (v == null || v.trim().isEmpty) ? l10n.hsCodeRequiredError : null,
                 ),
@@ -1270,6 +1283,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     labelText: l10n.commodityDescFieldLabel,
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.description, color: AppTheme.cobalt, size: 18),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: l10n.requirementCopyFieldTooltip,
+                      onPressed: () => CopyHelper.copy(context, _descCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+                    ),
                   ),
                   validator: (v) => (v == null || v.trim().isEmpty) ? l10n.commodityDescRequiredError : null,
                 ),
@@ -1283,6 +1301,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     labelText: l10n.countryOfOriginFieldLabel,
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.public, color: AppTheme.cobalt, size: 18),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: l10n.requirementCopyFieldTooltip,
+                      onPressed: () => CopyHelper.copy(context, _originCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+                    ),
                   ),
                   validator: (v) => (v == null || v.trim().isEmpty) ? l10n.countryOfOriginRequiredError : null,
                 ),
@@ -1295,6 +1318,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                   decoration: InputDecoration(
                     labelText: l10n.currencyFieldLabel,
                     border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: l10n.requirementCopyFieldTooltip,
+                      onPressed: () => CopyHelper.copy(context, _currencyCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+                    ),
                   ),
                 ),
               ),
@@ -1307,6 +1335,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     labelText: l10n.valueInCurrencyFieldLabel,
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.monetization_on, color: AppTheme.emerald, size: 18),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: l10n.requirementCopyFieldTooltip,
+                      onPressed: () => CopyHelper.copy(context, _valueCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+                    ),
                   ),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
@@ -1453,6 +1486,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             hintText: l10n.factoryRegNumHint,
             border: const OutlineInputBorder(),
             prefixIcon: const Icon(Icons.badge, color: AppTheme.cobalt),
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.copy, size: 16),
+              tooltip: l10n.requirementCopyFieldTooltip,
+              onPressed: () => CopyHelper.copy(context, _factoryRegCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+            ),
           ),
         ),
         _buildDecree43DecisionCard(),
@@ -1518,6 +1556,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             labelText: l10n.cooNotesFieldLabel,
             hintText: l10n.cooNotesHint,
             border: const OutlineInputBorder(),
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.copy, size: 16),
+              tooltip: l10n.requirementCopyFieldTooltip,
+              onPressed: () => CopyHelper.copy(context, _cooNotesCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+            ),
           ),
         ),
       ],
@@ -1586,6 +1629,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 decoration: InputDecoration(
                   labelText: l10n.inspectionReportNumFieldLabel,
                   border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.copy, size: 16),
+                    tooltip: l10n.requirementCopyFieldTooltip,
+                    onPressed: () => CopyHelper.copy(context, _inspReportNoCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+                  ),
                 ),
               ),
             ),
@@ -1596,6 +1644,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 decoration: InputDecoration(
                   labelText: l10n.inspectionNotesFieldLabel,
                   border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.copy, size: 16),
+                    tooltip: l10n.requirementCopyFieldTooltip,
+                    onPressed: () => CopyHelper.copy(context, _inspNotesCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+                  ),
                 ),
               ),
             ),
@@ -1667,6 +1720,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 decoration: InputDecoration(
                   labelText: l10n.permitNumberFieldLabel,
                   border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.copy, size: 16),
+                    tooltip: l10n.requirementCopyFieldTooltip,
+                    onPressed: () => CopyHelper.copy(context, _permitNumberCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+                  ),
                 ),
               ),
             ),
@@ -1677,6 +1735,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 decoration: InputDecoration(
                   labelText: l10n.permitNotesFieldLabel,
                   border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.copy, size: 16),
+                    tooltip: l10n.requirementCopyFieldTooltip,
+                    onPressed: () => CopyHelper.copy(context, _permitNotesCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+                  ),
                 ),
               ),
             ),
@@ -1755,6 +1818,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     hintText: 'YYYY-MM-DD',
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 18),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: l10n.requirementCopyFieldTooltip,
+                      onPressed: () => CopyHelper.copy(context, _sailingDateCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+                    ),
                   ),
                 ),
               ),
@@ -1788,6 +1856,21 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _specialNotesCtrl,
+          maxLines: 2,
+          decoration: InputDecoration(
+            labelText: l10n.requirementsTsvHeaderNotes,
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.note_alt_outlined, color: AppTheme.cobalt, size: 18),
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.copy, size: 16),
+              tooltip: l10n.requirementCopyFieldTooltip,
+              onPressed: () => CopyHelper.copy(context, _specialNotesCtrl.text, customMessage: l10n.copiedToClipboardGeneric),
+            ),
           ),
         ),
       ],
@@ -1888,6 +1971,51 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             moduleEndpoint: 'import-requirements',
             title: 'Import_Requirements_Registry',
             onRefreshNeeded: _refreshAllData,
+          ),
+          const SizedBox(height: 12),
+
+          // Export Actions Row
+          Row(
+            children: [
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.cobalt,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                icon: const Icon(Icons.table_chart_outlined, size: 16),
+                label: Text(l10n.requirementsExportTsvBtn),
+                onPressed: () {
+                  final list = asyncReqs.valueOrNull ?? [];
+                  _copyRequirementsTsv(list);
+                },
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.emerald,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                icon: const Icon(Icons.file_download_outlined, size: 16),
+                label: Text(l10n.requirementsExportExcelBtn),
+                onPressed: () {
+                  final list = asyncReqs.valueOrNull ?? [];
+                  MasterDataExportService.exportImportRequirementsToExcel(context, list);
+                },
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.charcoal,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                label: Text(l10n.requirementsExportPdfBtn),
+                onPressed: () {
+                  final list = asyncReqs.valueOrNull ?? [];
+                  MasterDataExportService.printOrSaveImportRequirementsListPdf(context, list);
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 12),
 
@@ -2087,23 +2215,45 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppTheme.cobalt.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(req.assessmentCode, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(width: 8),
-          if (req.acidNumber != null)
-            Container(
+          InkWell(
+            onTap: () => CopyHelper.copy(context, req.assessmentCode, customMessage: l10n.requirementCopySummarySuccess),
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: AppTheme.emerald.withOpacity(0.1),
+                color: AppTheme.cobalt.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text('ACID: ${req.acidNumber}', style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.copy, size: 10, color: AppTheme.cobalt),
+                  const SizedBox(width: 4),
+                  Text(req.assessmentCode, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (req.acidNumber != null && req.acidNumber!.isNotEmpty)
+            InkWell(
+              onTap: () => CopyHelper.copy(context, req.acidNumber!, customMessage: l10n.requirementCopySummarySuccess),
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.emerald.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.copy, size: 10, color: AppTheme.emerald),
+                    const SizedBox(width: 4),
+                    Text(l10n.reqAcidNumberBadge(req.acidNumber!), style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
             ),
           const Spacer(),
           if (!req.isActive)
@@ -2147,6 +2297,27 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Quick Copy Summary Button
+          IconButton(
+            icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 18),
+            tooltip: l10n.requirementCopySummaryBtn,
+            onPressed: () {
+              final summary = _buildRequirementRowSummary(req);
+              CopyHelper.copy(context, summary, customMessage: l10n.requirementCopySummarySuccess);
+            },
+          ),
+          // View Details Dialog Button
+          IconButton(
+            icon: const Icon(Icons.visibility_outlined, color: AppTheme.charcoal, size: 18),
+            tooltip: l10n.requirementDetailsDialogTitle,
+            onPressed: () => _showRequirementDetailsDialog(req),
+          ),
+          // Print Slip Button
+          IconButton(
+            icon: const Icon(Icons.print_outlined, color: AppTheme.emerald, size: 18),
+            tooltip: l10n.printRequirementSlipBtn,
+            onPressed: () => MasterDataExportService.printOrSaveImportRequirementSlipPdf(context, req),
+          ),
           // Edit Button (Restores if deleted and loads into form)
           IconButton(
             icon: const Icon(Icons.edit, color: AppTheme.cobalt),
@@ -2190,6 +2361,260 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         border: Border.all(color: color.withOpacity(0.4)),
       ),
       child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+    );
+  }
+
+  Widget _buildCopyableBadge(String text, Color color) {
+    return InkWell(
+      onTap: () => CopyHelper.copy(context, text, customMessage: context.l10n.requirementCopySummarySuccess),
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.copy, size: 11, color: color),
+            const SizedBox(width: 4),
+            Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 170,
+            child: Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+          ),
+          Expanded(
+            child: SelectableText(value, style: const TextStyle(fontSize: 12, color: AppTheme.charcoal)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _buildRequirementRowSummary(ImportRequirementModel req) {
+    final l10n = context.l10n;
+    final b = StringBuffer();
+    b.writeln('${l10n.requirementsTsvHeaderCode}: ${req.assessmentCode}');
+    if (req.importFileCode != null && req.importFileCode!.isNotEmpty) {
+      b.writeln('${l10n.requirementsTsvHeaderFileCode}: ${req.importFileCode}');
+    }
+    if (req.acidNumber != null && req.acidNumber!.isNotEmpty) {
+      b.writeln('ACID: ${req.acidNumber}');
+    }
+    b.writeln('${l10n.requirementsTsvHeaderHsCode}: ${req.hsCode ?? "-"}');
+    b.writeln('${l10n.requirementsTsvHeaderCommodity}: ${req.commodityDescription ?? "-"}');
+    b.writeln('${l10n.requirementsTsvHeaderSupplier}: ${req.supplierName ?? "-"}');
+    b.writeln('${l10n.requirementsTsvHeaderOrigin}: ${req.countryOfOrigin ?? "-"}');
+    b.writeln('${l10n.requirementsTsvHeaderValue}: ${req.shipmentValue.toStringAsFixed(2)} ${req.currency}');
+    b.writeln('${l10n.requirementsTsvHeaderDecree43}: ${req.decree43Applicable ? (req.whiteListVerified ? (req.factoryRegistrationNo ?? l10n.decree43VerifiedBadge) : (req.decree43Action ?? l10n.decree43NotRegisteredBadge)) : "-"}');
+    b.writeln('${l10n.requirementsTsvHeaderCoo}: ${req.cooRequired ? '${req.cooType ?? "COO"} (${req.cooStatus})' : "-"}');
+    b.writeln('${l10n.requirementsTsvHeaderInspection}: ${req.inspectionRequired ? '${req.inspectionBody ?? "Inspection"} (${req.inspectionStatus})' : "-"}');
+    b.writeln('${l10n.requirementsTsvHeaderPermit}: ${req.importPermitRequired ? '${req.permitIssuingAuthority ?? "Authority"} (${req.permitStatus})' : "-"}');
+    b.writeln('${l10n.requirementsTsvHeaderTechCerts}: ${req.isPostAcidConfirmed ? l10n.overallStatusConfirmedOption : req.sailingStatus}');
+    b.writeln('${l10n.requirementsTsvHeaderRiskLevel}: ${req.riskLevel}');
+    b.writeln('${l10n.requirementsTsvHeaderOverallStatus}: ${req.overallStatus}');
+    if (req.assessedBy.isNotEmpty) {
+      b.writeln('${l10n.requirementsTsvHeaderAssessedBy}: ${req.assessedBy}');
+    }
+    if (req.assessmentNotes != null && req.assessmentNotes!.isNotEmpty) {
+      b.writeln('${l10n.requirementsTsvHeaderNotes}: ${req.assessmentNotes}');
+    }
+    return b.toString().trim();
+  }
+
+  void _copyRequirementsTsv(List<ImportRequirementModel> reqs) {
+    final l10n = context.l10n;
+    if (reqs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.noRequirementsFound), backgroundColor: AppTheme.charcoal),
+      );
+      return;
+    }
+    final headers = [
+      l10n.requirementsTsvHeaderCode,
+      l10n.requirementsTsvHeaderFileCode,
+      'ACID',
+      l10n.requirementsTsvHeaderHsCode,
+      l10n.requirementsTsvHeaderCommodity,
+      l10n.requirementsTsvHeaderSupplier,
+      l10n.requirementsTsvHeaderOrigin,
+      l10n.requirementsTsvHeaderValue,
+      l10n.requirementsTsvHeaderCurrency,
+      l10n.requirementsTsvHeaderDecree43,
+      l10n.requirementsTsvHeaderCoo,
+      l10n.requirementsTsvHeaderInspection,
+      l10n.requirementsTsvHeaderPermit,
+      l10n.requirementsTsvHeaderTechCerts,
+      l10n.requirementsTsvHeaderSailingStatus,
+      l10n.requirementsTsvHeaderOverallStatus,
+      l10n.requirementsTsvHeaderRiskLevel,
+      l10n.requirementsTsvHeaderAssessedBy,
+      l10n.requirementsTsvHeaderNotes,
+    ];
+    final rows = reqs.map((req) {
+      return [
+        req.assessmentCode,
+        req.importFileCode ?? '',
+        req.acidNumber ?? '',
+        req.hsCode ?? '',
+        (req.commodityDescription ?? '').replaceAll('\t', ' ').replaceAll('\n', ' '),
+        req.supplierName ?? '',
+        req.countryOfOrigin ?? '',
+        req.shipmentValue.toStringAsFixed(2),
+        req.currency,
+        req.decree43Applicable ? (req.whiteListVerified ? (req.factoryRegistrationNo ?? 'Registered') : (req.decree43Action ?? 'Non-compliant')) : 'N/A',
+        req.cooRequired ? '${req.cooType ?? "COO"} (${req.cooStatus})' : 'N/A',
+        req.inspectionRequired ? '${req.inspectionBody ?? "Inspection"} (${req.inspectionStatus})' : 'N/A',
+        req.importPermitRequired ? '${req.permitIssuingAuthority ?? "Authority"} (${req.permitStatus})' : 'N/A',
+        req.isPostAcidConfirmed ? 'Confirmed' : req.sailingStatus,
+        req.sailingStatus,
+        req.overallStatus,
+        req.riskLevel,
+        req.assessedBy,
+        (req.assessmentNotes ?? '').replaceAll('\t', ' ').replaceAll('\n', ' '),
+      ].join('\t');
+    }).toList();
+
+    final tsv = [headers.join('\t'), ...rows].join('\n');
+    CopyHelper.copy(context, tsv, customMessage: l10n.requirementsExportTsvSuccess);
+  }
+
+  void _showRequirementDetailsDialog(ImportRequirementModel req) {
+    final l10n = context.l10n;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            const Icon(Icons.fact_check_outlined, color: AppTheme.cobalt),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                l10n.requirementDetailsDialogTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, size: 20),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+        content: SelectionArea(
+          child: SizedBox(
+            width: 650,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Badges
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _buildCopyableBadge(req.assessmentCode, AppTheme.cobalt),
+                      if (req.importFileCode != null && req.importFileCode!.isNotEmpty)
+                        _buildCopyableBadge(req.importFileCode!, AppTheme.charcoal),
+                      if (req.acidNumber != null && req.acidNumber!.isNotEmpty)
+                        _buildCopyableBadge(l10n.reqAcidNumberBadge(req.acidNumber!), AppTheme.emerald),
+                      _buildBadge(req.overallStatus, _getStatusColor(req.overallStatus)),
+                      _buildBadge(req.riskLevel, _getRiskLevelColor(req.riskLevel)),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Divider(height: 1),
+                  const SizedBox(height: 14),
+
+                  // Basic Info Grid
+                  _buildDetailRow(l10n.hsCodeFieldLabel, req.hsCode ?? '-'),
+                  _buildDetailRow(l10n.commodityDescFieldLabel, req.commodityDescription ?? '-'),
+                  _buildDetailRow(l10n.foreignSupplierFieldLabel, req.supplierName ?? '-'),
+                  _buildDetailRow(l10n.countryOfOriginFieldLabel, req.countryOfOrigin ?? '-'),
+                  _buildDetailRow(l10n.valueInCurrencyFieldLabel, '${req.shipmentValue.toStringAsFixed(2)} ${req.currency}'),
+                  const SizedBox(height: 10),
+                  const Divider(height: 1),
+                  const SizedBox(height: 10),
+
+                  // 5 Pillars Breakdown
+                  Text(
+                    l10n.importRequirementsFormTab,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    l10n.pillar1Decree43Tab,
+                    req.decree43Applicable
+                        ? (req.whiteListVerified ? (req.factoryRegistrationNo ?? l10n.decree43VerifiedBadge) : (req.decree43Action ?? l10n.decree43NotRegisteredBadge))
+                        : '-',
+                  ),
+                  _buildDetailRow(
+                    l10n.pillar2CooTab,
+                    req.cooRequired ? '${req.cooType ?? "COO"} (${req.cooStatus})' : '-',
+                  ),
+                  _buildDetailRow(
+                    l10n.pillar3InspectionTab,
+                    req.inspectionRequired ? '${req.inspectionBody ?? "Inspection"} (${req.inspectionStatus})' : '-',
+                  ),
+                  _buildDetailRow(
+                    l10n.pillar4PermitsTab,
+                    req.importPermitRequired ? '${req.permitIssuingAuthority ?? "Authority"} (${req.permitStatus})' : '-',
+                  ),
+                  _buildDetailRow(
+                    l10n.pillar5TechCertsTab,
+                    req.isPostAcidConfirmed ? l10n.overallStatusConfirmedOption : req.sailingStatus,
+                  ),
+                  if (req.assessmentNotes != null && req.assessmentNotes!.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    const Divider(height: 1),
+                    const SizedBox(height: 10),
+                    _buildDetailRow(l10n.requirementsTsvHeaderNotes, req.assessmentNotes!),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt),
+            icon: const Icon(Icons.copy, size: 16),
+            label: Text(l10n.requirementCopySummaryBtn),
+            onPressed: () {
+              final summary = _buildRequirementRowSummary(req);
+              CopyHelper.copy(context, summary, customMessage: l10n.requirementCopySummarySuccess);
+            },
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+            icon: const Icon(Icons.print, size: 16),
+            label: Text(l10n.printRequirementSlipBtn),
+            onPressed: () {
+              Navigator.pop(ctx);
+              MasterDataExportService.printOrSaveImportRequirementSlipPdf(context, req);
+            },
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.close),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2238,7 +2663,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       l10n.decree43JustificationReasonPrivateUse,
       l10n.decree43JustificationReasonSpareParts,
       l10n.decree43JustificationReasonMinisterialExemption,
-      'طلب قيد المصنع مسجل بالفعل برقم وارد بهيئة الرقابة (GOEIC) وقيد المراجعة',
+      l10n.decree43SampleReasonGoeicReview,
     ];
 
     try {
@@ -2254,50 +2679,60 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 Text(l10n.decree43JustificationDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               ],
             ),
-            content: SizedBox(
-              width: 580,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.shade200),
+            content: SelectionArea(
+              child: SizedBox(
+                width: 580,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Text(
+                        l10n.decree43JustificationDialogDesc,
+                        style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+                      ),
                     ),
-                    child: Text(
-                      l10n.decree43JustificationDialogDesc,
-                      style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+                    const SizedBox(height: 12),
+                    Text(
+                      l10n.decree43CommonExemptionsTitle,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('أسباب الإعفاء الشائعة والمعتمدة قانوناً (انقر للتحديد السريع):', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: sampleReasons.map((r) => ActionChip(
-                      label: Text(r, style: const TextStyle(fontSize: 10)),
-                      backgroundColor: Colors.grey.shade100,
-                      onPressed: () {
-                        justCtrl.text = r;
-                        setDState(() {});
-                      },
-                    )).toList(),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: justCtrl,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: l10n.decree43OptionRequestJustification,
-                      hintText: 'أدخل المبرر أو السند القانوني للإعفاء...',
-                      border: const OutlineInputBorder(),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: sampleReasons.map((r) => ActionChip(
+                        label: Text(r, style: const TextStyle(fontSize: 10)),
+                        backgroundColor: Colors.grey.shade100,
+                        onPressed: () {
+                          justCtrl.text = r;
+                          setDState(() {});
+                        },
+                      )).toList(),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: justCtrl,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: l10n.decree43OptionRequestJustification,
+                        hintText: l10n.decree43JustificationHint,
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy, size: 16),
+                          tooltip: l10n.requirementCopyFieldTooltip,
+                          onPressed: () => CopyHelper.copy(context, justCtrl.text, customMessage: l10n.requirementCopySummarySuccess),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -2422,9 +2857,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.orange),
                   ),
                   const SizedBox(height: 2),
-                  const Text(
-                    'تم جدولة مهمة إلزامية لفريق العمل بمتابعة قيد المصنع بالهيئة العامة للرقابة على الصادرات والواردات (GOEIC) وتنبيه الداشبورد.',
-                    style: TextStyle(fontSize: 11, color: AppTheme.charcoal),
+                  Text(
+                    l10n.decree43TaskExplanation,
+                    style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
                   ),
                 ],
               ),
@@ -2432,7 +2867,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt, side: const BorderSide(color: AppTheme.cobalt)),
               icon: const Icon(Icons.gavel_rounded, size: 14),
-              label: const Text('تغيير إلى استثناء قانوني', style: TextStyle(fontSize: 11)),
+              label: Text(l10n.decree43ExemptionChangeBtn, style: const TextStyle(fontSize: 11)),
               onPressed: _showDecree43JustificationDialog,
             ),
           ],
@@ -2520,34 +2955,34 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     switch (_activePillarIndex) {
       case 0:
         // Pillar 1: Decree 43
-        mandatoryText = 'قرار وزير التجارة والصناعة رقم 43 لسنة 2016: يُشترط للإفراج عن السلع تامة الصنع أن تكون منتجة بمصانع مسجلة بالقائمة البيضاء للهيئة العامة للرقابة على الصادرات والواردات (GOEIC).';
-        warningText = 'في حالة عدم تسجيل المصنع، يُحظر الإفراج الجمركي ويُمنع إصدار الرقم التعريفي المبدئي (ACID) ما لم يتم توثيق استثناء رسمي أو تسجيل المصنع فوراً.';
-        exemptionText = 'يُعفى من التسجيل: مستلزمات الإنتاج والخامات وقطع الغيار للمصانع والشركات الخدمية (مادة 2)، وكذلك الاستيراد للاستخدام الخاص والعينات غير التجارية.';
+        mandatoryText = l10n.compliancePillar1Mandatory;
+        warningText = l10n.compliancePillar1Warning;
+        exemptionText = l10n.compliancePillar1Exemption;
         break;
       case 1:
         // Pillar 2: Certificate of Origin
-        mandatoryText = 'تقديم أصل شهادة المنشأ موثقة من الغرفة التجارية بالدولة المصدرة ومطابقة تماماً للفاتورة وقائمة التعبئة وبوليصة الشحن.';
-        warningText = 'تضارب بلد المنشأ مع بلد الشحن بدون شهادة حركة، أو اختلاف اسم المصدر يؤدي لفقدان المزايا التفضيلية وتطبيق الرسوم الجمركية كاملة.';
-        exemptionText = 'الاتفاقيات التفضيلية: شهادات (EUR.1 الشراكة الأوروبية، GAFTA الدول العربية، COMESA، تركيا، أغادير) تمنح تخفيضات جمركية وإعفاءات كاملة من ضريبة الوارد.';
+        mandatoryText = l10n.compliancePillar2Mandatory;
+        warningText = l10n.compliancePillar2Warning;
+        exemptionText = l10n.compliancePillar2Exemption;
         break;
       case 2:
         // Pillar 3: Pre-Shipment Inspection
-        mandatoryText = 'فحص السلع الخاضعة وإصدار شهادة مطابقة وفحص مسبق (ILAC / ISO 17020) من جهة فحص دولية معتمدة (SGS, Bureau Veritas, TÜV, Intertek) قبل إبحار الشحنة.';
-        warningText = 'الشحن بدون شهادة فحص معتمدة يستوجب سحب عينات معملية إجبارية بالهيئة العامة للرقابة مع مخاطر الرفض وإعادة التصدير على نفقة المستورد.';
-        exemptionText = 'تسهيلات الشركات المعتمدة ببرنامج المشغل الاقتصادي المعتمد (AEO) تخضع للفحص الظاهري والمطابقة السريعة بالمسار الأخضر.';
+        mandatoryText = l10n.compliancePillar3Mandatory;
+        warningText = l10n.compliancePillar3Warning;
+        exemptionText = l10n.compliancePillar3Exemption;
         break;
       case 3:
         // Pillar 4: Regulatory Permits
-        mandatoryText = 'استخراج الموافقات المسبقة والتسجيل لدى الجهات التنظيمية المصرية (هيئة الدواء EDA، جهاز البيئة EEAA، الاتصالات NTRA، سلامة الغذاء NFSA) قبل فتح الاعتماد والشحن.';
-        warningText = 'شحن أي بضائع خاضعة دون تصريح مسبق يمنع إدراج الشحنة على منصة نافذة، ويعرضها للتحفظ والمصادرة الجمركية.';
-        exemptionText = 'المستوردون الصناعيون المصرح لهم يمكنهم طلب الإفراج تحت التحفظ خارج الدائرة الجمركية للتخزين بالمصنع لحين صدور المطابقة النهائية.';
+        mandatoryText = l10n.compliancePillar4Mandatory;
+        warningText = l10n.compliancePillar4Warning;
+        exemptionText = l10n.compliancePillar4Exemption;
         break;
       case 4:
       default:
         // Pillar 5: Technical Certificates & MSDS
-        mandatoryText = 'استيفاء صحيفة بيانات سلامة المادة (MSDS) للبضائع الكيماوية والخطرة متضمنة كود UN وCAS، وشهادة الحلال للحوم والأغذية، وشهادة التحليل المخبري (COA).';
-        warningText = 'عدم وضوح تاريخ الصلاحية ورقم التشغيلة باللغة العربية على العبوات يؤدي لرفض الإفراج من الهيئة القومية لسلامة الغذاء أو الحجر الصحي.';
-        exemptionText = 'السلع الجافة، المعدات، وقطع الغيار الميكانيكية والصناعية معفاة كلياً من متطلبات MSDS وشهادة الحلال، وتكتفي بالفحص الفني للكتالوج.';
+        mandatoryText = l10n.compliancePillar5Mandatory;
+        warningText = l10n.compliancePillar5Warning;
+        exemptionText = l10n.compliancePillar5Exemption;
         break;
     }
 
@@ -2567,7 +3002,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               const Icon(Icons.shield_outlined, color: AppTheme.cobalt, size: 18),
               const SizedBox(width: 6),
               Text(
-                'شريط الامتثال والتنبيهات الرقابية للبند: ${currentHs.isNotEmpty ? currentHs : 'HS-Code'} ${currentDesc.isNotEmpty ? "($currentDesc)" : ""}',
+                l10n.complianceBannerTitle(
+                  currentHs.isNotEmpty ? currentHs : 'HS-Code',
+                  currentDesc.isNotEmpty ? "($currentDesc)" : "",
+                ),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
               ),
             ],

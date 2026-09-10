@@ -19,6 +19,8 @@ from modules.customs_consultation.schemas import (
     CustomsConsultationResponse,
     CustomsRecalculationRequest,
     CustomsRecalculationResponse,
+    CloneBrokerPriceListRequest,
+    CloneConsultationRequest,
 )
 from modules.customs_consultation.service import (
     ClearanceExpenseTypeService,
@@ -209,6 +211,21 @@ def delete_price_list(
     return BrokerPriceListService.soft_delete_price_list(db, price_list_id)
 
 
+@router.post(
+    "/price-lists/{price_list_id}/clone",
+    response_model=BrokerPriceListResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Clone a Broker Price List (Universal Clone Engine UX-CLONE-011)",
+)
+def clone_price_list(
+    price_list_id: int,
+    payload: CloneBrokerPriceListRequest,
+    db: Session = Depends(get_db),
+):
+    return BrokerPriceListService.clone_price_list(db, price_list_id, payload)
+
+
+
 # ==============================================================================
 # Consultation Sessions Endpoints (دراسات الاستشارة والفحص الجمركي)
 # ==============================================================================
@@ -300,3 +317,18 @@ def restore_consultation(
     db: Session = Depends(get_db),
 ):
     return CustomsConsultationService.restore_consultation(db, consultation_id)
+
+
+@router.post(
+    "/{consultation_id}/clone",
+    response_model=CustomsConsultationResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Clone a Customs Consultation study (Universal Clone Engine UX-CLONE-011)",
+)
+def clone_consultation(
+    consultation_id: int,
+    payload: CloneConsultationRequest,
+    db: Session = Depends(get_db),
+):
+    return CustomsConsultationService.clone_consultation(db, consultation_id, payload)
+

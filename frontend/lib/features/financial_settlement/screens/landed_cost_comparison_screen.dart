@@ -7,8 +7,10 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../services/landed_cost_comparison_export_service.dart';
 
 class LandedCostComparisonScreen extends ConsumerStatefulWidget {
   final int? importFileId;
@@ -155,21 +157,23 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     final l10n = context.l10n;
     final fileDisplayCode = _selectedImportFileCode.isNotEmpty ? _selectedImportFileCode : (_selectedImportFileId != null ? 'IMP-#$_selectedImportFileId' : '');
 
-    final bodyContent = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          child: _buildImportFileSelector(),
-        ),
-        Expanded(
-          child: _isLoading 
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null 
-                  ? Center(child: Text(_error!, style: TextStyle(color: _crimson)))
-                  : _buildContent(),
-        ),
-      ],
+    final bodyContent = SelectionArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            child: _buildImportFileSelector(),
+          ),
+          Expanded(
+            child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null 
+                    ? Center(child: Text(_error!, style: TextStyle(color: _crimson)))
+                    : _buildContent(),
+          ),
+        ],
+      ),
     );
 
     if (widget.isEmbedded) {
@@ -178,9 +182,35 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          fileDisplayCode.isNotEmpty ? l10n.landedCostComparisonTitle(fileDisplayCode) : l10n.landedCostComparison,
-          style: const TextStyle(color: Colors.white),
+        title: Row(
+          children: [
+            Text(
+              fileDisplayCode.isNotEmpty ? l10n.landedCostComparisonTitle(fileDisplayCode) : l10n.landedCostComparison,
+              style: const TextStyle(color: Colors.white),
+            ),
+            if (fileDisplayCode.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () => CopyHelper.copy(context, fileDisplayCode, customMessage: 'تم نسخ كود ملف الشحنة'),
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.copy, size: 13, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text('نسخ', style: TextStyle(color: Colors.white, fontSize: 11)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
         backgroundColor: _charcoal,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -215,26 +245,58 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
       ),
-      child: SearchableDropdownField<int>(
-        labelText: l10n.selectImportFileDropdownLabel,
-        hintText: l10n.selectImportFileDropdownHint,
-        value: _selectedImportFileId,
-        items: items,
-        onChanged: (fileId) {
-          if (fileId != null) {
-            final found = importFiles.where((f) => f.importFileId == fileId).firstOrNull;
-            if (found != null) {
-              _selectedImportFileCode = found.importFileCode;
-            }
-            _fetchData(fileId);
-          } else {
-            setState(() {
-              _selectedImportFileId = null;
-              _selectedImportFileCode = '';
-              _settlementRecord = null;
-            });
-          }
-        },
+      child: Row(
+        children: [
+          Expanded(
+            child: SearchableDropdownField<int>(
+              labelText: l10n.selectImportFileDropdownLabel,
+              hintText: l10n.selectImportFileDropdownHint,
+              value: _selectedImportFileId,
+              items: items,
+              onChanged: (fileId) {
+                if (fileId != null) {
+                  final found = importFiles.where((f) => f.importFileId == fileId).firstOrNull;
+                  if (found != null) {
+                    _selectedImportFileCode = found.importFileCode;
+                  }
+                  _fetchData(fileId);
+                } else {
+                  setState(() {
+                    _selectedImportFileId = null;
+                    _selectedImportFileCode = '';
+                    _settlementRecord = null;
+                  });
+                }
+              },
+            ),
+          ),
+          if (_selectedImportFileCode.isNotEmpty) ...[
+            const SizedBox(width: 12),
+            InkWell(
+              onTap: () => CopyHelper.copy(context, _selectedImportFileCode, customMessage: 'تم نسخ كود ملف الشحنة'),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _cobalt.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _cobalt.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
+                    const SizedBox(width: 6),
+                    Text(
+                      _selectedImportFileCode,
+                      style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -282,6 +344,8 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(),
+          const SizedBox(height: 16),
+          _buildExportToolbar(),
           const SizedBox(height: 24),
           _buildIncotermRuleCard(),
           const SizedBox(height: 24),
@@ -301,60 +365,125 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     );
   }
 
+  Widget _buildExportToolbar() {
+    final l10n = context.l10n;
+    final exportService = LandedCostComparisonExportService(
+      context: context,
+      fileCode: _selectedImportFileCode.isNotEmpty ? _selectedImportFileCode : (_selectedImportFileId != null ? 'IMP-#$_selectedImportFileId' : 'SHIPMENT'),
+      incoterm: _selectedIncoterm,
+      estimatedCost: _estimatedCost,
+      settlementRecord: _settlementRecord,
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 8,
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.table_chart_outlined, size: 18),
+            label: Text(l10n.landedCostExportTsvBtn),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _charcoal,
+              side: BorderSide(color: Colors.grey.shade400),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
+            onPressed: () => exportService.exportToTsv(),
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.file_present_outlined, size: 18),
+            label: Text(l10n.landedCostExportExcelBtn),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.green.shade800,
+              side: BorderSide(color: Colors.green.shade300),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
+            onPressed: () => exportService.exportToExcel(),
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+            label: Text(l10n.landedCostPrintPdfBtn),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _crimson,
+              side: BorderSide(color: _crimson.withOpacity(0.5)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
+            onPressed: () => exportService.printOrSavePdf(),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.copy_all, size: 18),
+            label: Text(l10n.landedCostCopyDossierBtn),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _cobalt,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            onPressed: () => exportService.copyDossierToClipboard(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildIncotermRuleCard() {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l10n = context.l10n;
     final inco = _selectedIncoterm.toUpperCase();
 
     String ruleTitle;
     String ruleDesc;
-    List<String> exporterCovers;
-    List<String> importerCovers;
+    String exporterCovers;
+    String importerCovers;
 
     switch (inco) {
       case 'CIF':
       case 'CIP':
-        ruleTitle = isArabic ? 'قاعدة تسليم CIF / CIP (التكلفة والتأمين والنولون)' : 'CIF / CIP Rule (Cost, Insurance & Freight)';
-        ruleDesc = isArabic 
-            ? 'فاتورة الشراء تشمل نولون الشحن الدولي والتأمين البحري. تكلفة الوصول الواصلة للمستورد تتكون من: (قيمة الفاتورة CIF + الضرائب والرسوم الجمركية + أتعاب التخليص ومصاريف الميناء + النقل الداخلي).'
-            : 'Purchase invoice includes international freight and marine insurance. Importer Landed Cost = (CIF Invoice + Customs Duties & Taxes + Port & Clearance Fees + Local Transport).';
-        exporterCovers = isArabic ? ['النولون الدولي', 'التأمين البحري', 'إجراءات التصدير'] : ['Ocean Freight', 'Marine Insurance', 'Export Clearance'];
-        importerCovers = isArabic ? ['الجمارك والضرائب', 'أتعاب التخليص', 'رسوم الميناء DTHC', 'النقل الداخلي'] : ['Customs & Taxes', 'Clearance Fees', 'DTHC Port Fees', 'Local Inland Transport'];
+        ruleTitle = l10n.incoCifRuleTitle;
+        ruleDesc = l10n.incoCifRuleDesc;
+        exporterCovers = l10n.incoCifExporterCovers;
+        importerCovers = l10n.incoCifImporterCovers;
         break;
       case 'CFR':
       case 'CPT':
-        ruleTitle = isArabic ? 'قاعدة تسليم CFR / CPT (التكلفة والنولون)' : 'CFR / CPT Rule (Cost & Freight)';
-        ruleDesc = isArabic
-            ? 'فاتورة الشراء تشمل نولون الشحن الدولي فقط. تكلفة الوصول للمستورد تشمل: (قيمة الفاتورة CFR + وثيقة التأمين البحري + الضرائب والرسوم الجمركية + أتعاب التخليص + النقل الداخلي).'
-            : 'Purchase invoice covers international freight. Importer Landed Cost = (CFR Invoice + Marine Insurance + Customs Duties & Taxes + Clearance + Local Transport).';
-        exporterCovers = isArabic ? ['النولون الدولي', 'إجراءات التصدير'] : ['Ocean Freight', 'Export Clearance'];
-        importerCovers = isArabic ? ['التأمين البحري', 'الجمارك والضرائب', 'أتعاب التخليص', 'النقل الداخلي'] : ['Marine Insurance', 'Customs & Taxes', 'Clearance', 'Local Transport'];
+        ruleTitle = l10n.incoCfrRuleTitle;
+        ruleDesc = l10n.incoCfrRuleDesc;
+        exporterCovers = l10n.incoCfrExporterCovers;
+        importerCovers = l10n.incoCfrImporterCovers;
         break;
       case 'EXW':
-        ruleTitle = isArabic ? 'قاعدة تسليم EXW (تسليم أرض المصنع)' : 'EXW Rule (Ex Works - Factory Gate)';
-        ruleDesc = isArabic
-            ? 'فاتورة الشراء تغطي ثمن البضاعة بأرض المصنع فقط. المستورد يتحمل كافة التكاليف من بلد المنشأ حتى الوصول: (قيمة الفاتورة + نقل المنشأ + تخليص التصدير + النولون + التأمين + الجمارك + التخليص + النقل الداخلي).'
-            : 'Invoice covers factory goods only. Importer bears all origin-to-destination costs: (EXW Invoice + Origin Trucking + Export Clearance + Freight + Insurance + Customs + Clearance + Local Transport).';
-        exporterCovers = isArabic ? ['تجهيز البضاعة بالمصنع'] : ['Goods Packaging at Factory'];
-        importerCovers = isArabic ? ['نقل وتخليص المنشأ', 'النولون والتأمين', 'الجمارك والضرائب', 'التخليص والنقل الداخلي'] : ['Origin Trucking & Export', 'Freight & Insurance', 'Customs & Taxes', 'Clearance & Transport'];
+        ruleTitle = l10n.incoExwRuleTitle;
+        ruleDesc = l10n.incoExwRuleDesc;
+        exporterCovers = l10n.incoExwExporterCovers;
+        importerCovers = l10n.incoExwImporterCovers;
         break;
       case 'DDP':
-        ruleTitle = isArabic ? 'قاعدة تسليم DDP (التسليم خالص الرسوم والجمارك)' : 'DDP Rule (Delivered Duty Paid)';
-        ruleDesc = isArabic
-            ? 'فاتورة الشراء تغطي كافة التكاليف بما فيها الشحن والتأمين والرسوم الجمركية والتوصيل. المستورد لا يتحمل سوى أي مصاريف استثنائية للتخزين إن وجدت.'
-            : 'Invoice covers freight, insurance, customs duties, and local delivery. Importer only bears extraordinary storage/handling fees if incurred.';
-        exporterCovers = isArabic ? ['النولون والتأمين', 'الضرائب والجمارك', 'النقل حتى المستودع'] : ['Freight & Insurance', 'Customs Duties & Taxes', 'Delivery to Warehouse'];
-        importerCovers = isArabic ? ['التفريغ أو التخزين الاستثنائي'] : ['Unloading / Extraordinary Storage'];
+        ruleTitle = l10n.incoDdpRuleTitle;
+        ruleDesc = l10n.incoDdpRuleDesc;
+        exporterCovers = l10n.incoDdpExporterCovers;
+        importerCovers = l10n.incoDdpImporterCovers;
         break;
       case 'FOB':
       case 'FCA':
       case 'FAS':
       default:
-        ruleTitle = isArabic ? 'قاعدة تسليم FOB / FCA (تسليم على ظهر السفينة)' : 'FOB / FCA Rule (Free On Board)';
-        ruleDesc = isArabic
-            ? 'فاتورة الشراء تشمل ثمن البضاعة وتحميلها على السفينة بميناء الشحن. تكلفة الوصول للمستورد تتكون من: (قيمة الفاتورة FOB + نولون الشحن + التأمين البحري + الرسوم الجمركية والضرائب + التخليص + النقل الداخلي).'
-            : 'Invoice covers goods loaded on vessel at origin port. Importer Landed Cost = (FOB Invoice + Ocean Freight + Marine Insurance + Customs Duties & Taxes + Clearance + Local Transport).';
-        exporterCovers = isArabic ? ['نقل وتخليص المنشأ', 'التحميل بميناء الشحن'] : ['Origin Transport & Export', 'Loading on Vessel'];
-        importerCovers = isArabic ? ['النولون الدولي', 'التأمين البحري', 'الجمارك والضرائب', 'التخليص والنقل الداخلي'] : ['Ocean Freight', 'Marine Insurance', 'Customs & Taxes', 'Clearance & Local Transport'];
+        ruleTitle = l10n.incoFobRuleTitle;
+        ruleDesc = l10n.incoFobRuleDesc;
+        exporterCovers = l10n.incoFobExporterCovers;
+        importerCovers = l10n.incoFobImporterCovers;
         break;
     }
 
@@ -377,15 +506,26 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppTheme.cobalt,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  inco,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+              InkWell(
+                onTap: () => CopyHelper.copy(context, inco, customMessage: 'تم نسخ شرط الشحن الدولي: $inco'),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        inco,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.copy, size: 12, color: Colors.white70),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -417,12 +557,12 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isArabic ? '✔ مشمول في الفاتورة (على البائع):' : '✔ Included in Invoice (Exporter):',
+                        l10n.incoRuleExporterCoversLabel,
                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green.shade800),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        exporterCovers.join(' • '),
+                        exporterCovers,
                         style: TextStyle(fontSize: 11, color: Colors.green.shade900),
                       ),
                     ],
@@ -442,12 +582,12 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isArabic ? '➕ إضافات تكلفة الوصول (على المستورد):' : '➕ Added Landed Cost Expenses (Importer):',
+                        l10n.incoRuleImporterCoversLabel,
                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        importerCovers.join(' • '),
+                        importerCovers,
                         style: TextStyle(fontSize: 11, color: Colors.blue.shade900),
                       ),
                     ],
@@ -504,46 +644,60 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
       varColor = variance > 0 ? _crimson : _emerald;
     }
 
+    final summary = '$title: ${l10n.estAbbreviation} ${est.toStringAsFixed(2)} | ${l10n.actAbbreviation} ${act.toStringAsFixed(2)}${variance != null ? " (${variance > 0 ? '+' : ''}${variance.toStringAsFixed(2)}%)" : ""}';
+
     return Card(
       elevation: highlight ? 8 : 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: highlight ? BorderSide(color: _charcoal, width: 2) : BorderSide.none,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const Divider(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.estAbbreviation, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                    Text(est.toStringAsFixed(2), style: TextStyle(fontSize: 15, color: _cobalt, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(l10n.actAbbreviation, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                    Text(act.toStringAsFixed(2), style: TextStyle(fontSize: 15, color: _emerald, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ],
-            ),
-            if (variance != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: varColor?.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                child: Text('${variance > 0 ? '+' : ''}${variance.toStringAsFixed(2)}%', style: TextStyle(color: varColor, fontWeight: FontWeight.bold)),
-              )
-            ]
-          ],
+      child: InkWell(
+        onTap: () => CopyHelper.copy(context, summary, customMessage: title),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), overflow: TextOverflow.ellipsis),
+                  ),
+                  const Icon(Icons.copy, size: 14, color: Colors.grey),
+                ],
+              ),
+              const Divider(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l10n.estAbbreviation, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                      Text(est.toStringAsFixed(2), style: TextStyle(fontSize: 15, color: _cobalt, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(l10n.actAbbreviation, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                      Text(act.toStringAsFixed(2), style: TextStyle(fontSize: 15, color: _emerald, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ],
+              ),
+              if (variance != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: varColor?.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                  child: Text('${variance > 0 ? '+' : ''}${variance.toStringAsFixed(2)}%', style: TextStyle(color: varColor, fontWeight: FontWeight.bold)),
+                )
+              ]
+            ],
+          ),
         ),
       ),
     );
@@ -552,67 +706,138 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
   Widget _buildExpenseTable() {
     final l10n = context.l10n;
     final expenses = _settlementRecord?['expense_invoices'] as List? ?? [];
-    return DataTable(
-      headingRowColor: WidgetStateProperty.all(_charcoal.withOpacity(0.05)),
-      columns: [
-        DataColumn(label: Text(l10n.colExpenseCategory, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text(l10n.colExpenseProvider, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text(l10n.colExpenseCurrency, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text(l10n.colExpenseAmountFx, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text(l10n.colExpenseExchangeRate, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text(l10n.colExpenseAmountEgp, style: const TextStyle(fontWeight: FontWeight.bold))),
-      ],
-      rows: expenses.map((e) {
-        final categoryRaw = e['category']?.toString() ?? 'other';
-        final categoryLocalized = l10n.expenseCategoryName(categoryRaw);
-        return DataRow(
-          cells: [
-            DataCell(Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: _getCategoryColor(categoryRaw).withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-              child: Text(categoryLocalized, style: TextStyle(color: _getCategoryColor(categoryRaw), fontWeight: FontWeight.bold)),
-            )),
-            DataCell(Text(e['provider_name']?.toString() ?? '')),
-            DataCell(Text(e['currency']?.toString() ?? '')),
-            DataCell(Text((e['amount_fx'] ?? 0).toString())),
-            DataCell(Text((e['exchange_rate'] ?? 0).toString())),
-            DataCell(Text((e['amount_egp'] ?? 0).toString())),
-          ]
-        );
-      }).toList(),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        headingRowColor: WidgetStateProperty.all(_charcoal.withOpacity(0.05)),
+        columns: [
+          DataColumn(label: Text(l10n.colExpenseCategory, style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text(l10n.colExpenseProvider, style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text(l10n.colExpenseCurrency, style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text(l10n.colExpenseAmountFx, style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text(l10n.colExpenseExchangeRate, style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text(l10n.colExpenseAmountEgp, style: const TextStyle(fontWeight: FontWeight.bold))),
+        ],
+        rows: expenses.map((e) {
+          final categoryRaw = e['category']?.toString() ?? 'other';
+          final categoryLocalized = l10n.expenseCategoryName(categoryRaw);
+          final provider = e['provider_name']?.toString() ?? '-';
+          final cur = e['currency']?.toString() ?? 'EGP';
+          final fx = (e['amount_fx'] ?? 0).toString();
+          final rate = (e['exchange_rate'] ?? 1).toString();
+          final egp = (e['amount_egp'] ?? 0).toString();
+
+          final rowSummary = '$categoryLocalized | $provider | $fx $cur @ $rate = $egp EGP';
+
+          return DataRow(
+            cells: [
+              DataCell(CopyableTableCell(
+                value: categoryLocalized,
+                rowSummary: rowSummary,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: _getCategoryColor(categoryRaw).withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                  child: Text(categoryLocalized, style: TextStyle(color: _getCategoryColor(categoryRaw), fontWeight: FontWeight.bold)),
+                ),
+              )),
+              DataCell(CopyableTableCell(
+                value: provider,
+                rowSummary: rowSummary,
+                child: Text(provider),
+              )),
+              DataCell(CopyableTableCell(
+                value: cur,
+                rowSummary: rowSummary,
+                child: Text(cur),
+              )),
+              DataCell(CopyableTableCell(
+                value: fx,
+                rowSummary: rowSummary,
+                child: Text(fx),
+              )),
+              DataCell(CopyableTableCell(
+                value: rate,
+                rowSummary: rowSummary,
+                child: Text(rate),
+              )),
+              DataCell(CopyableTableCell(
+                value: egp,
+                rowSummary: rowSummary,
+                child: Text(egp, style: const TextStyle(fontWeight: FontWeight.bold)),
+              )),
+            ]
+          );
+        }).toList(),
+      ),
     );
   }
 
   Widget _buildItemLandedCostTable() {
     final l10n = context.l10n;
     final items = _settlementRecord?['item_landed_costs'] as List? ?? [];
-    return DataTable(
-      headingRowColor: WidgetStateProperty.all(_charcoal.withOpacity(0.05)),
-      columns: [
-        DataColumn(label: Text(l10n.colItemCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text(l10n.colItemName, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text(l10n.colItemQty, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text(l10n.colFobUnitPrice, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text(l10n.colLandedUnitPrice, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text(l10n.colCostMarkupFactor, style: const TextStyle(fontWeight: FontWeight.bold))),
-      ],
-      rows: items.map((e) {
-        final markup = (e['markup_factor'] ?? 1.0).toDouble();
-        return DataRow(
-          cells: [
-            DataCell(Text(e['item_code']?.toString() ?? '')),
-            DataCell(Text(e['item_name']?.toString() ?? '')),
-            DataCell(Text((e['qty'] ?? 0).toString())),
-            DataCell(Text((e['fob_unit_egp'] ?? 0).toStringAsFixed(2))),
-            DataCell(Text((e['unit_landed_cost_egp'] ?? 0).toStringAsFixed(2))),
-            DataCell(Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: _charcoal, borderRadius: BorderRadius.circular(16)),
-              child: Text('${markup.toStringAsFixed(2)}x', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            )),
-          ]
-        );
-      }).toList(),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        headingRowColor: WidgetStateProperty.all(_charcoal.withOpacity(0.05)),
+        columns: [
+          DataColumn(label: Text(l10n.colItemCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text(l10n.colItemName, style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text(l10n.colItemQty, style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text(l10n.colFobUnitPrice, style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text(l10n.colLandedUnitPrice, style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text(l10n.colCostMarkupFactor, style: const TextStyle(fontWeight: FontWeight.bold))),
+        ],
+        rows: items.map((e) {
+          final markup = (e['markup_factor'] ?? 1.0).toDouble();
+          final itemCode = e['item_code']?.toString() ?? '-';
+          final itemName = e['item_name']?.toString() ?? '-';
+          final qty = (e['qty'] ?? 0).toString();
+          final fobUnit = ((e['fob_unit_egp'] ?? 0) as num).toStringAsFixed(2);
+          final landedUnit = ((e['unit_landed_cost_egp'] ?? 0) as num).toStringAsFixed(2);
+          final markupText = '${markup.toStringAsFixed(2)}x';
+
+          final rowSummary = '[$itemCode] $itemName | Qty: $qty | FOB: $fobUnit EGP | Landed: $landedUnit EGP | Markup: $markupText';
+
+          return DataRow(
+            cells: [
+              DataCell(CopyableTableCell(
+                value: itemCode,
+                rowSummary: rowSummary,
+                child: Text(itemCode, style: const TextStyle(fontWeight: FontWeight.bold)),
+              )),
+              DataCell(CopyableTableCell(
+                value: itemName,
+                rowSummary: rowSummary,
+                child: Text(itemName),
+              )),
+              DataCell(CopyableTableCell(
+                value: qty,
+                rowSummary: rowSummary,
+                child: Text(qty),
+              )),
+              DataCell(CopyableTableCell(
+                value: fobUnit,
+                rowSummary: rowSummary,
+                child: Text(fobUnit),
+              )),
+              DataCell(CopyableTableCell(
+                value: landedUnit,
+                rowSummary: rowSummary,
+                child: Text(landedUnit, style: TextStyle(fontWeight: FontWeight.bold, color: _emerald)),
+              )),
+              DataCell(CopyableTableCell(
+                value: markupText,
+                rowSummary: rowSummary,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: _charcoal, borderRadius: BorderRadius.circular(16)),
+                  child: Text(markupText, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              )),
+            ]
+          );
+        }).toList(),
+      ),
     );
   }
 

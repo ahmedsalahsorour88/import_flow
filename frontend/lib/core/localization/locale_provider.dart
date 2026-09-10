@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Persisted locale state for ImportFlow ERP.
+/// Persisted locale state for Sorour Logistics ERP.
 /// Saved to secure storage so preference survives app restarts.
 ///
 /// Usage:

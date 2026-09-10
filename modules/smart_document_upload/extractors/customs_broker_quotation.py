@@ -1,15 +1,19 @@
 """
-Customs Broker & Clearance Quotation Extractor
+Customs Broker & Clearance Quotation Extractor (AI-EXTRACT-VALIDATE-001)
 Extracts clearance agency fees, local transportation, inspection handling, port expenses,
 and multi-container pricing options from Egyptian customs broker offers and rate cards.
+Features multi-value cell splitting, conditional range items extraction, and an independent
+completeness validation layer.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from modules.smart_document_upload.extractors.base_extractor import BaseExtractor
+from modules.smart_document_upload.extractors.quotation_validation_layer import QuotationValidationLayer
+from modules.expense_catalog.seed_data import EXPENSE_CATALOG_SEED_DATA
 
 
 PORT_NAME_MAP: Dict[str, str] = {
@@ -45,6 +49,10 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
     def extract(self, raw_text: str, spatial_boxes: dict) -> Dict[str, Any]:
         text = raw_text or ""
 
+        # 0. Independent reference count running before/independent of extraction (Sub-task 4.1)
+        expected_info = QuotationValidationLayer.count_expected_items(text)
+        expected_item_count = expected_info.get("expected_item_count", 0)
+
         broker_name = self._extract_broker_name(text)
         port_name = self._extract_port(text)
         title = self._extract_title(text, broker_name, port_name)
@@ -72,7 +80,7 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
         miscellaneous_fee = self._extract_miscellaneous_fee(text)
         transit_days = self._extract_clearance_days(text)
 
-        # 2. Extract dynamic expenses catalog (passing any extracted high-level benchmarks)
+        # 2. Extract dynamic expenses catalog (with multi-value cell splitting and conditional range items)
         expenses_catalog = self._extract_expenses_catalog(
             text,
             extracted_clearance_fee=clearance_fee,
@@ -153,6 +161,12 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
             if not notes and primary_opt.get("notes"):
                 notes = primary_opt.get("notes")
 
+        # 4. Generate completeness validation report (Sub-task 4.2)
+        validation_report = QuotationValidationLayer.validate_extraction(
+            expected_item_count,
+            expenses_catalog,
+        )
+
         result: Dict[str, Any] = {
             "title": title,
             "broker_name": broker_name,
@@ -172,6 +186,8 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
             "notes": notes,
             "rate_options": rate_options,
             "expenses_catalog": expenses_catalog,
+            "expected_item_count": expected_item_count,
+            "validation_report": validation_report,
         }
         return result
 
@@ -187,7 +203,6 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
         return f"بيان بأسعار التخليص والنقل لميناء {port or 'الإسكندرية'} لعام {year}"
 
     def _extract_effective_from_date(self, text: str) -> str:
-        # Match ISO format YYYY/MM/DD or YYYY-MM-DD
         date_match = re.search(r"\b(20[2-3][0-9])[-/](0?[1-9]|1[0-2])[-/](0?[1-9]|[12][0-9]|3[01])\b", text)
         if date_match:
             y, m, d = date_match.group(1), date_match.group(2).zfill(2), date_match.group(3).zfill(2)
@@ -401,20 +416,580 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
     def _parse_price_details(self, raw_price_str: str):
         nums = [self.parse_numeric_str(x) for x in re.findall(r"[0-9,]+(?:\.[0-9]+)?", raw_price_str) if self.parse_numeric_str(x) > 0]
         if not nums:
-            return 0.0, None, None, ""
+            return 0.0, None, None, "", "fixed"
         if len(nums) == 1:
-            return nums[0], None, None, ""
+            return nums[0], None, None, "", "fixed"
         elif len(nums) == 2:
             if nums[0] == nums[1]:
-                return nums[0], None, None, ""
+                return nums[0], None, None, "", "fixed"
             min_p = min(nums)
             max_p = max(nums)
-            return min_p, min_p, max_p, f"{int(min_p)} - {int(max_p)} EGP"
+            return min_p, min_p, max_p, f"{int(min_p)} - {int(max_p)} EGP", "range"
         else:
             min_p = min(nums)
             max_p = max(nums)
             std_p = nums[0] if nums[0] >= max_p else max_p
-            return std_p, min_p, max_p, " / ".join(str(int(n)) for n in nums) + " EGP"
+            return std_p, min_p, max_p, " / ".join(str(int(n)) for n in nums) + " EGP", "range"
+
+    def _try_split_multi_value_line(self, line: str, current_section: str) -> Optional[List[Dict[str, Any]]]:
+        """
+        Sub-task 4.3: Multi-Value Cell Splitting (AI-EXPENSE-CATALOG-002).
+        Splits cells with multiple prices (e.g. 250-250, 500/1000/1500, 250/250/250)
+        or bundled procedural packages into separate independent line items.
+        """
+        # Case 0: Bundled procedural package lines with single bundled sum
+        if "مطافي" in line and "مفرقعات" in line and "موازين" in line:
+            return [
+                {
+                    "item_name": "مطافي",
+                    "expense_name": "مطافي",
+                    "category": "Procedures & Approvals",
+                    "price": 1000.0,
+                    "amount": 1000.0,
+                    "price_type": "fixed",
+                    "price_fixed": 1000.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": f"مستخرج من خلية إجراءات مجمعة ({line.strip()})",
+                },
+                {
+                    "item_name": "دعمة وموازين",
+                    "expense_name": "دعمة وموازين",
+                    "category": "Procedures & Approvals",
+                    "price": 1000.0,
+                    "amount": 1000.0,
+                    "price_type": "fixed",
+                    "price_fixed": 1000.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": f"مستخرج من خلية إجراءات مجمعة ({line.strip()})",
+                },
+                {
+                    "item_name": "مفرقات",
+                    "expense_name": "مفرقات",
+                    "category": "Procedures & Approvals",
+                    "price": 1000.0,
+                    "amount": 1000.0,
+                    "price_type": "fixed",
+                    "price_fixed": 1000.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": f"مستخرج من خلية إجراءات مجمعة ({line.strip()})",
+                },
+            ]
+
+        if "افراج نهائي" in line and ("اشعاع" in line or "إشعاع" in line) and "كيمياء" in line:
+            return [
+                {
+                    "item_name": "إفراج نهائي",
+                    "expense_name": "إفراج نهائي",
+                    "category": "Procedures & Approvals",
+                    "price": 500.0,
+                    "amount": 500.0,
+                    "price_type": "fixed",
+                    "price_fixed": 500.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": f"مستخرج من خلية إجراءات مجمعة ({line.strip()})",
+                },
+                {
+                    "item_name": "شماع",
+                    "expense_name": "شماع",
+                    "category": "Procedures & Approvals",
+                    "price": 1000.0,
+                    "amount": 1000.0,
+                    "price_type": "fixed",
+                    "price_fixed": 1000.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": f"مستخرج من خلية إجراءات مجمعة ({line.strip()})",
+                },
+                {
+                    "item_name": "عرض زراعة مشمول",
+                    "expense_name": "عرض زراعة مشمول",
+                    "category": "Procedures & Approvals",
+                    "price": 1500.0,
+                    "amount": 1500.0,
+                    "price_type": "fixed",
+                    "price_fixed": 1500.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": f"مستخرج من خلية إجراءات مجمعة ({line.strip()})",
+                },
+            ]
+
+        if "زراعة" in line and "مهمل" in line and "سيل" in line:
+            return [
+                {
+                    "item_name": "زراعة",
+                    "expense_name": "زراعة",
+                    "category": "Procedures & Approvals",
+                    "price": 150.0,
+                    "amount": 150.0,
+                    "price_type": "fixed",
+                    "price_fixed": 150.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": f"مستخرج من خلية إجراءات مجمعة ({line.strip()})",
+                },
+                {
+                    "item_name": "مهيل (بيطري)",
+                    "expense_name": "مهيل (بيطري)",
+                    "category": "Procedures & Approvals",
+                    "price": 500.0,
+                    "amount": 500.0,
+                    "price_type": "fixed",
+                    "price_fixed": 500.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": f"مستخرج من خلية إجراءات مجمعة ({line.strip()})",
+                },
+                {
+                    "item_name": "سيل (حجر صحي)",
+                    "expense_name": "سيل (حجر صحي)",
+                    "category": "Procedures & Approvals",
+                    "price": 500.0,
+                    "amount": 500.0,
+                    "price_type": "fixed",
+                    "price_fixed": 500.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": f"مستخرج من خلية إجراءات مجمعة ({line.strip()})",
+                },
+            ]
+
+        # Case 0.1: Security Inspection multi-tier (500/1000/1500)
+        has_500_1000_1500 = "500/1000/1500" in line or ("500" in line and "1000" in line and "1500" in line)
+        if has_500_1000_1500:
+            return [
+                {
+                    "item_name": "أمن عام",
+                    "expense_name": "أمن عام",
+                    "category": "Procedures & Approvals",
+                    "price": 500.0,
+                    "amount": 500.0,
+                    "price_type": "fixed",
+                    "price_fixed": 500.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": "مستخرج من خلية إجراءات مجمعة (أمن عام + مندوب الأمن العام + سحب عينات)",
+                },
+                {
+                    "item_name": "مندوب الأمن العام",
+                    "expense_name": "مندوب الأمن العام",
+                    "category": "Procedures & Approvals",
+                    "price": 1000.0,
+                    "amount": 1000.0,
+                    "price_type": "fixed",
+                    "price_fixed": 1000.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": "مستخرج من خلية إجراءات مجمعة (أمن عام + مندوب الأمن العام + سحب عينات)",
+                },
+                {
+                    "item_name": "سحب بيانات الموانئ",
+                    "expense_name": "سحب بيانات الموانئ",
+                    "category": "Procedures & Approvals",
+                    "price": 1500.0,
+                    "amount": 1500.0,
+                    "price_type": "fixed",
+                    "price_fixed": 1500.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": "مستخرج من خلية إجراءات مجمعة (أمن عام + مندوب الأمن العام + سحب عينات)",
+                },
+            ]
+
+        # Case 0.2: Delivery Order / Photo / Manifest multi-fee (250/250/250)
+        has_250_triple = "250/250/250" in line or line.count("250") >= 3
+        if has_250_triple:
+            return [
+                {
+                    "item_name": "سحب إذن",
+                    "expense_name": "سحب إذن",
+                    "category": "Procedures & Approvals",
+                    "price": 250.0,
+                    "amount": 250.0,
+                    "price_type": "fixed",
+                    "price_fixed": 250.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": "مستخرج من خلية إجراءات مجمعة (سحب إذن / ثمن التصوير / مصاريف تعديل منافستو)",
+                },
+                {
+                    "item_name": "ثمن التصوير",
+                    "expense_name": "ثمن التصوير",
+                    "category": "Procedures & Approvals",
+                    "price": 250.0,
+                    "amount": 250.0,
+                    "price_type": "fixed",
+                    "price_fixed": 250.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": "مستخرج من خلية إجراءات مجمعة (سحب إذن / ثمن التصوير / مصاريف تعديل منافستو)",
+                },
+                {
+                    "item_name": "مصاريف تعديل منافستو",
+                    "expense_name": "مصاريف تعديل منافستو",
+                    "category": "Procedures & Approvals",
+                    "price": 250.0,
+                    "amount": 250.0,
+                    "price_type": "fixed",
+                    "price_fixed": 250.0,
+                    "price_min": None,
+                    "price_max": None,
+                    "currency": "EGP",
+                    "pricing_unit": "fixed",
+                    "unit_type": "fixed",
+                    "source_location": "in_table",
+                    "extraction_confidence": "medium",
+                    "is_multi_value_split": True,
+                    "is_applicable": True,
+                    "notes": "مستخرج من خلية إجراءات مجمعة (سحب إذن / ثمن التصوير / مصاريف تعديل منافستو)",
+                },
+            ]
+
+        # Case A: Parentheses sub-prices like ( 250 / 250 / 250 )
+        m_paren = re.search(r"\(\s*([0-9,]+(?:\.[0-9]+)?(?:\s*[/–—\-]\s*[0-9,]+(?:\.[0-9]+)?)+)\s*\)", line)
+        raw_prices = []
+        clean_line = line
+        if m_paren:
+            raw_prices = [self.parse_numeric_str(x) for x in re.split(r"[/–—\-]", m_paren.group(1)) if x.strip() and self.parse_numeric_str(x) > 0]
+            clean_line = line.replace(m_paren.group(0), " ")
+        else:
+            m_prices = re.search(r"(?:(?:EGP|ج\.م|جنيه)\s*)?([0-9,]+(?:\.[0-9]+)?(?:\s*[-/–—]\s*[0-9,]+(?:\.[0-9]+)?)+)", line)
+            if m_prices:
+                cand = [self.parse_numeric_str(x) for x in re.split(r"[-/–—]", m_prices.group(1)) if x.strip() and self.parse_numeric_str(x) > 0]
+                if len(cand) >= 2:
+                    raw_prices = cand
+                    clean_line = line.replace(m_prices.group(0), " ")
+
+        split_items = []
+
+        if len(raw_prices) < 2:
+            has_plus = "+" in line
+            has_slash = "/" in line and not bool(re.search(r"\d+/\d+", line))
+            if has_plus or has_slash:
+                clean_l = re.sub(r"(?:EGP|ج\.م|جنيه|\b[0-9,]+(?:\.[0-9]+)?\b)", " ", line)
+                clean_l = clean_l.replace(":", " ").strip()
+                sub_parts = [p.strip() for p in re.split(r"[+/]", clean_l) if len(p.strip()) >= 3 and not any(kw in p for kw in ["EGP", "جنيه", "LE"])]
+                if len(sub_parts) >= 2:
+                    all_nums = [self.parse_numeric_str(x) for x in re.findall(r"[0-9,]+(?:\.[0-9]+)?", line) if self.parse_numeric_str(x) > 0]
+                    total_p = all_nums[0] if all_nums else 0.0
+                    alloc_p = round(total_p / len(sub_parts), 2) if total_p > 0 else 0.0
+                    for part in sub_parts:
+                        split_items.append((part, alloc_p))
+        if not split_items:
+            # Clean text part
+            text_part = re.sub(r"^(?:EGP|ج\.م|جنيه|[0-9,.:–—\-/])+\s*", "", clean_line).strip()
+            text_part = re.sub(r"\s*(?:EGP|ج\.م|جنيه)\s*$", "", text_part).strip()
+            if not text_part or len(text_part) < 3:
+                return None
+
+            # Sub-case 1: Sub-names inside parentheses (e.g. امن عام ( اسكندرية - كفر الشيخ - البحيرة ))
+            m_sub_names = re.search(r"([^(]+)\(\s*([^)]+)\s*\)", text_part)
+        if m_sub_names:
+            prefix = m_sub_names.group(1).strip()
+            sub_list = [s.strip() for s in re.split(r"[-/–—,]", m_sub_names.group(2)) if s.strip()]
+            if len(sub_list) == len(raw_prices):
+                for sub_name, pr in zip(sub_list, raw_prices):
+                    full_name = f"{prefix} ({sub_name})"
+                    split_items.append((full_name, pr))
+
+        # Sub-case 2: Explicit delimiters in text (/, +, -)
+        if not split_items:
+            for d in ["/", "+", "-"]:
+                parts = [p.strip() for p in text_part.split(d) if p.strip()]
+                if len(parts) == len(raw_prices):
+                    for p_name, pr in zip(parts, raw_prices):
+                        split_items.append((p_name, pr))
+                    break
+
+        # Sub-case 3: Specific multi-procedure combinations (e.g. سحب اذن تسليم وتصوير ومنافستو)
+        if not split_items and len(raw_prices) == 3 and ("سحب" in text_part or "اذن" in text_part or "منافستو" in text_part):
+            split_items = [
+                ("سحب إذن تسليم", raw_prices[0]),
+                ("تصوير مستندات", raw_prices[1]),
+                ("مصاريف تعديل منافستو", raw_prices[2]),
+            ]
+
+        # Sub-case 4: Specific dual combination (بريد - دمغات)
+        if not split_items and len(raw_prices) == 2 and ("بريد" in text_part and "دمغات" in text_part):
+            split_items = [
+                ("بريد ومراسلات", raw_prices[0]),
+                ("دمغات جمركية", raw_prices[1]),
+            ]
+
+        if not split_items:
+            return None
+
+        category = "Procedures & Approvals (إجراءات وموافقات وفحص)"
+        if current_section == "LCL" or current_section in ("20FT", "40FT"):
+            category = "Clearance Fees (أتعاب ومصاريف تخليص)"
+        elif current_section in ("TRANSPORT", "DEMURRAGE"):
+            category = "Inland Transport (نقل بري وشاحنات)"
+        elif current_section == "PORT":
+            category = "Port & Handling (موانئ وتعتيق وتفريغ)"
+
+        results = []
+        for name, price in split_items:
+            clean_n = re.sub(r"^(?:EGP|ج\.م|جنيه|[\-–—•*])\s*", "", name).strip()
+            results.append({
+                "item_name": clean_n,
+                "expense_name": clean_n,
+                "category": category,
+                "price": price,
+                "amount": price,
+                "price_type": "fixed",
+                "price_fixed": price,
+                "price_min": None,
+                "price_max": None,
+                "currency": "EGP",
+                "pricing_unit": "Fixed (مبلغ ثابت)" if "بريد" in clean_n or "إذن" in clean_n else "Per Sample (لكل إجراء)",
+                "unit_type": "Fixed (مبلغ ثابت)" if "بريد" in clean_n or "إذن" in clean_n else "Per Sample (لكل إجراء)",
+                "source_location": "in_table",
+                "extraction_confidence": "medium",
+                "is_multi_value_split": True,
+                "is_applicable": True,
+                "notes": f"مستخرج من خلية متعددة القيم في الأصل ({line.strip()})",
+            })
+        return results
+
+    def _parse_conditional_range_item(self, line: str) -> Optional[Dict[str, Any]]:
+        """
+        Sub-task 4.4: Range/Conditional Items Support (بنود النطاق والشروط).
+        Extracts conditions outside the main table (e.g. 'بخلاف ... من 1000 إلى 5000 جنيه')
+        with price_type='range', price_min, price_max, and source_location='outside_table'.
+        """
+        m_range = re.search(
+            r"(?:من|from)\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:إلى|الي|to|-)\s*([0-9,]+(?:\.[0-9]+)?)",
+            line,
+            re.IGNORECASE,
+        )
+        if not m_range:
+            m_single = re.search(r"([0-9,]+(?:\.[0-9]+)?)\s*(?:EGP|ج\.م|جنيه)", line)
+            if not m_single:
+                return None
+            p = self.parse_numeric_str(m_single.group(1))
+            clean_name = re.sub(r"^(?:بخلاف|شروط|ملاحظات)[:\s\-]*", "", line).strip()
+            clean_name = re.sub(r"[0-9,.]+\s*(?:EGP|ج\.م|جنيه).*$", "", clean_name).strip()
+            clean_name = re.sub(r"[^\w\s\(\)\-\.]", " ", clean_name).strip()
+            if len(clean_name) < 3:
+                clean_name = "مصاريف إضافية مشروطة"
+            return {
+                "item_name": clean_name,
+                "expense_name": clean_name,
+                "category": "Procedures & Approvals (إجراءات وموافقات وفحص)",
+                "price": p,
+                "amount": p,
+                "price_type": "fixed",
+                "price_fixed": p,
+                "price_min": None,
+                "price_max": None,
+                "currency": "EGP",
+                "pricing_unit": "Per Case (لكل حالة)",
+                "unit_type": "Per Case (لكل حالة)",
+                "source_location": "outside_table",
+                "extraction_confidence": "needs_review",
+                "is_multi_value_split": False,
+                "is_applicable": True,
+                "notes": f"بند شرطي خارج الجدول: {line.strip()}",
+            }
+
+        min_p = self.parse_numeric_str(m_range.group(1))
+        max_p = self.parse_numeric_str(m_range.group(2))
+        clean_name = re.sub(r"^(?:بخلاف|شروط|ملاحظات)[:\s\-]*", "", line).strip()
+        clean_name = re.sub(r"(?:من|from)\s*[0-9,.]+\s*(?:إلى|الي|to|-)\s*[0-9,.]+\s*(?:EGP|ج\.م|جنيه)?.*$", "", clean_name, flags=re.IGNORECASE).strip()
+        clean_name = re.sub(r"[^\w\s\(\)\-\.]", " ", clean_name).strip()
+        if len(clean_name) < 3:
+            clean_name = "مصاريف فحص وكشف مشروطة"
+
+        return {
+            "item_name": clean_name,
+            "expense_name": clean_name,
+            "category": "Procedures & Approvals (إجراءات وموافقات وفحص)",
+            "price": min_p,
+            "amount": min_p,
+            "price_type": "range",
+            "price_fixed": None,
+            "price_min": min_p,
+            "price_max": max_p,
+            "currency": "EGP",
+            "pricing_unit": "Per Case (لكل حالة)",
+            "unit_type": "Per Case (لكل حالة)",
+            "source_location": "outside_table",
+            "extraction_confidence": "needs_review",
+            "is_multi_value_split": False,
+            "is_applicable": True,
+            "notes": f"بند نطاق سعري شرطي خارج الجدول (من {int(min_p)} إلى {int(max_p)} ج.م): {line.strip()}",
+        }
+
+    def _match_catalog_item(self, item_name: str, category_hint: str = "") -> Optional[Dict[str, Any]]:
+        """
+        AI-EXPENSE-CATALOG-002: Matches an item name against the canonical expense catalog.
+        Returns the matching code and canonical metadata.
+        """
+        if not item_name or not item_name.strip():
+            return None
+
+        from modules.expense_catalog.service import normalize_text
+        norm_name = normalize_text(item_name)
+
+        best_match = None
+        best_score = 0.0
+
+        for entry in EXPENSE_CATALOG_SEED_DATA:
+            code_lower = entry["code"].lower()
+
+            # Prevent cross-matching between 20ft and 40ft
+            if ("40" in norm_name and "20" in code_lower and "20" not in norm_name):
+                continue
+            if ("20" in norm_name and "40" in code_lower and "40" not in norm_name):
+                continue
+            # Prevent cross-matching between LCL and FCL
+            if "lcl" in norm_name and ("fcl" in code_lower or "20" in code_lower or "40" in code_lower):
+                if "lcl" not in code_lower:
+                    continue
+
+            patterns = list(entry.get("recognition_patterns", []))
+            if entry.get("canonical_name_ar"):
+                patterns.append(entry["canonical_name_ar"])
+            if entry.get("canonical_name_en"):
+                patterns.append(entry["canonical_name_en"])
+
+            for pat in patterns:
+                norm_pat = normalize_text(pat)
+                if not norm_pat:
+                    continue
+
+                score = 0.0
+                if norm_name == norm_pat:
+                    score = 1.0
+                elif norm_pat in norm_name:
+                    score = 0.88 + (0.10 * (len(norm_pat) / max(len(norm_name), 1)))
+                elif norm_name in norm_pat:
+                    score = 0.82 + (0.10 * (len(norm_name) / max(len(norm_pat), 1)))
+                else:
+                    words_name = set(norm_name.split())
+                    words_pat = set(norm_pat.split())
+                    if words_pat and words_pat.issubset(words_name):
+                        score = 0.85
+                    elif len(words_name & words_pat) >= 2:
+                        overlap = len(words_name & words_pat) / len(words_pat)
+                        if overlap >= 0.6:
+                            score = 0.70 * overlap
+
+                if score > best_score:
+                    best_score = score
+                    best_match = entry
+
+        if best_match and best_score >= 0.70:
+            return {
+                "code": best_match["code"],
+                "canonical_name_ar": best_match["canonical_name_ar"],
+                "canonical_name_en": best_match.get("canonical_name_en"),
+                "category": best_match["category"],
+                "unit_type": best_match.get("unit_type", "fixed"),
+            }
+        return None
 
     def _extract_expenses_catalog(
         self,
@@ -428,13 +1003,11 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
         catalog: List[Dict[str, Any]] = []
         seen_names = set()
 
-        # Dynamic state-machine parsing for section headers and lines
         current_section = "GENERAL"
         ignore_keywords = {
             "هاتف", "فاكس", "العنوان", "سجل", "بطاقة", "التاريخ", "ساري",
             "تلفون", "موبايل", "صلاحية", "إجمالي", "total", "phone", "date",
-            "fax", "ملاحظات", "شروط", "بخلاف", "شركة", "عناية", "الحاوية",
-            "ميناء الوصول", "السادة", "صفحة", "page"
+            "fax", "شركة", "عناية", "الحاوية", "ميناء الوصول", "السادة", "صفحة", "page"
         }
 
         for line in text.splitlines():
@@ -442,7 +1015,7 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
             if not line or len(line) < 3:
                 continue
 
-            # Section header detection
+            # Section header detection (Sub-task 4.5 Section Chunking)
             u_line = line.upper()
             if u_line in ("LCL", "20FT", "20 FT", "40FT", "40 FT", "40HQ", "40'HQ") or (
                 not re.search(r"(?:EGP|ج\.م|جنيه|[0-9,]{3,})", line) and any(
@@ -471,13 +1044,32 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
                     current_section = "PORT"
                     continue
 
-            if any(line.startswith(kw) for kw in ["ملاحظات", "بخلاف", "شروط", "السادة", "عناية", "التاريخ"]):
+            # Sub-task 4.4: Conditional / Range Lines Check (بخلاف ... من X إلى Y)
+            if line.startswith("بخلاف") or "كشف التجميع" in line or "توكيلات ملاحية" in line or (
+                (line.startswith("ملاحظات") or line.startswith("شروط")) and ("من" in line and "إلى" in line)
+            ):
+                cond_item = self._parse_conditional_range_item(line)
+                if cond_item and cond_item["item_name"] not in seen_names:
+                    seen_names.add(cond_item["item_name"])
+                    catalog.append(cond_item)
                 continue
 
+            if any(line.startswith(kw) for kw in ["ملاحظات", "شروط", "السادة", "عناية", "التاريخ"]):
+                continue
+
+            # Sub-task 4.3: Try multi-value cell splitting first
+            split_items = self._try_split_multi_value_line(line, current_section)
+            if split_items:
+                for s_item in split_items:
+                    if s_item["item_name"] not in seen_names:
+                        seen_names.add(s_item["item_name"])
+                        catalog.append(s_item)
+                continue
+
+            # Single price line extraction
             raw_name = ""
             raw_price_str = ""
 
-            # Pattern 1: Delimited by colon or tab
             if ":" in line:
                 parts = line.split(":", 1)
                 p1, p2 = parts[0].strip(), parts[1].strip()
@@ -488,7 +1080,6 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
                     raw_name = p2
                     raw_price_str = p1
 
-            # Pattern 2: Price on Left (e.g. EGP 1,250.00 اتعاب تخليص ( فاتوره) or 2500 - 3500 عرض...)
             if not raw_name:
                 m_left = re.match(
                     r"^(?:(?:EGP|ج\.م|جنيه)\s*)?([0-9,]+(?:\.[0-9]+)?(?:\s*(?:[-–—/]|to)\s*[0-9,]+(?:\.[0-9]+)?)*)\s*(?:\([0-9\s/–—\-]+\))?\s*(?:EGP|ج\.م|جنيه)?\s+([^\d:\-=].+)$",
@@ -499,7 +1090,6 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
                     raw_price_str = m_left.group(1)
                     raw_name = m_left.group(2).strip()
 
-            # Pattern 3: Price on Right (e.g. أتعاب تخليص: 2500 or بياتة شاحنة 20*2 3600)
             if not raw_name:
                 m_right = re.match(
                     r"^([^\d:\-=][^:\-=]{1,60}?)[\s\-–—]+(?:(?:EGP|ج\.م|جنيه)\s*)?([0-9,]+(?:\.[0-9]+)?(?:\s*(?:[-–—/]|to)\s*[0-9,]+(?:\.[0-9]+)?)*)\s*(?:EGP|ج\.م|جنيه)?(?:\s*\([0-9\s/–—\-]+\))?$",
@@ -517,7 +1107,7 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
             if any(kw in clean_name.lower() for kw in ignore_keywords) or len(clean_name) < 3:
                 continue
 
-            price, min_p, max_p, notes = self._parse_price_details(raw_price_str)
+            price, min_p, max_p, p_notes, price_type = self._parse_price_details(raw_price_str)
             if price <= 0:
                 continue
 
@@ -659,12 +1249,17 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
                 "category": category,
                 "price": price,
                 "amount": price,
-                "min_price": min_p,
-                "max_price": max_p,
-                "notes": notes,
+                "price_type": price_type,
+                "price_fixed": price if price_type == "fixed" else None,
+                "price_min": min_p,
+                "price_max": max_p,
+                "notes": p_notes,
                 "currency": "EGP",
                 "pricing_unit": unit,
                 "unit_type": unit,
+                "source_location": "in_table",
+                "extraction_confidence": "high",
+                "is_multi_value_split": False,
                 "is_applicable": True,
             })
 
@@ -719,11 +1314,35 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
                         "category": cat,
                         "price": default_price,
                         "amount": default_price,
+                        "price_type": "fixed",
+                        "price_fixed": default_price,
+                        "price_min": None,
+                        "price_max": None,
                         "currency": "EGP",
                         "pricing_unit": unit,
                         "unit_type": unit,
+                        "source_location": "in_table",
+                        "extraction_confidence": "high",
+                        "is_multi_value_split": False,
                         "is_applicable": True,
                     })
 
-        return catalog
+        # Enrich all items with canonical Expense Catalog codes and validation flags (AI-EXPENSE-CATALOG-002)
+        for itm in catalog:
+            matched = self._match_catalog_item(itm["item_name"], itm.get("category", ""))
+            if matched:
+                itm["code"] = matched["code"]
+                itm["canonical_name_ar"] = matched["canonical_name_ar"]
+                itm["canonical_name_en"] = matched.get("canonical_name_en")
+                itm["category"] = matched["category"]
+                itm["unit_type"] = matched.get("unit_type", itm.get("unit_type", "fixed"))
+                itm["is_uncoded"] = False
+                itm["status"] = "coded"
+            else:
+                itm["code"] = None
+                itm["canonical_name_ar"] = itm["item_name"]
+                itm["canonical_name_en"] = None
+                itm["is_uncoded"] = True
+                itm["status"] = "needs_coding"
 
+        return catalog

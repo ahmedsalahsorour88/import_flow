@@ -136,7 +136,11 @@ class ImportFileModel {
   final String? notes;
   final String? closureReason;
   final String? closedAtPhase;
+  final String? hsCode;
+  final String? productCategory;
   final bool isActive;
+  final int? clonedFromId;
+  final String? clonedFromCode;
   final String createdAt;
   final String updatedAt;
 
@@ -217,7 +221,11 @@ class ImportFileModel {
     this.notes,
     this.closureReason,
     this.closedAtPhase,
+    this.hsCode,
+    this.productCategory,
     this.isActive = true,
+    this.clonedFromId,
+    this.clonedFromCode,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -290,7 +298,11 @@ class ImportFileModel {
       notes: json['notes'],
       closureReason: json['closure_reason'],
       closedAtPhase: json['closed_at_phase'],
+      hsCode: json['hs_code'],
+      productCategory: json['product_category'],
       isActive: json['is_active'] ?? true,
+      clonedFromId: json['cloned_from_id'],
+      clonedFromCode: json['cloned_from_code'],
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
     );
@@ -300,6 +312,10 @@ class ImportFileModel {
     return {
       'import_file_id': importFileId,
       'import_file_code': importFileCode,
+      if (clonedFromId != null) 'cloned_from_id': clonedFromId,
+      if (clonedFromCode != null) 'cloned_from_code': clonedFromCode,
+      if (hsCode != null) 'hs_code': hsCode,
+      if (productCategory != null) 'product_category': productCategory,
       'custom_file_number': customFileNumber,
       'company_id': companyId,
       'company_name': companyName,

@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
+import '../services/cargo_insurance_export_service.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
@@ -243,8 +245,9 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
           return true;
         }).toList();
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        return SelectionArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ─── Top Charcoal Summary Bar ─────────────────────────────────────
             Container(
@@ -311,9 +314,63 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
               ),
             ),
 
+            // ─── Export & Linked Outputs Toolbar ─────────────────────────────
+            // ─── Export & Linked Outputs Toolbar ─────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.table_chart_outlined, size: 16),
+                    label: Text(l.insuranceExportTsvBtn),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.cobalt,
+                      side: BorderSide(color: AppTheme.cobalt.withOpacity(0.4)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    onPressed: () => CargoInsuranceExportService.saveCertificatesTsvToFile(context, filteredCertificates),
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.file_download_outlined, size: 16),
+                    label: Text(l.insuranceExportExcelBtn),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.emerald,
+                      side: BorderSide(color: AppTheme.emerald.withOpacity(0.4)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    onPressed: () => CargoInsuranceExportService.saveCertificatesCsvToFile(context, filteredCertificates),
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                    label: Text(l.insurancePrintPdfBtn),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.crimson,
+                      side: BorderSide(color: AppTheme.crimson.withOpacity(0.4)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    onPressed: () => CargoInsuranceExportService.printOrSaveCertificatesPdf(context, filteredCertificates),
+                  ),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.copy_all_rounded, size: 16),
+                    label: Text(l.insuranceCopyDossierBtn),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.cobalt,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () => CargoInsuranceExportService.copyDossierToClipboard(context, filteredCertificates),
+                  ),
+                ],
+              ),
+            ),
+
             // ─── Data Actions Toolbar ─────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: MasterDataToolbarWidget(
                 moduleEndpoint: 'cargo-insurance',
                 title: 'Cargo_Insurance_Certificates',
@@ -339,15 +396,29 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                         suffixIcon: ValueListenableBuilder<TextEditingValue>(
                           valueListenable: _searchController,
                           builder: (context, value, _) {
-                            return value.text.isNotEmpty
-                                ? IconButton(
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (value.text.isNotEmpty)
+                                  IconButton(
+                                    icon: const Icon(Icons.copy_rounded, size: 18),
+                                    tooltip: l.insuranceCopyFieldTooltip,
+                                    onPressed: () => CopyHelper.copy(
+                                      context,
+                                      _searchController.text,
+                                      customMessage: l.insuranceSearchCopied,
+                                    ),
+                                  ),
+                                if (value.text.isNotEmpty)
+                                  IconButton(
                                     icon: const Icon(Icons.clear, size: 18),
                                     onPressed: () {
                                       _searchController.clear();
                                       setState(() {});
                                     },
-                                  )
-                                : const SizedBox.shrink();
+                                  ),
+                              ],
+                            );
                           },
                         ),
                         filled: true,
@@ -486,171 +557,270 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                               final isIssued = cert.status == 'ISSUED';
                               final isCancelled = cert.status == 'CANCELLED';
 
+                              final rowSummary = CargoInsuranceExportService.toRowSummary(cert, l);
+
                               return DataRow(
                                 cells: [
                                   // 1. Index
-                                  DataCell(Text('$idx', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-
-                                  // 2. Cert Code
                                   DataCell(
-                                    InkWell(
-                                      onTap: () => _showViewCertificateDialog(cert),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.shield_rounded, size: 14, color: AppTheme.cobalt),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            cert.certificateCode,
-                                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                          ),
-                                        ],
+                                    CopyableTableCell(
+                                      value: '$idx',
+                                      rowSummary: rowSummary,
+                                      child: Text('$idx', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                                    ),
+                                  ),
+
+                                  // 2. Cert Code (with Copy Badge)
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: cert.certificateCode,
+                                      rowSummary: rowSummary,
+                                      child: InkWell(
+                                        onTap: () => _showViewCertificateDialog(cert),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.shield_rounded, size: 14, color: AppTheme.cobalt),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              cert.certificateCode,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            InkWell(
+                                              onTap: () => CopyHelper.copy(
+                                                context,
+                                                cert.certificateCode,
+                                                customMessage: l.insuranceCopyBadgeSuccess(l.insuranceColCertCode, cert.certificateCode),
+                                              ),
+                                              borderRadius: BorderRadius.circular(4),
+                                              child: const Padding(
+                                                padding: EdgeInsets.all(2.0),
+                                                child: Icon(Icons.copy_rounded, size: 12, color: Colors.blueGrey),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
 
                                   // 3. Issue Date
                                   DataCell(
-                                    Text(
-                                      cert.issuedAt?.substring(0, 10) ?? cert.createdAt.substring(0, 10),
-                                      style: const TextStyle(fontSize: 12),
+                                    CopyableTableCell(
+                                      value: cert.issuedAt?.substring(0, 10) ?? cert.createdAt.substring(0, 10),
+                                      rowSummary: rowSummary,
+                                      child: Text(
+                                        cert.issuedAt?.substring(0, 10) ?? cert.createdAt.substring(0, 10),
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                   ),
 
-                                  // 4. Policy / File
+                                  // 4. Policy / File (with Copy Badges)
                                   DataCell(
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          cert.policyNumber ?? '-',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                        ),
-                                        if (cert.importFileId != null)
-                                          Container(
-                                            margin: const EdgeInsets.only(top: 2),
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.cobalt.withOpacity(0.08),
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              '📁 FILE #${cert.importFileId}',
-                                              style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
-                                            ),
+                                    CopyableTableCell(
+                                      value: '${cert.policyNumber ?? "-"} (${cert.importFileId != null ? "IMP-${cert.importFileId}" : "-"})',
+                                      rowSummary: rowSummary,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                cert.policyNumber ?? '-',
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                              ),
+                                              if (cert.policyNumber != null && cert.policyNumber!.isNotEmpty) ...[
+                                                const SizedBox(width: 4),
+                                                InkWell(
+                                                  onTap: () => CopyHelper.copy(
+                                                    context,
+                                                    cert.policyNumber!,
+                                                    customMessage: l.insuranceCopyBadgeSuccess(l.insuranceColPolicyFile, cert.policyNumber!),
+                                                  ),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  child: const Padding(
+                                                    padding: EdgeInsets.all(2.0),
+                                                    child: Icon(Icons.copy_rounded, size: 12, color: Colors.blueGrey),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
                                           ),
-                                      ],
+                                          if (cert.importFileId != null)
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  margin: const EdgeInsets.only(top: 2),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.cobalt.withOpacity(0.08),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    '📁 IMP-${cert.importFileId}',
+                                                    style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                InkWell(
+                                                  onTap: () => CopyHelper.copy(
+                                                    context,
+                                                    'IMP-${cert.importFileId}',
+                                                    customMessage: l.insuranceCopyBadgeSuccess(l.insuranceFieldLinkImportFile, 'IMP-${cert.importFileId}'),
+                                                  ),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  child: const Padding(
+                                                    padding: EdgeInsets.all(2.0),
+                                                    child: Icon(Icons.copy_rounded, size: 11, color: AppTheme.cobalt),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                        ],
+                                      ),
                                     ),
                                   ),
 
                                   // 5. Insured Entity
                                   DataCell(
-                                    SizedBox(
-                                      width: 140,
-                                      child: Text(
-                                        cert.insuredEntityName,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                    CopyableTableCell(
+                                      value: cert.insuredEntityName,
+                                      rowSummary: rowSummary,
+                                      child: SizedBox(
+                                        width: 140,
+                                        child: Text(
+                                          cert.insuredEntityName,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                   ),
 
                                   // 6. Insurance Company
                                   DataCell(
-                                    SizedBox(
-                                      width: 130,
-                                      child: Text(
-                                        cert.insuranceCompanyName ?? 'Misr Insurance Co.',
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+                                    CopyableTableCell(
+                                      value: cert.insuranceCompanyName ?? 'Misr Insurance Co.',
+                                      rowSummary: rowSummary,
+                                      child: SizedBox(
+                                        width: 130,
+                                        child: Text(
+                                          cert.insuranceCompanyName ?? 'Misr Insurance Co.',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+                                        ),
                                       ),
                                     ),
                                   ),
 
                                   // 7. Transport / Route
                                   DataCell(
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              cert.transportMode == 'AIR' ? Icons.flight_takeoff_rounded : Icons.directions_boat_rounded,
-                                              size: 13,
-                                              color: AppTheme.charcoal,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(cert.transportMode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                          ],
-                                        ),
-                                        Text(
-                                          '${cert.portOfLoading} ➔ ${cert.portOfDischarge}',
-                                          style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
-                                        ),
-                                      ],
+                                    CopyableTableCell(
+                                      value: '${cert.transportMode} | ${cert.portOfLoading} -> ${cert.portOfDischarge}',
+                                      rowSummary: rowSummary,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                cert.transportMode == 'AIR' ? Icons.flight_takeoff_rounded : Icons.directions_boat_rounded,
+                                                size: 13,
+                                                color: AppTheme.charcoal,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(cert.transportMode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                            ],
+                                          ),
+                                          Text(
+                                            '${cert.portOfLoading} ➔ ${cert.portOfDischarge}',
+                                            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
 
                                   // 8. Insured Value (110%)
                                   DataCell(
-                                    Text(
-                                      '${cert.insuredValue.toStringAsFixed(2)} ${cert.currency}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12),
+                                    CopyableTableCell(
+                                      value: '${cert.insuredValue.toStringAsFixed(2)} ${cert.currency}',
+                                      rowSummary: rowSummary,
+                                      child: Text(
+                                        '${cert.insuredValue.toStringAsFixed(2)} ${cert.currency}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12),
+                                      ),
                                     ),
                                   ),
 
                                   // 9. Coverage Clause
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blueGrey.shade50,
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: Colors.blueGrey.shade300),
-                                      ),
-                                      child: Text(
-                                        cert.coverageClause,
-                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                    CopyableTableCell(
+                                      value: cert.coverageClause,
+                                      rowSummary: rowSummary,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blueGrey.shade50,
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: Colors.blueGrey.shade300),
+                                        ),
+                                        child: Text(
+                                          cert.coverageClause,
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                        ),
                                       ),
                                     ),
                                   ),
 
                                   // 10. Total Premium
                                   DataCell(
-                                    Text(
-                                      '${cert.totalPayablePremium.toStringAsFixed(2)} ${cert.currency}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
+                                    CopyableTableCell(
+                                      value: '${cert.totalPayablePremium.toStringAsFixed(2)} ${cert.currency}',
+                                      rowSummary: rowSummary,
+                                      child: Text(
+                                        '${cert.totalPayablePremium.toStringAsFixed(2)} ${cert.currency}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
+                                      ),
                                     ),
                                   ),
 
                                   // 11. Status Badge
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: isIssued
-                                            ? Colors.green.shade50
-                                            : (isCancelled ? Colors.red.shade50 : Colors.orange.shade50),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
+                                    CopyableTableCell(
+                                      value: cert.status,
+                                      rowSummary: rowSummary,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
                                           color: isIssued
-                                              ? Colors.green.shade300
-                                              : (isCancelled ? Colors.red.shade300 : Colors.orange.shade300),
+                                              ? Colors.green.shade50
+                                              : (isCancelled ? Colors.red.shade50 : Colors.orange.shade50),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: isIssued
+                                                ? Colors.green.shade300
+                                                : (isCancelled ? Colors.red.shade300 : Colors.orange.shade300),
+                                          ),
                                         ),
-                                      ),
-                                      child: Text(
-                                        isIssued
-                                            ? '✅ ${l.insuranceStatusIssuedBadge}'
-                                            : (isCancelled ? '🚫 ${l.insuranceStatusCancelledBadge}' : '⏳ ${l.insuranceStatusDraftBadge}'),
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: isIssued
-                                              ? Colors.green.shade900
-                                              : (isCancelled ? Colors.red.shade900 : Colors.orange.shade900),
+                                        child: Text(
+                                          isIssued
+                                              ? '✅ ${l.insuranceStatusIssuedBadge}'
+                                              : (isCancelled ? '🚫 ${l.insuranceStatusCancelledBadge}' : '⏳ ${l.insuranceStatusDraftBadge}'),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: isIssued
+                                                ? Colors.green.shade900
+                                                : (isCancelled ? Colors.red.shade900 : Colors.orange.shade900),
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -661,6 +831,13 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                                     Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.blueGrey),
+                                          tooltip: l.insuranceCopyRowSummaryBtn,
+                                          onPressed: () {
+                                            CopyHelper.copy(context, rowSummary, customMessage: l.insuranceCopyRowSummarySuccess);
+                                          },
+                                        ),
                                         RowActionsPill(
                                           onView: () => _showViewCertificateDialog(cert),
                                           onEdit: isIssued ? null : () => _showAddEditCertificateDialog(cert),
@@ -691,7 +868,8 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                     ),
             ),
           ],
-        );
+        ),
+      );
       },
     );
   }
@@ -845,7 +1023,7 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
   final TextEditingController _trackingRefCtrl = TextEditingController();
   final TextEditingController _polCtrl = TextEditingController();
   final TextEditingController _podCtrl = TextEditingController();
-  final TextEditingController _finalDestCtrl = TextEditingController(text: 'Cairo / Alexandria, Egypt');
+  final TextEditingController _finalDestCtrl = TextEditingController(text: 'Cairo, Alexandria, Egypt');
 
   String _currency = 'USD';
   final TextEditingController _exchangeRateCtrl = TextEditingController(text: '48.50');
@@ -862,9 +1040,9 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
 
   final TextEditingController _goodsDescCtrl = TextEditingController();
   final TextEditingController _packageCountCtrl = TextEditingController();
-  final TextEditingController _packageTypeCtrl = TextEditingController(text: 'Cartons / Pallets');
+  final TextEditingController _packageTypeCtrl = TextEditingController(text: 'Cartons and Pallets');
   final TextEditingController _grossWeightCtrl = TextEditingController();
-  final TextEditingController _surveyAgentCtrl = TextEditingController(text: 'Lloyd\'s Agency Alexandria / Port Said');
+  final TextEditingController _surveyAgentCtrl = TextEditingController(text: 'Lloyd\'s Agency Alexandria & Port Said');
   final TextEditingController _claimsPayableAtCtrl = TextEditingController(text: 'Cairo, Egypt');
   final TextEditingController _remarksCtrl = TextEditingController();
 
@@ -1151,8 +1329,9 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: Container(
-        width: 1080,
+      child: SelectionArea(
+        child: Container(
+          width: 1080,
         height: 780,
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1708,7 +1887,8 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildBreakdownRow(String label, String value, {bool isBold = false, Color? valueColor, double fontSize = 12}) {
@@ -1825,190 +2005,184 @@ class _CargoInsuranceDetailsDialog extends StatelessWidget {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 820,
-        height: 780,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            // Official Certificate Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
+      child: SelectionArea(
+        child: Container(
+          width: 820,
+          height: 780,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              // Official Certificate Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobalt.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.verified_user_rounded, color: AppTheme.cobalt, size: 32),
                       ),
-                      child: const Icon(Icons.verified_user_rounded, color: AppTheme.cobalt, size: 32),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l.insurancePreviewCertificateHeader,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.1, color: AppTheme.charcoal),
-                        ),
-                        Text(
-                          '${l.insuranceScreenTitle} • ${certificate.certificateCode}',
-                          style: const TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: certificate.status == 'ISSUED' ? Colors.green.shade50 : Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: certificate.status == 'ISSUED' ? Colors.green : Colors.orange),
-                  ),
-                  child: Text(
-                    certificate.status == 'ISSUED' ? l.insurancePreviewOfficialIssuedBadge : l.insurancePreviewDraftBadge,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: certificate.status == 'ISSUED' ? Colors.green.shade900 : Colors.orange.shade900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 24, thickness: 1.5),
-
-            // Certificate Body
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Grid Section: Parties & Transport
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _buildInfoCard(
-                            title: l.insurancePreviewSecInsuredDetails,
-                            items: [
-                              MapEntry(l.insurancePreviewInsuredLabel, certificate.insuredEntityName),
-                              MapEntry(l.insurancePreviewCompanyLabel, certificate.insuranceCompanyName ?? 'Misr Insurance'),
-                              MapEntry(l.insurancePreviewPolicyNoLabel, certificate.policyNumber ?? '-'),
-                              MapEntry(l.insurancePreviewPolicyTypeLabel, certificate.policyType),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildInfoCard(
-                            title: l.insurancePreviewSecRouteDetails,
-                            items: [
-                              MapEntry(l.insurancePreviewTransportModeLabel, certificate.transportMode),
-                              MapEntry(l.insurancePreviewVesselFlightLabel, '${certificate.vesselOrFlightNo ?? "-"} (Voyage: ${certificate.voyageNumber ?? "-"})'),
-                              MapEntry(l.insurancePreviewPolLabel, certificate.portOfLoading),
-                              MapEntry(l.insurancePreviewPodLabel, certificate.portOfDischarge),
-                              MapEntry(l.insurancePreviewTrackingLabel, certificate.trackingReference ?? '-'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Grid Section: Valuation & Premium
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _buildInfoCard(
-                            title: l.insurancePreviewSecValuation,
-                            items: [
-                              MapEntry(l.insurancePreviewInvoiceFobLabel, '${certificate.invoiceValue.toStringAsFixed(2)} ${certificate.currency}'),
-                              MapEntry(l.insurancePreviewFreightLabel, '${certificate.freightCost.toStringAsFixed(2)} ${certificate.currency}'),
-                              MapEntry(l.insurancePreviewCifBaseLabel, '${certificate.cifValue.toStringAsFixed(2)} ${certificate.currency}'),
-                              MapEntry(l.insurancePreviewInsuredSumLabel, '${certificate.insuredValue.toStringAsFixed(2)} ${certificate.currency}'),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildInfoCard(
-                            title: l.insurancePreviewSecPremium,
-                            items: [
-                              MapEntry(l.insurancePreviewCoverageClauseLabel, certificate.coverageClause),
-                              MapEntry(l.insurancePreviewBasePremiumLabel, '${certificate.basePremium.toStringAsFixed(2)} ${certificate.currency}'),
-                              MapEntry(l.insurancePreviewWarStrikesLabel, '${certificate.warStrikesPremium.toStringAsFixed(2)} ${certificate.currency}'),
-                              MapEntry(l.insurancePreviewFeesTaxesLabel, '${(certificate.issuanceFee + certificate.taxAmount).toStringAsFixed(2)} ${certificate.currency}'),
-                              MapEntry(l.insurancePreviewTotalGrossPremiumLabel, '${certificate.totalPayablePremium.toStringAsFixed(2)} ${certificate.currency}'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Cargo Specs & Legal Clauses
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Column(
+                      const SizedBox(width: 12),
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            l.insurancePreviewSecCargoSpecs,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+                            l.insurancePreviewCertificateHeader,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.1, color: AppTheme.charcoal),
                           ),
-                          const SizedBox(height: 6),
-                          Text('• ${l.insurancePreviewDescPrefix} ${certificate.goodsDescription ?? "General Commercial Cargo"}', style: const TextStyle(fontSize: 12)),
-                          Text('• ${l.insurancePreviewPackagesPrefix} ${certificate.packageCount ?? "-"} ${certificate.packageType ?? "Packages"} • ${l.insurancePreviewGrossWtPrefix} ${certificate.grossWeightKg ?? "-"} KG', style: const TextStyle(fontSize: 12)),
-                          Text("• ${l.insurancePreviewSurveyAgentPrefix} ${certificate.surveyAgentInDestination ?? "Local Lloyd's Agent / Egypt"}", style: const TextStyle(fontSize: 12)),
-                          Text('• ${l.insurancePreviewClaimsPayablePrefix} ${certificate.claimsPayableAt ?? "Cairo, Egypt"} in currency ${certificate.currency}', style: const TextStyle(fontSize: 12)),
+                          Text(
+                            '${l.insuranceScreenTitle} • ${certificate.certificateCode}',
+                            style: const TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w600),
+                          ),
                         ],
                       ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: certificate.status == 'ISSUED' ? Colors.green.shade50 : Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: certificate.status == 'ISSUED' ? Colors.green.shade300 : Colors.orange.shade300),
                     ),
-                  ],
+                    child: Text(
+                      certificate.status == 'ISSUED'
+                          ? '✅ ${l.insurancePreviewOfficialIssuedBadge}'
+                          : '⏳ ${l.insurancePreviewDraftBadge}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: certificate.status == 'ISSUED' ? Colors.green.shade900 : Colors.orange.shade900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+
+              // Printable Certificate Body
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      // Section 1: Insured & Policy Info
+                      _buildInfoCard(
+                        title: l.insurancePreviewSecInsuredDetails,
+                        items: [
+                          MapEntry(l.insurancePreviewInsuredLabel, certificate.insuredEntityName),
+                          MapEntry(l.insurancePreviewCompanyLabel, certificate.insuranceCompanyName ?? "Misr Insurance Company"),
+                          MapEntry(l.insurancePreviewPolicyNoLabel, certificate.policyNumber ?? "PENDING / ON DEMAND"),
+                          MapEntry(l.insurancePreviewPolicyTypeLabel, certificate.policyType),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Section 2: Voyage & Carrier
+                      _buildInfoCard(
+                        title: l.insurancePreviewSecRouteDetails,
+                        items: [
+                          MapEntry(l.insurancePreviewTransportModeLabel, certificate.transportMode),
+                          MapEntry(l.insurancePreviewVesselFlightLabel, '${certificate.vesselOrFlightNo ?? "-"} / Voy: ${certificate.voyageNumber ?? "-"}'),
+                          MapEntry(l.insurancePreviewPolLabel, certificate.portOfLoading),
+                          MapEntry(l.insurancePreviewPodLabel, certificate.portOfDischarge),
+                          MapEntry(l.insurancePreviewTrackingLabel, certificate.trackingReference ?? "-"),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Section 3: Valuation & Insured Sum
+                      _buildInfoCard(
+                        title: l.insurancePreviewSecValuation,
+                        items: [
+                          MapEntry(l.insurancePreviewInvoiceFobLabel, '${certificate.invoiceValue.toStringAsFixed(2)} ${certificate.currency}'),
+                          MapEntry(l.insurancePreviewFreightLabel, '${certificate.freightCost.toStringAsFixed(2)} ${certificate.currency}'),
+                          MapEntry(l.insurancePreviewCifBaseLabel, '${certificate.cifValue.toStringAsFixed(2)} ${certificate.currency}'),
+                          MapEntry(l.insurancePreviewInsuredSumLabel, '${certificate.insuredValue.toStringAsFixed(2)} ${certificate.currency}'),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Section 4: Premium & Coverage
+                      _buildInfoCard(
+                        title: l.insurancePreviewSecPremium,
+                        items: [
+                          MapEntry(l.insurancePreviewCoverageClauseLabel, certificate.coverageClause),
+                          MapEntry(l.insurancePreviewBasePremiumLabel, '${certificate.basePremium.toStringAsFixed(2)} ${certificate.currency} (${(certificate.baseRate * 100).toStringAsFixed(2)}%)'),
+                          MapEntry(l.insurancePreviewWarStrikesLabel, '${certificate.warStrikesPremium.toStringAsFixed(2)} ${certificate.currency}'),
+                          MapEntry(l.insurancePreviewFeesTaxesLabel, '${(certificate.issuanceFee + certificate.taxAmount).toStringAsFixed(2)} ${certificate.currency}'),
+                          MapEntry(l.insurancePreviewTotalGrossPremiumLabel, '${certificate.totalPayablePremium.toStringAsFixed(2)} ${certificate.currency}'),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Section 5: Cargo Specs & Claims Condition
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blueGrey.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blueGrey.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l.insurancePreviewSecCargoSpecs,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+                            ),
+                            const SizedBox(height: 6),
+                            Text('• ${l.insurancePreviewDescPrefix} ${certificate.goodsDescription ?? "General Commercial Cargo"}', style: const TextStyle(fontSize: 12)),
+                            Text('• ${l.insurancePreviewPackagesPrefix} ${certificate.packageCount ?? "-"} ${certificate.packageType ?? "Packages"} • ${l.insurancePreviewGrossWtPrefix} ${certificate.grossWeightKg ?? "-"} KG', style: const TextStyle(fontSize: 12)),
+                            Text("• ${l.insurancePreviewSurveyAgentPrefix} ${certificate.surveyAgentInDestination ?? "Local Lloyd's Agent & Egypt"}", style: const TextStyle(fontSize: 12)),
+                            Text('• ${l.insurancePreviewClaimsPayablePrefix} ${certificate.claimsPayableAt ?? "Cairo, Egypt"} in currency ${certificate.currency}', style: const TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const Divider(height: 16),
+              const Divider(height: 16),
 
-            // Modal Bottom Actions
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  l.insurancePreviewLegalDisclaimer,
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
-                  icon: const Icon(Icons.print_rounded, size: 16),
-                  label: Text(l.insurancePreviewPrintBtn),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(l.insurancePreviewPrintReadySnack),
-                        backgroundColor: AppTheme.cobalt,
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ],
+              // Modal Bottom Actions
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      l.insurancePreviewLegalDisclaimer,
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.copy_rounded, size: 16),
+                    label: Text(l.insuranceCopyRowSummaryBtn),
+                    onPressed: () {
+                      final summary = CargoInsuranceExportService.toRowSummary(certificate, l);
+                      CopyHelper.copy(context, summary, customMessage: l.insuranceCopyRowSummarySuccess);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
+                    icon: const Icon(Icons.print_rounded, size: 16),
+                    label: Text(l.insurancePreviewPrintBtn),
+                    onPressed: () => CargoInsuranceExportService.printOrSaveCertificatesPdf(context, [certificate]),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

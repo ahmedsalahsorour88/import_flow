@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
 
@@ -217,9 +217,102 @@ void main() {
       expect(ar.partyBank.isNotEmpty, true);
       expect(en.partyBank.isNotEmpty, true);
       expect(ar.partyImporter.isNotEmpty, true);
+      expect(ar.partyImporter.isNotEmpty, true);
       expect(en.partyImporter.isNotEmpty, true);
       expect(ar.partyCarrier.isNotEmpty, true);
       expect(en.partyCarrier.isNotEmpty, true);
+
+      // Courier Company Brands
+      expect(ar.courierCompanyDhl.isNotEmpty, true);
+      expect(en.courierCompanyDhl.isNotEmpty, true);
+      expect(ar.courierCompanyFedex.isNotEmpty, true);
+      expect(en.courierCompanyFedex.isNotEmpty, true);
+      expect(ar.courierCompanyAramex.isNotEmpty, true);
+      expect(en.courierCompanyAramex.isNotEmpty, true);
+      expect(ar.courierCompanyUps.isNotEmpty, true);
+      expect(en.courierCompanyUps.isNotEmpty, true);
+      expect(ar.courierCompanyNaqel.isNotEmpty, true);
+      expect(en.courierCompanyNaqel.isNotEmpty, true);
+      expect(ar.courierCompanySmsa.isNotEmpty, true);
+      expect(en.courierCompanySmsa.isNotEmpty, true);
+
+      // Export Toolbar & Feedback
+      expect(ar.originalDocsExportTsvBtn.isNotEmpty, true);
+      expect(en.originalDocsExportTsvBtn.isNotEmpty, true);
+      expect(ar.originalDocsExportExcelBtn.isNotEmpty, true);
+      expect(en.originalDocsExportExcelBtn.isNotEmpty, true);
+      expect(ar.originalDocsPrintPdfBtn.isNotEmpty, true);
+      expect(en.originalDocsPrintPdfBtn.isNotEmpty, true);
+      expect(ar.originalDocsCopyDossierBtn.isNotEmpty, true);
+      expect(en.originalDocsCopyDossierBtn.isNotEmpty, true);
+      expect(ar.originalDocsCopiedDossierSuccess.isNotEmpty, true);
+      expect(en.originalDocsCopiedDossierSuccess.isNotEmpty, true);
+      expect(ar.originalDocsCopiedTsvSuccess.isNotEmpty, true);
+      expect(en.originalDocsCopiedTsvSuccess.isNotEmpty, true);
+      expect(ar.originalDocsCopiedExcelSuccess.isNotEmpty, true);
+      expect(en.originalDocsCopiedExcelSuccess.isNotEmpty, true);
+      expect(ar.originalDocsExportTsvDialogTitle.isNotEmpty, true);
+      expect(en.originalDocsExportTsvDialogTitle.isNotEmpty, true);
+      expect(ar.originalDocsExportExcelDialogTitle.isNotEmpty, true);
+      expect(en.originalDocsExportExcelDialogTitle.isNotEmpty, true);
+      expect(ar.originalDocsExportPdfDialogTitle.isNotEmpty, true);
+      expect(en.originalDocsExportPdfDialogTitle.isNotEmpty, true);
+      expect(ar.originalDocsDossierTitle.isNotEmpty, true);
+      expect(en.originalDocsDossierTitle.isNotEmpty, true);
+      expect(ar.originalDocsCopyRowSuccess.isNotEmpty, true);
+      expect(en.originalDocsCopyRowSuccess.isNotEmpty, true);
+
+      // Documents TSV Headers
+      expect(ar.originalDocsTsvHeaderCourierNo.isNotEmpty, true);
+      expect(en.originalDocsTsvHeaderCourierNo.isNotEmpty, true);
+      expect(ar.originalDocsTsvHeaderDocCategory.isNotEmpty, true);
+      expect(en.originalDocsTsvHeaderDocCategory.isNotEmpty, true);
+      expect(ar.originalDocsTsvHeaderDocName.isNotEmpty, true);
+      expect(en.originalDocsTsvHeaderDocName.isNotEmpty, true);
+      expect(ar.originalDocsTsvHeaderRequirement.isNotEmpty, true);
+      expect(en.originalDocsTsvHeaderRequirement.isNotEmpty, true);
+      expect(ar.originalDocsTsvHeaderResponsibleParty.isNotEmpty, true);
+      expect(en.originalDocsTsvHeaderResponsibleParty.isNotEmpty, true);
+      expect(ar.originalDocsTsvHeaderPhysicalReceived.isNotEmpty, true);
+      expect(en.originalDocsTsvHeaderPhysicalReceived.isNotEmpty, true);
+      expect(ar.originalDocsTsvHeaderReceivedDate.isNotEmpty, true);
+      expect(en.originalDocsTsvHeaderReceivedDate.isNotEmpty, true);
+      expect(ar.originalDocsTsvHeaderVerified.isNotEmpty, true);
+      expect(en.originalDocsTsvHeaderVerified.isNotEmpty, true);
+      expect(ar.originalDocsTsvHeaderAuditor.isNotEmpty, true);
+      expect(en.originalDocsTsvHeaderAuditor.isNotEmpty, true);
+      expect(ar.originalDocsTsvHeaderStatus.isNotEmpty, true);
+      expect(en.originalDocsTsvHeaderStatus.isNotEmpty, true);
+      expect(ar.originalDocsTsvHeaderRemarks.isNotEmpty, true);
+      expect(en.originalDocsTsvHeaderRemarks.isNotEmpty, true);
+
+      // Registry TSV Headers
+      expect(ar.originalDocsRegistryDossierTitle.isNotEmpty, true);
+      expect(en.originalDocsRegistryDossierTitle.isNotEmpty, true);
+      expect(ar.originalDocsRegistryTsvHeaderCode.isNotEmpty, true);
+      expect(en.originalDocsRegistryTsvHeaderCode.isNotEmpty, true);
+      expect(ar.originalDocsRegistryTsvHeaderFile.isNotEmpty, true);
+      expect(en.originalDocsRegistryTsvHeaderFile.isNotEmpty, true);
+      expect(ar.originalDocsRegistryTsvHeaderAcid.isNotEmpty, true);
+      expect(en.originalDocsRegistryTsvHeaderAcid.isNotEmpty, true);
+      expect(ar.originalDocsRegistryTsvHeaderSupplier.isNotEmpty, true);
+      expect(en.originalDocsRegistryTsvHeaderSupplier.isNotEmpty, true);
+      expect(ar.originalDocsRegistryTsvHeaderTotalDocs.isNotEmpty, true);
+      expect(en.originalDocsRegistryTsvHeaderTotalDocs.isNotEmpty, true);
+      expect(ar.originalDocsRegistryTsvHeaderReceivedDocs.isNotEmpty, true);
+      expect(en.originalDocsRegistryTsvHeaderReceivedDocs.isNotEmpty, true);
+      expect(ar.originalDocsRegistryTsvHeaderVerifiedDocs.isNotEmpty, true);
+      expect(en.originalDocsRegistryTsvHeaderVerifiedDocs.isNotEmpty, true);
+      expect(ar.originalDocsRegistryTsvHeaderCompletion.isNotEmpty, true);
+      expect(en.originalDocsRegistryTsvHeaderCompletion.isNotEmpty, true);
+      expect(ar.originalDocsRegistryTsvHeaderStatus.isNotEmpty, true);
+      expect(en.originalDocsRegistryTsvHeaderStatus.isNotEmpty, true);
+      expect(ar.originalDocsRegistryTsvHeaderUpdatedAt.isNotEmpty, true);
+      expect(en.originalDocsRegistryTsvHeaderUpdatedAt.isNotEmpty, true);
+      expect(ar.originalDocsRegistryCopiedSuccess.isNotEmpty, true);
+      expect(en.originalDocsRegistryCopiedSuccess.isNotEmpty, true);
+      expect(ar.originalDocsLoadSessionTooltip.isNotEmpty, true);
+      expect(en.originalDocsLoadSessionTooltip.isNotEmpty, true);
     });
 
     test('Arabic strings must NOT contain English characters', () {
@@ -311,6 +404,52 @@ void main() {
       expect(latinPattern.hasMatch(ar.partyCarrier), false);
       expect(latinPattern.hasMatch(ar.sessionNotesLabel), false);
       expect(latinPattern.hasMatch(ar.overrideReasonLabel), false);
+
+      expect(latinPattern.hasMatch(ar.courierCompanyDhl), false);
+      expect(latinPattern.hasMatch(ar.courierCompanyFedex), false);
+      expect(latinPattern.hasMatch(ar.courierCompanyAramex), false);
+      expect(latinPattern.hasMatch(ar.courierCompanyUps), false);
+      expect(latinPattern.hasMatch(ar.courierCompanyNaqel), false);
+      expect(latinPattern.hasMatch(ar.courierCompanySmsa), false);
+
+      expect(latinPattern.hasMatch(ar.originalDocsExportTsvBtn), false);
+      expect(latinPattern.hasMatch(ar.originalDocsExportExcelBtn), false);
+      expect(latinPattern.hasMatch(ar.originalDocsPrintPdfBtn), false);
+      expect(latinPattern.hasMatch(ar.originalDocsCopyDossierBtn), false);
+      expect(latinPattern.hasMatch(ar.originalDocsCopiedDossierSuccess), false);
+      expect(latinPattern.hasMatch(ar.originalDocsCopiedTsvSuccess), false);
+      expect(latinPattern.hasMatch(ar.originalDocsCopiedExcelSuccess), false);
+      expect(latinPattern.hasMatch(ar.originalDocsExportTsvDialogTitle), false);
+      expect(latinPattern.hasMatch(ar.originalDocsExportExcelDialogTitle), false);
+      expect(latinPattern.hasMatch(ar.originalDocsExportPdfDialogTitle), false);
+      expect(latinPattern.hasMatch(ar.originalDocsDossierTitle), false);
+      expect(latinPattern.hasMatch(ar.originalDocsCopyRowSuccess), false);
+
+      expect(latinPattern.hasMatch(ar.originalDocsTsvHeaderCourierNo), false);
+      expect(latinPattern.hasMatch(ar.originalDocsTsvHeaderDocCategory), false);
+      expect(latinPattern.hasMatch(ar.originalDocsTsvHeaderDocName), false);
+      expect(latinPattern.hasMatch(ar.originalDocsTsvHeaderRequirement), false);
+      expect(latinPattern.hasMatch(ar.originalDocsTsvHeaderResponsibleParty), false);
+      expect(latinPattern.hasMatch(ar.originalDocsTsvHeaderPhysicalReceived), false);
+      expect(latinPattern.hasMatch(ar.originalDocsTsvHeaderReceivedDate), false);
+      expect(latinPattern.hasMatch(ar.originalDocsTsvHeaderVerified), false);
+      expect(latinPattern.hasMatch(ar.originalDocsTsvHeaderAuditor), false);
+      expect(latinPattern.hasMatch(ar.originalDocsTsvHeaderStatus), false);
+      expect(latinPattern.hasMatch(ar.originalDocsTsvHeaderRemarks), false);
+
+      expect(latinPattern.hasMatch(ar.originalDocsRegistryDossierTitle), false);
+      expect(latinPattern.hasMatch(ar.originalDocsRegistryTsvHeaderCode), false);
+      expect(latinPattern.hasMatch(ar.originalDocsRegistryTsvHeaderFile), false);
+      expect(latinPattern.hasMatch(ar.originalDocsRegistryTsvHeaderAcid), false);
+      expect(latinPattern.hasMatch(ar.originalDocsRegistryTsvHeaderSupplier), false);
+      expect(latinPattern.hasMatch(ar.originalDocsRegistryTsvHeaderTotalDocs), false);
+      expect(latinPattern.hasMatch(ar.originalDocsRegistryTsvHeaderReceivedDocs), false);
+      expect(latinPattern.hasMatch(ar.originalDocsRegistryTsvHeaderVerifiedDocs), false);
+      expect(latinPattern.hasMatch(ar.originalDocsRegistryTsvHeaderCompletion), false);
+      expect(latinPattern.hasMatch(ar.originalDocsRegistryTsvHeaderStatus), false);
+      expect(latinPattern.hasMatch(ar.originalDocsRegistryTsvHeaderUpdatedAt), false);
+      expect(latinPattern.hasMatch(ar.originalDocsRegistryCopiedSuccess), false);
+      expect(latinPattern.hasMatch(ar.originalDocsLoadSessionTooltip), false);
     });
 
     test('Zero stacked bilingual text in Arabic or English getters', () {

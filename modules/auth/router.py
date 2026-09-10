@@ -16,49 +16,30 @@ from .schemas import (
 )
 from .security import decode_access_token
 from .service import AuthService
-from .permissions import require_permission, get_user_effective_permissions, get_user_permissions_breakdown
+from .permissions import (
+    require_permission,
+    get_user_effective_permissions,
+    get_user_permissions_breakdown,
+    resolve_user,
+)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication & User Access Control (RBAC)"])
 
 
 # ─── Dependency: Current User ─────────────────────────────────────────────────
 
-def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> User:
-    if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing Authorization header."
-        )
-
-    parts = authorization.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Authorization header format. Expected 'Bearer <token>'."
-        )
-
-    token = parts[1]
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired access token."
-        )
-
-    user_id = int(payload.get("sub", 0))
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found."
-        )
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="حساب المستخدم معطّل. تواصل مع مدير النظام."
-        )
-
-    return user
+def get_current_user(
+    authorization: str = Header(None),
+    x_user_role: str = Header(None),
+    x_user_name: str = Header(None),
+    db: Session = Depends(get_db)
+) -> User:
+    return resolve_user(
+        db,
+        authorization=authorization,
+        x_user_role=x_user_role,
+        x_user_name=x_user_name
+    )
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:

@@ -24,6 +24,7 @@ from modules.customs_tariff.model import CustomsTariff, FeeCode, PreferentialAgr
 from modules.currencies.model import Currency, ExchangeRate
 from modules.customs_consultation.model import ClearanceExpenseType
 from modules.auth.seed_rbac import seed_rbac
+from modules.experience_guide.model import GuideEntry, GuideEntryScope
 
 
 class MasterDataSyncService:
@@ -37,7 +38,7 @@ class MasterDataSyncService:
             default_users = [
                 User(
                     username="admin",
-                    email="admin@importflow.com",
+                    email="admin@sorourlogistics.com",
                     full_name="System Admin",
                     hashed_password=hash_password("admin123"),
                     role="ADMIN",
@@ -45,7 +46,7 @@ class MasterDataSyncService:
                 ),
                 User(
                     username="manager",
-                    email="manager@importflow.com",
+                    email="manager@sorourlogistics.com",
                     full_name="General Logistics Manager",
                     hashed_password=hash_password("manager123"),
                     role="MANAGER",
@@ -53,7 +54,7 @@ class MasterDataSyncService:
                 ),
                 User(
                     username="operator1",
-                    email="operator1@importflow.com",
+                    email="operator1@sorourlogistics.com",
                     full_name="Ahmed Import Specialist",
                     hashed_password=hash_password("operator123"),
                     role="OPERATOR",
@@ -61,7 +62,7 @@ class MasterDataSyncService:
                 ),
                 User(
                     username="operator2",
-                    email="operator2@importflow.com",
+                    email="operator2@sorourlogistics.com",
                     full_name="Sara Customs Operator",
                     hashed_password=hash_password("operator123"),
                     role="OPERATOR",
@@ -446,6 +447,76 @@ class MasterDataSyncService:
             self.db.commit()
         return added
 
+    def sync_expense_catalog(self) -> Dict[str, int]:
+        """
+        Incremental non-destructive upsert for Coded Reference Expense Catalog (AI-EXPENSE-CATALOG-002).
+        Preserves existing user-added patterns while ensuring canonical codes exist.
+        """
+        from modules.expense_catalog.model import ExpenseCatalog
+        from modules.expense_catalog.seed_data import EXPENSE_CATALOG_SEED_DATA
+
+        added = 0
+        updated = 0
+
+        for item in EXPENSE_CATALOG_SEED_DATA:
+            code = item["code"].strip().upper()
+            existing = self.db.query(ExpenseCatalog).filter(ExpenseCatalog.code == code).first()
+            if not existing:
+                cat_obj = ExpenseCatalog(
+                    code=code,
+                    canonical_name_ar=item["canonical_name_ar"],
+                    canonical_name_en=item.get("canonical_name_en"),
+                    category=item["category"],
+                    unit_type=item.get("unit_type", "fixed"),
+                    allow_composite=item.get("allow_composite", False),
+                    recognition_patterns=list(item.get("recognition_patterns", [])),
+                    is_active=True,
+                )
+                self.db.add(cat_obj)
+                added += 1
+            else:
+                # Merge any missing recognition patterns
+                cur_patterns = list(existing.recognition_patterns or [])
+                changed = False
+                for p in item.get("recognition_patterns", []):
+                    if p not in cur_patterns:
+                        cur_patterns.append(p)
+                        changed = True
+                if changed:
+                    existing.recognition_patterns = cur_patterns
+                    updated += 1
+
+        if added > 0 or updated > 0:
+            self.db.commit()
+        return {"added": added, "updated": updated}
+
+    def sync_experience_guide_seeds(self) -> Dict[str, Any]:
+        """Ensures default high-value logistics & customs rules exist in the Experience Guide."""
+        added = 0
+        acoustic_title = "صنف الأكوستيك — اشتراطات فحص وإلزامية ميناء"
+        existing = self.db.query(GuideEntry).filter(GuideEntry.title == acoustic_title).first()
+        if not existing:
+            entry = GuideEntry(
+                title=acoustic_title,
+                content="يجب أن يكون ميناء الوصول الإسكندرية حصراً لوجود معامل فحص متخصصة. مطلوب شهادة منشأ أصلية مصدقة ومرفقة قبل الشحن لتفادي التحفظ الجمركي أو فرض غرامات تأخير.",
+                entry_type="required_document",
+                severity="critical",
+                created_by="System Seed",
+                is_active=True,
+            )
+            self.db.add(entry)
+            self.db.flush()
+            scope = GuideEntryScope(
+                guide_entry_id=entry.entry_id,
+                scope_type="hs_code",
+                scope_value="8520",
+            )
+            self.db.add(scope)
+            added += 1
+            self.db.commit()
+
+        return {"added": added}
+
     def sync_all(self) -> Dict[str, Any]:
         """Runs complete master data non-destructive synchronization across all reference domains."""
         users_added = self.sync_system_users()
@@ -455,6 +526,8 @@ class MasterDataSyncService:
         clearance_added = self.sync_clearance_expenses()
         shipping_lines_added = self.sync_shipping_lines()
         rbac_res = seed_rbac(self.db)
+        expense_catalog_res = self.sync_expense_catalog()
+        guide_res = self.sync_experience_guide_seeds()
 
         return {
             "status": "synchronized_cleanly",
@@ -465,5 +538,7 @@ class MasterDataSyncService:
             "clearance_expenses_added": clearance_added,
             "shipping_lines_added": shipping_lines_added,
             "rbac": rbac_res,
+            "expense_catalog": expense_catalog_res,
+            "experience_guide": guide_res,
         }
 

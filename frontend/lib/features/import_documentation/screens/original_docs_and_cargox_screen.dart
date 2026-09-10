@@ -101,34 +101,36 @@ class _OriginalDocsAndCargoXScreenState
       ),
     ];
 
-    return VerticalStageScaffold(
-      stageCode: 'PHASE-4',
-      titleEn: 'Original Docs Collection & CargoX Hub',
-      titleAr: 'تحصيل المستندات وكارجو إكس — المرحلة 4',
-      headerIcon: Icons.cloud_upload_outlined,
-      headerColor: AppTheme.crimson,
-      tabs: tabs,
-      selectedIndex: _selectedSubTab,
-      onTabSelected: (index) {
-        setState(() => _selectedSubTab = index);
-        if (index == 1) {
-          if (!ref.read(shipmentDocumentsProvider).isLoading) {
-            ref
-                .read(shipmentDocumentsProvider.notifier)
-                .fetchShipmentDocuments();
+    return SelectionArea(
+      child: VerticalStageScaffold(
+        stageCode: 'PHASE-4',
+        titleEn: 'Original Docs Collection & CargoX Hub — Phase 4',
+        titleAr: 'تحصيل المستندات وكارجو إكس — المرحلة 4',
+        headerIcon: Icons.cloud_upload_outlined,
+        headerColor: AppTheme.crimson,
+        tabs: tabs,
+        selectedIndex: _selectedSubTab,
+        onTabSelected: (index) {
+          setState(() => _selectedSubTab = index);
+          if (index == 1) {
+            if (!ref.read(shipmentDocumentsProvider).isLoading) {
+              ref
+                  .read(shipmentDocumentsProvider.notifier)
+                  .fetchShipmentDocuments();
+            }
           }
-        }
-      },
-      selectedImportFileId: _selectedImportFileId,
-      onShipmentStatusChanged: _refreshData,
-      headerActions: [
-        IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: l.refreshDataTooltip,
-          onPressed: _refreshData,
-        ),
-      ],
-      body: _buildCurrentTabContent(),
+        },
+        selectedImportFileId: _selectedImportFileId,
+        onShipmentStatusChanged: _refreshData,
+        headerActions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white70),
+            tooltip: l.refreshDataTooltip,
+            onPressed: _refreshData,
+          ),
+        ],
+        body: _buildCurrentTabContent(),
+      ),
     );
   }
 

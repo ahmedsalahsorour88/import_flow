@@ -44,6 +44,8 @@ class ImportFileBase(BaseModel):
     incoterm_code: str = Field("FOB", description="FOB, CIF, CFR, etc.")
     priority: str = Field("High", description="Low, Medium, High, Critical")
     shipment_category: str = Field("New Purchase", description="New Purchase, Repair, Replacement, Sample")
+    hs_code: Optional[str] = Field(None, description="HS Code e.g. 8520")
+    product_category: Optional[str] = Field(None, description="Product Category e.g. أجهزة ومعدات صوتية وأكوستيك")
     required_eta: Optional[date] = None
     file_opening_date: Optional[date] = Field(default_factory=date.today, description="تاريخ فتح الملف")
     selected_scenario: Optional[str] = Field(None, description="e.g. MSC Option")
@@ -131,6 +133,8 @@ class ImportFileUpdate(BaseModel):
     incoterm_code: Optional[str] = None
     priority: Optional[str] = None
     shipment_category: Optional[str] = None
+    hs_code: Optional[str] = None
+    product_category: Optional[str] = None
     required_eta: Optional[date] = None
     file_opening_date: Optional[date] = None
     selected_scenario: Optional[str] = None
@@ -207,11 +211,23 @@ class ImportFileResponse(ImportFileBase):
     current_stage: str
     progress_percent: float
     next_action: str
-    is_active: bool
+    is_active: bool = True
+    cloned_from_id: Optional[int] = None
+    cloned_from_code: Optional[str] = None
     created_at: datetime
     created_by: str
     updated_at: datetime
     updated_by: str
+
+
+class CloneImportFileRequest(BaseModel):
+    target_import_file_code: str = Field(..., min_length=3, description="New unique import file code")
+    target_custom_file_number: Optional[str] = Field(None, description="New custom file number")
+    copy_invoices_data: bool = Field(True, description="Copy items/invoices data")
+    copy_packing_lists: bool = Field(True, description="Copy packing lists data")
+    copy_attachments: bool = Field(False, description="Copy documents and attachments (default false per UX-CLONE-011)")
+    notes: Optional[str] = Field(None, description="Optional notes on the cloned shipment")
+
 
 
 class ImportMasterReportSummary(BaseModel):

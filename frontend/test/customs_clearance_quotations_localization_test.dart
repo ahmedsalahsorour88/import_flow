@@ -129,6 +129,118 @@ void main() {
       expect(en.clearanceQuotesUseExtractedQuoteBtn.isNotEmpty, true);
       expect(ar.clearanceQuotesExtractedSuccessToast('Broker A', '5000'), contains('Broker A'));
       expect(en.clearanceQuotesExtractedSuccessToast('Broker A', '5000'), contains('5000'));
+
+      // Export toolbar & linked outputs
+      expect(ar.clearanceQuotesExportTsvBtn.isNotEmpty, true);
+      expect(en.clearanceQuotesExportTsvBtn.isNotEmpty, true);
+      expect(ar.clearanceQuotesExportExcelBtn.isNotEmpty, true);
+      expect(en.clearanceQuotesExportExcelBtn.isNotEmpty, true);
+      expect(ar.clearanceQuotesPrintPdfBtn.isNotEmpty, true);
+      expect(en.clearanceQuotesPrintPdfBtn.isNotEmpty, true);
+      expect(ar.clearanceQuotesCopyDossierBtn.isNotEmpty, true);
+      expect(en.clearanceQuotesCopyDossierBtn.isNotEmpty, true);
+      expect(ar.clearanceQuotesCopiedDossierSuccess.isNotEmpty, true);
+      expect(en.clearanceQuotesCopiedDossierSuccess.isNotEmpty, true);
+      expect(ar.clearanceQuotesCopiedTsvSuccess.isNotEmpty, true);
+      expect(en.clearanceQuotesCopiedTsvSuccess.isNotEmpty, true);
+      expect(ar.clearanceQuotesCopiedExcelSuccess.isNotEmpty, true);
+      expect(en.clearanceQuotesCopiedExcelSuccess.isNotEmpty, true);
+      expect(ar.clearanceQuotesExportTsvDialogTitle.isNotEmpty, true);
+      expect(en.clearanceQuotesExportTsvDialogTitle.isNotEmpty, true);
+      expect(ar.clearanceQuotesExportExcelDialogTitle.isNotEmpty, true);
+      expect(en.clearanceQuotesExportExcelDialogTitle.isNotEmpty, true);
+      expect(ar.clearanceQuotesExportPdfDialogTitle.isNotEmpty, true);
+      expect(en.clearanceQuotesExportPdfDialogTitle.isNotEmpty, true);
+      expect(ar.clearanceQuotesDossierTitle.isNotEmpty, true);
+      expect(en.clearanceQuotesDossierTitle.isNotEmpty, true);
+      expect(ar.clearanceQuotesCopyRowSuccess.isNotEmpty, true);
+      expect(en.clearanceQuotesCopyRowSuccess.isNotEmpty, true);
+      expect(ar.clearanceQuotesCopySummarySuccess.isNotEmpty, true);
+      expect(en.clearanceQuotesCopySummarySuccess.isNotEmpty, true);
+
+      // TSV headers
+      expect(ar.clearanceQuotesTsvHeaderRfqCode.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderRfqCode.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderTitle.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderTitle.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderPort.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderPort.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderShipmentType.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderShipmentType.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderContainers.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderContainers.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderWeight.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderWeight.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderCbm.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderCbm.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderBroker.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderBroker.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderClearanceFee.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderClearanceFee.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderInlandTransport.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderInlandTransport.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderInspectionFee.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderInspectionFee.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderPortExpenses.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderPortExpenses.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderMiscFee.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderMiscFee.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderTotal.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderTotal.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderDays.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderDays.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderStatus.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderStatus.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderPriceServiceType.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderPriceServiceType.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderPriceContainerType.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderPriceContainerType.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderPriceStandardRate.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderPriceStandardRate.isNotEmpty, true);
+      expect(ar.clearanceQuotesTsvHeaderPriceNotes.isNotEmpty, true);
+      expect(en.clearanceQuotesTsvHeaderPriceNotes.isNotEmpty, true);
+
+      // Extractor & breakdown getters
+      expect(ar.clearanceQuotesManagePriceListBtn.isNotEmpty, true);
+      expect(en.clearanceQuotesManagePriceListBtn.isNotEmpty, true);
+      expect(ar.clearanceQuotesPasteClipboardBtn.isNotEmpty, true);
+      expect(en.clearanceQuotesPasteClipboardBtn.isNotEmpty, true);
+      expect(ar.clearanceQuotesSampleAccBtn.isNotEmpty, true);
+      expect(en.clearanceQuotesSampleAccBtn.isNotEmpty, true);
+      expect(ar.clearanceQuotesSampleStandardBtn.isNotEmpty, true);
+      expect(en.clearanceQuotesSampleStandardBtn.isNotEmpty, true);
+      expect(ar.clearanceQuotesClearInputTooltip.isNotEmpty, true);
+      expect(en.clearanceQuotesClearInputTooltip.isNotEmpty, true);
+      expect(ar.clearanceQuotesOcrUploadingState.isNotEmpty, true);
+      expect(en.clearanceQuotesOcrUploadingState.isNotEmpty, true);
+      expect(ar.clearanceQuotesOcrStep1.isNotEmpty, true);
+      expect(en.clearanceQuotesOcrStep1.isNotEmpty, true);
+      expect(ar.clearanceQuotesOcrDialogTitle.isNotEmpty, true);
+      expect(en.clearanceQuotesOcrDialogTitle.isNotEmpty, true);
+      expect(ar.clearanceQuotesOcrProgressState(45), contains('45'));
+      expect(en.clearanceQuotesOcrProgressState(45), contains('45'));
+      expect(ar.clearanceQuotesOcrStep2.isNotEmpty, true);
+      expect(en.clearanceQuotesOcrStep2.isNotEmpty, true);
+      expect(ar.clearanceQuotesOcrStep4State.isNotEmpty, true);
+      expect(en.clearanceQuotesOcrStep4State.isNotEmpty, true);
+      expect(ar.clearanceQuotesSelectedContainerLabel.isNotEmpty, true);
+      expect(en.clearanceQuotesSelectedContainerLabel.isNotEmpty, true);
+      expect(ar.clearanceQuotesSaveAsPriceListBtn.isNotEmpty, true);
+      expect(en.clearanceQuotesSaveAsPriceListBtn.isNotEmpty, true);
+      expect(ar.clearanceQuotesRateOptionsTitle.isNotEmpty, true);
+      expect(en.clearanceQuotesRateOptionsTitle.isNotEmpty, true);
+      expect(ar.clearanceQuotesBreakdownClearanceFee.isNotEmpty, true);
+      expect(en.clearanceQuotesBreakdownClearanceFee.isNotEmpty, true);
+      expect(ar.clearanceQuotesBreakdownInlandFee.isNotEmpty, true);
+      expect(en.clearanceQuotesBreakdownInlandFee.isNotEmpty, true);
+      expect(ar.clearanceQuotesBreakdownInspectionFee.isNotEmpty, true);
+      expect(en.clearanceQuotesBreakdownInspectionFee.isNotEmpty, true);
+      expect(ar.clearanceQuotesBreakdownPortExpenses.isNotEmpty, true);
+      expect(en.clearanceQuotesBreakdownPortExpenses.isNotEmpty, true);
+      expect(ar.clearanceQuotesBreakdownEstimatedTotal.isNotEmpty, true);
+      expect(en.clearanceQuotesBreakdownEstimatedTotal.isNotEmpty, true);
+      expect(ar.clearanceQuotesExpensesCatalogCount(5), contains('5'));
+      expect(en.clearanceQuotesExpensesCatalogCount(5), contains('5'));
     });
 
     test('Arabic translations do not contain Latin characters in static strings', () {
@@ -226,6 +338,57 @@ void main() {
         ar.clearanceQuotesConfirmDeleteQuoteContent,
         ar.clearanceQuotesErrorLoadingRfqs,
         ar.clearanceQuotesErrorLoadingPriceList,
+        ar.clearanceQuotesExportTsvBtn,
+        ar.clearanceQuotesExportExcelBtn,
+        ar.clearanceQuotesPrintPdfBtn,
+        ar.clearanceQuotesCopyDossierBtn,
+        ar.clearanceQuotesCopiedDossierSuccess,
+        ar.clearanceQuotesCopiedTsvSuccess,
+        ar.clearanceQuotesCopiedExcelSuccess,
+        ar.clearanceQuotesExportTsvDialogTitle,
+        ar.clearanceQuotesExportExcelDialogTitle,
+        ar.clearanceQuotesExportPdfDialogTitle,
+        ar.clearanceQuotesDossierTitle,
+        ar.clearanceQuotesCopyRowSuccess,
+        ar.clearanceQuotesCopySummarySuccess,
+        ar.clearanceQuotesTsvHeaderRfqCode,
+        ar.clearanceQuotesTsvHeaderTitle,
+        ar.clearanceQuotesTsvHeaderPort,
+        ar.clearanceQuotesTsvHeaderShipmentType,
+        ar.clearanceQuotesTsvHeaderContainers,
+        ar.clearanceQuotesTsvHeaderWeight,
+        ar.clearanceQuotesTsvHeaderCbm,
+        ar.clearanceQuotesTsvHeaderBroker,
+        ar.clearanceQuotesTsvHeaderClearanceFee,
+        ar.clearanceQuotesTsvHeaderInlandTransport,
+        ar.clearanceQuotesTsvHeaderInspectionFee,
+        ar.clearanceQuotesTsvHeaderPortExpenses,
+        ar.clearanceQuotesTsvHeaderMiscFee,
+        ar.clearanceQuotesTsvHeaderTotal,
+        ar.clearanceQuotesTsvHeaderDays,
+        ar.clearanceQuotesTsvHeaderStatus,
+        ar.clearanceQuotesTsvHeaderPriceServiceType,
+        ar.clearanceQuotesTsvHeaderPriceContainerType,
+        ar.clearanceQuotesTsvHeaderPriceStandardRate,
+        ar.clearanceQuotesTsvHeaderPriceNotes,
+        ar.clearanceQuotesManagePriceListBtn,
+        ar.clearanceQuotesPasteClipboardBtn,
+        ar.clearanceQuotesSampleAccBtn,
+        ar.clearanceQuotesSampleStandardBtn,
+        ar.clearanceQuotesClearInputTooltip,
+        ar.clearanceQuotesOcrUploadingState,
+        ar.clearanceQuotesOcrStep1,
+        ar.clearanceQuotesOcrDialogTitle,
+        ar.clearanceQuotesOcrStep2,
+        ar.clearanceQuotesOcrStep4State,
+        ar.clearanceQuotesSelectedContainerLabel,
+        ar.clearanceQuotesSaveAsPriceListBtn,
+        ar.clearanceQuotesRateOptionsTitle,
+        ar.clearanceQuotesBreakdownClearanceFee,
+        ar.clearanceQuotesBreakdownInlandFee,
+        ar.clearanceQuotesBreakdownInspectionFee,
+        ar.clearanceQuotesBreakdownPortExpenses,
+        ar.clearanceQuotesBreakdownEstimatedTotal,
       ];
 
       final latinRegex = RegExp(r'[a-zA-Z]');

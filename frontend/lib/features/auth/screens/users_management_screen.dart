@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../auth/models/rbac_models.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/rbac_provider.dart';
 import '../../auth/providers/users_provider.dart';
+import '../services/users_management_export_service.dart';
 
 class UsersManagementScreen extends ConsumerStatefulWidget {
   const UsersManagementScreen({super.key});
@@ -101,129 +103,173 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
               Text(isEdit ? l.usersMgmtDialogEditTitle : l.usersMgmtDialogNewTitle),
             ],
           ),
-          content: SizedBox(
-            width: 480,
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Full Name ──────────────────────────────────────────────
-                  TextFormField(
-                    controller: fullNameCtrl,
-                    decoration: InputDecoration(
-                      labelText: l.usersMgmtFieldFullName,
-                      prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
-                      hintText: l.usersMgmtFieldFullNameHint,
-                    ),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? l.usersMgmtFieldFullNameRequired : null,
-                  ),
-                  const SizedBox(height: 14),
-
-                  // ── Username (disable on edit) ─────────────────────────────
-                  TextFormField(
-                    controller: usernameCtrl,
-                    enabled: !isEdit,
-                    decoration: InputDecoration(
-                      labelText: l.usersMgmtFieldUsername,
-                      prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
-                      hintText: l.usersMgmtFieldUsernameHint,
-                      helperText: isEdit ? l.usersMgmtFieldUsernameHelper : null,
-                      filled: isEdit,
-                      fillColor: isEdit ? Colors.grey.shade100 : null,
-                    ),
-                    validator: (v) {
-                      if (isEdit) return null;
-                      if (v == null || v.trim().isEmpty) return l.usersMgmtFieldUsernameRequired;
-                      if (v.trim().length < 3) return l.usersMgmtFieldUsernameMinLength;
-                      if (v.contains(' ')) return l.usersMgmtFieldUsernameNoSpaces;
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 14),
-
-                  // ── Email ──────────────────────────────────────────────────
-                  TextFormField(
-                    controller: emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      labelText: l.usersMgmtFieldEmail,
-                      prefixIcon: const Icon(Icons.email_outlined, size: 20),
-                      hintText: l.usersMgmtFieldEmailHint,
-                    ),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return l.usersMgmtFieldEmailRequired;
-                      if (!v.contains('@') || !v.contains('.')) return l.usersMgmtFieldEmailInvalid;
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 14),
-
-                  // ── Role Dropdown ──────────────────────────────────────────
-                  DropdownButtonFormField<String>(
-                    value: selectedRole,
-                    decoration: InputDecoration(
-                      labelText: l.usersMgmtFieldRole,
-                      prefixIcon: const Icon(Icons.shield_outlined, size: 20),
-                    ),
-                    items: [
-                      DropdownMenuItem(
-                        value: 'ADMIN',
-                        child: Row(children: [
-                          const Icon(Icons.admin_panel_settings_rounded, size: 16, color: AppTheme.crimson),
-                          const SizedBox(width: 8),
-                          Text(l.usersMgmtRoleAdminOption),
-                        ]),
-                      ),
-                      DropdownMenuItem(
-                        value: 'MANAGER',
-                        child: Row(children: [
-                          const Icon(Icons.manage_accounts_rounded, size: 16, color: AppTheme.cobalt),
-                          const SizedBox(width: 8),
-                          Text(l.usersMgmtRoleManagerOption),
-                        ]),
-                      ),
-                      DropdownMenuItem(
-                        value: 'OPERATOR',
-                        child: Row(children: [
-                          const Icon(Icons.badge_rounded, size: 16, color: AppTheme.emerald),
-                          const SizedBox(width: 8),
-                          Text(l.usersMgmtRoleOperatorOption),
-                        ]),
-                      ),
-                    ],
-                    onChanged: (v) => setLocal(() => selectedRole = v ?? 'OPERATOR'),
-                    validator: (v) => v == null ? l.usersMgmtFieldRoleRequired : null,
-                  ),
-                  const SizedBox(height: 14),
-
-                  // ── Password ───────────────────────────────────────────────
-                  TextFormField(
-                    controller: passwordCtrl,
-                    obscureText: obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: isEdit ? l.usersMgmtFieldPasswordNew : l.usersMgmtFieldPassword,
-                      prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                          size: 18,
+          content: SelectionArea(
+            child: SizedBox(
+              width: 480,
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Full Name ──────────────────────────────────────────────
+                    TextFormField(
+                      controller: fullNameCtrl,
+                      decoration: InputDecoration(
+                        labelText: l.usersMgmtFieldFullName,
+                        prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
+                        hintText: l.usersMgmtFieldFullNameHint,
+                        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: fullNameCtrl,
+                          builder: (context, val, _) => val.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.copy_rounded, size: 16),
+                                  tooltip: l.usersMgmtCopyFieldTooltip(l.usersMgmtFieldFullName),
+                                  onPressed: () => CopyHelper.copy(
+                                    context,
+                                    val.text,
+                                    customMessage: l.usersMgmtCopyBadgeSuccess(l.usersMgmtFieldFullName, val.text),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
                         ),
-                        onPressed: () => setLocal(() => obscurePassword = !obscurePassword),
                       ),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? l.usersMgmtFieldFullNameRequired : null,
                     ),
-                    validator: (v) {
-                      if (!isEdit && (v == null || v.trim().isEmpty)) return l.usersMgmtFieldPasswordRequired;
-                      if (v != null && v.isNotEmpty && v.length < 6) return l.usersMgmtFieldPasswordMinLength;
-                      return null;
-                    },
-                  ),
+                    const SizedBox(height: 14),
 
-                  // ── Role Description Card ──────────────────────────────────
-                  const SizedBox(height: 16),
-                  _RoleDescriptionCard(role: selectedRole),
-                ],
+                    // ── Username (disable on edit) ─────────────────────────────
+                    TextFormField(
+                      controller: usernameCtrl,
+                      enabled: !isEdit,
+                      decoration: InputDecoration(
+                        labelText: l.usersMgmtFieldUsername,
+                        prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
+                        hintText: l.usersMgmtFieldUsernameHint,
+                        helperText: isEdit ? l.usersMgmtFieldUsernameHelper : null,
+                        filled: isEdit,
+                        fillColor: isEdit ? Colors.grey.shade100 : null,
+                        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: usernameCtrl,
+                          builder: (context, val, _) => val.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.copy_rounded, size: 16),
+                                  tooltip: l.usersMgmtCopyFieldTooltip(l.usersMgmtFieldUsername),
+                                  onPressed: () => CopyHelper.copy(
+                                    context,
+                                    val.text,
+                                    customMessage: l.usersMgmtCopyBadgeSuccess(l.usersMgmtFieldUsername, val.text),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (isEdit) return null;
+                        if (v == null || v.trim().isEmpty) return l.usersMgmtFieldUsernameRequired;
+                        if (v.trim().length < 3) return l.usersMgmtFieldUsernameMinLength;
+                        if (v.contains(' ')) return l.usersMgmtFieldUsernameNoSpaces;
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+
+                    // ── Email ──────────────────────────────────────────────────
+                    TextFormField(
+                      controller: emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText: l.usersMgmtFieldEmail,
+                        prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                        hintText: l.usersMgmtFieldEmailHint,
+                        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: emailCtrl,
+                          builder: (context, val, _) => val.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.copy_rounded, size: 16),
+                                  tooltip: l.usersMgmtCopyFieldTooltip(l.usersMgmtFieldEmail),
+                                  onPressed: () => CopyHelper.copy(
+                                    context,
+                                    val.text,
+                                    customMessage: l.usersMgmtCopyBadgeSuccess(l.usersMgmtFieldEmail, val.text),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return l.usersMgmtFieldEmailRequired;
+                        if (!v.contains('@') || !v.contains('.')) return l.usersMgmtFieldEmailInvalid;
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+
+                    // ── Role Dropdown ──────────────────────────────────────────
+                    DropdownButtonFormField<String>(
+                      value: selectedRole,
+                      decoration: InputDecoration(
+                        labelText: l.usersMgmtFieldRole,
+                        prefixIcon: const Icon(Icons.shield_outlined, size: 20),
+                      ),
+                      items: [
+                        DropdownMenuItem(
+                          value: 'ADMIN',
+                          child: Row(children: [
+                            const Icon(Icons.admin_panel_settings_rounded, size: 16, color: AppTheme.crimson),
+                            const SizedBox(width: 8),
+                            Text(l.usersMgmtRoleAdminOption),
+                          ]),
+                        ),
+                        DropdownMenuItem(
+                          value: 'MANAGER',
+                          child: Row(children: [
+                            const Icon(Icons.manage_accounts_rounded, size: 16, color: AppTheme.cobalt),
+                            const SizedBox(width: 8),
+                            Text(l.usersMgmtRoleManagerOption),
+                          ]),
+                        ),
+                        DropdownMenuItem(
+                          value: 'OPERATOR',
+                          child: Row(children: [
+                            const Icon(Icons.badge_rounded, size: 16, color: AppTheme.emerald),
+                            const SizedBox(width: 8),
+                            Text(l.usersMgmtRoleOperatorOption),
+                          ]),
+                        ),
+                      ],
+                      onChanged: (v) => setLocal(() => selectedRole = v ?? 'OPERATOR'),
+                      validator: (v) => v == null ? l.usersMgmtFieldRoleRequired : null,
+                    ),
+                    const SizedBox(height: 14),
+
+                    // ── Password ───────────────────────────────────────────────
+                    TextFormField(
+                      controller: passwordCtrl,
+                      obscureText: obscurePassword,
+                      decoration: InputDecoration(
+                        labelText: isEdit ? l.usersMgmtFieldPasswordNew : l.usersMgmtFieldPassword,
+                        prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            size: 18,
+                          ),
+                          onPressed: () => setLocal(() => obscurePassword = !obscurePassword),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (!isEdit && (v == null || v.trim().isEmpty)) return l.usersMgmtFieldPasswordRequired;
+                        if (v != null && v.isNotEmpty && v.length < 6) return l.usersMgmtFieldPasswordMinLength;
+                        return null;
+                      },
+                    ),
+
+                    // ── Role Description Card ──────────────────────────────────
+                    const SizedBox(height: 16),
+                    _RoleDescriptionCard(role: selectedRole),
+                  ],
+                ),
               ),
             ),
           ),
@@ -328,43 +374,45 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
             Text(isActivating ? l.usersMgmtConfirmActivateTitle : l.usersMgmtConfirmDeactivateTitle),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isActivating
-                  ? l.usersMgmtConfirmActivatePrompt
-                  : l.usersMgmtConfirmDeactivatePrompt,
-              style: TextStyle(color: Colors.grey.shade700),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade200),
+        content: SelectionArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isActivating
+                    ? l.usersMgmtConfirmActivatePrompt
+                    : l.usersMgmtConfirmDeactivatePrompt,
+                style: TextStyle(color: Colors.grey.shade700),
               ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: _roleColor(user.role).withOpacity(0.15),
-                    radius: 18,
-                    child: Icon(_roleIcon(user.role), color: _roleColor(user.role), size: 18),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text('@${user.username}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                    ],
-                  ),
-                ],
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: _roleColor(user.role).withOpacity(0.15),
+                      radius: 18,
+                      child: Icon(_roleIcon(user.role), color: _roleColor(user.role), size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text('@${user.username}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.usersMgmtBtnCancel)),
@@ -474,54 +522,68 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
             backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-            child: SizedBox(
-              width: 820,
-              height: MediaQuery.of(ctx).size.height * 0.88,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Header ──────────────────────────────────────────────────
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    decoration: const BoxDecoration(
-                      color: AppTheme.charcoal,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(7),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(7),
+            child: SelectionArea(
+              child: SizedBox(
+                width: 820,
+                height: MediaQuery.of(ctx).size.height * 0.88,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Header ──────────────────────────────────────────────────
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      decoration: const BoxDecoration(
+                        color: AppTheme.charcoal,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                            child: const Icon(Icons.security_rounded, color: Colors.white, size: 18),
                           ),
-                          child: const Icon(Icons.security_rounded, color: Colors.white, size: 18),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l.usersMgmtPermDialogTitle,
-                                style: const TextStyle(
-                                  fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l.usersMgmtPermDialogTitle,
+                                  style: const TextStyle(
+                                    fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                '@${user.username} — ${user.fullName}',
-                                style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.7)),
-                              ),
-                            ],
+                                Row(
+                                  children: [
+                                    Text(
+                                      '@${user.username} — ${user.fullName}',
+                                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.7)),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    InkWell(
+                                      onTap: () => CopyHelper.copy(
+                                        ctx,
+                                        '${user.username} (${user.fullName})',
+                                        customMessage: l.usersMgmtCopyBadgeSuccess(l.usersMgmtColUsername, user.username),
+                                      ),
+                                      child: Icon(Icons.copy_rounded, size: 13, color: Colors.white.withOpacity(0.7)),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white, size: 20),
-                          onPressed: isSaving ? null : () => Navigator.pop(ctx),
-                        ),
-                      ],
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                            onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
 
                   // ── Role Selector ────────────────────────────────────────────
                   Container(
@@ -795,7 +857,8 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                 ],
               ),
             ),
-          );
+          ),
+        );
         },
       ),
     );
@@ -821,24 +884,109 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.cloudWhite,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: SelectionArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ──────────────────────────────────────────────────────
+            _buildHeader(isAdmin, usersState),
+
+            // ── Export Toolbar ──────────────────────────────────────────────
+            _buildExportToolbar(filtered),
+
+            // ── Filters & Stats Row ──────────────────────────────────────────
+            _buildFiltersRow(usersState),
+
+            // ── Table Area ──────────────────────────────────────────────────
+            Expanded(
+              child: usersState.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : usersState.error != null
+                      ? _buildErrorState(usersState.error!)
+                      : filtered.isEmpty
+                          ? _buildEmptyState()
+                          : _buildUsersTable(filtered, isAdmin, currentUser?.userId ?? -1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Export Toolbar ────────────────────────────────────────────────────────
+
+  Widget _buildExportToolbar(List<UserDetail> filtered) {
+    final l = context.l10n;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          // ── Header ──────────────────────────────────────────────────────
-          _buildHeader(isAdmin, usersState),
-
-          // ── Filters & Stats Row ──────────────────────────────────────────
-          _buildFiltersRow(usersState),
-
-          // ── Table Area ──────────────────────────────────────────────────
-          Expanded(
-            child: usersState.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : usersState.error != null
-                    ? _buildErrorState(usersState.error!)
-                    : filtered.isEmpty
-                        ? _buildEmptyState()
-                        : _buildUsersTable(filtered, isAdmin, currentUser?.userId ?? -1),
+          // TSV Export
+          OutlinedButton.icon(
+            onPressed: filtered.isEmpty
+                ? null
+                : () async {
+                    await UsersManagementExportService.saveUsersTsvToFile(context, filtered);
+                  },
+            icon: const Icon(Icons.file_download_outlined, size: 15),
+            label: Text(l.usersMgmtExportTsvBtn),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.charcoal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+          // Excel / CSV Export
+          OutlinedButton.icon(
+            onPressed: filtered.isEmpty
+                ? null
+                : () async {
+                    await UsersManagementExportService.saveUsersCsvToFile(context, filtered);
+                  },
+            icon: const Icon(Icons.table_chart_outlined, size: 15),
+            label: Text(l.usersMgmtExportExcelBtn),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.emerald,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+          // PDF Print / Save
+          OutlinedButton.icon(
+            onPressed: filtered.isEmpty
+                ? null
+                : () async {
+                    await UsersManagementExportService.printOrSaveUsersPdf(context, filtered);
+                  },
+            icon: const Icon(Icons.picture_as_pdf_outlined, size: 15),
+            label: Text(l.usersMgmtPrintPdfBtn),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.crimson,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+          // Dossier Copy
+          OutlinedButton.icon(
+            onPressed: filtered.isEmpty
+                ? null
+                : () {
+                    UsersManagementExportService.copyDossierToClipboard(context, filtered);
+                  },
+            icon: const Icon(Icons.content_copy_outlined, size: 15),
+            label: Text(l.usersMgmtCopyDossierBtn),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.cobalt,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
@@ -953,7 +1101,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
               const Spacer(),
               // Search
               SizedBox(
-                width: 260,
+                width: 280,
                 height: 36,
                 child: TextField(
                   controller: _searchController,
@@ -965,15 +1113,28 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                     suffixIcon: ValueListenableBuilder<TextEditingValue>(
                       valueListenable: _searchController,
                       builder: (context, value, _) {
-                        return value.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 16),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() => _searchQuery = '');
-                                },
-                              )
-                            : const SizedBox.shrink();
+                        if (value.text.isEmpty) return const SizedBox.shrink();
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.copy_rounded, size: 16),
+                              tooltip: l.usersMgmtSearchCopied,
+                              onPressed: () => CopyHelper.copy(
+                                context,
+                                value.text,
+                                customMessage: l.usersMgmtSearchCopied,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.clear, size: 16),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            ),
+                          ],
+                        );
                       },
                     ),
                     contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
@@ -1036,7 +1197,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                 Expanded(flex: 2, child: _TableHeader(l.usersMgmtColRole)),
                 SizedBox(width: 95, child: _TableHeader(l.usersMgmtColStatus)),
                 SizedBox(width: 110, child: _TableHeader(l.usersMgmtColCreatedAt)),
-                SizedBox(width: 136, child: _TableHeader(l.usersMgmtColActions)),
+                SizedBox(width: 160, child: _TableHeader(l.usersMgmtColActions)),
               ],
             ),
           ),
@@ -1064,6 +1225,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
     final l = context.l10n;
     final isSelf = user.userId == currentUserId;
     final createdDate = _formatDate(user.createdAt);
+    final rowSummary = UsersManagementExportService.toRowSummary(user, l);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -1080,161 +1242,247 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           // Full Name
           Expanded(
             flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.fullName,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: user.isActive ? AppTheme.charcoal : Colors.grey,
-                  ),
-                ),
-                if (isSelf)
+            child: CopyableTableCell(
+              value: user.fullName,
+              rowSummary: rowSummary,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    l.usersMgmtSelfBadge,
-                    style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                    user.fullName,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: user.isActive ? AppTheme.charcoal : Colors.grey,
+                    ),
                   ),
-              ],
+                  if (isSelf)
+                    Text(
+                      l.usersMgmtSelfBadge,
+                      style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                    ),
+                ],
+              ),
             ),
           ),
           // Username
           Expanded(
             flex: 2,
-            child: Text(
-              '@${user.username}',
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
-                color: user.isActive ? Colors.grey.shade700 : Colors.grey.shade400,
-              ),
-            ),
-          ),
-          // Email
-          Expanded(
-            flex: 3,
-            child: Text(
-              user.email,
-              style: TextStyle(
-                fontSize: 12,
-                color: user.isActive ? Colors.grey.shade700 : Colors.grey.shade400,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          // Role Badge
-          Expanded(
-            flex: 2,
-            child: _RoleBadge(role: user.role),
-          ),
-          // Status
-          SizedBox(
-            width: 95,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: user.isActive
-                    ? AppTheme.emerald.withOpacity(0.10)
-                    : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: user.isActive
-                      ? AppTheme.emerald.withOpacity(0.4)
-                      : Colors.grey.shade300,
-                ),
-              ),
+            child: CopyableTableCell(
+              value: user.username,
+              rowSummary: rowSummary,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    user.isActive ? Icons.circle : Icons.circle_outlined,
-                    size: 7,
-                    color: user.isActive ? AppTheme.emerald : Colors.grey.shade400,
-                  ),
-                  const SizedBox(width: 4),
                   Flexible(
                     child: Text(
-                      user.isActive ? l.usersMgmtStatusActive : l.usersMgmtStatusInactive,
-                      overflow: TextOverflow.ellipsis,
+                      '@${user.username}',
                       style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: user.isActive ? AppTheme.emerald : Colors.grey.shade500,
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        color: user.isActive ? Colors.grey.shade700 : Colors.grey.shade400,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: () => CopyHelper.copy(
+                      context,
+                      user.username,
+                      customMessage: l.usersMgmtCopyBadgeSuccess(l.usersMgmtColUsername, user.username),
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(Icons.copy_rounded, size: 12, color: Colors.grey.shade500),
                     ),
                   ),
                 ],
               ),
             ),
           ),
+          // Email
+          Expanded(
+            flex: 3,
+            child: CopyableTableCell(
+              value: user.email,
+              rowSummary: rowSummary,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      user.email,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: user.isActive ? Colors.grey.shade700 : Colors.grey.shade400,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: () => CopyHelper.copy(
+                      context,
+                      user.email,
+                      customMessage: l.usersMgmtCopyBadgeSuccess(l.usersMgmtColEmail, user.email),
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(Icons.copy_rounded, size: 12, color: Colors.grey.shade500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Role Badge
+          Expanded(
+            flex: 2,
+            child: CopyableTableCell(
+              value: user.role,
+              rowSummary: rowSummary,
+              child: _RoleBadge(role: user.role),
+            ),
+          ),
+          // Status
+          SizedBox(
+            width: 95,
+            child: CopyableTableCell(
+              value: user.isActive ? l.usersMgmtStatusActive : l.usersMgmtStatusInactive,
+              rowSummary: rowSummary,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: user.isActive
+                      ? AppTheme.emerald.withOpacity(0.10)
+                      : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: user.isActive
+                        ? AppTheme.emerald.withOpacity(0.4)
+                        : Colors.grey.shade300,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      user.isActive ? Icons.circle : Icons.circle_outlined,
+                      size: 7,
+                      color: user.isActive ? AppTheme.emerald : Colors.grey.shade400,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        user.isActive ? l.usersMgmtStatusActive : l.usersMgmtStatusInactive,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: user.isActive ? AppTheme.emerald : Colors.grey.shade500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           // Created At
           SizedBox(
             width: 110,
-            child: Text(
-              createdDate,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            child: CopyableTableCell(
+              value: createdDate,
+              rowSummary: rowSummary,
+              child: Text(
+                createdDate,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
             ),
           ),
-          // Actions (ADMIN only)
+          // Actions
           SizedBox(
-            width: 136,
-            child: isAdmin
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Edit
-                      Tooltip(
-                        message: l.usersMgmtActionEditTooltip,
-                        child: InkWell(
-                          onTap: () => _showUserDialog(editUser: user),
-                          borderRadius: BorderRadius.circular(6),
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            child: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.cobalt),
+            width: 160,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isAdmin) ...[
+                  // Edit
+                  Tooltip(
+                    message: l.usersMgmtActionEditTooltip,
+                    child: InkWell(
+                      onTap: () => _showUserDialog(editUser: user),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        child: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.cobalt),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Manage Permissions
+                  Tooltip(
+                    message: l.usersMgmtActionPermissionsTooltip,
+                    child: InkWell(
+                      onTap: () => _showUserPermissionsDialog(user),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        child: const Icon(
+                          Icons.security_rounded,
+                          size: 16,
+                          color: AppTheme.orange,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Toggle Status (can't deactivate self)
+                  if (!isSelf)
+                    Tooltip(
+                      message: user.isActive ? l.usersMgmtActionDeactivateTooltip : l.usersMgmtActionActivateTooltip,
+                      child: InkWell(
+                        onTap: () => _showToggleConfirmDialog(user),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          child: Icon(
+                            user.isActive ? Icons.block_outlined : Icons.check_circle_outline,
+                            size: 16,
+                            color: user.isActive ? AppTheme.crimson : AppTheme.emerald,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      // Manage Permissions
-                      Tooltip(
-                        message: l.usersMgmtActionPermissionsTooltip,
-                        child: InkWell(
-                          onTap: () => _showUserPermissionsDialog(user),
-                          borderRadius: BorderRadius.circular(6),
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            child: const Icon(
-                              Icons.security_rounded,
-                              size: 16,
-                              color: AppTheme.orange,
-                            ),
-                          ),
-                        ),
+                    )
+                  else
+                    const SizedBox(width: 28),
+                  const SizedBox(width: 4),
+                ],
+                // Quick copy row summary
+                Tooltip(
+                  message: l.usersMgmtCopyRowSummaryBtn,
+                  child: InkWell(
+                    onTap: () => CopyHelper.copy(
+                      context,
+                      rowSummary,
+                      customMessage: l.usersMgmtCopyRowSummarySuccess,
+                    ),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      child: const Icon(
+                        Icons.copy_rounded,
+                        size: 16,
+                        color: AppTheme.charcoal,
                       ),
-                      const SizedBox(width: 4),
-                      // Toggle Status (can't deactivate self)
-                      if (!isSelf)
-                        Tooltip(
-                          message: user.isActive ? l.usersMgmtActionDeactivateTooltip : l.usersMgmtActionActivateTooltip,
-                          child: InkWell(
-                            onTap: () => _showToggleConfirmDialog(user),
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              child: Icon(
-                                user.isActive ? Icons.block_outlined : Icons.check_circle_outline,
-                                size: 16,
-                                color: user.isActive ? AppTheme.crimson : AppTheme.emerald,
-                              ),
-                            ),
-                          ),
-                        )
-                      else
-                        const SizedBox(width: 28),
-                    ],
-                  )
-                : const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1610,6 +1858,7 @@ class _PermissionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final hasExplicitGrant = permOverride == true;
     final hasExplicitRevoke = permOverride == false;
     final isInherited = permOverride == null;
@@ -1686,7 +1935,7 @@ class _PermissionRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                hasExplicitGrant ? '+ Grant' : '− Revoke',
+                hasExplicitGrant ? l.usersMgmtPermBadgeGrant : l.usersMgmtPermBadgeRevoke,
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
@@ -1704,7 +1953,7 @@ class _PermissionRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                'Role',
+                l.usersMgmtPermBadgeRole,
                 style: TextStyle(
                   fontSize: 10,
                   color: AppTheme.cobalt.withOpacity(0.8),
@@ -1714,7 +1963,7 @@ class _PermissionRow extends StatelessWidget {
             ),
           // Grant button
           Tooltip(
-            message: hasExplicitGrant ? 'Remove explicit grant (revert to role)' : 'Explicitly grant this permission',
+            message: hasExplicitGrant ? l.usersMgmtPermTooltipRevertGrant : l.usersMgmtPermTooltipGrant,
             child: InkWell(
               onTap: isSaving ? null : onToggleGrant,
               borderRadius: BorderRadius.circular(4),
@@ -1731,7 +1980,7 @@ class _PermissionRow extends StatelessWidget {
           const SizedBox(width: 2),
           // Revoke button
           Tooltip(
-            message: hasExplicitRevoke ? 'Remove explicit revocation (revert to role)' : 'Explicitly revoke this permission',
+            message: hasExplicitRevoke ? l.usersMgmtPermTooltipRevertRevoke : l.usersMgmtPermTooltipRevoke,
             child: InkWell(
               onTap: isSaving ? null : onToggleRevoke,
               borderRadius: BorderRadius.circular(4),

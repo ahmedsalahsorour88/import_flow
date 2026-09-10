@@ -298,5 +298,19 @@ class ImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>
       rethrow;
     }
   }
+
+  Future<ImportFileModel?> cloneImportFile(int importFileId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-files/$importFileId/clone',
+        data: payload,
+      );
+      final cloned = ImportFileModel.fromJson(response.data);
+      await fetchImportFiles();
+      return cloned;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 

@@ -87,6 +87,37 @@ void main() {
       expect(en.gitStatusDeliveredToWarehouse.isNotEmpty, true);
       expect(ar.gitStatusInTransit.isNotEmpty, true);
       expect(en.gitStatusInTransit.isNotEmpty, true);
+
+      // New Export & Copy Getters
+      expect(ar.gitExportTsvBtn.isNotEmpty, true);
+      expect(en.gitExportTsvBtn.isNotEmpty, true);
+      expect(ar.gitPrintPdfBtn.isNotEmpty, true);
+      expect(en.gitPrintPdfBtn.isNotEmpty, true);
+      expect(ar.gitCopyDossierBtn.isNotEmpty, true);
+      expect(en.gitCopyDossierBtn.isNotEmpty, true);
+      expect(ar.gitCopiedTsvSuccess.isNotEmpty, true);
+      expect(en.gitCopiedTsvSuccess.isNotEmpty, true);
+      expect(ar.gitCopiedExcelSuccess.isNotEmpty, true);
+      expect(en.gitCopiedExcelSuccess.isNotEmpty, true);
+      expect(ar.gitCopiedDossierSuccess.isNotEmpty, true);
+      expect(en.gitCopiedDossierSuccess.isNotEmpty, true);
+      expect(ar.gitCopyRowSummaryBtn.isNotEmpty, true);
+      expect(en.gitCopyRowSummarySuccess.isNotEmpty, true);
+      expect(ar.gitCopyFieldTooltip.isNotEmpty, true);
+      expect(en.gitCopyFieldTooltip.isNotEmpty, true);
+      expect(ar.gitPdfTitle.isNotEmpty, true);
+      expect(en.gitPdfSubtitle.isNotEmpty, true);
+      expect(ar.gitDossierHeader.isNotEmpty, true);
+      expect(en.gitDossierHeader.isNotEmpty, true);
+      expect(ar.gitDossierKpiSummary.isNotEmpty, true);
+      expect(en.gitDossierRecordsDetails.isNotEmpty, true);
+      expect(ar.gitDossierFooter.isNotEmpty, true);
+      expect(ar.gitPackageTypeCol.isNotEmpty, true);
+      expect(en.gitPackageTypeCol.isNotEmpty, true);
+      expect(ar.gitContainerTypeCol.isNotEmpty, true);
+      expect(en.gitContainerTypeCol.isNotEmpty, true);
+      expect(ar.gitColActions.isNotEmpty, true);
+      expect(en.gitColActions.isNotEmpty, true);
     });
 
     test('Arabic translations contain pure Arabic text without Latin characters', () {
@@ -122,6 +153,24 @@ void main() {
         ar.gitColLedgerStatus,
         ar.gitStatusDeliveredToWarehouse,
         ar.gitStatusInTransit,
+        ar.gitExportTsvBtn,
+        ar.gitPrintPdfBtn,
+        ar.gitCopyDossierBtn,
+        ar.gitCopiedTsvSuccess,
+        ar.gitCopiedExcelSuccess,
+        ar.gitCopiedDossierSuccess,
+        ar.gitCopyRowSummaryBtn,
+        ar.gitCopyRowSummarySuccess,
+        ar.gitCopyFieldTooltip,
+        ar.gitPdfTitle,
+        ar.gitPdfSubtitle,
+        ar.gitDossierHeader,
+        ar.gitDossierKpiSummary,
+        ar.gitDossierRecordsDetails,
+        ar.gitDossierFooter,
+        ar.gitPackageTypeCol,
+        ar.gitContainerTypeCol,
+        ar.gitColActions,
       ];
 
       for (final text in pureArabicStaticStrings) {
@@ -129,6 +178,11 @@ void main() {
           latinRegex.hasMatch(text),
           false,
           reason: 'String "$text" contains English/Latin characters!',
+        );
+        expect(
+          text.contains('/'),
+          false,
+          reason: 'String "$text" contains slash character!',
         );
       }
     });
@@ -140,6 +194,8 @@ void main() {
       expect(ar.gitTableSectionHeader.contains('('), false);
       expect(ar.gitColPoNumber.contains('('), false);
       expect(ar.gitStatusInTransit.contains('('), false);
+      expect(ar.gitPdfTitle.contains('('), false);
+      expect(ar.gitDossierHeader.contains('('), false);
     });
   });
 }

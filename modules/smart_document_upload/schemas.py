@@ -61,6 +61,9 @@ class SmartUploadResponse(BaseModel):
     importer_id: Optional[int] = None          # DB company_id if matched
     importer_code: Optional[str] = None        # Business importer_id code if matched
 
+    # ── AI Quotation & Completeness Validation Layer (AI-EXTRACT-VALIDATE-001)
+    validation_report: Optional[Dict[str, Any]] = None
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Upload Session list/detail

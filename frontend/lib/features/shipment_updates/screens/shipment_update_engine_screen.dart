@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -68,6 +70,86 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
     }
   }
 
+  String _getCategoryLabel(AppLocalizations l, String category) {
+    switch (category) {
+      case 'Daily Check-in':
+        return l.shipmentUpdateBadgeDaily;
+      case 'Phase Cost Adjustment':
+        return l.shipmentUpdateBadgeCostAdj;
+      case 'Future Phase Alert':
+        return l.shipmentUpdateBadgeFutureAlert;
+      case 'Follow-up & Notes':
+        return l.shipmentUpdateBadgeFollowUp;
+      default:
+        return category;
+    }
+  }
+
+  String _buildRowSummary(ShipmentUpdateLogModel log) {
+    final l = context.l10n;
+    final b = StringBuffer();
+    b.writeln('${l.shipmentUpdatesTsvHeaderCode}: ${log.updateCode}');
+    b.writeln('${l.shipmentUpdatesTsvHeaderDate}: ${log.logDate}');
+    b.writeln('${l.shipmentUpdatesTsvHeaderCategory}: ${_getCategoryLabel(l, log.updateCategory)}');
+    b.writeln('${l.shipmentUpdatesTsvHeaderPhase}: ${_getPhaseName(l, log.targetPhase)}');
+    if (log.updateCategory == 'Phase Cost Adjustment') {
+      b.writeln('${l.shipmentUpdatesTsvHeaderCostItem}: ${log.adjustedCostItem ?? l.shipmentUpdateCostLabel}');
+      b.writeln('${l.shipmentUpdatesTsvHeaderPrevCost}: ${log.previousCost.toStringAsFixed(2)}');
+      b.writeln('${l.shipmentUpdatesTsvHeaderNewCost}: ${log.newCost.toStringAsFixed(2)}');
+    }
+    b.writeln('${l.shipmentUpdatesTsvHeaderPriority}: ${log.alertPriority}');
+    b.writeln('${l.shipmentUpdatesTsvHeaderAssignedUser}: ${log.assignedUser}');
+    b.writeln('${l.shipmentUpdatesTsvHeaderNotes}: ${log.note}');
+    return b.toString().trim();
+  }
+
+  void _copyShipmentUpdatesTsv(List<ShipmentUpdateLogModel> logs) {
+    final l = context.l10n;
+    if (logs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.shipmentUpdateLogsEmptyMessage), backgroundColor: AppTheme.charcoal),
+      );
+      return;
+    }
+    final headers = [
+      l.shipmentUpdatesTsvHeaderCode,
+      l.shipmentUpdatesTsvHeaderDate,
+      l.shipmentUpdatesTsvHeaderCategory,
+      l.shipmentUpdatesTsvHeaderPhase,
+      l.shipmentUpdatesTsvHeaderNotes,
+      l.shipmentUpdatesTsvHeaderCostItem,
+      l.shipmentUpdatesTsvHeaderPrevCost,
+      l.shipmentUpdatesTsvHeaderNewCost,
+      l.shipmentUpdatesTsvHeaderPriority,
+      l.shipmentUpdatesTsvHeaderAssignedUser,
+      l.shipmentUpdatesTsvHeaderStatus,
+    ];
+    final rows = logs.map((log) {
+      final categoryLabel = _getCategoryLabel(l, log.updateCategory);
+      final phaseName = _getPhaseName(l, log.targetPhase);
+      return [
+        log.updateCode,
+        log.logDate,
+        categoryLabel,
+        phaseName,
+        log.note.replaceAll('\t', ' ').replaceAll('\n', ' / '),
+        log.adjustedCostItem ?? '-',
+        log.previousCost.toStringAsFixed(2),
+        log.newCost.toStringAsFixed(2),
+        log.alertPriority,
+        log.assignedUser,
+        _getStatusName(l, log.phaseStatus),
+      ].join('\t');
+    }).toList();
+
+    final tsv = [headers.join('\t'), ...rows].join('\n');
+    CopyHelper.copy(
+      context,
+      tsv,
+      customMessage: l.shipmentUpdatesExportTsvSuccess,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -130,13 +212,13 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
             },
           ),
         ],
-
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Top Toolbar: Shipment Selector Card
             Card(
               elevation: 2,
@@ -170,7 +252,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                         ),
                         const SizedBox(width: 16),
                         ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
                           onPressed: _selectedFile == null
                               ? null
                               : () {
@@ -184,6 +266,41 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                                 },
                           icon: const Icon(Icons.today, color: Colors.white),
                           label: Text(l.shipmentUpdateComprehensiveDailyCheckinBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14)),
+                          onPressed: updatesState.logs.isEmpty ? null : () => _copyShipmentUpdatesTsv(updatesState.logs),
+                          icon: const Icon(Icons.copy_all_rounded, size: 16, color: AppTheme.cobalt),
+                          label: Text(l.shipmentUpdatesExportTsvBtn),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14)),
+                          onPressed: updatesState.logs.isEmpty
+                              ? null
+                              : () => MasterDataExportService.exportShipmentUpdatesToExcel(
+                                    context,
+                                    updatesState.logs,
+                                    shipmentCode: _selectedFile?.customFileNumber ?? _selectedFile?.importFileCode,
+                                    isAr: Localizations.localeOf(context).languageCode == 'ar',
+                                  ),
+                          icon: const Icon(Icons.table_view_rounded, size: 16, color: AppTheme.emerald),
+                          label: Text(l.shipmentUpdatesExportExcelBtn),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14)),
+                          onPressed: updatesState.logs.isEmpty
+                              ? null
+                              : () => MasterDataExportService.printOrSaveShipmentUpdatesListPdf(
+                                    context,
+                                    updatesState.logs,
+                                    shipmentCode: _selectedFile?.customFileNumber ?? _selectedFile?.importFileCode,
+                                    isAr: Localizations.localeOf(context).languageCode == 'ar',
+                                  ),
+                          icon: const Icon(Icons.print_rounded, size: 16, color: AppTheme.charcoal),
+                          label: Text(l.shipmentUpdatesExportPdfBtn),
                         ),
                       ],
                     );
@@ -361,100 +478,181 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                                     rows: updatesState.logs.map((log) {
                                       final isCostAdj = log.updateCategory == 'Phase Cost Adjustment';
                                       final isDaily = log.updateCategory == 'Daily Check-in';
+                                      final rowSummary = _buildRowSummary(log);
 
                                       return DataRow(
                                         cells: [
                                           DataCell(
-                                            RowActionsPill(
-                                              onView: () {
-                                                showDialog(
-                                                  context: context,
-                                                  builder: (c) => AlertDialog(
-                                                    title: Text(l.shipmentUpdateViewDialogTitle(log.updateCode)),
-                                                    content: Column(
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      children: [
-                                                        Text(l.shipmentUpdateViewStage(log.targetPhase), style: const TextStyle(fontWeight: FontWeight.bold)),
-                                                        Text(l.shipmentUpdateViewDate(log.logDate)),
-                                                        Text(l.shipmentUpdateViewUser(log.assignedUser)),
-                                                        const SizedBox(height: 8),
-                                                        Text('${l.shipmentUpdateViewNotes}\n${log.note}'),
-                                                      ],
-                                                    ),
-                                                    actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text(l.shipmentUpdateViewCloseBtn))],
-                                                  ),
-                                                );
-                                              },
-                                              onEdit: () {
-                                                ShipmentUpdateDialog.show(
-                                                  context,
-                                                  initialFileId: log.importFileId,
-                                                  initialTargetPhase: log.targetPhase,
-                                                  defaultCategory: log.updateCategory,
-                                                );
-                                              },
-                                              onPrint: () {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(l.shipmentUpdatePrintSnackBar(log.updateCode, log.targetPhase)),
-                                                    backgroundColor: AppTheme.charcoal,
-                                                    duration: const Duration(seconds: 2),
-                                                  ),
-                                                );
-                                              },
-                                              onDelete: () async {
-                                                final confirm = await showDialog<bool>(
-                                                  context: context,
-                                                  builder: (c) => AlertDialog(
-                                                    title: Text(l.shipmentUpdateDeleteConfirmTitle),
-                                                    content: Text(l.shipmentUpdateDeleteConfirmMsg(log.updateCode)),
-                                                    actions: [
-                                                      TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.shipmentUpdateDeleteCancelBtn)),
-                                                      ElevatedButton(
-                                                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
-                                                        onPressed: () => Navigator.pop(c, true),
-                                                        child: Text(l.shipmentUpdateDeleteConfirmBtn, style: const TextStyle(color: Colors.white)),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                RowActionsPill(
+                                                  onView: () {
+                                                    showDialog(
+                                                      context: context,
+                                                      builder: (c) => SelectionArea(
+                                                        child: AlertDialog(
+                                                          title: Text(l.shipmentUpdateViewDialogTitle(log.updateCode)),
+                                                          content: Column(
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                            children: [
+                                                              Text(l.shipmentUpdateViewStage(_getPhaseName(l, log.targetPhase)), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                                              Text(l.shipmentUpdateViewDate(log.logDate)),
+                                                              Text(l.shipmentUpdateViewUser(log.assignedUser)),
+                                                              const SizedBox(height: 8),
+                                                              Text('${l.shipmentUpdateViewNotes}\n${log.note}'),
+                                                            ],
+                                                          ),
+                                                          actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text(l.shipmentUpdateViewCloseBtn))],
+                                                        ),
                                                       ),
+                                                    );
+                                                  },
+                                                  onEdit: () {
+                                                    ShipmentUpdateDialog.show(
+                                                      context,
+                                                      initialFileId: log.importFileId,
+                                                      initialTargetPhase: log.targetPhase,
+                                                      defaultCategory: log.updateCategory,
+                                                    );
+                                                  },
+                                                  onPrint: () => MasterDataExportService.printOrSaveShipmentUpdateSlipPdf(
+                                                    log,
+                                                    isAr: Localizations.localeOf(context).languageCode == 'ar',
+                                                  ),
+                                                  onDelete: () async {
+                                                    final confirm = await showDialog<bool>(
+                                                      context: context,
+                                                      builder: (c) => SelectionArea(
+                                                        child: AlertDialog(
+                                                          title: Text(l.shipmentUpdateDeleteConfirmTitle),
+                                                          content: Text(l.shipmentUpdateDeleteConfirmMsg(log.updateCode)),
+                                                          actions: [
+                                                            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.shipmentUpdateDeleteCancelBtn)),
+                                                            ElevatedButton(
+                                                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
+                                                              onPressed: () => Navigator.pop(c, true),
+                                                              child: Text(l.shipmentUpdateDeleteConfirmBtn, style: const TextStyle(color: Colors.white)),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    );
+                                                    if (confirm == true) {
+                                                      ref.read(shipmentUpdatesProvider.notifier).deleteLog(log.updateId);
+                                                    }
+                                                  },
+                                                  viewTooltip: l.shipmentUpdateActionViewTooltip,
+                                                  editTooltip: l.shipmentUpdateActionEditTooltip,
+                                                  printTooltip: l.shipmentUpdateActionPrintTooltip,
+                                                  deleteTooltip: l.shipmentUpdateActionDeleteTooltip,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                IconButton(
+                                                  icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                                                  tooltip: l.shipmentUpdateCopySummaryBtn,
+                                                  onPressed: () => CopyHelper.copy(
+                                                    context,
+                                                    rowSummary,
+                                                    customMessage: l.shipmentUpdateCopySummarySuccess,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          DataCell(
+                                            CopyableTableCell(
+                                              value: log.updateCode,
+                                              rowSummary: rowSummary,
+                                              child: InkWell(
+                                                onTap: () => CopyHelper.copy(
+                                                  context,
+                                                  log.updateCode,
+                                                  customMessage: l.shipmentUpdateCodeBadgeLabel,
+                                                ),
+                                                borderRadius: BorderRadius.circular(4),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.cobalt.withOpacity(0.08),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(Icons.copy_rounded, size: 12, color: AppTheme.cobalt),
+                                                      const SizedBox(width: 4),
+                                                      Text(log.updateCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                                     ],
                                                   ),
-                                                );
-                                                if (confirm == true) {
-                                                  ref.read(shipmentUpdatesProvider.notifier).deleteLog(log.updateId);
-                                                }
-                                              },
-                                              viewTooltip: l.shipmentUpdateActionViewTooltip,
-                                              editTooltip: l.shipmentUpdateActionEditTooltip,
-                                              printTooltip: l.shipmentUpdateActionPrintTooltip,
-                                              deleteTooltip: l.shipmentUpdateActionDeleteTooltip,
-                                            ),
-                                          ),
-                                          DataCell(Text(log.updateCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                          DataCell(Text(log.logDate)),
-                                          DataCell(
-                                            Chip(
-                                              label: Text(
-                                                isDaily
-                                                    ? l.shipmentUpdateBadgeDaily
-                                                    : (isCostAdj ? l.shipmentUpdateBadgeCostAdj : log.updateCategory),
-                                                style: const TextStyle(fontSize: 10, color: Colors.white),
+                                                ),
                                               ),
-                                              backgroundColor: isDaily ? AppTheme.emerald : (isCostAdj ? AppTheme.orange : AppTheme.cobalt),
-                                            ),
-                                          ),
-                                          DataCell(Text(log.targetPhase, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                          DataCell(
-                                            SizedBox(
-                                              width: 320,
-                                              child: Text(log.note, style: const TextStyle(fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
                                             ),
                                           ),
                                           DataCell(
-                                            isCostAdj
-                                                ? Text('${log.adjustedCostItem ?? "Cost"}: ${log.previousCost} ➔ ${log.newCost} USD', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 11))
-                                                : const Text('-'),
+                                            CopyableTableCell(
+                                              value: log.logDate,
+                                              rowSummary: rowSummary,
+                                              child: Text(log.logDate),
+                                            ),
                                           ),
-                                          DataCell(Text(log.assignedUser)),
+                                          DataCell(
+                                            CopyableTableCell(
+                                              value: isDaily
+                                                  ? l.shipmentUpdateBadgeDaily
+                                                  : (isCostAdj ? l.shipmentUpdateBadgeCostAdj : _getCategoryLabel(l, log.updateCategory)),
+                                              rowSummary: rowSummary,
+                                              child: Chip(
+                                                label: Text(
+                                                  isDaily
+                                                      ? l.shipmentUpdateBadgeDaily
+                                                      : (isCostAdj ? l.shipmentUpdateBadgeCostAdj : _getCategoryLabel(l, log.updateCategory)),
+                                                  style: const TextStyle(fontSize: 10, color: Colors.white),
+                                                ),
+                                                backgroundColor: isDaily ? AppTheme.emerald : (isCostAdj ? AppTheme.orange : AppTheme.cobalt),
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            CopyableTableCell(
+                                              value: _getPhaseName(l, log.targetPhase),
+                                              rowSummary: rowSummary,
+                                              child: Text(_getPhaseName(l, log.targetPhase), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            CopyableTableCell(
+                                              value: log.note,
+                                              rowSummary: rowSummary,
+                                              child: SizedBox(
+                                                width: 320,
+                                                child: Text(log.note, style: const TextStyle(fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            CopyableTableCell(
+                                              value: isCostAdj
+                                                  ? '${log.adjustedCostItem ?? l.shipmentUpdateCostLabel}: ${log.previousCost} -> ${log.newCost} ${l.shipmentUpdateCostCurrencyUsd}'
+                                                  : '-',
+                                              rowSummary: rowSummary,
+                                              child: isCostAdj
+                                                  ? Text(
+                                                      '${log.adjustedCostItem ?? l.shipmentUpdateCostLabel}: ${log.previousCost} ➔ ${log.newCost} ${l.shipmentUpdateCostCurrencyUsd}',
+                                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 11),
+                                                    )
+                                                  : const Text('-'),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            CopyableTableCell(
+                                              value: log.assignedUser,
+                                              rowSummary: rowSummary,
+                                              child: Text(log.assignedUser),
+                                            ),
+                                          ),
                                         ],
                                       );
                                     }).toList(),
@@ -466,7 +664,8 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildCustomsConsultationSection(List<CustomsConsultationModel> consultations) {
@@ -551,18 +750,33 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Header Row: Code, Title, Broker, Status
-                      Row(
+                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppTheme.cobalt.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                            ),
-                            child: Text(
+                          InkWell(
+                            onTap: () => CopyHelper.copy(
+                              context,
                               c.consultationCode,
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
+                              customMessage: l.shipmentUpdateConsultCodeBadgeLabel,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.copy_rounded, size: 12, color: AppTheme.cobalt),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    c.consultationCode,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -582,7 +796,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                             ],
                           ),
                           const SizedBox(width: 10),
-                          _buildCustomsStatusBadge(c.overallStatus),
+                          _buildCustomsStatusBadge(l, c.overallStatus),
                         ],
                       ),
                       const Divider(height: 18),
@@ -757,22 +971,262 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
             final blockingCount = editableItems.where((i) => i.isBlockingShipment && i.status != 'Approved' && i.status != 'Verified').length;
             final readinessPct = totalCount > 0 ? (approvedCount / totalCount * 100) : 0.0;
 
-            return AlertDialog(
-              title: Row(
-                children: [
-                  const Icon(Icons.assignment_turned_in, color: AppTheme.cobalt),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      isEditing
-                          ? l.shipmentUpdateConsultDialogEditTitle(session.consultationCode)
-                          : l.shipmentUpdateConsultDialogViewTitle(session.consultationCode),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            return SelectionArea(
+              child: AlertDialog(
+                title: Row(
+                  children: [
+                    const Icon(Icons.assignment_turned_in, color: AppTheme.cobalt),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isEditing
+                            ? l.shipmentUpdateConsultDialogEditTitle(session.consultationCode)
+                            : l.shipmentUpdateConsultDialogViewTitle(session.consultationCode),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.print_rounded, color: AppTheme.charcoal),
+                      tooltip: l.shipmentUpdateConsultPrintTooltip,
+                      onPressed: () {
+                        Printing.layoutPdf(
+                          onLayout: (format) =>
+                              CustomsConsultationPdfService.generateConsultationPdf(session),
+                          name: 'Customs_Consultation_${session.consultationCode}',
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: Icon(isEditing ? Icons.visibility_rounded : Icons.edit_rounded,
+                          color: isEditing ? AppTheme.cobalt : AppTheme.orange),
+                      tooltip: isEditing ? l.shipmentUpdateConsultSwitchViewTooltip : l.shipmentUpdateConsultSwitchEditTooltip,
+                      onPressed: () => setDialogState(() => isEditing = !isEditing),
+                    ),
+                  ],
+                ),
+                content: SizedBox(
+                  width: 850,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(session.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isEditing ? Colors.amber.shade50 : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: isEditing ? Colors.orange.shade300 : Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(l.shipmentUpdateConsultBrokerPrefix(session.brokerName), style: const TextStyle(fontSize: 12)),
+                              Text(l.shipmentUpdateConsultEstDuties(session.estimatedDutiesEgp.toStringAsFixed(2)),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 12)),
+                              if (isEditing)
+                                Row(
+                                  children: [
+                                    Text(l.shipmentUpdateConsultOverallStatusLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    DropdownButton<String>(
+                                      value: selectedStatus,
+                                      isDense: true,
+                                      items: [
+                                        DropdownMenuItem(value: 'In Progress', child: Text(l.shipmentUpdateConsultStatusInProgress)),
+                                        DropdownMenuItem(value: 'Clearance Ready', child: Text(l.shipmentUpdateConsultStatusClearanceReady)),
+                                        DropdownMenuItem(value: 'Blocked', child: Text(l.shipmentUpdateConsultStatusBlocked)),
+                                        DropdownMenuItem(value: 'Action Required', child: Text(l.shipmentUpdateConsultStatusActionRequired)),
+                                        DropdownMenuItem(value: 'Completed', child: Text(l.shipmentUpdateConsultStatusCompleted)),
+                                      ],
+                                      onChanged: (val) {
+                                        if (val != null) {
+                                          setDialogState(() => selectedStatus = val);
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                )
+                              else
+                                Text(l.shipmentUpdateConsultStatus(_getCustomsStatusLabel(l, session.overallStatus)), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Metrics Summary
+                        Row(
+                          children: [
+                            _buildMetricBadge(l.shipmentUpdateConsultReadinessRateLabel, '${readinessPct.toStringAsFixed(0)}%', readinessPct >= 80 ? Colors.green : Colors.blue),
+                            const SizedBox(width: 8),
+                            _buildMetricBadge(l.shipmentUpdateConsultTotalDocsLabel, '$totalCount', Colors.grey),
+                            const SizedBox(width: 8),
+                            _buildMetricBadge(l.shipmentUpdateConsultApprovedLabel, '$approvedCount', Colors.green),
+                            const SizedBox(width: 8),
+                            _buildMetricBadge(l.shipmentUpdateConsultBlockingLabel, '$blockingCount', blockingCount > 0 ? Colors.red : Colors.green),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        Row(
+                          children: [
+                            Text(l.shipmentUpdateConsultChecklistSectionTitle,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            const Spacer(),
+                            if (isEditing)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade100,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(l.shipmentUpdateConsultEditModeBanner,
+                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Checklist Table
+                        Table(
+                          border: TableBorder.all(color: Colors.grey.shade300),
+                          columnWidths: const {
+                            0: FlexColumnWidth(2.8),
+                            1: FlexColumnWidth(1.2),
+                            2: FlexColumnWidth(1.4),
+                            3: FlexColumnWidth(2.2),
+                          },
+                          children: [
+                            TableRow(
+                              decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                              children: [
+                                Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColDocType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColResponsibleParty, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColStatus, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColRemarks, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              ],
+                            ),
+                            ...editableItems.asMap().entries.map((entry) {
+                              final idx = entry.key;
+                              final doc = entry.value;
+
+                              return TableRow(
+                                decoration: BoxDecoration(
+                                  color: idx % 2 == 1 ? Colors.grey.shade50 : Colors.white,
+                                ),
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Builder(
+                                          builder: (context) {
+                                            final statusLower = doc.status.toLowerCase();
+                                            final isApproved = statusLower == 'approved' ||
+                                                statusLower == 'verified' ||
+                                                statusLower == 'completed' ||
+                                                statusLower == 'received' ||
+                                                statusLower == 'obtained' ||
+                                                statusLower.contains('معتمد') ||
+                                                statusLower.contains('مستوفى');
+                                            final isRejected = statusLower == 'rejected' ||
+                                                statusLower.contains('مرفوض');
+                                            final isBlocking = doc.isBlockingShipment && !isApproved;
+
+                                            return Row(
+                                              children: [
+                                                if (isApproved)
+                                                  const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 14)
+                                                else if (isRejected)
+                                                  const Icon(Icons.cancel_rounded, color: AppTheme.crimson, size: 14)
+                                                else if (isBlocking)
+                                                  Tooltip(
+                                                    message: l.shipmentUpdateConsultBlockingTooltip,
+                                                    child: const Icon(Icons.block, color: Colors.red, size: 14),
+                                                  )
+                                                else
+                                                  const Icon(Icons.hourglass_top_rounded, color: Colors.orange, size: 14),
+                                                const SizedBox(width: 4),
+                                                Expanded(
+                                                  child: Text(
+                                                    doc.documentType,
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 11.5,
+                                                      color: isBlocking ? Colors.red.shade900 : AppTheme.charcoal,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        ),
+                                        if (doc.hsCode != null && doc.hsCode!.isNotEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 2),
+                                            child: Text(l.shipmentUpdateConsultHsCodesPrefix(doc.hsCode!),
+                                                style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Text(doc.responsibleParty, style: const TextStyle(fontSize: 11)),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(6),
+                                    child: isEditing
+                                        ? DropdownButton<String>(
+                                            value: doc.status,
+                                            isDense: true,
+                                            style: const TextStyle(fontSize: 11, color: AppTheme.charcoal, fontWeight: FontWeight.bold),
+                                            items: [
+                                              DropdownMenuItem(value: 'Approved', child: Text('🟢 ${l.shipmentUpdateDocStatusApproved}')),
+                                              DropdownMenuItem(value: 'Pending', child: Text('🟠 ${l.shipmentUpdateDocStatusPending}')),
+                                              DropdownMenuItem(value: 'Received', child: Text('🔵 ${l.shipmentUpdateDocStatusReceived}')),
+                                              DropdownMenuItem(value: 'Verified', child: Text('🟣 ${l.shipmentUpdateDocStatusVerified}')),
+                                              DropdownMenuItem(value: 'Rejected', child: Text('🔴 ${l.shipmentUpdateDocStatusRejected}')),
+                                            ],
+                                            onChanged: (newSt) {
+                                              if (newSt != null) {
+                                                setDialogState(() {
+                                                  editableItems[idx] = CustomsChecklistItemModel(
+                                                    itemId: doc.itemId,
+                                                    consultationId: doc.consultationId,
+                                                    documentType: doc.documentType,
+                                                    hsCode: doc.hsCode,
+                                                    isRequired: doc.isRequired,
+                                                    isBlockingShipment: doc.isBlockingShipment,
+                                                    responsibleParty: doc.responsibleParty,
+                                                    regulatoryAgency: doc.regulatoryAgency,
+                                                    status: newSt,
+                                                    remarks: doc.remarks,
+                                                  );
+                                                });
+                                              }
+                                            },
+                                          )
+                                        : _buildDocItemStatusBadge(l, doc.status),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Text(doc.remarks ?? '-', style: const TextStyle(fontSize: 11)),
+                                  ),
+                                ],
+                              );
+                            }),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.print_rounded, color: AppTheme.charcoal),
-                    tooltip: l.shipmentUpdateConsultPrintTooltip,
+                ),
+                actions: [
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal),
                     onPressed: () {
                       Printing.layoutPdf(
                         onLayout: (format) =>
@@ -780,296 +1234,58 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                         name: 'Customs_Consultation_${session.consultationCode}',
                       );
                     },
+                    icon: const Icon(Icons.print_rounded, size: 16),
+                    label: Text(l.shipmentUpdateBtnPrintPdf),
                   ),
-                  IconButton(
-                    icon: Icon(isEditing ? Icons.visibility_rounded : Icons.edit_rounded,
-                        color: isEditing ? AppTheme.cobalt : AppTheme.orange),
-                    tooltip: isEditing ? l.shipmentUpdateConsultSwitchViewTooltip : l.shipmentUpdateConsultSwitchEditTooltip,
-                    onPressed: () => setDialogState(() => isEditing = !isEditing),
+                  if (isEditing)
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+                      onPressed: isSaving
+                          ? null
+                          : () async {
+                              setDialogState(() => isSaving = true);
+                              try {
+                                final payload = {
+                                  'overall_status': selectedStatus,
+                                  'checklist_items': editableItems.map((item) => item.toJson()).toList(),
+                                };
+                                await ref
+                                    .read(customsConsultationsProvider.notifier)
+                                    .updateConsultation(session.consultationId, payload);
+                                if (dialogContext.mounted) {
+                                  Navigator.pop(dialogContext);
+                                }
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(l.shipmentUpdateConsultSaveSuccess(session.consultationCode)),
+                                      backgroundColor: AppTheme.emerald,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                setDialogState(() => isSaving = false);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(l.shipmentUpdateConsultSaveError(e.toString())), backgroundColor: AppTheme.crimson),
+                                  );
+                                }
+                              }
+                            },
+                      icon: isSaving
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.save, color: Colors.white, size: 16),
+                      label: Text(
+                        isSaving ? l.shipmentUpdateConsultSavingBtn : l.shipmentUpdateConsultSaveBtn,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: Text(l.shipmentUpdateConsultCloseBtn),
                   ),
                 ],
               ),
-              content: SizedBox(
-                width: 850,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(session.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isEditing ? Colors.amber.shade50 : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: isEditing ? Colors.orange.shade300 : Colors.grey.shade300),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(l.shipmentUpdateConsultBrokerPrefix(session.brokerName), style: const TextStyle(fontSize: 12)),
-                            Text(l.shipmentUpdateConsultEstDuties(session.estimatedDutiesEgp.toStringAsFixed(2)),
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 12)),
-                            if (isEditing)
-                              Row(
-                                children: [
-                                  Text(l.shipmentUpdateConsultOverallStatusLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                  DropdownButton<String>(
-                                    value: selectedStatus,
-                                    isDense: true,
-                                    items: const [
-                                      DropdownMenuItem(value: 'In Progress', child: Text('In Progress')),
-                                      DropdownMenuItem(value: 'Clearance Ready', child: Text('Clearance Ready')),
-                                      DropdownMenuItem(value: 'Blocked', child: Text('Blocked')),
-                                      DropdownMenuItem(value: 'Action Required', child: Text('Action Required')),
-                                      DropdownMenuItem(value: 'Completed', child: Text('Completed')),
-                                    ],
-                                    onChanged: (val) {
-                                      if (val != null) {
-                                        setDialogState(() => selectedStatus = val);
-                                      }
-                                    },
-                                  ),
-                                ],
-                              )
-                            else
-                              Text(l.shipmentUpdateConsultStatus(session.overallStatus), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Metrics Summary
-                      Row(
-                        children: [
-                          _buildMetricBadge(l.shipmentUpdateConsultReadinessRateLabel, '${readinessPct.toStringAsFixed(0)}%', readinessPct >= 80 ? Colors.green : Colors.blue),
-                          const SizedBox(width: 8),
-                          _buildMetricBadge(l.shipmentUpdateConsultTotalDocsLabel, '$totalCount', Colors.grey),
-                          const SizedBox(width: 8),
-                          _buildMetricBadge(l.shipmentUpdateConsultApprovedLabel, '$approvedCount', Colors.green),
-                          const SizedBox(width: 8),
-                          _buildMetricBadge(l.shipmentUpdateConsultBlockingLabel, '$blockingCount', blockingCount > 0 ? Colors.red : Colors.green),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      Row(
-                        children: [
-                          Text(l.shipmentUpdateConsultChecklistSectionTitle,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          const Spacer(),
-                          if (isEditing)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade100,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(l.shipmentUpdateConsultEditModeBanner,
-                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Checklist Table
-                      Table(
-                        border: TableBorder.all(color: Colors.grey.shade300),
-                        columnWidths: const {
-                          0: FlexColumnWidth(2.8),
-                          1: FlexColumnWidth(1.2),
-                          2: FlexColumnWidth(1.4),
-                          3: FlexColumnWidth(2.2),
-                        },
-                        children: [
-                          TableRow(
-                            decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                            children: [
-                              Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColDocType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColResponsibleParty, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColStatus, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(8), child: Text(l.shipmentUpdateConsultColRemarks, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            ],
-                          ),
-                          ...editableItems.asMap().entries.map((entry) {
-                            final idx = entry.key;
-                            final doc = entry.value;
-
-                            return TableRow(
-                              decoration: BoxDecoration(
-                                color: idx % 2 == 1 ? Colors.grey.shade50 : Colors.white,
-                              ),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Builder(
-                                        builder: (context) {
-                                          final statusLower = doc.status.toLowerCase();
-                                          final isApproved = statusLower == 'approved' ||
-                                              statusLower == 'verified' ||
-                                              statusLower == 'completed' ||
-                                              statusLower == 'received' ||
-                                              statusLower == 'obtained' ||
-                                              statusLower.contains('معتمد') ||
-                                              statusLower.contains('مستوفى');
-                                          final isRejected = statusLower == 'rejected' ||
-                                              statusLower.contains('مرفوض');
-                                          final isBlocking = doc.isBlockingShipment && !isApproved;
-
-                                          return Row(
-                                            children: [
-                                              if (isApproved)
-                                                const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 14)
-                                              else if (isRejected)
-                                                const Icon(Icons.cancel_rounded, color: AppTheme.crimson, size: 14)
-                                              else if (isBlocking)
-                                                Tooltip(
-                                                  message: l.shipmentUpdateConsultBlockingTooltip,
-                                                  child: const Icon(Icons.block, color: Colors.red, size: 14),
-                                                )
-                                              else
-                                                const Icon(Icons.hourglass_top_rounded, color: Colors.orange, size: 14),
-                                              const SizedBox(width: 4),
-                                              Expanded(
-                                                child: Text(
-                                                  doc.documentType,
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 11.5,
-                                                    color: isBlocking ? Colors.red.shade900 : AppTheme.charcoal,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      ),
-                                      if (doc.hsCode != null && doc.hsCode!.isNotEmpty)
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 2),
-                                          child: Text(l.shipmentUpdateConsultHsCodesPrefix(doc.hsCode!),
-                                              style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: Text(doc.responsibleParty, style: const TextStyle(fontSize: 11)),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(6),
-                                  child: isEditing
-                                      ? DropdownButton<String>(
-                                          value: doc.status,
-                                          isDense: true,
-                                          style: const TextStyle(fontSize: 11, color: AppTheme.charcoal, fontWeight: FontWeight.bold),
-                                          items: const [
-                                            DropdownMenuItem(value: 'Approved', child: Text('🟢 Approved')),
-                                            DropdownMenuItem(value: 'Pending', child: Text('🟠 Pending')),
-                                            DropdownMenuItem(value: 'Received', child: Text('🔵 Received')),
-                                            DropdownMenuItem(value: 'Verified', child: Text('🟣 Verified')),
-                                            DropdownMenuItem(value: 'Rejected', child: Text('🔴 Rejected')),
-                                          ],
-                                          onChanged: (newSt) {
-                                            if (newSt != null) {
-                                              setDialogState(() {
-                                                editableItems[idx] = CustomsChecklistItemModel(
-                                                  itemId: doc.itemId,
-                                                  consultationId: doc.consultationId,
-                                                  documentType: doc.documentType,
-                                                  hsCode: doc.hsCode,
-                                                  isRequired: doc.isRequired,
-                                                  isBlockingShipment: doc.isBlockingShipment,
-                                                  responsibleParty: doc.responsibleParty,
-                                                  regulatoryAgency: doc.regulatoryAgency,
-                                                  status: newSt,
-                                                  remarks: doc.remarks,
-                                                );
-                                              });
-                                            }
-                                          },
-                                        )
-                                      : _buildDocItemStatusBadge(doc.status),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: Text(doc.remarks ?? '-', style: const TextStyle(fontSize: 11)),
-                                ),
-                              ],
-                            );
-                          }),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal),
-                  onPressed: () {
-                    Printing.layoutPdf(
-                      onLayout: (format) =>
-                          CustomsConsultationPdfService.generateConsultationPdf(session),
-                      name: 'Customs_Consultation_${session.consultationCode}',
-                    );
-                  },
-                  icon: const Icon(Icons.print_rounded, size: 16),
-                  label: Text(l.shipmentUpdateBtnPrintPdf),
-                ),
-                if (isEditing)
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
-                    onPressed: isSaving
-                        ? null
-                        : () async {
-                            setDialogState(() => isSaving = true);
-                            try {
-                              final payload = {
-                                'overall_status': selectedStatus,
-                                'checklist_items': editableItems.map((item) => item.toJson()).toList(),
-                              };
-                              await ref
-                                  .read(customsConsultationsProvider.notifier)
-                                  .updateConsultation(session.consultationId, payload);
-                              if (dialogContext.mounted) {
-                                Navigator.pop(dialogContext);
-                              }
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(l.shipmentUpdateConsultSaveSuccess(session.consultationCode)),
-                                    backgroundColor: AppTheme.emerald,
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              setDialogState(() => isSaving = false);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(l.shipmentUpdateConsultSaveError(e.toString())), backgroundColor: AppTheme.crimson),
-                                );
-                              }
-                            }
-                          },
-                    icon: isSaving
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.save, color: Colors.white, size: 16),
-                    label: Text(
-                      isSaving ? l.shipmentUpdateConsultSavingBtn : l.shipmentUpdateConsultSaveBtn,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text(l.shipmentUpdateConsultCloseBtn),
-                ),
-              ],
             );
           },
         );
@@ -1096,7 +1312,41 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
     );
   }
 
-  Widget _buildCustomsStatusBadge(String status) {
+  String _getCustomsStatusLabel(AppLocalizations l, String status) {
+    switch (status) {
+      case 'In Progress':
+        return l.shipmentUpdateConsultStatusInProgress;
+      case 'Clearance Ready':
+        return l.shipmentUpdateConsultStatusClearanceReady;
+      case 'Blocked':
+        return l.shipmentUpdateConsultStatusBlocked;
+      case 'Action Required':
+        return l.shipmentUpdateConsultStatusActionRequired;
+      case 'Completed':
+        return l.shipmentUpdateConsultStatusCompleted;
+      default:
+        return status;
+    }
+  }
+
+  String _getDocItemStatusLabel(AppLocalizations l, String status) {
+    switch (status) {
+      case 'Approved':
+        return l.shipmentUpdateDocStatusApproved;
+      case 'Pending':
+        return l.shipmentUpdateDocStatusPending;
+      case 'Received':
+        return l.shipmentUpdateDocStatusReceived;
+      case 'Verified':
+        return l.shipmentUpdateDocStatusVerified;
+      case 'Rejected':
+        return l.shipmentUpdateDocStatusRejected;
+      default:
+        return status;
+    }
+  }
+
+  Widget _buildCustomsStatusBadge(AppLocalizations l, String status) {
     Color bg = Colors.grey;
     if (status == 'Clearance Ready') bg = Colors.green;
     if (status == 'Blocked') bg = Colors.red;
@@ -1106,11 +1356,11 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: bg.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
-      child: Text(status, style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 11)),
+      child: Text(_getCustomsStatusLabel(l, status), style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 11)),
     );
   }
 
-  Widget _buildDocItemStatusBadge(String status) {
+  Widget _buildDocItemStatusBadge(AppLocalizations l, String status) {
     Color bg = Colors.grey;
     if (status == 'Approved') bg = Colors.green;
     if (status == 'Rejected') bg = Colors.red;
@@ -1120,7 +1370,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(color: bg.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
-      child: Text(status, style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 10)),
+      child: Text(_getDocItemStatusLabel(l, status), style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 10)),
     );
   }
 }

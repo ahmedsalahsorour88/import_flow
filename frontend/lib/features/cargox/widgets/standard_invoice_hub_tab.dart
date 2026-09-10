@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/services/file_save_helper.dart';
+import '../../../core/widgets/adaptive_tab_scaffold.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -13,6 +14,8 @@ import '../providers/cargox_provider.dart';
 import '../services/cargox_pdf_service.dart';
 import 'dual_extraction_modal.dart';
 import 'package:printing/printing.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
+import '../services/cargox_export_service.dart';
 
 String _formatDateTime(DateTime dt) {
   final str = dt.toIso8601String();
@@ -167,9 +170,9 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'محرك استخلاص CargoX متعدد المسارات (CGX-003)',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
+                            Text(
+                              context.l10n.cargoxExtractEngineTitle,
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -204,8 +207,8 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                             children: [
                               Expanded(
                                 child: _buildModeOptionCard(
-                                  title: '1. ملف واحد مجمع (Consolidated)',
-                                  subtitle: 'دمج بنود نفس الـ HS Code وسعر مرجح (معتمد للجمارك المصرية)',
+                                  title: context.l10n.cargoxModeConsolidatedTitle,
+                                  subtitle: context.l10n.cargoxModeConsolidatedSubtitle,
                                   icon: Icons.compress,
                                   color: const Color(0xFF27AE60),
                                   isSelected: selectedMode == 'all_consolidated',
@@ -221,8 +224,8 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildModeOptionCard(
-                                  title: '2. ملف واحد مفصل (Detailed)',
-                                  subtitle: 'استخراج كل سطر بشكل منفصل بنفس تفاصيل أمر الشراء',
+                                  title: context.l10n.cargoxModeDetailedTitle,
+                                  subtitle: context.l10n.cargoxModeDetailedSubtitle,
                                   icon: Icons.list_alt,
                                   color: const Color(0xFF3498DB),
                                   isSelected: selectedMode == 'all_detailed',
@@ -242,8 +245,8 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                             children: [
                               Expanded(
                                 child: _buildModeOptionCard(
-                                  title: '3. ملف لكل فاتورة - مجمع (ZIP)',
-                                  subtitle: 'توليد ملف إكسل مجمع منفصل لكل فاتورة داخل حزمة ZIP',
+                                  title: context.l10n.cargoxModePerInvoiceConsolidatedTitle,
+                                  subtitle: context.l10n.cargoxModePerInvoiceConsolidatedSubtitle,
                                   icon: Icons.folder_zip_outlined,
                                   color: const Color(0xFFE67E22),
                                   isSelected: selectedMode == 'per_invoice_consolidated',
@@ -259,8 +262,8 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildModeOptionCard(
-                                  title: '4. ملف لكل فاتورة - مفصل (ZIP)',
-                                  subtitle: 'توليد ملف إكسل مفصل منفصل لكل فاتورة داخل حزمة ZIP',
+                                  title: context.l10n.cargoxModePerInvoiceDetailedTitle,
+                                  subtitle: context.l10n.cargoxModePerInvoiceDetailedSubtitle,
                                   icon: Icons.inventory_2_outlined,
                                   color: const Color(0xFF9B59B6),
                                   isSelected: selectedMode == 'per_invoice_detailed',
@@ -301,14 +304,14 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                                           setDialogState(() => isExtracting = false);
                                           if (!context.mounted) return;
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('خطأ أثناء الاستخلاص: $e'), backgroundColor: Colors.red),
+                                            SnackBar(content: Text(context.l10n.cargoxExtractionError(e)), backgroundColor: Colors.red),
                                           );
                                         }
                                       },
                                 icon: isExtracting
                                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                     : const Icon(Icons.remove_red_eye, size: 18),
-                                label: const Text('معاينة حية للبنود المستخلصة'),
+                                label: Text(context.l10n.cargoxLiveItemsPreviewBtn),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF2C3E50),
                                   foregroundColor: Colors.white,
@@ -440,7 +443,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                         icon: isDownloading
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                             : const Icon(Icons.download, size: 18),
-                        label: Text(selectedMode.startsWith('per_invoice_') ? 'تحميل حزمة ZIP' : 'تحميل ملف Excel'),
+                        label: Text(selectedMode.startsWith('per_invoice_') ? context.l10n.cargoxDownloadZipBtn : context.l10n.cargoxExportExcelBtn),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF27AE60),
                           foregroundColor: Colors.white,
@@ -590,29 +593,30 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                       dataRowMaxHeight: 36,
                       columnSpacing: 16,
                       headingRowColor: WidgetStateProperty.all(const Color(0xFFF8F9F9)),
-                      columns: const [
-                        DataColumn(label: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        DataColumn(label: Text('بند التعريفة (HS Code)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        DataColumn(label: Text('المصنع (Manufacturer)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        DataColumn(label: Text('الوصف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        DataColumn(label: Text('الكمية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        DataColumn(label: Text('السعر المرجح', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        DataColumn(label: Text('الإجمالي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        DataColumn(label: Text('الوزن القائم', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        DataColumn(label: Text('الوزن الصافي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      columns: [
+                        const DataColumn(label: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text(context.l10n.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text(context.l10n.standardInvoiceManufacturer, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text(context.l10n.colDescription, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text(context.l10n.colQuantity, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text(context.l10n.colUnitPrice, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text(context.l10n.colTotalAmount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text(context.l10n.colGrossWeight, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        DataColumn(label: Text(context.l10n.standardInvoiceWeightNet, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                       ],
                       rows: result.payload.items.map((item) {
+                        final rowSummary = '${item.index}. ${item.hsCode} | ${item.description} | ${item.quantity} ${item.qtyUnit} @ ${item.unitPrice.toStringAsFixed(4)} = ${item.totalAmount.toStringAsFixed(2)} | Gross: ${item.grossWeightKg} | Net: ${item.netWeightKg}';
                         return DataRow(
                           cells: [
-                            DataCell(Text('${item.index}', style: const TextStyle(fontSize: 11))),
-                            DataCell(Text(item.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            DataCell(Text(item.manufacturer ?? '', style: const TextStyle(fontSize: 11))),
-                            DataCell(Text(item.description, style: const TextStyle(fontSize: 11))),
-                            DataCell(Text('${item.quantity} ${item.qtyUnit}', style: const TextStyle(fontSize: 11))),
-                            DataCell(Text(item.unitPrice.toStringAsFixed(4), style: const TextStyle(fontSize: 11))),
-                            DataCell(Text(item.totalAmount.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF27AE60)))),
-                            DataCell(Text('${item.grossWeightKg} ${result.payload.weightUnit}', style: const TextStyle(fontSize: 11))),
-                            DataCell(Text('${item.netWeightKg} ${result.payload.weightUnit}', style: const TextStyle(fontSize: 11))),
+                            DataCell(CopyableTableCell(value: '${item.index}', rowSummary: rowSummary, child: Text('${item.index}', style: const TextStyle(fontSize: 11)))),
+                            DataCell(CopyableTableCell(value: item.hsCode, rowSummary: rowSummary, child: Text(item.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)))),
+                            DataCell(CopyableTableCell(value: item.manufacturer ?? '—', rowSummary: rowSummary, child: Text(item.manufacturer ?? '—', style: const TextStyle(fontSize: 11)))),
+                            DataCell(CopyableTableCell(value: item.description, rowSummary: rowSummary, child: Text(item.description, style: const TextStyle(fontSize: 11)))),
+                            DataCell(CopyableTableCell(value: '${item.quantity} ${item.qtyUnit}', rowSummary: rowSummary, child: Text('${item.quantity} ${item.qtyUnit}', style: const TextStyle(fontSize: 11)))),
+                            DataCell(CopyableTableCell(value: item.unitPrice.toStringAsFixed(4), rowSummary: rowSummary, child: Text(item.unitPrice.toStringAsFixed(4), style: const TextStyle(fontSize: 11)))),
+                            DataCell(CopyableTableCell(value: item.totalAmount.toStringAsFixed(2), rowSummary: rowSummary, child: Text(item.totalAmount.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF27AE60), fontSize: 11)))),
+                            DataCell(CopyableTableCell(value: '${item.grossWeightKg} ${result.payload.weightUnit}', rowSummary: rowSummary, child: Text('${item.grossWeightKg} ${result.payload.weightUnit}', style: const TextStyle(fontSize: 11)))),
+                            DataCell(CopyableTableCell(value: '${item.netWeightKg} ${result.payload.weightUnit}', rowSummary: rowSummary, child: Text('${item.netWeightKg} ${result.payload.weightUnit}', style: const TextStyle(fontSize: 11)))),
                           ],
                         );
                       }).toList(),
@@ -778,9 +782,10 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   }
 
   void _copyToClipboard(String text, String label) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.standardInvoiceCopiedToClipboard(label)), backgroundColor: const Color(0xFF27AE60)),
+    CopyHelper.copy(
+      context,
+      text,
+      customMessage: context.l10n.standardInvoiceCopiedToClipboard(label),
     );
   }
 
@@ -791,31 +796,31 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildHeaderSection(),
-              if (_isLoading) ...[
-                const SizedBox(height: 8),
-                const LinearProgressIndicator(),
+      body: SelectionArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeaderSection(),
+                if (_isLoading) ...[
+                  const SizedBox(height: 8),
+                  const LinearProgressIndicator(),
+                ],
+                const SizedBox(height: 16),
+                _buildFileSelector(filesAsync),
+                if (_existingSession != null) ...[
+                  const SizedBox(height: 12),
+                  _buildPreExistingStudyAlertBanner(),
+                ],
+                const SizedBox(height: 20),
+                _buildActionToolsBar(),
+                const SizedBox(height: 20),
+                _buildAdaptiveTabs(sessionsAsync),
               ],
-              const SizedBox(height: 16),
-              _buildFileSelector(filesAsync),
-              if (_existingSession != null) ...[
-                const SizedBox(height: 12),
-                _buildPreExistingStudyAlertBanner(),
-              ],
-              const SizedBox(height: 20),
-              _buildActionToolsBar(),
-              const SizedBox(height: 20),
-              _buildTabBar(),
-              const SizedBox(height: 16),
-              _buildActiveTabContent(sessionsAsync),
-            ],
+            ),
           ),
         ),
       ),
@@ -1070,56 +1075,52 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
     );
   }
 
-  Widget _buildTabBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: TabBar(
-        controller: _subTabController,
-        labelColor: const Color(0xFF2C3E50),
-        unselectedLabelColor: Colors.grey,
-        indicatorColor: const Color(0xFF27AE60),
-        indicatorWeight: 3,
-        tabs: [
-          Tab(icon: const Icon(Icons.visibility), text: context.l10n.standardInvoiceTabExtracted),
-          Tab(icon: const Icon(Icons.compare_arrows), text: context.l10n.standardInvoiceTabComparison),
-          Tab(icon: const Icon(Icons.gavel), text: context.l10n.standardInvoiceTabGovernance),
-          Tab(icon: const Icon(Icons.history), text: context.l10n.standardInvoiceTabRegistry),
-          Tab(
-            icon: Badge(
-              isLabelVisible: _customsTracks.isNotEmpty,
-              label: Text('${_customsTracks.length}'),
-              backgroundColor: const Color(0xFF27AE60),
-              child: const Icon(Icons.account_balance),
-            ),
-            text: 'المسارات الجمركية (Tracks)',
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildAdaptiveTabs(AsyncValue<List<StandardInvoiceSessionModel>> sessionsAsync) {
+    final l10n = context.l10n;
 
-  Widget _buildActiveTabContent(AsyncValue<List<StandardInvoiceSessionModel>> sessionsAsync) {
-    return AnimatedBuilder(
-      animation: _subTabController,
-      builder: (context, _) {
-        switch (_subTabController.index) {
-          case 0:
-            return _buildExtractedDataTab();
-          case 1:
-            return _buildComparisonMatrixTab();
-          case 2:
-            return _buildApprovalAndGovernanceTab();
-          case 3:
-            return _buildSessionsRegistryTab(sessionsAsync);
-          case 4:
-            return _buildCustomsTracksTab();
-          default:
-            return const SizedBox();
-        }
-      },
+    return AdaptiveTabScaffold(
+      controller: _subTabController,
+      accentColor: const Color(0xFF27AE60),
+      tabs: [
+        AdaptiveTabItem(
+          icon: Icons.visibility,
+          label: l10n.standardInvoiceTabExtracted,
+          content: _buildExtractedDataTab(),
+        ),
+        AdaptiveTabItem(
+          icon: Icons.compare_arrows,
+          label: l10n.standardInvoiceTabComparison,
+          content: _buildComparisonMatrixTab(),
+        ),
+        AdaptiveTabItem(
+          icon: Icons.gavel,
+          label: l10n.standardInvoiceTabGovernance,
+          content: _buildApprovalAndGovernanceTab(),
+        ),
+        AdaptiveTabItem(
+          icon: Icons.history,
+          label: l10n.standardInvoiceTabRegistry,
+          content: _buildSessionsRegistryTab(sessionsAsync),
+        ),
+        AdaptiveTabItem(
+          icon: Icons.account_balance,
+          label: l10n.standardInvoiceTabCustomsTracks,
+          badge: _customsTracks.isNotEmpty
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF27AE60),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${_customsTracks.length}',
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                )
+              : null,
+          content: _buildCustomsTracksTab(),
+        ),
+      ],
     );
   }
 
@@ -1679,14 +1680,14 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                   Row(
                     children: [
                       ChoiceChip(
-                        label: const Text('الفاتورة التجارية (Commercial Invoice)'),
+                        label: Text(context.l10n.standardInvoiceTabTitle),
                         selected: isInvoiceMode,
                         selectedColor: const Color(0xFF27AE60).withOpacity(0.2),
                         onSelected: (val) => setModalState(() => isInvoiceMode = true),
                       ),
                       const SizedBox(width: 10),
                       ChoiceChip(
-                        label: const Text('قائمة التعبئة (Customs Packing List)'),
+                        label: Text(context.l10n.standardInvoicePackingListTitle),
                         selected: !isInvoiceMode,
                         selectedColor: const Color(0xFF3498DB).withOpacity(0.2),
                         onSelected: (val) => setModalState(() => isInvoiceMode = false),
@@ -1726,86 +1727,91 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: Row(
-              children: [
-                const Icon(Icons.edit, color: Color(0xFFE67E22)),
-                const SizedBox(width: 8),
-                Text('تعديل المسار الجمركي (${track.trackCode})', style: const TextStyle(fontSize: 16)),
-              ],
-            ),
-            content: SizedBox(
-              width: 500,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+          return SelectionArea(
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
                 children: [
-                  const Text('الحالة الجمركية:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: selectedStatus,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'DRAFT', child: Text('مسودة (DRAFT)')),
-                      DropdownMenuItem(value: 'APPROVED', child: Text('معتمد جمركياً (APPROVED)')),
-                      DropdownMenuItem(value: 'SEALED', child: Text('مغلق وموثق (SEALED)')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setModalState(() => selectedStatus = val);
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  const Text('الملاحظات والبيان الجمركي:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: notesCtrl,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      hintText: 'اكتب أي ملاحظات خاصة بالمسار الجمركي...',
-                    ),
-                  ),
+                  const Icon(Icons.edit, color: Color(0xFFE67E22)),
+                  const SizedBox(width: 8),
+                  Text(context.l10n.customsTrackEditDialogTitle(track.trackCode), style: const TextStyle(fontSize: 16)),
                 ],
               ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
-              ElevatedButton(
-                onPressed: isSaving
-                    ? null
-                    : () async {
-                        setModalState(() => isSaving = true);
-                        try {
-                          final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
-                          await notifier.updateCustomsTrack(track.trackId, {
-                            'status': selectedStatus,
-                            'notes': notesCtrl.text.trim(),
-                          });
-                          if (_selectedImportFile != null) {
-                            final updated = await notifier.fetchCustomsTracks(_selectedImportFile!.importFileId);
-                            if (mounted) setState(() => _customsTracks = updated);
-                          }
-                          if (!context.mounted) return;
-                          Navigator.of(ctx).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('تم تحديث المسار الجمركي بنجاح'), backgroundColor: Color(0xFF27AE60)),
-                          );
-                        } catch (e) {
-                          setModalState(() => isSaving = false);
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('خطأ أثناء التعديل: $e'), backgroundColor: Colors.red),
-                          );
-                        }
+              content: SizedBox(
+                width: 500,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.l10n.customsTrackCustomsStatus, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: selectedStatus,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      items: [
+                        DropdownMenuItem(value: 'DRAFT', child: Text(context.l10n.standardInvoiceStatusDraft)),
+                        DropdownMenuItem(value: 'APPROVED', child: Text(context.l10n.standardInvoiceStatusApproved)),
+                        DropdownMenuItem(value: 'SEALED', child: Text(context.l10n.customsTrackStatusSealed)),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setModalState(() => selectedStatus = val);
                       },
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF27AE60), foregroundColor: Colors.white),
-                child: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('حفظ التعديلات'),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(context.l10n.customsTrackNotesAndDeclaration, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: notesCtrl,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        hintText: context.l10n.customsTrackNotesHint,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
+              actions: [
+                TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(context.l10n.cancel)),
+                ElevatedButton(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          final l10n = context.l10n;
+                          final nav = Navigator.of(ctx);
+                          setModalState(() => isSaving = true);
+                          try {
+                            final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
+                            await notifier.updateCustomsTrack(track.trackId, {
+                              'status': selectedStatus,
+                              'notes': notesCtrl.text.trim(),
+                            });
+                            if (_selectedImportFile != null) {
+                              final updated = await notifier.fetchCustomsTracks(_selectedImportFile!.importFileId);
+                              if (mounted) setState(() => _customsTracks = updated);
+                            }
+                            if (!mounted) return;
+                            nav.pop();
+                            messenger.showSnackBar(
+                              SnackBar(content: Text(l10n.customsTrackUpdateSuccessToast), backgroundColor: const Color(0xFF27AE60)),
+                            );
+                          } catch (e) {
+                            setModalState(() => isSaving = false);
+                            if (!mounted) return;
+                            messenger.showSnackBar(
+                              SnackBar(content: Text(l10n.cargoxSaveTrackError(e)), backgroundColor: Colors.red),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF27AE60), foregroundColor: Colors.white),
+                  child: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : Text(context.l10n.customsTrackSaveBtn),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -1815,46 +1821,49 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   void _showTrackDeleteConfirmDialog(CustomsInvoiceTrackModel track) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Color(0xFFC0392B), size: 28),
-            SizedBox(width: 8),
-            Text('تأكيد حذف المسار الجمركي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      builder: (ctx) => SelectionArea(
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Color(0xFFC0392B), size: 28),
+              const SizedBox(width: 8),
+              Text(context.l10n.customsTrackDeleteDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
+          content: Text(context.l10n.customsTrackDeleteDialogMessage(track.trackCode)),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(context.l10n.cancel)),
+            ElevatedButton(
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final l10n = context.l10n;
+                final nav = Navigator.of(ctx);
+                try {
+                  final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
+                  await notifier.deleteCustomsTrack(track.trackId);
+                  if (!mounted) return;
+                  if (_selectedImportFile != null) {
+                    final updated = await notifier.fetchCustomsTracks(_selectedImportFile!.importFileId);
+                    if (!mounted) return;
+                    setState(() => _customsTracks = updated);
+                  }
+                  nav.pop();
+                  messenger.showSnackBar(
+                    SnackBar(content: Text(l10n.customsTrackDeleteSuccessToast(track.trackCode)), backgroundColor: const Color(0xFF27AE60)),
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('${l10n.errorPrefix}: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC0392B), foregroundColor: Colors.white),
+              child: Text(context.l10n.delete),
+            ),
           ],
         ),
-        content: Text('هل أنت متأكد من رغبتك في حذف المسار الجمركي "${track.trackCode}"؟ لن يتم حذفه نهائياً بل نقله إلى الأرشيف المحذوف.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                final notifier = ref.read(standardInvoiceSessionsProvider.notifier);
-                await notifier.deleteCustomsTrack(track.trackId);
-                if (!mounted) return;
-                if (_selectedImportFile != null) {
-                  final updated = await notifier.fetchCustomsTracks(_selectedImportFile!.importFileId);
-                  if (!mounted) return;
-                  setState(() => _customsTracks = updated);
-                }
-                if (!ctx.mounted) return;
-                Navigator.of(ctx).pop();
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('تم حذف المسار الجمركي ${track.trackCode} بنجاح'), backgroundColor: const Color(0xFF27AE60)),
-                );
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('خطأ أثناء الحذف: $e'), backgroundColor: Colors.red),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC0392B), foregroundColor: Colors.white),
-            child: const Text('تأكيد الحذف'),
-          ),
-        ],
       ),
     );
   }
@@ -2002,17 +2011,18 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
           DataColumn(label: Text(context.l10n.colGrossWeight)),
         ],
         rows: items.map((item) {
+          final rowSummary = '${item.index}. ${item.productCode ?? ""} | ${item.hsCode} | ${item.description} | ${item.quantity} ${item.qtyUnit} @ ${item.unitPrice.toStringAsFixed(2)} = ${item.totalAmount.toStringAsFixed(2)} | Gross: ${item.grossWeightKg}';
           return DataRow(
             cells: [
-              DataCell(Text('${item.index}')),
-              DataCell(Text(item.productCode ?? 'N/A')),
-              DataCell(Text(item.hsCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-              DataCell(Text(item.description)),
-              DataCell(Text('${item.quantity}')),
-              DataCell(Text(item.qtyUnit)),
-              DataCell(Text(item.unitPrice.toStringAsFixed(2))),
-              DataCell(Text(item.totalAmount.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold))),
-              DataCell(Text('${item.grossWeightKg}')),
+              DataCell(CopyableTableCell(value: '${item.index}', rowSummary: rowSummary, child: Text('${item.index}'))),
+              DataCell(CopyableTableCell(value: item.productCode ?? '—', rowSummary: rowSummary, child: Text(item.productCode ?? '—'))),
+              DataCell(CopyableTableCell(value: item.hsCode, rowSummary: rowSummary, child: Text(item.hsCode, style: const TextStyle(fontWeight: FontWeight.bold)))),
+              DataCell(CopyableTableCell(value: item.description, rowSummary: rowSummary, child: Text(item.description))),
+              DataCell(CopyableTableCell(value: '${item.quantity}', rowSummary: rowSummary, child: Text('${item.quantity}'))),
+              DataCell(CopyableTableCell(value: item.qtyUnit, rowSummary: rowSummary, child: Text(item.qtyUnit))),
+              DataCell(CopyableTableCell(value: item.unitPrice.toStringAsFixed(2), rowSummary: rowSummary, child: Text(item.unitPrice.toStringAsFixed(2)))),
+              DataCell(CopyableTableCell(value: item.totalAmount.toStringAsFixed(2), rowSummary: rowSummary, child: Text(item.totalAmount.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF27AE60))))),
+              DataCell(CopyableTableCell(value: '${item.grossWeightKg}', rowSummary: rowSummary, child: Text('${item.grossWeightKg}'))),
             ],
           );
         }).toList(),
@@ -2120,13 +2130,21 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
         ],
         rows: rows.map((r) {
           final label = isAr ? r.fieldLabelAr : r.fieldLabelEn;
+          final rowSummary = '$label | System: ${r.systemValue ?? "—"} | Supplier: ${r.supplierValue ?? "—"} | Status: ${r.status} | Diff: ${r.difference ?? r.notes ?? "—"}';
           return DataRow(
             cells: [
-              DataCell(Text(label, style: const TextStyle(fontSize: 11))),
-              DataCell(Text(r.systemValue ?? '—', style: const TextStyle(fontWeight: FontWeight.bold))),
-              DataCell(Text(r.supplierValue ?? '—')),
+              DataCell(CopyableTableCell(value: label, rowSummary: rowSummary, child: Text(label))),
+              DataCell(CopyableTableCell(value: r.systemValue ?? '—', rowSummary: rowSummary, child: Text(r.systemValue ?? '—', style: const TextStyle(fontWeight: FontWeight.bold)))),
+              DataCell(CopyableTableCell(value: r.supplierValue ?? '—', rowSummary: rowSummary, child: Text(r.supplierValue ?? '—'))),
               DataCell(_buildStatusBadge(r.status)),
-              DataCell(Text(r.difference ?? r.notes ?? '—', style: TextStyle(color: r.status == 'MATCH' ? Colors.grey : Colors.red, fontSize: 12))),
+              DataCell(CopyableTableCell(
+                value: r.difference ?? r.notes ?? '—',
+                rowSummary: rowSummary,
+                child: Text(
+                  r.difference ?? r.notes ?? '—',
+                  style: TextStyle(color: r.status == 'MATCH' ? Colors.grey : Colors.red),
+                ),
+              )),
             ],
           );
         }).toList(),
@@ -2153,18 +2171,19 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
           DataColumn(label: Text(context.l10n.standardInvoiceColDiffAndNotes)),
         ],
         rows: rows.map((r) {
+          final rowSummary = '${r.index}. ${r.productCode} | HS Sys: ${r.hsCodeSystem ?? "—"} / Supp: ${r.hsCodeSupplier ?? "—"} | Qty Sys: ${r.qtySystem} / Supp: ${r.qtySupplier} | Price Sys: ${r.unitPriceSystem.toStringAsFixed(2)} / Supp: ${r.unitPriceSupplier.toStringAsFixed(2)} | Status: ${r.status} | Notes: ${r.notes ?? "—"}';
           return DataRow(
             cells: [
-              DataCell(Text('${r.index}')),
-              DataCell(Text(r.productCode)),
-              DataCell(Text(r.hsCodeSystem ?? '—')),
-              DataCell(Text(r.hsCodeSupplier ?? '—')),
-              DataCell(Text('${r.qtySystem}')),
-              DataCell(Text('${r.qtySupplier}')),
-              DataCell(Text(r.unitPriceSystem.toStringAsFixed(2))),
-              DataCell(Text(r.unitPriceSupplier.toStringAsFixed(2))),
+              DataCell(CopyableTableCell(value: '${r.index}', rowSummary: rowSummary, child: Text('${r.index}'))),
+              DataCell(CopyableTableCell(value: r.productCode, rowSummary: rowSummary, child: Text(r.productCode))),
+              DataCell(CopyableTableCell(value: r.hsCodeSystem ?? '—', rowSummary: rowSummary, child: Text(r.hsCodeSystem ?? '—'))),
+              DataCell(CopyableTableCell(value: r.hsCodeSupplier ?? '—', rowSummary: rowSummary, child: Text(r.hsCodeSupplier ?? '—'))),
+              DataCell(CopyableTableCell(value: '${r.qtySystem}', rowSummary: rowSummary, child: Text('${r.qtySystem}'))),
+              DataCell(CopyableTableCell(value: '${r.qtySupplier}', rowSummary: rowSummary, child: Text('${r.qtySupplier}'))),
+              DataCell(CopyableTableCell(value: r.unitPriceSystem.toStringAsFixed(2), rowSummary: rowSummary, child: Text(r.unitPriceSystem.toStringAsFixed(2)))),
+              DataCell(CopyableTableCell(value: r.unitPriceSupplier.toStringAsFixed(2), rowSummary: rowSummary, child: Text(r.unitPriceSupplier.toStringAsFixed(2)))),
               DataCell(_buildStatusBadge(r.status)),
-              DataCell(Text(r.notes ?? '—', style: const TextStyle(fontSize: 11))),
+              DataCell(CopyableTableCell(value: r.notes ?? '—', rowSummary: rowSummary, child: Text(r.notes ?? '—'))),
             ],
           );
         }).toList(),
@@ -2368,6 +2387,63 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                   }
                 },
               ),
+              const SizedBox(width: 12),
+              // 4 Linked Output Export Actions
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                icon: const Icon(Icons.table_view_outlined, size: 16, color: AppTheme.cobalt),
+                label: Text(context.l10n.standardInvoiceSessionsExportTsvBtn, style: const TextStyle(fontSize: 11.5, color: AppTheme.cobalt)),
+                onPressed: () async {
+                  final sessions = sessionsAsync.valueOrNull ?? [];
+                  if (sessions.isEmpty) return;
+                  await CargoXExportService.saveSessionsTsvToFile(context: context, sessions: sessions);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(context.l10n.cargoxCopiedTsvSuccess)),
+                  );
+                },
+              ),
+              const SizedBox(width: 6),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                icon: const Icon(Icons.file_present_outlined, size: 16, color: AppTheme.emerald),
+                label: Text(context.l10n.standardInvoiceSessionsExportExcelBtn, style: const TextStyle(fontSize: 11.5, color: AppTheme.emerald)),
+                onPressed: () async {
+                  final sessions = sessionsAsync.valueOrNull ?? [];
+                  if (sessions.isEmpty) return;
+                  await CargoXExportService.saveSessionsCsvToFile(context: context, sessions: sessions);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(context.l10n.cargoxCopiedExcelSuccess)),
+                  );
+                },
+              ),
+              const SizedBox(width: 6),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                icon: const Icon(Icons.picture_as_pdf_outlined, size: 16, color: Colors.purple),
+                label: Text(context.l10n.standardInvoiceSessionsPrintPdfBtn, style: const TextStyle(fontSize: 11.5, color: Colors.purple)),
+                onPressed: () async {
+                  final sessions = sessionsAsync.valueOrNull ?? [];
+                  if (sessions.isEmpty) return;
+                  await CargoXExportService.printOrSaveSessionsPdf(context: context, sessions: sessions);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(context.l10n.cargoxExportPdfDialogTitle)),
+                  );
+                },
+              ),
+              const SizedBox(width: 6),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                icon: const Icon(Icons.copy_all_outlined, size: 16, color: AppTheme.charcoal),
+                label: Text(context.l10n.standardInvoiceSessionsCopyDossierBtn, style: const TextStyle(fontSize: 11.5, color: AppTheme.charcoal)),
+                onPressed: () {
+                  final sessions = sessionsAsync.valueOrNull ?? [];
+                  if (sessions.isEmpty) return;
+                  CargoXExportService.copySessionsDossier(context: context, sessions: sessions);
+                },
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -2393,17 +2469,18 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                     DataColumn(label: Text(context.l10n.standardInvoiceColUpdatedAt)),
                   ],
                   rows: sessions.map((s) {
+                    final rowSummary = '${s.sessionCode} | File: ${s.importFileCode} | ACID: ${s.acidNumber ?? "—"} | Inv: ${s.invoiceNumber ?? "—"} | Supp: ${s.exporterName ?? "—"} | Total: ${s.totalAmount.toStringAsFixed(2)} ${s.currencyCode} | Items: ${s.lineItemsCount} | Status: ${s.status} | Updated: ${_formatDateTime(s.updatedAt)}';
                     return DataRow(
                       cells: [
-                        DataCell(Text(s.sessionCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataCell(Text(s.importFileCode)),
-                        DataCell(Text(s.acidNumber ?? '—')),
-                        DataCell(Text(s.invoiceNumber ?? '—')),
-                        DataCell(Text(s.exporterName ?? '—')),
-                        DataCell(Text('${s.totalAmount.toStringAsFixed(2)} ${s.currencyCode}')),
-                        DataCell(Text('${s.lineItemsCount}')),
+                        DataCell(CopyableTableCell(value: s.sessionCode, rowSummary: rowSummary, child: Text(s.sessionCode, style: const TextStyle(fontWeight: FontWeight.bold)))),
+                        DataCell(CopyableTableCell(value: s.importFileCode, rowSummary: rowSummary, child: Text(s.importFileCode))),
+                        DataCell(CopyableTableCell(value: s.acidNumber ?? '—', rowSummary: rowSummary, child: Text(s.acidNumber ?? '—'))),
+                        DataCell(CopyableTableCell(value: s.invoiceNumber ?? '—', rowSummary: rowSummary, child: Text(s.invoiceNumber ?? '—'))),
+                        DataCell(CopyableTableCell(value: s.exporterName ?? '—', rowSummary: rowSummary, child: Text(s.exporterName ?? '—'))),
+                        DataCell(CopyableTableCell(value: '${s.totalAmount.toStringAsFixed(2)} ${s.currencyCode}', rowSummary: rowSummary, child: Text('${s.totalAmount.toStringAsFixed(2)} ${s.currencyCode}', style: const TextStyle(color: Color(0xFF27AE60), fontWeight: FontWeight.bold)))),
+                        DataCell(CopyableTableCell(value: '${s.lineItemsCount}', rowSummary: rowSummary, child: Text('${s.lineItemsCount}'))),
                         DataCell(_buildStatusBadge(s.status)),
-                        DataCell(Text(_formatDateTime(s.updatedAt))),
+                        DataCell(CopyableTableCell(value: _formatDateTime(s.updatedAt), rowSummary: rowSummary, child: Text(_formatDateTime(s.updatedAt)))),
                       ],
                     );
                   }).toList(),

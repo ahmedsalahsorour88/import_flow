@@ -6,6 +6,9 @@ import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/services/master_data_export_service.dart';
+import '../../../core/widgets/adaptive_tab_scaffold.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/incoterm_model.dart';
 import '../providers/incoterms_provider.dart';
 
@@ -54,123 +57,112 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
 
     return Scaffold(
       backgroundColor: AppTheme.cloudWhite,
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.incotermsScreenTitle,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.charcoal,
+      body: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.incotermsScreenTitle,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.charcoal,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.incotermsScreenSubtitle,
-                      style: const TextStyle(color: Colors.grey, fontSize: 14),
-                    ),
-                  ],
-                ),
-                const BackToDashboardButton(),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Data Actions Toolbar
-            MasterDataToolbarWidget(
-              moduleEndpoint: 'incoterms',
-              title: 'Incoterms_Master',
-              onRefreshNeeded: () {
-                ref.read(incotermsProvider.notifier).fetchIncoterms();
-                ref.read(costItemsProvider.notifier).fetchCostItems();
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Tab Bar
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: TabBar(
-                controller: _tabController,
-                labelColor: AppTheme.cobalt,
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: AppTheme.cobalt,
-                indicatorWeight: 3,
-                labelStyle: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 14),
-                tabs: [
-                  Tab(icon: const Icon(Icons.handshake_outlined), text: l10n.incotermsTabRules),
-                  Tab(icon: const Icon(Icons.receipt_long_outlined), text: l10n.incotermsTabCostItems),
-                  Tab(icon: const Icon(Icons.table_chart_outlined), text: l10n.incotermsTabMatrix),
+                      const SizedBox(height: 4),
+                      Text(
+                        l10n.incotermsScreenSubtitle,
+                        style: const TextStyle(color: Colors.grey, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                  const BackToDashboardButton(),
                 ],
               ),
-            ),
-            const SizedBox(height: 16),
 
-            // Search bar (shown for Incoterms and Cost Items tabs)
-            AnimatedBuilder(
-              animation: _tabController,
-              builder: (context, _) {
-                if (_tabController.index == 2) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: _searchController,
-                    builder: (context, val, _) {
-                      return TextField(
-                        controller: _searchController,
-                        onChanged: (v) =>
-                            setState(() => _searchQuery = v.toLowerCase()),
-                        decoration: InputDecoration(
-                          hintText: l10n.searchIncotermsHint,
-                          prefixIcon:
-                              const Icon(Icons.search, color: Colors.grey),
-                          suffixIcon: val.text.isEmpty
-                              ? null
-                              : IconButton(
-                                  icon: const Icon(Icons.clear,
-                                      color: Colors.grey),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() => _searchQuery = '');
-                                  }),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
+              const SizedBox(height: 16),
 
-            // Tab Content
+              // Data Actions Toolbar
+              MasterDataToolbarWidget(
+                moduleEndpoint: 'incoterms',
+                title: 'Incoterms_Master',
+                onRefreshNeeded: () {
+                  ref.read(incotermsProvider.notifier).fetchIncoterms();
+                  ref.read(costItemsProvider.notifier).fetchCostItems();
+                  ref.read(responsibilityMatrixProvider.notifier).fetchAll();
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+            // Adaptive Tab Navigation
             Expanded(
-              child: TabBarView(
+              child: AdaptiveTabScaffold(
                 controller: _tabController,
-                children: [
-                  _IncotermsTab(searchQuery: _searchQuery),
-                  _CostItemsTab(searchQuery: _searchQuery),
-                  const _ResponsibilityMatrixTab(),
+                header: AnimatedBuilder(
+                  animation: _tabController,
+                  builder: (context, _) {
+                    if (_tabController.index == 2) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _searchController,
+                        builder: (context, val, _) {
+                          return TextField(
+                            controller: _searchController,
+                            onChanged: (v) =>
+                                setState(() => _searchQuery = v.toLowerCase()),
+                            decoration: InputDecoration(
+                              hintText: l10n.searchIncotermsHint,
+                              prefixIcon:
+                                  const Icon(Icons.search, color: Colors.grey),
+                              suffixIcon: val.text.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      icon: const Icon(Icons.clear,
+                                          color: Colors.grey),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _searchQuery = '');
+                                      }),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+                tabs: [
+                  AdaptiveTabItem(
+                    icon: Icons.handshake_outlined,
+                    label: l10n.incotermsTabRules,
+                    content: _IncotermsTab(searchQuery: _searchQuery),
+                  ),
+                  AdaptiveTabItem(
+                    icon: Icons.receipt_long_outlined,
+                    label: l10n.incotermsTabCostItems,
+                    content: _CostItemsTab(searchQuery: _searchQuery),
+                  ),
+                  AdaptiveTabItem(
+                    icon: Icons.table_chart_outlined,
+                    label: l10n.incotermsTabMatrix,
+                    content: const _ResponsibilityMatrixTab(),
+                  ),
                 ],
               ),
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -208,10 +200,24 @@ class _IncotermsTab extends ConsumerWidget {
                 ),
               ],
             ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add, size: 18),
-              label: Text(l10n.addIncotermBtn),
-              onPressed: () => _showIncotermDialog(context, ref),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.table_chart_outlined, size: 18),
+                  label: Text(l10n.incotermsExportTsvBtn),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.cobalt,
+                    side: const BorderSide(color: AppTheme.cobalt),
+                  ),
+                  onPressed: () => _copyIncotermsTsv(context, incotermsAsync.value ?? []),
+                ),
+                const SizedBox(width: 10),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text(l10n.addIncotermBtn),
+                  onPressed: () => _showIncotermDialog(context, ref),
+                ),
+              ],
             ),
           ],
         ),
@@ -242,6 +248,60 @@ class _IncotermsTab extends ConsumerWidget {
     );
   }
 
+  void _copyIncotermsTsv(BuildContext context, List<IncotermModel> incoterms) {
+    final l10n = context.l10n;
+    final headers = [
+      l10n.incotermsTsvHeaderCode,
+      l10n.incotermsTsvHeaderName,
+      l10n.incotermsTsvHeaderVersion,
+      l10n.incotermsTsvHeaderDescription,
+      l10n.incotermsTsvHeaderStatus,
+    ];
+    final rows = incoterms.map((i) => [
+      i.incotermCode,
+      i.incotermName,
+      i.version,
+      i.description ?? '',
+      i.isActive ? l10n.statusActive : l10n.statusInactive,
+    ]);
+    final tsv = [
+      headers.join('\t'),
+      ...rows.map((r) => r.map((c) => c.toString().replaceAll('\t', ' ').replaceAll('\n', ' ')).join('\t')),
+    ].join('\n');
+    CopyHelper.copy(context, tsv, customMessage: l10n.incotermsExportTsvSuccess);
+  }
+
+  String _buildIncotermSummary(BuildContext context, WidgetRef ref, IncotermModel i) {
+    final l10n = context.l10n;
+    final matrix = ref.read(responsibilityMatrixProvider).value ?? [];
+    final responsibilities = matrix.where((r) => r.incotermId == i.incotermId || r.incotermCode == i.incotermCode).toList();
+
+    final b = StringBuffer();
+    b.writeln('📋 ${l10n.incotermsScreenTitle}');
+    b.writeln('${l10n.incotermCodeBadgeLabel}${i.incotermCode}');
+    b.writeln('${l10n.incotermNameCol}: ${i.incotermName}');
+    b.writeln('${l10n.incotermVersionCol}: ${i.version}');
+    b.writeln('${l10n.incotermStatusCol}: ${i.isActive ? l10n.statusActive : l10n.statusInactive}');
+    if (i.description != null && i.description!.isNotEmpty) {
+      b.writeln('${l10n.incotermDescriptionLabel}: ${i.description}');
+    }
+    if (responsibilities.isNotEmpty) {
+      b.writeln('\n${l10n.incotermResponsibilitiesSectionTitle}');
+      for (final r in responsibilities) {
+        final party = r.responsibleParty == 'Importer'
+            ? l10n.partyBuyerImporter
+            : (r.responsibleParty == 'Exporter' ? l10n.partySellerExporter : l10n.partyShared);
+        final inc = r.includedInIncoterm ? l10n.includedInPriceYes : l10n.includedInPriceNo;
+        b.writeln('• ${r.costItemName}: $party ($inc)');
+      }
+    }
+    return b.toString().trim();
+  }
+
+  String _buildIncotermRowSummary(AppLocalizations l10n, IncotermModel i) {
+    return '${i.incotermCode}\t${i.incotermName}\t${i.version}\t${i.description ?? ""}\t${i.isActive ? l10n.statusActive : l10n.statusInactive}';
+  }
+
   Widget _buildIncotermTable(
       BuildContext context, WidgetRef ref, List<IncotermModel> incoterms) {
     final l10n = context.l10n;
@@ -262,151 +322,228 @@ class _IncotermsTab extends ConsumerWidget {
               constraints: BoxConstraints(
                 minWidth: MediaQuery.of(context).size.width > 1100
                     ? MediaQuery.of(context).size.width - 300
-                    : 950,
+                    : 980,
               ),
               child: Table(
                 columnWidths: const {
-                  0: FixedColumnWidth(100),
+                  0: FixedColumnWidth(110),
                   1: FlexColumnWidth(2),
                   2: FixedColumnWidth(120),
                   3: FixedColumnWidth(85),
-                  4: FixedColumnWidth(150),
+                  4: FixedColumnWidth(190),
                 },
                 children: [
-              TableRow(
-                decoration: const BoxDecoration(color: AppTheme.charcoal),
-                children: [
-                  l10n.incotermCodeCol,
-                  l10n.incotermNameCol,
-                  l10n.incotermVersionCol,
-                  l10n.incotermStatusCol,
-                  l10n.incotermActionsCol,
-                ]
-                    .map((h) => Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          child: Text(h,
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13)),
-                        ))
-                    .toList(),
-              ),
-              ...incoterms.asMap().entries.map((entry) {
-                final i = entry.value;
-                final isEven = entry.key % 2 == 0;
-                return TableRow(
-                  decoration: BoxDecoration(
-                    color: isEven ? Colors.white : Colors.grey.shade50,
+                  TableRow(
+                    decoration: const BoxDecoration(color: AppTheme.charcoal),
+                    children: [
+                      l10n.incotermCodeCol,
+                      l10n.incotermNameCol,
+                      l10n.incotermVersionCol,
+                      l10n.incotermStatusCol,
+                      l10n.incotermActionsCol,
+                    ]
+                        .map((h) => Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              child: Text(h,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13)),
+                            ))
+                        .toList(),
                   ),
-                  children: [
-                    _cell(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(i.incotermCode,
-                            style: const TextStyle(
-                                color: AppTheme.cobalt,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13)),
+                  ...incoterms.asMap().entries.map((entry) {
+                    final i = entry.value;
+                    final isEven = entry.key % 2 == 0;
+                    return TableRow(
+                      decoration: BoxDecoration(
+                        color: isEven ? Colors.white : Colors.grey.shade50,
                       ),
-                    ),
-                    _cell(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(i.incotermName,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.charcoal)),
-                          if (i.description != null)
-                            Text(i.description!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade600)),
-                        ],
-                      ),
-                    ),
-                    _cell(
-                        child: Text(i.version,
-                            style: const TextStyle(fontSize: 13))),
-                    _cell(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: i.isActive
-                              ? AppTheme.emerald.withOpacity(0.1)
-                              : AppTheme.crimson.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          i.isActive ? l10n.statusActive : l10n.statusInactive,
-                          style: TextStyle(
-                            color:
-                                i.isActive ? AppTheme.emerald : AppTheme.crimson,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
+                      children: [
+                        _cell(
+                          child: CopyableTableCell(
+                            value: i.incotermCode,
+                            rowSummary: _buildIncotermRowSummary(l10n, i),
+                            child: Tooltip(
+                              message: l10n.incotermsCopyFieldTooltip,
+                              child: InkWell(
+                                onTap: () => CopyHelper.copy(context, i.incotermCode),
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cobalt.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        i.incotermCode,
+                                        style: const TextStyle(
+                                            color: AppTheme.cobalt,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.copy_rounded,
+                                          size: 12, color: AppTheme.cobalt),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    _cell(
-                      child: RowActionsPill(
-                        onView: () => _showIncotermDialog(context, ref, incoterm: i),
-                        onEdit: () => _showIncotermDialog(context, ref, incoterm: i),
-                        onPrint: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(l10n.printIncotermSnack(i.incotermCode, i.incotermName)),
-                              backgroundColor: AppTheme.charcoal,
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        },
-                        onDelete: () async {
-                          final isActive = i.isActive;
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: Text(l10n.confirmActionTitle),
-                              content: Text(isActive
-                                  ? l10n.confirmDeactivateIncoterm(i.incotermCode)
-                                  : l10n.confirmActivateIncoterm(i.incotermCode)),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.pop(ctx, true),
-                                  style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                  child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                                ),
+                        _cell(
+                          child: CopyableTableCell(
+                            value: '${i.incotermName}${i.description != null ? " - ${i.description}" : ""}',
+                            rowSummary: _buildIncotermRowSummary(l10n, i),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(i.incotermName,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.charcoal)),
+                                if (i.description != null)
+                                  Text(i.description!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade600)),
                               ],
                             ),
-                          );
-                          if (confirm == true) {
-                            await ref.read(incotermsProvider.notifier).toggleActive(i.incotermId, i.isActive);
-                          }
-                        },
-                        deleteTooltip: i.isActive ? l10n.deactivateIncotermTooltip : l10n.activateIncotermTooltip,
-                      ),
-                    ),
-                  ],
-                );
-              }),
-            ],
+                          ),
+                        ),
+                        _cell(
+                          child: CopyableTableCell(
+                            value: i.version,
+                            rowSummary: _buildIncotermRowSummary(l10n, i),
+                            child: Text(i.version,
+                                style: const TextStyle(fontSize: 13)),
+                          ),
+                        ),
+                        _cell(
+                          child: CopyableTableCell(
+                            value: i.isActive ? l10n.statusActive : l10n.statusInactive,
+                            rowSummary: _buildIncotermRowSummary(l10n, i),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: i.isActive
+                                    ? AppTheme.emerald.withOpacity(0.1)
+                                    : AppTheme.crimson.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                i.isActive ? l10n.statusActive : l10n.statusInactive,
+                                style: TextStyle(
+                                  color: i.isActive
+                                      ? AppTheme.emerald
+                                      : AppTheme.crimson,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        _cell(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Tooltip(
+                                message: l10n.incotermCopySummaryBtn,
+                                child: InkWell(
+                                  onTap: () => CopyHelper.copy(
+                                    context,
+                                    _buildIncotermSummary(context, ref, i),
+                                    customMessage: l10n.incotermCopySummarySuccess,
+                                  ),
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 5),
+                                    margin: const EdgeInsets.only(right: 6),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.emerald.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                          color: AppTheme.emerald.withOpacity(0.3)),
+                                    ),
+                                    child: const Icon(
+                                      Icons.copy_all_rounded,
+                                      size: 15,
+                                      color: AppTheme.emerald,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              RowActionsPill(
+                                onView: () => _showIncotermDialog(context, ref, incoterm: i),
+                                onEdit: () => _showIncotermDialog(context, ref, incoterm: i),
+                                onPrint: () {
+                                  final matrix = ref.read(responsibilityMatrixProvider).value ?? [];
+                                  MasterDataExportService.printOrSaveIncotermPdf(i, matrix);
+                                },
+                                printTooltip: l10n.exportIncotermsPdfBtn,
+                                onDelete: () async {
+                                  final isActive = i.isActive;
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: Text(l10n.confirmActionTitle),
+                                      content: Text(isActive
+                                          ? l10n.confirmDeactivateIncoterm(i.incotermCode)
+                                          : l10n.confirmActivateIncoterm(i.incotermCode)),
+                                      actions: [
+                                        TextButton(
+                                            onPressed: () => Navigator.pop(ctx, false),
+                                            child: Text(l10n.cancel)),
+                                        ElevatedButton(
+                                          onPressed: () => Navigator.pop(ctx, true),
+                                          style: ElevatedButton.styleFrom(
+                                              backgroundColor: isActive
+                                                  ? AppTheme.crimson
+                                                  : AppTheme.emerald),
+                                          child: Text(
+                                              isActive
+                                                  ? l10n.deactivateBtn
+                                                  : l10n.activateBtn,
+                                              style: const TextStyle(color: Colors.white)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm == true) {
+                                    await ref
+                                        .read(incotermsProvider.notifier)
+                                        .toggleActive(i.incotermId, i.isActive);
+                                  }
+                                },
+                                deleteTooltip: i.isActive
+                                    ? l10n.deactivateIncotermTooltip
+                                    : l10n.activateIncotermTooltip,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+            ),
           ),
         ),
       ),
-    ),
-  ),
-);
-}
+    );
+  }
 
   void _showIncotermDialog(BuildContext context, WidgetRef ref,
       {IncotermModel? incoterm}) {
@@ -426,43 +563,119 @@ class _IncotermsTab extends ConsumerWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(incoterm == null ? l10n.addIncotermDialogTitle : l10n.editIncotermDialogTitle),
-          content: Form(
-            key: formKey,
-            child: SizedBox(
-              width: 400,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: codeCtrl,
-                    decoration:
-                        InputDecoration(labelText: l10n.incotermCodeLabel),
-                    textCapitalization: TextCapitalization.characters,
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? l10n.requiredField
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: nameCtrl,
-                    decoration: InputDecoration(labelText: l10n.incotermFullNameLabel),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? l10n.requiredField
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: versionCtrl,
-                    decoration: InputDecoration(labelText: l10n.incotermVersionLabel),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: descCtrl,
-                    decoration: InputDecoration(labelText: l10n.incotermDescriptionLabel),
-                    maxLines: 2,
-                  ),
-                ],
+          title: Text(incoterm == null
+              ? l10n.addIncotermDialogTitle
+              : l10n.editIncotermDialogTitle),
+          content: SelectionArea(
+            child: Form(
+              key: formKey,
+              child: SizedBox(
+                width: 440,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: codeCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.incotermCodeLabel,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded,
+                              size: 16, color: AppTheme.cobalt),
+                          tooltip: l10n.incotermsCopyFieldTooltip,
+                          onPressed: () =>
+                              CopyHelper.copy(context, codeCtrl.text),
+                        ),
+                      ),
+                      textCapitalization: TextCapitalization.characters,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? l10n.requiredField
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.incotermFullNameLabel,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded,
+                              size: 16, color: AppTheme.cobalt),
+                          tooltip: l10n.incotermsCopyFieldTooltip,
+                          onPressed: () =>
+                              CopyHelper.copy(context, nameCtrl.text),
+                        ),
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? l10n.requiredField
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: versionCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.incotermVersionLabel,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded,
+                              size: 16, color: AppTheme.cobalt),
+                          tooltip: l10n.incotermsCopyFieldTooltip,
+                          onPressed: () =>
+                              CopyHelper.copy(context, versionCtrl.text),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: descCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.incotermDescriptionLabel,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded,
+                              size: 16, color: AppTheme.cobalt),
+                          tooltip: l10n.incotermsCopyFieldTooltip,
+                          onPressed: () =>
+                              CopyHelper.copy(context, descCtrl.text),
+                        ),
+                      ),
+                      maxLines: 2,
+                    ),
+                    if (incoterm != null) ...[
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.picture_as_pdf, size: 15),
+                            label: Text(l10n.exportIncotermsPdfBtn,
+                                style: const TextStyle(fontSize: 12)),
+                            style: OutlinedButton.styleFrom(
+                                visualDensity: VisualDensity.compact),
+                            onPressed: () {
+                              final matrix =
+                                  ref.read(responsibilityMatrixProvider).value ??
+                                      [];
+                              MasterDataExportService.printOrSaveIncotermPdf(
+                                  incoterm, matrix);
+                            },
+                          ),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.description, size: 15),
+                            label: Text(l10n.exportIncotermsExcelBtn,
+                                style: const TextStyle(fontSize: 12)),
+                            style: OutlinedButton.styleFrom(
+                                visualDensity: VisualDensity.compact),
+                            onPressed: () {
+                              final matrix =
+                                  ref.read(responsibilityMatrixProvider).value ??
+                                      [];
+                              MasterDataExportService.exportIncotermToExcel(
+                                  context, incoterm, matrix);
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -580,10 +793,24 @@ class _CostItemsTab extends ConsumerWidget {
                 ),
               ],
             ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add, size: 18),
-              label: Text(l10n.addCostItemBtn),
-              onPressed: () => _showCostItemDialog(context, ref),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.table_chart_outlined, size: 18),
+                  label: Text(l10n.costItemsExportTsvBtn),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.cobalt,
+                    side: const BorderSide(color: AppTheme.cobalt),
+                  ),
+                  onPressed: () => _copyCostItemsTsv(context, costItemsAsync.value ?? []),
+                ),
+                const SizedBox(width: 10),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text(l10n.addCostItemBtn),
+                  onPressed: () => _showCostItemDialog(context, ref),
+                ),
+              ],
             ),
           ],
         ),
@@ -613,6 +840,46 @@ class _CostItemsTab extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  void _copyCostItemsTsv(BuildContext context, List<CostItemModel> items) {
+    final l10n = context.l10n;
+    final headers = [
+      l10n.costItemsTsvHeaderCode,
+      l10n.costItemsTsvHeaderName,
+      l10n.costItemsTsvHeaderCategory,
+      l10n.costItemsTsvHeaderDescription,
+      l10n.costItemsTsvHeaderStatus,
+    ];
+    final rows = items.map((i) => [
+      i.costItemCode,
+      i.costItemName,
+      _getCategoryLabel(l10n, i.costCategory),
+      i.description ?? '',
+      i.isActive ? l10n.statusActive : l10n.statusInactive,
+    ]);
+    final tsv = [
+      headers.join('\t'),
+      ...rows.map((r) => r.map((c) => c.toString().replaceAll('\t', ' ').replaceAll('\n', ' ')).join('\t')),
+    ].join('\n');
+    CopyHelper.copy(context, tsv, customMessage: l10n.costItemsExportTsvSuccess);
+  }
+
+  String _buildCostItemSummary(AppLocalizations l10n, CostItemModel item) {
+    final b = StringBuffer();
+    b.writeln('📋 ${l10n.incotermsTabCostItems}');
+    b.writeln('${l10n.costItemCodeBadgeLabel}${item.costItemCode}');
+    b.writeln('${l10n.costItemNameCol}: ${item.costItemName}');
+    b.writeln('${l10n.costItemCategoryCol}: ${_getCategoryLabel(l10n, item.costCategory)}');
+    b.writeln('${l10n.costItemStatusCol}: ${item.isActive ? l10n.statusActive : l10n.statusInactive}');
+    if (item.description != null && item.description!.isNotEmpty) {
+      b.writeln('${l10n.costItemDescriptionLabel}: ${item.description}');
+    }
+    return b.toString().trim();
+  }
+
+  String _buildCostItemRowSummary(AppLocalizations l10n, CostItemModel item) {
+    return '${item.costItemCode}\t${item.costItemName}\t${_getCategoryLabel(l10n, item.costCategory)}\t${item.description ?? ""}\t${item.isActive ? l10n.statusActive : l10n.statusInactive}';
   }
 
   Color _categoryColor(String category) {
@@ -654,11 +921,11 @@ class _CostItemsTab extends ConsumerWidget {
               ),
               child: Table(
                 columnWidths: const {
-                  0: FixedColumnWidth(100),
+                  0: FixedColumnWidth(110),
                   1: FlexColumnWidth(2),
-                  2: FixedColumnWidth(120),
+                  2: FixedColumnWidth(130),
                   3: FixedColumnWidth(85),
-                  4: FixedColumnWidth(150),
+                  4: FixedColumnWidth(190),
                 },
                 children: [
               TableRow(
@@ -690,111 +957,174 @@ class _CostItemsTab extends ConsumerWidget {
                       color: isEven ? Colors.white : Colors.grey.shade50),
                   children: [
                     _cell(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: catColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(item.costItemCode,
-                            style: TextStyle(
-                                color: catColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12)),
-                      ),
-                    ),
-                    _cell(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item.costItemName,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.charcoal)),
-                          if (item.description != null)
-                            Text(item.description!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade600)),
-                        ],
-                      ),
-                    ),
-                    _cell(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: catColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(_getCategoryLabel(l10n, item.costCategory),
-                            style: TextStyle(
-                                color: catColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11)),
-                      ),
-                    ),
-                    _cell(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: item.isActive
-                              ? AppTheme.emerald.withOpacity(0.1)
-                              : AppTheme.crimson.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          item.isActive ? l10n.statusActive : l10n.statusInactive,
-                          style: TextStyle(
-                            color: item.isActive
-                                ? AppTheme.emerald
-                                : AppTheme.crimson,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
+                      child: CopyableTableCell(
+                        value: item.costItemCode,
+                        rowSummary: _buildCostItemRowSummary(l10n, item),
+                        child: Tooltip(
+                          message: l10n.incotermsCopyFieldTooltip,
+                          child: InkWell(
+                            onTap: () => CopyHelper.copy(context, item.costItemCode),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: catColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(item.costItemCode,
+                                      style: TextStyle(
+                                          color: catColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12)),
+                                  const SizedBox(width: 4),
+                                  Icon(Icons.copy_rounded,
+                                      size: 11, color: catColor),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
                     _cell(
-                      child: RowActionsPill(
-                        onView: () => _showCostItemDialog(context, ref, item: item),
-                        onEdit: () => _showCostItemDialog(context, ref, item: item),
-                        onPrint: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(l10n.printCostItemSnack(item.costItemCode, item.costItemName)),
-                              backgroundColor: AppTheme.charcoal,
-                              duration: const Duration(seconds: 2),
+                      child: CopyableTableCell(
+                        value: '${item.costItemName}${item.description != null ? " - ${item.description}" : ""}',
+                        rowSummary: _buildCostItemRowSummary(l10n, item),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(item.costItemName,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.charcoal)),
+                            if (item.description != null)
+                              Text(item.description!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey.shade600)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    _cell(
+                      child: CopyableTableCell(
+                        value: _getCategoryLabel(l10n, item.costCategory),
+                        rowSummary: _buildCostItemRowSummary(l10n, item),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: catColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(_getCategoryLabel(l10n, item.costCategory),
+                              style: TextStyle(
+                                  color: catColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11)),
+                        ),
+                      ),
+                    ),
+                    _cell(
+                      child: CopyableTableCell(
+                        value: item.isActive ? l10n.statusActive : l10n.statusInactive,
+                        rowSummary: _buildCostItemRowSummary(l10n, item),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: item.isActive
+                                ? AppTheme.emerald.withOpacity(0.1)
+                                : AppTheme.crimson.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            item.isActive ? l10n.statusActive : l10n.statusInactive,
+                            style: TextStyle(
+                              color: item.isActive
+                                  ? AppTheme.emerald
+                                  : AppTheme.crimson,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
                             ),
-                          );
-                        },
-                        onDelete: () async {
-                          final isActive = item.isActive;
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: Text(l10n.confirmActionTitle),
-                              content: Text(isActive
-                                  ? l10n.confirmDeactivateCostItem(item.costItemCode)
-                                  : l10n.confirmActivateCostItem(item.costItemCode)),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.pop(ctx, true),
-                                  style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                  child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                          ),
+                        ),
+                      ),
+                    ),
+                    _cell(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Tooltip(
+                            message: l10n.costItemCopySummaryBtn,
+                            child: InkWell(
+                              onTap: () => CopyHelper.copy(
+                                context,
+                                _buildCostItemSummary(l10n, item),
+                                customMessage: l10n.costItemCopySummarySuccess,
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 5),
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.emerald.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: AppTheme.emerald.withOpacity(0.3)),
                                 ),
-                              ],
+                                child: const Icon(
+                                  Icons.copy_all_rounded,
+                                  size: 15,
+                                  color: AppTheme.emerald,
+                                ),
+                              ),
                             ),
-                          );
-                          if (confirm == true) {
-                            await ref.read(costItemsProvider.notifier).toggleActive(item.costItemId, item.isActive);
-                          }
-                        },
-                        deleteTooltip: item.isActive ? l10n.deactivateCostItemTooltip : l10n.activateCostItemTooltip,
+                          ),
+                          RowActionsPill(
+                            onView: () => _showCostItemDialog(context, ref, item: item),
+                            onEdit: () => _showCostItemDialog(context, ref, item: item),
+                            onPrint: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(l10n.printCostItemSnack(item.costItemCode, item.costItemName)),
+                                  backgroundColor: AppTheme.charcoal,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                            onDelete: () async {
+                              final isActive = item.isActive;
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: Text(l10n.confirmActionTitle),
+                                  content: Text(isActive
+                                      ? l10n.confirmDeactivateCostItem(item.costItemCode)
+                                      : l10n.confirmActivateCostItem(item.costItemCode)),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                      child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true) {
+                                await ref.read(costItemsProvider.notifier).toggleActive(item.costItemId, item.isActive);
+                              }
+                            },
+                            deleteTooltip: item.isActive ? l10n.deactivateCostItemTooltip : l10n.activateCostItemTooltip,
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -824,50 +1154,73 @@ class _CostItemsTab extends ConsumerWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(item == null ? l10n.addCostItemDialogTitle : l10n.editCostItemDialogTitle),
-          content: Form(
-            key: formKey,
-            child: SizedBox(
-              width: 420,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: codeCtrl,
-                    decoration:
-                        InputDecoration(labelText: l10n.costItemCodeLabel),
-                    textCapitalization: TextCapitalization.characters,
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? l10n.requiredField : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: nameCtrl,
-                    decoration:
-                        InputDecoration(labelText: l10n.costItemNameLabel),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? l10n.requiredField : null,
-                  ),
-                  const SizedBox(height: 12),
-                  SearchableDropdownField<String>(
-                    value: selectedCategory,
-                    labelText: l10n.costCategoryLabel,
-                    items: _categories
-                        .map((c) => SearchableDropdownItem<String>(value: c, label: _getCategoryLabel(l10n, c)))
-                        .toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setDialogState(() => selectedCategory = val);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: descCtrl,
-                    decoration:
-                        InputDecoration(labelText: l10n.costItemDescriptionLabel),
-                    maxLines: 2,
-                  ),
-                ],
+          content: SelectionArea(
+            child: Form(
+              key: formKey,
+              child: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: codeCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.costItemCodeLabel,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded,
+                              size: 16, color: AppTheme.cobalt),
+                          tooltip: l10n.incotermsCopyFieldTooltip,
+                          onPressed: () => CopyHelper.copy(context, codeCtrl.text),
+                        ),
+                      ),
+                      textCapitalization: TextCapitalization.characters,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? l10n.requiredField : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.costItemNameLabel,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded,
+                              size: 16, color: AppTheme.cobalt),
+                          tooltip: l10n.incotermsCopyFieldTooltip,
+                          onPressed: () => CopyHelper.copy(context, nameCtrl.text),
+                        ),
+                      ),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? l10n.requiredField : null,
+                    ),
+                    const SizedBox(height: 12),
+                    SearchableDropdownField<String>(
+                      value: selectedCategory,
+                      labelText: l10n.costCategoryLabel,
+                      items: _categories
+                          .map((c) => SearchableDropdownItem<String>(value: c, label: _getCategoryLabel(l10n, c)))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() => selectedCategory = val);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: descCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.costItemDescriptionLabel,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded,
+                              size: 16, color: AppTheme.cobalt),
+                          tooltip: l10n.incotermsCopyFieldTooltip,
+                          onPressed: () => CopyHelper.copy(context, descCtrl.text),
+                        ),
+                      ),
+                      maxLines: 2,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1006,11 +1359,31 @@ class _ResponsibilityMatrixTabState
                     ),
                   ],
                 ),
-                Text(
-                  _selectedIncotermId == null
-                      ? l10n.showingAllMatrixResponsibilities
-                      : l10n.filteringResponsibilitiesForSelectedTerm,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.table_chart_outlined, size: 18),
+                      label: Text(l10n.matrixExportTsvBtn),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.cobalt,
+                        side: const BorderSide(color: AppTheme.cobalt),
+                      ),
+                      onPressed: () {
+                        final matrix = ref.read(responsibilityMatrixProvider).value ?? [];
+                        final filtered = _selectedIncotermId == null
+                            ? matrix
+                            : matrix.where((r) => r.incotermId == _selectedIncotermId).toList();
+                        _copyMatrixTsv(context, filtered);
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      _selectedIncotermId == null
+                          ? l10n.showingAllMatrixResponsibilities
+                          : l10n.filteringResponsibilitiesForSelectedTerm,
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    ),
+                  ],
                 ),
               ],
             );
@@ -1043,6 +1416,44 @@ class _ResponsibilityMatrixTabState
     );
   }
 
+  void _copyMatrixTsv(BuildContext context, List<IncotermResponsibilityModel> matrix) {
+    final l10n = context.l10n;
+    final headers = [
+      l10n.matrixTsvHeaderIncoterm,
+      l10n.matrixTsvHeaderCostItem,
+      l10n.matrixTsvHeaderCategory,
+      l10n.matrixTsvHeaderResponsible,
+      l10n.matrixTsvHeaderIncluded,
+      l10n.matrixTsvHeaderNotes,
+    ];
+    final rows = matrix.map((r) {
+      final party = r.responsibleParty == 'Importer'
+          ? l10n.partyBuyerImporter
+          : (r.responsibleParty == 'Exporter' ? l10n.partySellerExporter : l10n.partyShared);
+      return [
+        r.incotermCode ?? '',
+        r.costItemName ?? '',
+        _getCategoryLabel(l10n, r.costCategory ?? ''),
+        party,
+        r.includedInIncoterm ? l10n.includedInPriceYes : l10n.includedInPriceNo,
+        r.notes ?? '',
+      ];
+    });
+    final tsv = [
+      headers.join('\t'),
+      ...rows.map((r) => r.map((c) => c.toString().replaceAll('\t', ' ').replaceAll('\n', ' ')).join('\t')),
+    ].join('\n');
+    CopyHelper.copy(context, tsv, customMessage: l10n.matrixExportTsvSuccess);
+  }
+
+  String _buildMatrixRowSummary(AppLocalizations l10n, IncotermResponsibilityModel r) {
+    final party = r.responsibleParty == 'Importer'
+        ? l10n.partyBuyerImporter
+        : (r.responsibleParty == 'Exporter' ? l10n.partySellerExporter : l10n.partyShared);
+    final inc = r.includedInIncoterm ? l10n.includedInPriceYes : l10n.includedInPriceNo;
+    return '${r.incotermCode ?? ""}\t${r.costItemName ?? ""}\t${_getCategoryLabel(l10n, r.costCategory ?? "")}\t$party\t$inc\t${r.notes ?? ""}';
+  }
+
   Widget _buildMatrixTable(List<IncotermResponsibilityModel> matrix) {
     final l10n = context.l10n;
 
@@ -1072,7 +1483,7 @@ class _ResponsibilityMatrixTabState
                   3: FixedColumnWidth(160),
                   4: FixedColumnWidth(100),
                   5: FlexColumnWidth(2),
-                  6: FixedColumnWidth(80),
+                  6: FixedColumnWidth(110),
                 },
                 children: [
                   TableRow(
@@ -1120,71 +1531,129 @@ class _ResponsibilityMatrixTabState
                           color: isEven ? Colors.white : Colors.grey.shade50),
                       children: [
                         _cell(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppTheme.cobalt.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
+                          child: CopyableTableCell(
+                            value: r.incotermCode ?? '',
+                            rowSummary: _buildMatrixRowSummary(l10n, r),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(r.incotermCode ?? '—',
+                                  style: const TextStyle(
+                                      color: AppTheme.cobalt,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12)),
                             ),
-                            child: Text(r.incotermCode ?? '—',
-                                style: const TextStyle(
-                                    color: AppTheme.cobalt,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12)),
                           ),
                         ),
                         _cell(
+                          child: CopyableTableCell(
+                            value: r.costItemName ?? '',
+                            rowSummary: _buildMatrixRowSummary(l10n, r),
                             child: Text(r.costItemName ?? '—',
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w600,
-                                    color: AppTheme.charcoal))),
+                                    color: AppTheme.charcoal)),
+                          ),
+                        ),
                         _cell(
+                          child: CopyableTableCell(
+                            value: _getCategoryLabel(l10n, r.costCategory ?? ''),
+                            rowSummary: _buildMatrixRowSummary(l10n, r),
                             child: Text(_getCategoryLabel(l10n, r.costCategory ?? ''),
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade700))),
+                                    fontSize: 12, color: Colors.grey.shade700)),
+                          ),
+                        ),
                         _cell(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: partyColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
+                          child: CopyableTableCell(
+                            value: partyText,
+                            rowSummary: _buildMatrixRowSummary(l10n, r),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: partyColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(partyText,
+                                  style: TextStyle(
+                                      color: partyColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11)),
                             ),
-                            child: Text(partyText,
-                                style: TextStyle(
-                                    color: partyColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11)),
                           ),
                         ),
                         _cell(
-                          child: Icon(
-                            r.includedInIncoterm
-                                ? Icons.check_circle
-                                : Icons.remove_circle_outline,
-                            color: r.includedInIncoterm
-                                ? AppTheme.emerald
-                                : Colors.grey.shade400,
-                            size: 20,
+                          child: CopyableTableCell(
+                            value: r.includedInIncoterm ? l10n.includedInPriceYes : l10n.includedInPriceNo,
+                            rowSummary: _buildMatrixRowSummary(l10n, r),
+                            child: Icon(
+                              r.includedInIncoterm
+                                  ? Icons.check_circle
+                                  : Icons.remove_circle_outline,
+                              color: r.includedInIncoterm
+                                  ? AppTheme.emerald
+                                  : Colors.grey.shade400,
+                              size: 20,
+                            ),
                           ),
                         ),
                         _cell(
-                          child: Text(
-                            r.notes ?? '—',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey.shade600),
+                          child: CopyableTableCell(
+                            value: r.notes ?? '',
+                            rowSummary: _buildMatrixRowSummary(l10n, r),
+                            child: Text(
+                              r.notes ?? '—',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey.shade600),
+                            ),
                           ),
                         ),
                         _cell(
-                          child: IconButton(
-                            icon: const Icon(Icons.edit,
-                                color: AppTheme.cobalt, size: 20),
-                            tooltip: l10n.editResponsibilityTooltip,
-                            onPressed: () =>
-                                _showEditResponsibilityDialog(context, ref, r),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Tooltip(
+                                message: l10n.matrixCopySummaryBtn,
+                                child: InkWell(
+                                  onTap: () => CopyHelper.copy(
+                                    context,
+                                    _buildMatrixRowSummary(l10n, r),
+                                    customMessage: l10n.matrixCopySummarySuccess,
+                                  ),
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 5),
+                                    margin: const EdgeInsets.only(right: 6),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.emerald.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                          color: AppTheme.emerald.withOpacity(0.3)),
+                                    ),
+                                    child: const Icon(
+                                      Icons.copy_all_rounded,
+                                      size: 15,
+                                      color: AppTheme.emerald,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit,
+                                    color: AppTheme.cobalt, size: 20),
+                                tooltip: l10n.editResponsibilityTooltip,
+                                onPressed: () =>
+                                    _showEditResponsibilityDialog(context, ref, r),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -1219,85 +1688,125 @@ class _ResponsibilityMatrixTabState
               Text(l10n.editResponsibilityDialogTitle(r.incotermCode ?? '')),
             ],
           ),
-          content: Form(
-            key: formKey,
-            child: SizedBox(
-              width: 480,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(8),
-                      border:
-                          Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+          content: SelectionArea(
+            child: Form(
+              key: formKey,
+              child: SizedBox(
+                width: 480,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cobalt.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(8),
+                        border:
+                            Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(l10n.incotermPrefix(r.incotermCode ?? '—'),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold, fontSize: 13)),
+                              IconButton(
+                                icon: const Icon(Icons.copy_rounded,
+                                    size: 14, color: AppTheme.cobalt),
+                                tooltip: l10n.incotermsCopyFieldTooltip,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () =>
+                                    CopyHelper.copy(context, r.incotermCode ?? ''),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                    l10n.costItemPrefix(r.costItemName ?? '—',
+                                        _getCategoryLabel(l10n, r.costCategory ?? '—')),
+                                    style: TextStyle(
+                                        color: Colors.grey.shade700, fontSize: 12)),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.copy_rounded,
+                                    size: 14, color: AppTheme.cobalt),
+                                tooltip: l10n.incotermsCopyFieldTooltip,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () =>
+                                    CopyHelper.copy(context, r.costItemName ?? ''),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(l10n.incotermPrefix(r.incotermCode ?? '—'),
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 13)),
-                        const SizedBox(height: 4),
-                        Text(
-                            l10n.costItemPrefix(r.costItemName ?? '—', _getCategoryLabel(l10n, r.costCategory ?? '—')),
-                            style: TextStyle(
-                                color: Colors.grey.shade700, fontSize: 12)),
+                    const SizedBox(height: 12),
+                    SearchableDropdownField<String>(
+                      value: selectedParty,
+                      labelText: l10n.matrixResponsiblePartyFieldLabel,
+                      items: [
+                        SearchableDropdownItem<String>(
+                            value: 'Importer',
+                            label: l10n.partyBuyerImporter),
+                        SearchableDropdownItem<String>(
+                            value: 'Exporter',
+                            label: l10n.partySellerExporter),
+                        SearchableDropdownItem<String>(
+                            value: 'Shared', label: l10n.partyShared),
                       ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            selectedParty = val;
+                            if (val == 'Exporter') {
+                              isIncluded = true;
+                            } else if (val == 'Importer') {
+                              isIncluded = false;
+                            }
+                          });
+                        }
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  SearchableDropdownField<String>(
-                    value: selectedParty,
-                    labelText: l10n.matrixResponsiblePartyFieldLabel,
-                    items: [
-                      SearchableDropdownItem<String>(
-                          value: 'Importer',
-                          label: l10n.partyBuyerImporter),
-                      SearchableDropdownItem<String>(
-                          value: 'Exporter',
-                          label: l10n.partySellerExporter),
-                      SearchableDropdownItem<String>(
-                          value: 'Shared', label: l10n.partyShared),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setDialogState(() {
-                          selectedParty = val;
-                          if (val == 'Exporter') {
-                            isIncluded = true;
-                          } else if (val == 'Importer') {
-                            isIncluded = false;
-                          }
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  SwitchListTile(
-                    title: Text(l10n.includedInSellerPriceTitle,
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w500)),
-                    subtitle: Text(
-                        l10n.includedInSellerPriceSubtitle,
-                        style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                    value: isIncluded,
-                    activeColor: AppTheme.emerald,
-                    onChanged: (val) => setDialogState(() => isIncluded = val),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: notesCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.commentNotesLabel,
-                      hintText: l10n.commentNotesHint,
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      title: Text(l10n.includedInSellerPriceTitle,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w500)),
+                      subtitle: Text(
+                          l10n.includedInSellerPriceSubtitle,
+                          style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      value: isIncluded,
+                      activeColor: AppTheme.emerald,
+                      onChanged: (val) => setDialogState(() => isIncluded = val),
                     ),
-                    maxLines: 2,
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: notesCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.commentNotesLabel,
+                        hintText: l10n.commentNotesHint,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded,
+                              size: 16, color: AppTheme.cobalt),
+                          tooltip: l10n.incotermsCopyFieldTooltip,
+                          onPressed: () =>
+                              CopyHelper.copy(context, notesCtrl.text),
+                        ),
+                      ),
+                      maxLines: 2,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/critical_alert_banner.dart';
 import '../../demurrage_detention/screens/demurrage_detention_screen.dart';
 import '../../import_documentation/screens/central_docs_archive_screen.dart';
@@ -13,6 +14,7 @@ import '../../notifications/providers/notifications_provider.dart';
 import '../models/lifecycle_board_model.dart';
 import '../providers/lifecycle_board_provider.dart';
 import '../providers/live_polling_provider.dart';
+import '../services/lifecycle_board_export_service.dart';
 import '../widgets/step_action_dialog.dart';
 
 class LifecycleBoardScreen extends ConsumerStatefulWidget {
@@ -197,9 +199,11 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: _viewModeIndex == 0
-          ? _buildKanbanPhasesView(context, l10n)
-          : _buildLiveLogisticsRadarView(context, l10n),
+      body: SelectionArea(
+        child: _viewModeIndex == 0
+            ? _buildKanbanPhasesView(context, l10n)
+            : _buildLiveLogisticsRadarView(context, l10n),
+      ),
     );
   }
 
@@ -356,19 +360,15 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                           ? (availableWidth - 50) / 6.0
                           : 185.0;
 
-                      return Scrollbar(
+                      return SingleChildScrollView(
                         controller: _topPhasesScrollController,
-                        thumbVisibility: true,
-                        child: SingleChildScrollView(
-                          controller: _topPhasesScrollController,
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: boardData.phases.map((phase) {
-                              return _buildPhaseTopCard(phase, cardWidth);
-                            }).toList(),
-                          ),
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: boardData.phases.map((phase) {
+                            return _buildPhaseTopCard(phase, cardWidth);
+                          }).toList(),
                         ),
                       );
                     },
@@ -399,7 +399,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildTableTopBar(filteredShipments.length, boardData.phases),
+                      _buildTableTopBar(filteredShipments, boardData.phases),
                       Expanded(
                         child: filteredShipments.isEmpty
                             ? _buildEmptyState()
@@ -432,7 +432,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
           children: [
             const Icon(Icons.error_outline, color: AppTheme.crimson, size: 40),
             const SizedBox(height: 12),
-            Text('حدث خطأ أثناء تحميل رادار التتبع اللوجستي: $err', style: const TextStyle(color: AppTheme.crimson), textAlign: TextAlign.center),
+            Text(l10n.liveRadarError(err.toString()), style: const TextStyle(color: AppTheme.crimson), textAlign: TextAlign.center),
             const SizedBox(height: 12),
             ElevatedButton.icon(
               onPressed: _refreshAll,
@@ -551,7 +551,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                             controller: _searchController,
                             onChanged: (val) => setState(() => _searchQuery = val),
                             decoration: InputDecoration(
-                              hintText: 'بحث بالملف، البوليصة، المورد...',
+                              hintText: l10n.searchLiveRadarHint,
                               hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                               prefixIcon: const Icon(Icons.search, size: 16, color: AppTheme.cobalt),
                               suffixIcon: val.text.isNotEmpty
@@ -609,6 +609,71 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                             DropdownMenuItem(value: 'REJECTED', child: Text(l10n.sampleFilterRejected)),
                           ],
                         ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Radar Export Toolbar
+                    OutlinedButton.icon(
+                      onPressed: filteredItems.isEmpty
+                          ? null
+                          : () => LifecycleBoardExportService.exportRadarToTsv(
+                                context: context,
+                                items: filteredItems,
+                              ),
+                      icon: const Icon(Icons.table_chart_outlined, size: 14),
+                      label: Text(l10n.lifecycleExportTsvBtn, style: const TextStyle(fontSize: 11)),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    OutlinedButton.icon(
+                      onPressed: filteredItems.isEmpty
+                          ? null
+                          : () => LifecycleBoardExportService.exportRadarToExcel(
+                                context: context,
+                                items: filteredItems,
+                              ),
+                      icon: const Icon(Icons.file_download_outlined, size: 14, color: AppTheme.emerald),
+                      label: Text(l10n.lifecycleExportExcelBtn, style: const TextStyle(fontSize: 11, color: AppTheme.emerald)),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    OutlinedButton.icon(
+                      onPressed: filteredItems.isEmpty
+                          ? null
+                          : () => LifecycleBoardExportService.printOrSaveRadarPdf(
+                                context: context,
+                                items: filteredItems,
+                              ),
+                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 14, color: AppTheme.crimson),
+                      label: Text(l10n.lifecyclePrintPdfBtn, style: const TextStyle(fontSize: 11, color: AppTheme.crimson)),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    OutlinedButton.icon(
+                      onPressed: filteredItems.isEmpty
+                          ? null
+                          : () {
+                              final dossier = LifecycleBoardExportService.buildRadarDossierText(
+                                context: context,
+                                items: filteredItems,
+                              );
+                              CopyHelper.copy(context, dossier, customMessage: l10n.lifecycleCopyDossierSuccess);
+                            },
+                      icon: const Icon(Icons.content_copy_outlined, size: 14, color: AppTheme.cobalt),
+                      label: Text(l10n.lifecycleCopyDossierBtn, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       ),
                     ),
                   ],
@@ -717,14 +782,10 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
           child: SingleChildScrollView(
             controller: _radarVerticalScrollController,
             scrollDirection: Axis.vertical,
-            child: Scrollbar(
+            child: SingleChildScrollView(
               controller: _radarHorizontalScrollController,
-              thumbVisibility: true,
-              notificationPredicate: (notif) => notif.depth == 1,
-              child: SingleChildScrollView(
-                controller: _radarHorizontalScrollController,
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
                   constraints: BoxConstraints(minWidth: constraints.maxWidth),
                   child: DataTable(
                     headingRowHeight: 38,
@@ -766,6 +827,8 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                         docColor = AppTheme.orange;
                       }
 
+                      final rowSummary = '[${item.importFileCode}] ${item.companyName} -> ${item.supplierName} | ${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"}) | ${l10n.colBillOfLadingPrefix}: ${item.blNumber ?? l10n.colCarrierUnderPrep} | ${l10n.colEtaPrefix}: ${item.eta ?? "-"} | ${item.accumulatedDemurrageFx > 0 ? l10n.demurrageIncurredBadge : l10n.freeDaysRemainingBadge(item.freeDaysRemaining)} | ${item.sampleTestStatus} | ${item.docReadinessPercent.toStringAsFixed(0)}%';
+
                       return DataRow(
                         // CL-005: الضغط على الصف ينتقل لشاشة ملف الاستيراد المقابل
                         onSelectChanged: (selected) {
@@ -784,244 +847,280 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                         cells: [
                           // 1. Shipment Code & Importer / Supplier — مع أيقونة التنقل
                           DataCell(
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.charcoal,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        item.importFileCode,
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10.5),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    // CL-005: أيقونة التنقل للتفاصيل
-                                    const Icon(Icons.open_in_new, size: 11, color: AppTheme.cobalt),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${item.shipmentMode} | ${item.incotermCode}',
-                                      style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${item.companyName} → ${item.supplierName}',
-                                  style: const TextStyle(fontSize: 10, color: AppTheme.charcoal, fontWeight: FontWeight.w500),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // 2. Vessel, Carrier & B/L
-                          DataCell(
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.directions_boat_outlined, size: 12, color: AppTheme.cobalt),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${item.carrierName ?? "MSC Line"} (${item.vesselName ?? "-"})',
-                                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'B/L: ${item.blNumber ?? "Under Prep"} | ${item.polName ?? "-"} → ${item.podName ?? "-"}',
-                                  style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // 3. ETA Countdown & Port Status
-                          DataCell(
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                if (item.etaCountdownDays != null && item.etaCountdownDays! > 0)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.cobalt.withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.sailing, size: 11, color: AppTheme.cobalt),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          l10n.daysRemainingToEta(item.etaCountdownDays),
-                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                else if (item.etaCountdownDays != null && item.etaCountdownDays! <= 0)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF8E44AD).withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: const Color(0xFF8E44AD).withOpacity(0.3)),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.anchor, size: 11, color: Color(0xFF8E44AD)),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          l10n.daysInPort(item.etaCountdownDays!.abs()),
-                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF8E44AD)),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                else
-                                  Text(item.arrivalStatus, style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'ETA: ${item.eta ?? "-"}',
-                                  style: TextStyle(fontSize: 9.5, color: Colors.grey.shade500),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // 4. Demurrage & Free Time Radar
-                          DataCell(
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: riskColor.withOpacity(0.12),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: riskColor.withOpacity(0.4)),
-                                      ),
-                                      child: Text(
-                                        item.accumulatedDemurrageFx > 0
-                                            ? l10n.demurrageIncurredBadge
-                                            : l10n.freeDaysRemainingBadge(item.freeDaysRemaining),
-                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: riskColor),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Icon(
-                                      item.demurrageRiskLevel == 'Critical' ? Icons.error : (item.demurrageRiskLevel == 'Low' ? Icons.check_circle : Icons.warning_amber),
-                                      size: 13,
-                                      color: riskColor,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  item.accumulatedDemurrageFx > 0
-                                      ? 'غرامات: \$${item.accumulatedDemurrageFx.toStringAsFixed(0)} (${item.accumulatedDemurrageEgp.toStringAsFixed(0)} EGP)'
-                                      : 'مستهلك ${item.usedFreeDays} من ${item.freeDaysTotal} يوم سماح',
-                                  style: TextStyle(
-                                    fontSize: 9.5,
-                                    fontWeight: item.accumulatedDemurrageFx > 0 ? FontWeight.bold : FontWeight.normal,
-                                    color: item.accumulatedDemurrageFx > 0 ? AppTheme.crimson : Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // 5. Regulatory Testing & Samples
-                          DataCell(
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: sampleColor.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: sampleColor.withOpacity(0.3)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.biotech, size: 11, color: sampleColor),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        item.sampleTestStatus,
-                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: sampleColor),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  item.labReceiptNumber != null ? '${item.regulatoryAgency ?? "GOEIC"} | ${item.labReceiptNumber}' : (item.regulatoryAgency ?? "-"),
-                                  style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // 6. Document Readiness & Completeness %
-                          DataCell(
-                            Tooltip(
-                              message: item.missingDocuments.isEmpty
-                                  ? l10n.allDocsCompleted
-                                  : '${l10n.missingDocsTooltip}${item.missingDocuments.join(", ")}',
+                            CopyableTableCell(
+                              value: item.importFileCode,
+                              rowSummary: rowSummary,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Row(
                                     children: [
-                                      Text(
-                                        '${item.docReadinessPercent.toStringAsFixed(0)}%',
-                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: docColor),
+                                      InkWell(
+                                        onTap: () => CopyHelper.copy(context, item.importFileCode),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.charcoal,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                item.importFileCode,
+                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10.5),
+                                              ),
+                                              const SizedBox(width: 3),
+                                              const Icon(Icons.copy, size: 9, color: Colors.white70),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                       const SizedBox(width: 4),
+                                      // CL-005: أيقونة التنقل للتفاصيل
+                                      const Icon(Icons.open_in_new, size: 11, color: AppTheme.cobalt),
+                                      const SizedBox(width: 4),
                                       Text(
-                                        '(${item.verifiedDocumentsCount}/${item.totalRequiredDocuments})',
+                                        '${item.shipmentMode} | ${item.incotermCode}',
                                         style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 3),
-                                  SizedBox(
-                                    width: 80,
-                                    height: 5,
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(3),
-                                      child: LinearProgressIndicator(
-                                        value: item.docReadinessPercent / 100.0,
-                                        backgroundColor: Colors.grey.shade200,
-                                        valueColor: AlwaysStoppedAnimation<Color>(docColor),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${item.companyName} → ${item.supplierName}',
+                                    style: const TextStyle(fontSize: 10, color: AppTheme.charcoal, fontWeight: FontWeight.w500),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // 2. Vessel, Carrier & B/L
+                          DataCell(
+                            CopyableTableCell(
+                              value: '${item.carrierName ?? l10n.colCarrierUnderPrep} - ${item.blNumber ?? l10n.colCarrierUnderPrep}',
+                              rowSummary: rowSummary,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.directions_boat_outlined, size: 12, color: AppTheme.cobalt),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"})',
+                                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                                       ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${l10n.colBillOfLadingPrefix}: ${item.blNumber ?? l10n.colCarrierUnderPrep} | ${item.polName ?? "-"} → ${item.podName ?? "-"}',
+                                    style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // 3. ETA Countdown & Port Status
+                          DataCell(
+                            CopyableTableCell(
+                              value: '${l10n.colEtaPrefix}: ${item.eta ?? "-"} (${item.arrivalStatus})',
+                              rowSummary: rowSummary,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (item.etaCountdownDays != null && item.etaCountdownDays! > 0)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.cobalt.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.sailing, size: 11, color: AppTheme.cobalt),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            l10n.daysRemainingToEta(item.etaCountdownDays),
+                                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  else if (item.etaCountdownDays != null && item.etaCountdownDays! <= 0)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF8E44AD).withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: const Color(0xFF8E44AD).withOpacity(0.3)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.anchor, size: 11, color: Color(0xFF8E44AD)),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            l10n.daysInPort(item.etaCountdownDays!.abs()),
+                                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF8E44AD)),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  else
+                                    Text(item.arrivalStatus, style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${l10n.colEtaPrefix}: ${item.eta ?? "-"}',
+                                    style: TextStyle(fontSize: 9.5, color: Colors.grey.shade500),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // 4. Demurrage & Free Time Radar
+                          DataCell(
+                            CopyableTableCell(
+                              value: item.accumulatedDemurrageFx > 0
+                                  ? l10n.demurrageFeesFormatted(item.accumulatedDemurrageFx.toStringAsFixed(0), item.accumulatedDemurrageEgp.toStringAsFixed(0))
+                                  : l10n.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal),
+                              rowSummary: rowSummary,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: riskColor.withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: riskColor.withOpacity(0.4)),
+                                        ),
+                                        child: Text(
+                                          item.accumulatedDemurrageFx > 0
+                                              ? l10n.demurrageIncurredBadge
+                                              : l10n.freeDaysRemainingBadge(item.freeDaysRemaining),
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: riskColor),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        item.demurrageRiskLevel == 'Critical' ? Icons.error : (item.demurrageRiskLevel == 'Low' ? Icons.check_circle : Icons.warning_amber),
+                                        size: 13,
+                                        color: riskColor,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    item.accumulatedDemurrageFx > 0
+                                        ? l10n.demurrageFeesFormatted(item.accumulatedDemurrageFx.toStringAsFixed(0), item.accumulatedDemurrageEgp.toStringAsFixed(0))
+                                        : l10n.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal),
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: item.accumulatedDemurrageFx > 0 ? FontWeight.bold : FontWeight.normal,
+                                      color: item.accumulatedDemurrageFx > 0 ? AppTheme.crimson : Colors.grey.shade600,
                                     ),
                                   ),
                                 ],
+                              ),
+                            ),
+                          ),
+
+                          // 5. Regulatory Testing & Samples
+                          DataCell(
+                            CopyableTableCell(
+                              value: item.sampleTestStatus,
+                              rowSummary: rowSummary,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: sampleColor.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: sampleColor.withOpacity(0.3)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.biotech, size: 11, color: sampleColor),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          item.sampleTestStatus,
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: sampleColor),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    item.labReceiptNumber != null ? '${item.regulatoryAgency ?? "GOEIC"} | ${item.labReceiptNumber}' : (item.regulatoryAgency ?? "-"),
+                                    style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // 6. Document Readiness & Completeness %
+                          DataCell(
+                            CopyableTableCell(
+                              value: '${item.docReadinessPercent.toStringAsFixed(0)}%',
+                              rowSummary: rowSummary,
+                              child: Tooltip(
+                                message: item.missingDocuments.isEmpty
+                                    ? l10n.allDocsCompleted
+                                    : '${l10n.missingDocsTooltip}${item.missingDocuments.join(", ")}',
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '${item.docReadinessPercent.toStringAsFixed(0)}%',
+                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: docColor),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '(${item.verifiedDocumentsCount}/${item.totalRequiredDocuments})',
+                                          style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    SizedBox(
+                                      width: 80,
+                                      height: 5,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(3),
+                                        child: LinearProgressIndicator(
+                                          value: item.docReadinessPercent / 100.0,
+                                          backgroundColor: Colors.grey.shade200,
+                                          valueColor: AlwaysStoppedAnimation<Color>(docColor),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -1081,11 +1180,10 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                 ),
               ),
             ),
-          ),
-        );
-      },
-    );
-  }
+          );
+        },
+      );
+    }
 
   // --- Phase Top Card (Compact Upper 1/3) ------------------------------------
 
@@ -1246,8 +1344,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
   // --- Table Top Filter Bar --------------------------------------------------
 
-  Widget _buildTableTopBar(int filteredCount, List<PhaseSummaryModel> phases) {
+  Widget _buildTableTopBar(List<ShipmentStageCardModel> filteredShipments, List<PhaseSummaryModel> phases) {
     final l10n = context.l10n;
+    final filteredCount = filteredShipments.length;
     String selectedTitle = l10n.allShipmentsAllPhases;
     Color badgeColor = AppTheme.cobalt;
 
@@ -1270,65 +1369,139 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
         borderRadius: const BorderRadius.only(topLeft: Radius.circular(7), topRight: Radius.circular(7)),
         border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: badgeColor,
-              borderRadius: BorderRadius.circular(4),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: badgeColor,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                selectedTitle,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+              ),
             ),
-            child: Text(
-              selectedTitle,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                l10n.shipmentsCountFormatted(filteredCount),
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(10),
+            const SizedBox(width: 12),
+
+            // Kanban Export Toolbar
+            OutlinedButton.icon(
+              onPressed: filteredShipments.isEmpty
+                  ? null
+                  : () => LifecycleBoardExportService.exportKanbanToTsv(
+                        context: context,
+                        shipments: filteredShipments,
+                        filterTitle: selectedTitle,
+                      ),
+              icon: const Icon(Icons.table_chart_outlined, size: 14),
+              label: Text(l10n.lifecycleExportTsvBtn, style: const TextStyle(fontSize: 11)),
+              style: OutlinedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              ),
             ),
-            child: Text(
-              l10n.shipmentsCountFormatted(filteredCount),
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+            const SizedBox(width: 4),
+            OutlinedButton.icon(
+              onPressed: filteredShipments.isEmpty
+                  ? null
+                  : () => LifecycleBoardExportService.exportKanbanToExcel(
+                        context: context,
+                        shipments: filteredShipments,
+                        filterTitle: selectedTitle,
+                      ),
+              icon: const Icon(Icons.file_download_outlined, size: 14, color: AppTheme.emerald),
+              label: Text(l10n.lifecycleExportExcelBtn, style: const TextStyle(fontSize: 11, color: AppTheme.emerald)),
+              style: OutlinedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              ),
             ),
-          ),
-          const Spacer(),
-          SizedBox(
-            width: 220,
-            height: 32,
-            child: ValueListenableBuilder<TextEditingValue>(
-              valueListenable: _searchController,
-              builder: (context, val, _) {
-                return TextField(
-                  controller: _searchController,
-                  onChanged: (val) => setState(() => _searchQuery = val),
-                  decoration: InputDecoration(
-                    hintText: l10n.searchLifecycleTableHint,
-                    hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
-                    prefixIcon: const Icon(Icons.search, size: 14, color: AppTheme.cobalt),
-                    suffixIcon: val.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 12),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => _searchQuery = '');
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: EdgeInsets.zero,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: Colors.grey.shade300)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: Colors.grey.shade300)),
-                  ),
-                );
-              },
+            const SizedBox(width: 4),
+            OutlinedButton.icon(
+              onPressed: filteredShipments.isEmpty
+                  ? null
+                  : () => LifecycleBoardExportService.printOrSaveKanbanPdf(
+                        context: context,
+                        shipments: filteredShipments,
+                        phases: phases,
+                        filterTitle: selectedTitle,
+                      ),
+              icon: const Icon(Icons.picture_as_pdf_outlined, size: 14, color: AppTheme.crimson),
+              label: Text(l10n.lifecyclePrintPdfBtn, style: const TextStyle(fontSize: 11, color: AppTheme.crimson)),
+              style: OutlinedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 4),
+            OutlinedButton.icon(
+              onPressed: filteredShipments.isEmpty
+                  ? null
+                  : () {
+                      final dossier = LifecycleBoardExportService.buildKanbanDossierText(
+                        context: context,
+                        shipments: filteredShipments,
+                        phases: phases,
+                        filterTitle: selectedTitle,
+                      );
+                      CopyHelper.copy(context, dossier, customMessage: l10n.lifecycleCopyDossierSuccess);
+                    },
+              icon: const Icon(Icons.content_copy_outlined, size: 14, color: AppTheme.cobalt),
+              label: Text(l10n.lifecycleCopyDossierBtn, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+              style: OutlinedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              ),
+            ),
+            const SizedBox(width: 16),
+            SizedBox(
+              width: 220,
+              height: 32,
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _searchController,
+                builder: (context, val, _) {
+                  return TextField(
+                    controller: _searchController,
+                    onChanged: (val) => setState(() => _searchQuery = val),
+                    decoration: InputDecoration(
+                      hintText: l10n.searchLifecycleTableHint,
+                      hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                      prefixIcon: const Icon(Icons.search, size: 14, color: AppTheme.cobalt),
+                      suffixIcon: val.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 12),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: EdgeInsets.zero,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: Colors.grey.shade300)),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1346,14 +1519,10 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
           child: SingleChildScrollView(
             controller: _verticalScrollController,
             scrollDirection: Axis.vertical,
-            child: Scrollbar(
+            child: SingleChildScrollView(
               controller: _horizontalScrollController,
-              thumbVisibility: true,
-              notificationPredicate: (notif) => notif.depth == 1,
-              child: SingleChildScrollView(
-                controller: _horizontalScrollController,
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
                   constraints: BoxConstraints(minWidth: constraints.maxWidth),
                   child: DataTable(
                     headingRowHeight: 34,
@@ -1382,112 +1551,166 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       final stepColor = _parseColor(p.colorHex);
                       final isOnHold = s.status == 'On-Hold';
 
+                      final rowSummary = '[${s.importFileCode}] ${s.companyName} | ${s.supplierName} | ${s.stepCode}: ${l10n.lifecycleStepName(s.stepCode)} | ${s.shipmentMode} - ${s.incotermCode} | ${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}${isOnHold ? " (${l10n.onHoldStatusTag})" : ""}';
+
                       return DataRow(
                         cells: [
                           DataCell(
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.charcoal,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    s.importFileCode,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
-                                  ),
-                                ),
-                                if (isOnHold) ...[
-                                  const SizedBox(width: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.crimson,
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                    child: Text(
-                                      l10n.onHoldStatusTag,
-                                      style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          DataCell(
-                            Text(
-                              s.previousStepCode != null ? '${s.previousStepCode!}: ${l10n.lifecycleStepName(s.previousStepCode!)}' : '-',
-                              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-                            ),
-                          ),
-                          DataCell(
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: isOnHold ? AppTheme.crimson.withOpacity(0.12) : stepColor.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: isOnHold ? AppTheme.crimson : stepColor, width: 1),
-                              ),
+                            CopyableTableCell(
+                              value: s.importFileCode,
+                              rowSummary: rowSummary,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(isOnHold ? Icons.pause_circle_outline : Icons.play_circle_fill, size: 11, color: isOnHold ? AppTheme.crimson : stepColor),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${s.stepCode}: ${l10n.lifecycleStepName(s.stepCode)}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 10.5,
-                                      color: isOnHold ? AppTheme.crimson : stepColor,
+                                  InkWell(
+                                    onTap: () => CopyHelper.copy(context, s.importFileCode),
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.charcoal,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            s.importFileCode,
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                                          ),
+                                          const SizedBox(width: 3),
+                                          const Icon(Icons.copy_rounded, size: 9, color: Colors.white70),
+                                        ],
+                                      ),
                                     ),
                                   ),
+                                  if (isOnHold) ...[
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.crimson,
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: Text(
+                                        l10n.onHoldStatusTag,
+                                        style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
                           ),
                           DataCell(
-                            Text(
-                              s.nextStepCode != null ? '${s.nextStepCode!}: ${l10n.lifecycleStepName(s.nextStepCode!)}' : '-',
-                              style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.w500),
-                            ),
-                          ),
-                          DataCell(
-                            Text(s.companyName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5)),
-                          ),
-                          DataCell(
-                            Text(s.supplierName, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade800)),
-                          ),
-                          DataCell(
-                            Text(s.poNumber ?? l10n.notSpecifiedOption, style: const TextStyle(fontSize: 10.5)),
-                          ),
-                          DataCell(
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
+                            CopyableTableCell(
+                              value: s.previousStepCode != null ? '${s.previousStepCode!}: ${l10n.lifecycleStepName(s.previousStepCode!)}' : '-',
+                              rowSummary: rowSummary,
                               child: Text(
-                                '${s.shipmentMode} | ${s.incotermCode}',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade800),
+                                s.previousStepCode != null ? '${s.previousStepCode!}: ${l10n.lifecycleStepName(s.previousStepCode!)}' : '-',
+                                style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
                               ),
                             ),
                           ),
                           DataCell(
-                            Text(
-                              '${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11),
+                            CopyableTableCell(
+                              value: '${s.stepCode}: ${l10n.lifecycleStepName(s.stepCode)}',
+                              rowSummary: rowSummary,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: isOnHold ? AppTheme.crimson.withOpacity(0.12) : stepColor.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: isOnHold ? AppTheme.crimson : stepColor, width: 1),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(isOnHold ? Icons.pause_circle_outline : Icons.play_circle_fill, size: 11, color: isOnHold ? AppTheme.crimson : stepColor),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${s.stepCode}: ${l10n.lifecycleStepName(s.stepCode)}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 10.5,
+                                        color: isOnHold ? AppTheme.crimson : stepColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                           DataCell(
-                            Container(
-                              constraints: const BoxConstraints(maxWidth: 200),
+                            CopyableTableCell(
+                              value: s.nextStepCode != null ? '${s.nextStepCode!}: ${l10n.lifecycleStepName(s.nextStepCode!)}' : '-',
+                              rowSummary: rowSummary,
                               child: Text(
-                                s.notes ?? l10n.notesUnderFollowupFallback,
-                                style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                                s.nextStepCode != null ? '${s.nextStepCode!}: ${l10n.lifecycleStepName(s.nextStepCode!)}' : '-',
+                                style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: s.companyName,
+                              rowSummary: rowSummary,
+                              child: Text(s.companyName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5)),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: s.supplierName,
+                              rowSummary: rowSummary,
+                              child: Text(s.supplierName, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade800)),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: s.poNumber ?? l10n.notSpecifiedOption,
+                              rowSummary: rowSummary,
+                              child: Text(s.poNumber ?? l10n.notSpecifiedOption, style: const TextStyle(fontSize: 10.5)),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: '${s.shipmentMode} | ${s.incotermCode}',
+                              rowSummary: rowSummary,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '${s.shipmentMode} | ${s.incotermCode}',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade800),
+                                ),
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: '${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}',
+                              rowSummary: rowSummary,
+                              child: Text(
+                                '${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11),
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: s.notes ?? l10n.notesUnderFollowupFallback,
+                              rowSummary: rowSummary,
+                              child: Container(
+                                constraints: const BoxConstraints(maxWidth: 200),
+                                child: Text(
+                                  s.notes ?? l10n.notesUnderFollowupFallback,
+                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
                           ),
@@ -1523,11 +1746,10 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                 ),
               ),
             ),
-          ),
-        );
-      },
-    );
-  }
+          );
+        },
+      );
+    }
 
   Widget _buildEmptyState() {
     final l10n = context.l10n;

@@ -47,6 +47,7 @@ _EXTRACTOR_MAP: Dict[str, BaseExtractor] = {
     "customs-clearance": CustomsClearanceExtractor(),
     "clearance-quotation": CustomsBrokerQuotationExtractor(),
     "customs-broker-quotation": CustomsBrokerQuotationExtractor(),
+    "customs-clearance-quotation": CustomsBrokerQuotationExtractor(),
     "freight-quotation": FreightQuotationExtractor(),
     "freight-booking": FreightBookingExtractor(),
     "coo-certificate": COOCertificateExtractor(),
@@ -320,6 +321,7 @@ def parse_uploaded_document(
         "missing_fields": missing,
         "extraction_notes": notes,
         "raw_text_preview": raw_text[:500] if raw_text else None,
+        "validation_report": extracted_fields.get("validation_report") if isinstance(extracted_fields, dict) else None,
         **entity_verification,
     }
 
@@ -488,6 +490,7 @@ def parse_raw_text_directly(
         "extracted_fields": extracted_fields,
         "missing_fields": missing,
         "extraction_notes": notes,
+        "validation_report": extracted_fields.get("validation_report") if isinstance(extracted_fields, dict) else None,
         **entity_verification,
     }
 

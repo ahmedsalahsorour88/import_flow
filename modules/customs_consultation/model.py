@@ -69,6 +69,10 @@ class BrokerPriceList(Base):
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     notes: Mapped[str] = mapped_column(Text, nullable=True)
+    cloned_from_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("broker_price_lists.price_list_id"), nullable=True
+    )
+    cloned_from_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
@@ -167,6 +171,10 @@ class CustomsConsultationSession(Base):
     estimated_duties_egp: Mapped[float] = mapped_column(Float, default=0.0)
     total_broker_fees_egp: Mapped[float] = mapped_column(Float, default=0.0)
     notes: Mapped[str] = mapped_column(Text, nullable=True)
+    cloned_from_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("customs_consultation_sessions.consultation_id"), nullable=True
+    )
+    cloned_from_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Audit & Soft Delete
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)

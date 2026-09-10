@@ -1,0 +1,452 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../import_companies/providers/import_companies_provider.dart';
+import '../../suppliers/providers/suppliers_provider.dart';
+import '../providers/shipment_inquiry_provider.dart';
+
+class ShipmentInquiryFilterPanel extends ConsumerStatefulWidget {
+  final VoidCallback onSearch;
+  final VoidCallback onExportPrint;
+
+  const ShipmentInquiryFilterPanel({
+    super.key,
+    required this.onSearch,
+    required this.onExportPrint,
+  });
+
+  @override
+  ConsumerState<ShipmentInquiryFilterPanel> createState() =>
+      _ShipmentInquiryFilterPanelState();
+}
+
+class _ShipmentInquiryFilterPanelState
+    extends ConsumerState<ShipmentInquiryFilterPanel> {
+  late final TextEditingController _hsCodeController;
+  late final TextEditingController _polController;
+  late final TextEditingController _podController;
+  late final TextEditingController _carrierController;
+
+  @override
+  void initState() {
+    super.initState();
+    final filters = ref.read(shipmentInquiryStateProvider).filters;
+    _hsCodeController = TextEditingController(text: filters.hsCodeOrProduct);
+    _polController = TextEditingController(text: filters.portOfLoading ?? '');
+    _podController = TextEditingController(text: filters.portOfDischarge ?? '');
+    _carrierController = TextEditingController(text: filters.carrier ?? '');
+  }
+
+  @override
+  void dispose() {
+    _hsCodeController.dispose();
+    _polController.dispose();
+    _podController.dispose();
+    _carrierController.dispose();
+    super.dispose();
+  }
+
+  void _triggerSearch() {
+    ref.read(shipmentInquiryStateProvider.notifier).updateFilter(
+          hsCodeOrProduct: _hsCodeController.text.trim(),
+          portOfLoading: _polController.text.trim(),
+          portOfDischarge: _podController.text.trim(),
+          carrier: _carrierController.text.trim(),
+        );
+    widget.onSearch();
+  }
+
+  void _handleReset() {
+    _hsCodeController.clear();
+    _polController.clear();
+    _podController.clear();
+    _carrierController.clear();
+    ref.read(shipmentInquiryStateProvider.notifier).resetFilters();
+    widget.onSearch();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final inquiryState = ref.watch(shipmentInquiryStateProvider);
+    final filters = inquiryState.filters;
+
+    final suppliersAsync = ref.watch(suppliersProvider);
+    final companiesAsync = ref.watch(importCompaniesProvider);
+
+    final isExpanded = inquiryState.isAdvancedExpanded;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.charcoal,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ─── Primary Row (Matches user mockup image media_1789045131329.png) ────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Supplier Dropdown
+              Expanded(
+                flex: 3,
+                child: suppliersAsync.maybeWhen(
+                  data: (suppliers) {
+                    final items = [
+                      SearchableDropdownItem<int?>(
+                        value: null,
+                        label: l.inqAllSuppliers,
+                      ),
+                      ...suppliers.map((s) => SearchableDropdownItem<int?>(
+                            value: s.supplierId,
+                            label: s.country.isNotEmpty
+                                ? '${s.companyName} (${s.country})'
+                                : s.companyName,
+                          )),
+                    ];
+
+                    return SearchableDropdownField<int?>(
+                      value: filters.supplierId,
+                      items: items,
+                      labelText: l.inqSupplier,
+                      hintText: l.inqAllSuppliers,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.08),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                        ),
+                        labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      onChanged: (val) {
+                        ref.read(shipmentInquiryStateProvider.notifier).updateFilter(
+                              supplierId: val,
+                              clearSupplier: val == null,
+                            );
+                      },
+                    );
+                  },
+                  orElse: () => const SizedBox.shrink(),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Importer Dropdown
+              Expanded(
+                flex: 3,
+                child: companiesAsync.maybeWhen(
+                  data: (companies) {
+                    final items = [
+                      SearchableDropdownItem<int?>(
+                        value: null,
+                        label: l.inqAllImporters,
+                      ),
+                      ...companies.map((c) => SearchableDropdownItem<int?>(
+                            value: c.companyId,
+                            label: c.importerName,
+                          )),
+                    ];
+
+                    return SearchableDropdownField<int?>(
+                      value: filters.companyId,
+                      items: items,
+                      labelText: l.inqImporter,
+                      hintText: l.inqAllImporters,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.08),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                        ),
+                        labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      onChanged: (val) {
+                        ref.read(shipmentInquiryStateProvider.notifier).updateFilter(
+                              companyId: val,
+                              clearCompany: val == null,
+                            );
+                      },
+                    );
+                  },
+                  orElse: () => const SizedBox.shrink(),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // HS Code / Product Search
+              Expanded(
+                flex: 4,
+                child: TextField(
+                  controller: _hsCodeController,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: InputDecoration(
+                    labelText: l.inqHsCodeOrProduct,
+                    hintText: l.inqHsCodeHint,
+                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11),
+                    labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.08),
+                    prefixIcon: const Icon(Icons.manage_search_outlined, color: Colors.white60, size: 18),
+                    suffixIcon: _hsCodeController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, color: Colors.white54, size: 16),
+                            onPressed: () {
+                              _hsCodeController.clear();
+                              _triggerSearch();
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  onSubmitted: (_) => _triggerSearch(),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Search Button (Pill shaped per mockup)
+              ElevatedButton.icon(
+                icon: const Icon(Icons.search, size: 18),
+                label: Text(
+                  l.inqSearchBtn,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.cobalt,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                ),
+                onPressed: _triggerSearch,
+              ),
+              const SizedBox(width: 10),
+
+              // Export / Print Report Button (Pill shaped per mockup)
+              ElevatedButton.icon(
+                icon: const Icon(Icons.print_outlined, size: 18),
+                label: Text(
+                  l.inqExportPrintBtn,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(0.18),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                ),
+                onPressed: widget.onExportPrint,
+              ),
+              const SizedBox(width: 8),
+
+              // Advanced Filters Toggle Button
+              IconButton(
+                icon: Icon(
+                  isExpanded ? Icons.keyboard_arrow_up : Icons.tune_rounded,
+                  color: isExpanded ? AppTheme.cobalt : Colors.white70,
+                ),
+                tooltip: isExpanded ? l.inqHideAdvancedFilters : l.inqAdvancedFilters,
+                onPressed: () {
+                  ref.read(shipmentInquiryStateProvider.notifier).toggleAdvancedExpanded();
+                },
+              ),
+            ],
+          ),
+
+          // ─── Advanced Filters Row (Expandable) ───────────────────────────
+          if (isExpanded) ...[
+            const SizedBox(height: 12),
+            const Divider(color: Colors.white24, height: 1),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                // Incoterm
+                Expanded(
+                  flex: 2,
+                  child: SearchableDropdownField<String?>(
+                    value: filters.incotermCode,
+                    items: const [
+                      SearchableDropdownItem(value: null, label: 'جميع الشروط'),
+                      SearchableDropdownItem(value: 'EXW', label: 'EXW - تسليم المصنع'),
+                      SearchableDropdownItem(value: 'FOB', label: 'FOB - على ظهر السفينة'),
+                      SearchableDropdownItem(value: 'CFR', label: 'CFR - النولون مدفوع'),
+                      SearchableDropdownItem(value: 'CIF', label: 'CIF - نولون وتأمين'),
+                      SearchableDropdownItem(value: 'CIP', label: 'CIP - نولون وتأمين'),
+                      SearchableDropdownItem(value: 'DPU', label: 'DPU - مكان التسليم مفرغ'),
+                      SearchableDropdownItem(value: 'DAP', label: 'DAP - التسليم بالمكان'),
+                      SearchableDropdownItem(value: 'DDP', label: 'DDP - خالصة الرسوم'),
+                    ],
+                    labelText: l.inqIncoterm,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.08),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                      labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    onChanged: (val) {
+                      ref.read(shipmentInquiryStateProvider.notifier).updateFilter(
+                            incotermCode: val,
+                            clearIncoterm: val == null,
+                          );
+                      _triggerSearch();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // POL
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: _polController,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    decoration: InputDecoration(
+                      labelText: l.inqPortOfLoading,
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.08),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                      labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    onSubmitted: (_) => _triggerSearch(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // POD
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: _podController,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    decoration: InputDecoration(
+                      labelText: l.inqPortOfDischarge,
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.08),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                      labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    onSubmitted: (_) => _triggerSearch(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Shipping Mode
+                Expanded(
+                  flex: 2,
+                  child: SearchableDropdownField<String?>(
+                    value: filters.shipmentMode,
+                    items: const [
+                      SearchableDropdownItem(value: null, label: 'جميع الأساليب'),
+                      SearchableDropdownItem(value: 'Sea FCL', label: 'بحري - FCL كلي'),
+                      SearchableDropdownItem(value: 'Sea LCL', label: 'بحري - LCL جزئي'),
+                      SearchableDropdownItem(value: 'Air', label: 'جوي - Air Cargo'),
+                      SearchableDropdownItem(value: 'Land', label: 'بري - Land Transport'),
+                    ],
+                    labelText: l.inqShippingMode,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.08),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                      labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    onChanged: (val) {
+                      ref.read(shipmentInquiryStateProvider.notifier).updateFilter(
+                            shipmentMode: val,
+                            clearMode: val == null,
+                          );
+                      _triggerSearch();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Carrier / Forwarder
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: _carrierController,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    decoration: InputDecoration(
+                      labelText: l.inqCarrier,
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.08),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                      labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    onSubmitted: (_) => _triggerSearch(),
+                  ),
+                ),
+                const SizedBox(width: 10),
+
+                // Reset Button
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                  label: Text(l.inqResetBtn),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                  onPressed: _handleReset,
+                ),
+                const SizedBox(width: 6),
+
+                // Save Preset Button
+                IconButton(
+                  icon: const Icon(Icons.bookmark_add_outlined, color: Colors.amberAccent, size: 20),
+                  tooltip: l.inqSaveFilterPreset,
+                  onPressed: () {
+                    ref.read(shipmentInquiryStateProvider.notifier).saveCurrentPreset(
+                          'بحث: ${_hsCodeController.text.isNotEmpty ? _hsCodeController.text : "مخصص"}',
+                        );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(l.inqPresetSaved),
+                        backgroundColor: AppTheme.cobalt,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}

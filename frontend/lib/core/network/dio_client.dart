@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/api_constants.dart';
 import 'api_client.dart' as central;
 
-/// Single shared Dio HTTP client for ImportFlow ERP.
+/// Single shared Dio HTTP client for Sorour Logistics ERP.
 /// Delegated to central api_client.dart dioProvider.
 final dioProvider = Provider<Dio>((ref) {
   return ref.watch(central.dioProvider);

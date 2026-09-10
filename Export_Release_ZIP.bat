@@ -1,9 +1,9 @@
 @echo off
-title ImportFlow ERP - Export Release Package
+title Sorour Logistics ERP - Export Release Package
 setlocal
 
 echo ===============================================================================
-echo            ImportFlow ERP - Export Release Package (ZIP for Upload)
+echo          Sorour Logistics ERP - Export Release Package (ZIP for Upload)
 echo ===============================================================================
 echo.
 

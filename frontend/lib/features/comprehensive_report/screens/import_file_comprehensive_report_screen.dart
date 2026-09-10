@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 
 import '../../import_files/models/import_file_model.dart';
@@ -14,6 +15,7 @@ import '../../customs_clearance/providers/customs_clearance_provider.dart';
 import '../../customs_clearance/models/customs_clearance_model.dart';
 import '../../warehouse_receiving/providers/warehouse_receiving_provider.dart';
 import '../../warehouse_receiving/models/warehouse_receiving_model.dart';
+import '../services/comprehensive_report_export_service.dart';
 
 // ============================================================
 // Comprehensive Import File Report Screen
@@ -79,6 +81,18 @@ class _ImportFileComprehensiveReportScreenState
     return 0;
   }
 
+  String _formatPhaseLabel(BuildContext context, String rawPhase) {
+    final l = context.l10n;
+    final match = RegExp(r'Phase\s*(\d+)').firstMatch(rawPhase);
+    if (match != null) {
+      final num = int.tryParse(match.group(1) ?? '');
+      if (num != null) {
+        return l.compReportPhaseLabel(num);
+      }
+    }
+    return rawPhase;
+  }
+
   Color _priorityColor(String priority) {
     switch (priority.toLowerCase()) {
       case 'critical': return AppTheme.crimson;
@@ -96,6 +110,9 @@ class _ImportFileComprehensiveReportScreenState
     final clearanceState = ref.watch(customsClearanceProvider);
     final warehouseState = ref.watch(warehouseReceivingProvider);
 
+    final clr = (clearanceState.valueOrNull != null && clearanceState.valueOrNull!.isNotEmpty) ? clearanceState.valueOrNull!.first : null;
+    final wh = (warehouseState.valueOrNull != null && warehouseState.valueOrNull!.isNotEmpty) ? warehouseState.valueOrNull!.first : null;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
       appBar: AppBar(
@@ -112,15 +129,61 @@ class _ImportFileComprehensiveReportScreenState
           ],
         ),
         actions: [
-          const BackToDashboardButton(),
-          const SizedBox(width: 8),
-          if (_selectedFile != null)
+          if (_selectedFile != null) ...[
+            IconButton(
+              icon: const Icon(Icons.copy_all, color: Colors.white, size: 20),
+              tooltip: l.compReportCopyDossierBtn,
+              onPressed: () {
+                final dossier = ComprehensiveReportExportService.buildDossierText(
+                  context: context,
+                  file: _selectedFile!,
+                  logs: updatesState.logs,
+                  clearance: clr,
+                  warehouse: wh,
+                );
+                CopyHelper.copy(context, dossier, customMessage: l.compReportCopyDossierSuccess);
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.description_outlined, color: Colors.white, size: 20),
+              tooltip: l.compReportExportTsvBtn,
+              onPressed: () => ComprehensiveReportExportService.exportToTsv(
+                context: context,
+                file: _selectedFile!,
+                logs: updatesState.logs,
+                clearance: clr,
+                warehouse: wh,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.table_chart_outlined, color: Colors.white, size: 20),
+              tooltip: l.compReportExportExcelBtn,
+              onPressed: () => ComprehensiveReportExportService.exportToExcel(
+                context: context,
+                file: _selectedFile!,
+                logs: updatesState.logs,
+                clearance: clr,
+                warehouse: wh,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf_outlined, color: Colors.white, size: 20),
+              tooltip: l.compReportPrintPdfBtn,
+              onPressed: () => ComprehensiveReportExportService.printOrSavePdf(
+                context: context,
+                file: _selectedFile!,
+                logs: updatesState.logs,
+                clearance: clr,
+                warehouse: wh,
+              ),
+            ),
+            const SizedBox(width: 4),
             Padding(
-              padding: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               child: TextButton.icon(
                 style: TextButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt.withOpacity(0.15),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  backgroundColor: AppTheme.cobalt.withOpacity(0.2),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 ),
                 icon: const Icon(Icons.published_with_changes, color: Colors.white, size: 16),
                 label: Text(l.compReportAddUpdateBtn, style: const TextStyle(color: Colors.white, fontSize: 12)),
@@ -131,107 +194,199 @@ class _ImportFileComprehensiveReportScreenState
                 ),
               ),
             ),
+          ],
+          const SizedBox(width: 8),
+          const BackToDashboardButton(),
           const SizedBox(width: 8),
         ],
       ),
-      body: Column(
-        children: [
-          // ── Shipment Selector Bar ──────────────────────────────────
-          Container(
-            color: AppTheme.charcoal.withOpacity(0.04),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: importFilesState.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (e, _) => Text('${l.errorPrefix} $e', style: const TextStyle(color: AppTheme.crimson)),
-              data: (files) => Row(
-                children: [
-                  const Icon(Icons.folder_open, color: AppTheme.cobalt, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: SearchableDropdownField<int>(
-                      value: _selectedFileId,
-                      labelText: l.compReportSelectFileLabel,
-                      items: files.map((f) => SearchableDropdownItem<int>(
-                        value: f.importFileId,
-                        label: '${f.primaryNameWithCode}  |  ${f.supplierName}  |  ${f.currentStage}  |  ${f.status}',
-                      )).toList(),
-                      onChanged: (val) => _onFileSelected(val, files),
+      body: SelectionArea(
+        child: Column(
+          children: [
+            // ── Shipment Selector Bar ──────────────────────────────────
+            Container(
+              color: AppTheme.charcoal.withOpacity(0.04),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: importFilesState.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => Text('${l.errorPrefix} $e', style: const TextStyle(color: AppTheme.crimson)),
+                data: (files) => Row(
+                  children: [
+                    const Icon(Icons.folder_open, color: AppTheme.cobalt, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: SearchableDropdownField<int>(
+                        value: _selectedFileId,
+                        labelText: l.compReportSelectFileLabel,
+                        items: files.map((f) => SearchableDropdownItem<int>(
+                          value: f.importFileId,
+                          label: '${f.primaryNameWithCode}  |  ${f.supplierName}  |  ${f.currentStage}  |  ${f.status}',
+                        )).toList(),
+                        onChanged: (val) => _onFileSelected(val, files),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
 
-          // ── Report Body ───────────────────────────────────────────
-          Expanded(
-            child: _selectedFile == null
-                ? _buildEmptyState(context)
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Section 1: Header Banner
-                        _buildHeaderBanner(context, _selectedFile!),
-                        const SizedBox(height: 16),
-
-                        // Section 2: 10-Phase Progress Pipeline
-                        _buildPhasePipeline(context, _selectedFile!, updatesState),
-                        const SizedBox(height: 16),
-
-                        // Section 3: Two-Column Detail Cards
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // LEFT COL
-                            Expanded(
-                              flex: 3,
-                              child: Column(
-                                children: [
-                                  _buildBasicInfoCard(context, _selectedFile!),
-                                  const SizedBox(height: 14),
-                                  _buildDocumentsCard(context, _selectedFile!),
-                                  const SizedBox(height: 14),
-                                  _buildInvoicesCard(context, _selectedFile!),
-                                  const SizedBox(height: 14),
-                                  _buildPackingListCard(context, _selectedFile!),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            // RIGHT COL
-                            Expanded(
-                              flex: 2,
-                              child: Column(
-                                children: [
-                                  _buildStatusCard(context, _selectedFile!),
-                                  const SizedBox(height: 14),
-                                  _buildFinancialCard(context, _selectedFile!),
-                                  const SizedBox(height: 14),
-                                  _buildNotesCard(context, _selectedFile!),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Section 4: Live Update Logs Timeline
-                        _buildUpdateTimeline(context, _selectedFile!, updatesState),
-                        const SizedBox(height: 16),
-                        
-                        // Section 5: Customs Clearance Real-Time Data
-                        _buildClearanceSection(context, clearanceState),
-                        const SizedBox(height: 16),
-                        
-                        // Section 6: Warehouse Receiving & GRN Real-Time Data
-                        _buildWarehouseSection(context, warehouseState),
-                      ],
+            // ── Action Toolbar Strip when file is selected ─────────────
+            if (_selectedFile != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      _selectedFile!.displayName,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                     ),
-                  ),
-          ),
-        ],
+                    const SizedBox(width: 8),
+                    _buildCopyBadge(context, _selectedFile!.displayName),
+                    const Spacer(),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        side: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      icon: const Icon(Icons.copy_all, size: 15, color: AppTheme.charcoal),
+                      label: Text(l.compReportCopyDossierBtn, style: const TextStyle(fontSize: 11, color: AppTheme.charcoal)),
+                      onPressed: () {
+                        final dossier = ComprehensiveReportExportService.buildDossierText(
+                          context: context,
+                          file: _selectedFile!,
+                          logs: updatesState.logs,
+                          clearance: clr,
+                          warehouse: wh,
+                        );
+                        CopyHelper.copy(context, dossier, customMessage: l.compReportCopyDossierSuccess);
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        side: BorderSide(color: AppTheme.cobalt.withOpacity(0.4)),
+                      ),
+                      icon: const Icon(Icons.description_outlined, size: 15, color: AppTheme.cobalt),
+                      label: Text(l.compReportExportTsvBtn, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+                      onPressed: () => ComprehensiveReportExportService.exportToTsv(
+                        context: context,
+                        file: _selectedFile!,
+                        logs: updatesState.logs,
+                        clearance: clr,
+                        warehouse: wh,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        side: BorderSide(color: AppTheme.emerald.withOpacity(0.4)),
+                      ),
+                      icon: const Icon(Icons.table_chart_outlined, size: 15, color: AppTheme.emerald),
+                      label: Text(l.compReportExportExcelBtn, style: const TextStyle(fontSize: 11, color: AppTheme.emerald)),
+                      onPressed: () => ComprehensiveReportExportService.exportToExcel(
+                        context: context,
+                        file: _selectedFile!,
+                        logs: updatesState.logs,
+                        clearance: clr,
+                        warehouse: wh,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.charcoal,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      ),
+                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 15, color: Colors.white),
+                      label: Text(l.compReportPrintPdfBtn, style: const TextStyle(fontSize: 11, color: Colors.white)),
+                      onPressed: () => ComprehensiveReportExportService.printOrSavePdf(
+                        context: context,
+                        file: _selectedFile!,
+                        logs: updatesState.logs,
+                        clearance: clr,
+                        warehouse: wh,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // ── Report Body ───────────────────────────────────────────
+            Expanded(
+              child: _selectedFile == null
+                  ? _buildEmptyState(context)
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Section 1: Header Banner
+                          _buildHeaderBanner(context, _selectedFile!),
+                          const SizedBox(height: 16),
+
+                          // Section 2: 10-Phase Progress Pipeline
+                          _buildPhasePipeline(context, _selectedFile!, updatesState),
+                          const SizedBox(height: 16),
+
+                          // Section 3: Two-Column Detail Cards
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // LEFT COL
+                              Expanded(
+                                flex: 3,
+                                child: Column(
+                                  children: [
+                                    _buildBasicInfoCard(context, _selectedFile!),
+                                    const SizedBox(height: 14),
+                                    _buildDocumentsCard(context, _selectedFile!),
+                                    const SizedBox(height: 14),
+                                    _buildInvoicesCard(context, _selectedFile!),
+                                    const SizedBox(height: 14),
+                                    _buildPackingListCard(context, _selectedFile!),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              // RIGHT COL
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  children: [
+                                    _buildStatusCard(context, _selectedFile!),
+                                    const SizedBox(height: 14),
+                                    _buildFinancialCard(context, _selectedFile!),
+                                    const SizedBox(height: 14),
+                                    _buildNotesCard(context, _selectedFile!),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Section 4: Live Update Logs Timeline
+                          _buildUpdateTimeline(context, _selectedFile!, updatesState),
+                          const SizedBox(height: 16),
+                          
+                          // Section 5: Customs Clearance Real-Time Data
+                          _buildClearanceSection(context, clearanceState),
+                          const SizedBox(height: 16),
+                          
+                          // Section 6: Warehouse Receiving & GRN Real-Time Data
+                          _buildWarehouseSection(context, warehouseState),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -306,6 +461,14 @@ class _ImportFileComprehensiveReportScreenState
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
                         overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildCopyBadge(
+                      context,
+                      file.displayName,
+                      color: Colors.white.withOpacity(0.15),
+                      borderColor: Colors.white.withOpacity(0.3),
+                      textColor: Colors.white,
                     ),
                     const SizedBox(width: 12),
                     _statusPill(context, file.status),
@@ -392,6 +555,7 @@ class _ImportFileComprehensiveReportScreenState
     String label;
     switch (status.toLowerCase()) {
       case 'open':
+      case 'draft':
         bg = AppTheme.cobalt;
         label = l.filterStatusDraft;
         break;
@@ -517,7 +681,7 @@ class _ImportFileComprehensiveReportScreenState
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                pCode,
+                                l.compReportPhaseLabel(idx + 1),
                                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textColor),
                               ),
                               if (phaseLogs.isNotEmpty) ...[
@@ -582,7 +746,7 @@ class _ImportFileComprehensiveReportScreenState
                   const Icon(Icons.lock_outlined, color: AppTheme.crimson, size: 16),
                   const SizedBox(width: 8),
                   Text(
-                    l.compReportStoppedAtPhase(file.closedAtPhase!),
+                    l.compReportStoppedAtPhase(_formatPhaseLabel(context, file.closedAtPhase!)),
                     style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   if (file.closureReason != null) ...[
@@ -607,21 +771,21 @@ class _ImportFileComprehensiveReportScreenState
       iconColor: AppTheme.cobalt,
       child: Column(
         children: [
-          _infoRow(l.compReportColFileCode, file.importFileCode),
-          _infoRow(l.compReportColCustomsFileNo, file.customFileNumber ?? '—'),
-          _infoRow(l.compReportColImportCompany, file.companyName),
-          _infoRow(l.compReportColSupplier, file.supplierName),
-          _infoRow(l.compReportColBroker, file.brokerName ?? '—'),
-          _infoRow(l.compReportColPoNumber, file.poNumber ?? '—'),
-          _infoRow(l.compReportColPiNumber, file.piNumber ?? '—'),
-          _infoRow(l.compReportColShipmentMode, file.shipmentMode),
-          _infoRow(l.compReportColIncoterm, file.incotermCode),
-          _infoRow(l.compReportColCategory, file.shipmentCategory),
-          _infoRow(l.compReportColScenario, file.selectedScenario ?? '—'),
-          _infoRow(l.compReportColRequiredEta, file.requiredEta ?? '—'),
-          _infoRow(l.compReportColOwner, file.owner),
-          _infoRow(l.compReportColCreatedAt, file.createdAt.split('T').first),
-          _infoRow(l.compReportColUpdatedAt, file.updatedAt.split('T').first),
+          _infoRow(context, l.compReportColFileCode, file.importFileCode, showCopyBadge: true),
+          _infoRow(context, l.compReportColCustomsFileNo, file.customFileNumber ?? '—', showCopyBadge: file.customFileNumber != null && file.customFileNumber!.isNotEmpty),
+          _infoRow(context, l.compReportColImportCompany, file.companyName),
+          _infoRow(context, l.compReportColSupplier, file.supplierName),
+          _infoRow(context, l.compReportColBroker, file.brokerName ?? '—'),
+          _infoRow(context, l.compReportColPoNumber, file.poNumber ?? '—', showCopyBadge: file.poNumber != null && file.poNumber!.isNotEmpty),
+          _infoRow(context, l.compReportColPiNumber, file.piNumber ?? '—', showCopyBadge: file.piNumber != null && file.piNumber!.isNotEmpty),
+          _infoRow(context, l.compReportColShipmentMode, file.shipmentMode),
+          _infoRow(context, l.compReportColIncoterm, file.incotermCode),
+          _infoRow(context, l.compReportColCategory, file.shipmentCategory),
+          _infoRow(context, l.compReportColScenario, file.selectedScenario ?? '—'),
+          _infoRow(context, l.compReportColRequiredEta, file.requiredEta ?? '—'),
+          _infoRow(context, l.compReportColOwner, file.owner),
+          _infoRow(context, l.compReportColCreatedAt, file.createdAt.split('T').first),
+          _infoRow(context, l.compReportColUpdatedAt, file.updatedAt.split('T').first),
         ],
       ),
     );
@@ -643,7 +807,8 @@ class _ImportFileComprehensiveReportScreenState
       iconColor: AppTheme.orange,
       child: Column(
         children: docs.map((d) {
-          final hasValue = d['value'] != '—';
+          final val = d['value']!;
+          final hasValue = val != '—' && val.trim().isNotEmpty;
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 5),
             child: Row(
@@ -655,22 +820,28 @@ class _ImportFileComprehensiveReportScreenState
                 ),
                 const SizedBox(width: 8),
                 Expanded(child: Text(d['label']!, style: const TextStyle(fontSize: 12, color: Colors.black87))),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: hasValue ? Colors.green.shade50 : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: hasValue ? Colors.green.shade200 : Colors.grey.shade300),
-                  ),
-                  child: Text(
-                    d['value']!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: hasValue ? Colors.green.shade800 : Colors.grey.shade500,
+                if (hasValue)
+                  _buildCopyBadge(
+                    context,
+                    val,
+                    color: Colors.green.shade50,
+                    borderColor: Colors.green.shade200,
+                    textColor: Colors.green.shade800,
+                    customMessage: l.compReportCopyValueTooltip(d['label']!),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Text(
+                      val,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade500),
                     ),
                   ),
-                ),
               ],
             ),
           );
@@ -689,35 +860,48 @@ class _ImportFileComprehensiveReportScreenState
       child: file.invoicesData.isEmpty
           ? Text(l.compReportNoInvoices, style: const TextStyle(color: Colors.grey, fontSize: 12))
           : Column(
-              children: file.invoicesData.map((inv) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.teal.shade50,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.teal.shade100),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.receipt, size: 16, color: Colors.teal),
-                      const SizedBox(width: 8),
-                      Text(inv.invoiceNo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      const SizedBox(width: 8),
-                      Text(inv.invoiceType, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                      const Spacer(),
-                      Text(
-                        '${inv.amount.toStringAsFixed(2)} ${inv.currency}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
+              children: file.invoicesData.map((inv) {
+                final rowSummary = '${inv.invoiceNo} | ${inv.invoiceType} | ${inv.amount.toStringAsFixed(2)} ${inv.currency}${inv.date != null ? " | ${inv.date}" : ""}';
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: CopyableTableCell(
+                    value: inv.invoiceNo,
+                    rowSummary: rowSummary,
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.teal.shade100),
                       ),
-                      if (inv.date != null) ...[
-                        const SizedBox(width: 8),
-                        Text(inv.date!, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-                      ],
-                    ],
+                      child: Row(
+                        children: [
+                          const Icon(Icons.receipt, size: 16, color: Colors.teal),
+                          const SizedBox(width: 8),
+                          _buildCopyBadge(
+                            context,
+                            inv.invoiceNo,
+                            color: Colors.white,
+                            borderColor: Colors.teal.shade200,
+                            textColor: Colors.teal.shade900,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(inv.invoiceType, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                          const Spacer(),
+                          Text(
+                            '${inv.amount.toStringAsFixed(2)} ${inv.currency}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
+                          ),
+                          if (inv.date != null) ...[
+                            const SizedBox(width: 8),
+                            Text(inv.date!, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              )).toList(),
+                );
+              }).toList(),
             ),
     );
   }
@@ -755,30 +939,43 @@ class _ImportFileComprehensiveReportScreenState
                     ],
                   ),
                 ),
-                ...file.packingListsData.map((pl) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.indigo.shade50,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.indigo.shade100),
+                ...file.packingListsData.map((pl) {
+                  final rowSummary = '${pl.plNo} | ${pl.totalPackages} pkgs | ${pl.grossWeightKg.toStringAsFixed(1)} KG | ${pl.cbm.toStringAsFixed(2)} CBM';
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: CopyableTableCell(
+                      value: pl.plNo,
+                      rowSummary: rowSummary,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.indigo.shade100),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.inventory_2, size: 14, color: Colors.indigo),
+                            const SizedBox(width: 6),
+                            _buildCopyBadge(
+                              context,
+                              pl.plNo,
+                              color: Colors.white,
+                              borderColor: Colors.indigo.shade200,
+                              textColor: Colors.indigo.shade900,
+                            ),
+                            const Spacer(),
+                            Text(l.compReportPackagesUnit(pl.totalPackages), style: const TextStyle(fontSize: 11)),
+                            const SizedBox(width: 10),
+                            Text('${pl.grossWeightKg.toStringAsFixed(1)} KG', style: const TextStyle(fontSize: 11)),
+                            const SizedBox(width: 10),
+                            Text('${pl.cbm.toStringAsFixed(2)} CBM', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                          ],
+                        ),
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.inventory_2, size: 14, color: Colors.indigo),
-                        const SizedBox(width: 6),
-                        Text(pl.plNo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                        const Spacer(),
-                        Text(l.compReportPackagesUnit(pl.totalPackages), style: const TextStyle(fontSize: 11)),
-                        const SizedBox(width: 10),
-                        Text('${pl.grossWeightKg.toStringAsFixed(1)} KG', style: const TextStyle(fontSize: 11)),
-                        const SizedBox(width: 10),
-                        Text('${pl.cbm.toStringAsFixed(2)} CBM', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                      ],
-                    ),
-                  ),
-                )),
+                  );
+                }),
               ],
             ),
     );
@@ -802,10 +999,10 @@ class _ImportFileComprehensiveReportScreenState
             ],
           ),
           const SizedBox(height: 8),
-          _infoRow(l.compReportStatusLabel, file.status),
-          _infoRow(l.compReportCurrentStageLabel, file.currentStage),
-          _infoRow(l.compReportCurrentModuleLabel, file.currentModule),
-          _infoRow(l.compReportNextActionLabel, file.nextAction),
+          _infoRow(context, l.compReportStatusLabel, file.status),
+          _infoRow(context, l.compReportCurrentStageLabel, file.currentStage),
+          _infoRow(context, l.compReportCurrentModuleLabel, file.currentModule),
+          _infoRow(context, l.compReportNextActionLabel, file.nextAction),
           const SizedBox(height: 10),
           Text(l.compReportTotalProgressLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
           const SizedBox(height: 6),
@@ -839,6 +1036,7 @@ class _ImportFileComprehensiveReportScreenState
   // ── Section 3f: Financial Card ─────────────────────────────────────
   Widget _buildFinancialCard(BuildContext context, ImportFileModel file) {
     final l = context.l10n;
+    final curr = l.compReportCurrencyUsd;
     double totalInvoicesValue = file.invoicesData.fold(0.0, (s, i) => s + i.amount);
 
     return _reportCard(
@@ -847,10 +1045,10 @@ class _ImportFileComprehensiveReportScreenState
       iconColor: AppTheme.orange,
       child: Column(
         children: [
-          _financialRow(l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} USD', Colors.teal),
-          _financialRow(l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} USD', AppTheme.cobalt),
+          _financialRow(l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} $curr', Colors.teal),
+          _financialRow(l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} $curr', AppTheme.cobalt),
           const Divider(height: 16),
-          _financialRow(l.compReportEstimatedVariance, '${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} USD',
+          _financialRow(l.compReportEstimatedVariance, '${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} $curr',
               file.estimatedCost > totalInvoicesValue ? AppTheme.orange : AppTheme.emerald),
         ],
       ),
@@ -959,7 +1157,10 @@ class _ImportFileComprehensiveReportScreenState
                                       color: AppTheme.charcoal.withOpacity(0.06),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
-                                    child: Text(log.targetPhase, style: const TextStyle(fontSize: 10, color: AppTheme.charcoal, fontWeight: FontWeight.bold)),
+                                    child: Text(
+                                      _formatPhaseLabel(context, log.targetPhase),
+                                      style: const TextStyle(fontSize: 10, color: AppTheme.charcoal, fontWeight: FontWeight.bold),
+                                    ),
                                   ),
                                   const Spacer(),
                                   Text(log.logDate, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
@@ -985,7 +1186,7 @@ class _ImportFileComprehensiveReportScreenState
                                       Text('${log.adjustedCostItem}: ', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                       Text(log.previousCost.toStringAsFixed(2), style: const TextStyle(fontSize: 11, decoration: TextDecoration.lineThrough, color: Colors.grey)),
                                       const Text(' → ', style: TextStyle(fontSize: 11, color: AppTheme.orange)),
-                                      Text('${log.newCost.toStringAsFixed(2)} USD', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange)),
+                                      Text('${log.newCost.toStringAsFixed(2)} ${l.compReportCurrencyUsd}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange)),
                                     ],
                                   ),
                                 ),
@@ -1014,6 +1215,54 @@ class _ImportFileComprehensiveReportScreenState
   }
 
   // ── Helpers ───────────────────────────────────────────────────────
+  Widget _buildCopyBadge(
+    BuildContext context,
+    String text, {
+    String? tooltip,
+    String? customMessage,
+    Color? color,
+    Color? textColor,
+    Color? borderColor,
+  }) {
+    final l = context.l10n;
+    final tip = tooltip ?? l.compReportCopyValueTooltip(text);
+
+    return Tooltip(
+      message: tip,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: () => CopyHelper.copy(context, text, customMessage: customMessage),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: color ?? Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: borderColor ?? Colors.grey.shade300),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                text,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: textColor ?? AppTheme.charcoal,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.copy_rounded,
+                size: 11,
+                color: textColor ?? Colors.grey.shade600,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _reportCard({required String title, required IconData icon, required Color iconColor, required Widget child}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 2),
@@ -1046,7 +1295,10 @@ class _ImportFileComprehensiveReportScreenState
     );
   }
 
-  Widget _infoRow(String label, String value) {
+  Widget _infoRow(BuildContext context, String label, String value, {bool showCopyBadge = false}) {
+    final l = context.l10n;
+    final hasVal = value != '—' && value.trim().isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -1058,7 +1310,19 @@ class _ImportFileComprehensiveReportScreenState
           ),
           const Text(': ', style: TextStyle(color: Colors.grey)),
           Expanded(
-            child: Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+            child: hasVal
+                ? (showCopyBadge
+                    ? Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: _buildCopyBadge(context, value),
+                      )
+                    : CopyableTableCell(
+                        value: value,
+                        rowSummary: '$label: $value',
+                        customMessage: l.compReportCopyValueTooltip(label),
+                        child: Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                      ))
+                : Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
           ),
         ],
       ),
@@ -1071,7 +1335,11 @@ class _ImportFileComprehensiveReportScreenState
       child: Row(
         children: [
           Expanded(child: Text(label, style: const TextStyle(fontSize: 12, color: Colors.black87))),
-          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+          CopyableTableCell(
+            value: value,
+            rowSummary: '$label: $value',
+            child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+          ),
         ],
       ),
     );
@@ -1107,20 +1375,32 @@ class _ImportFileComprehensiveReportScreenState
                 runSpacing: 8,
                 children: [
                   if (clr.declaration46No != null)
-                    Chip(label: Text(l.compReportDeclarationChip(clr.declaration46No!), style: const TextStyle(fontSize: 12)), backgroundColor: Colors.blue.shade50),
+                    _buildCopyBadge(
+                      context,
+                      clr.declaration46No!,
+                      tooltip: l.compReportDeclarationChip(clr.declaration46No!),
+                      color: Colors.blue.shade50,
+                      borderColor: Colors.blue.shade200,
+                      textColor: AppTheme.cobalt,
+                    ),
                   Chip(
                     label: Text(clr.channelType, style: const TextStyle(fontSize: 12)),
-                    backgroundColor: clr.channelType.toLowerCase().contains('green') ? Colors.green.shade50 : (clr.channelType.toLowerCase().contains('red') ? Colors.red.shade50 : Colors.orange.shade50),
+                    backgroundColor: clr.channelType.toLowerCase().contains('green')
+                        ? Colors.green.shade50
+                        : (clr.channelType.toLowerCase().contains('red') ? Colors.red.shade50 : Colors.orange.shade50),
                   ),
                   Chip(label: Text(clr.customsOfficeName, style: const TextStyle(fontSize: 12)), backgroundColor: Colors.grey.shade100),
                 ],
               ),
               const SizedBox(height: 8),
               if (clr.releasePermitNo != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: AppTheme.emerald.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                  child: Text(l.compReportReleasePermitChip(clr.releasePermitNo!), style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold, fontSize: 12)),
+                _buildCopyBadge(
+                  context,
+                  clr.releasePermitNo!,
+                  tooltip: l.compReportReleasePermitChip(clr.releasePermitNo!),
+                  color: AppTheme.emerald.withOpacity(0.1),
+                  borderColor: AppTheme.emerald.withOpacity(0.3),
+                  textColor: AppTheme.emerald,
                 ),
               const Divider(height: 20),
               Row(
@@ -1165,10 +1445,13 @@ class _ImportFileComprehensiveReportScreenState
             children: [
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                    child: Text(l.compReportGrnChip(wh.grnCode), style: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12)),
+                  _buildCopyBadge(
+                    context,
+                    wh.grnCode,
+                    tooltip: l.compReportGrnChip(wh.grnCode),
+                    color: AppTheme.charcoal.withOpacity(0.1),
+                    borderColor: AppTheme.charcoal.withOpacity(0.3),
+                    textColor: AppTheme.charcoal,
                   ),
                   const SizedBox(width: 16),
                   Text(wh.warehouseName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
@@ -1210,14 +1493,41 @@ class _ImportFileComprehensiveReportScreenState
                       DataColumn(label: Text(l.compReportTableColShortage, style: const TextStyle(fontSize: 11))),
                       DataColumn(label: Text(l.compReportTableColDamaged, style: const TextStyle(fontSize: 11))),
                     ],
-                    rows: wh.grnItems.map((item) => DataRow(cells: [
-                      DataCell(Text(item.itemCode, style: const TextStyle(fontSize: 11))),
-                      DataCell(Text(item.itemName, style: const TextStyle(fontSize: 11))),
-                      DataCell(Text(item.invoicedQty.toString(), style: const TextStyle(fontSize: 11))),
-                      DataCell(Text(item.acceptedQty.toString(), style: const TextStyle(fontSize: 11))),
-                      DataCell(Text(item.shortageQty.toString(), style: const TextStyle(fontSize: 11))),
-                      DataCell(Text(item.damagedQty.toString(), style: const TextStyle(fontSize: 11))),
-                    ])).toList(),
+                    rows: wh.grnItems.map((item) {
+                      final rowSummary = '${item.itemCode} | ${item.itemName} | Invoiced: ${item.invoicedQty} | Accepted: ${item.acceptedQty} | Shortage: ${item.shortageQty} | Damaged: ${item.damagedQty}';
+                      return DataRow(cells: [
+                        DataCell(CopyableTableCell(
+                          value: item.itemCode,
+                          rowSummary: rowSummary,
+                          child: Text(item.itemCode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        )),
+                        DataCell(CopyableTableCell(
+                          value: item.itemName,
+                          rowSummary: rowSummary,
+                          child: Text(item.itemName, style: const TextStyle(fontSize: 11)),
+                        )),
+                        DataCell(CopyableTableCell(
+                          value: item.invoicedQty.toString(),
+                          rowSummary: rowSummary,
+                          child: Text(item.invoicedQty.toString(), style: const TextStyle(fontSize: 11)),
+                        )),
+                        DataCell(CopyableTableCell(
+                          value: item.acceptedQty.toString(),
+                          rowSummary: rowSummary,
+                          child: Text(item.acceptedQty.toString(), style: const TextStyle(fontSize: 11)),
+                        )),
+                        DataCell(CopyableTableCell(
+                          value: item.shortageQty.toString(),
+                          rowSummary: rowSummary,
+                          child: Text(item.shortageQty.toString(), style: const TextStyle(fontSize: 11)),
+                        )),
+                        DataCell(CopyableTableCell(
+                          value: item.damagedQty.toString(),
+                          rowSummary: rowSummary,
+                          child: Text(item.damagedQty.toString(), style: const TextStyle(fontSize: 11)),
+                        )),
+                      ]);
+                    }).toList(),
                   ),
                 ),
             ],

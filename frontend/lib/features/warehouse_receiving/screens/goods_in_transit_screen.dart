@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
-import '../models/goods_in_transit_model.dart';
 import '../providers/goods_in_transit_provider.dart';
+import '../services/goods_in_transit_export_service.dart';
 
 class GoodsInTransitScreen extends ConsumerStatefulWidget {
   final bool isEmbedded;
@@ -39,7 +39,8 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
       ),
     ];
 
-    final bodyContent = gitAsync.when(
+    final bodyContent = SelectionArea(
+      child: gitAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
           child: Text(l.gitErrorFetchingData(err), style: const TextStyle(color: Colors.red)),
@@ -73,41 +74,125 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Info Banner
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.teal.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.teal.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.inventory_2, color: Colors.teal, size: 28),
-                      const SizedBox(width: 12),
-                      Expanded(
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 950;
+                    final actionButtons = Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: isNarrow ? WrapAlignment.start : WrapAlignment.end,
+                      children: [
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.charcoal,
+                            side: BorderSide(color: Colors.teal.shade300),
+                          ),
+                          icon: const Icon(Icons.copy_all_outlined, size: 16),
+                          label: Text(l.gitCopyDossierBtn),
+                          onPressed: () => GoodsInTransitExportService.copyDossierToClipboard(context, filteredItems),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.charcoal,
+                            side: BorderSide(color: Colors.teal.shade300),
+                          ),
+                          icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                          label: Text(l.gitPrintPdfBtn),
+                          onPressed: () => GoodsInTransitExportService.printOrSaveGitPdf(context, filteredItems),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.charcoal,
+                            side: BorderSide(color: Colors.teal.shade300),
+                          ),
+                          icon: const Icon(Icons.file_copy_outlined, size: 16),
+                          label: Text(l.gitExportTsvBtn),
+                          onPressed: () => GoodsInTransitExportService.saveGitTsvToFile(context, filteredItems),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
+                          icon: const Icon(Icons.file_download_outlined, size: 16),
+                          label: Text(l.gitExportExcelBtn),
+                          onPressed: () => GoodsInTransitExportService.saveGitCsvToFile(context, filteredItems),
+                        ),
+                      ],
+                    );
+
+                    if (isNarrow) {
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.teal.shade200),
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              l.gitInfoBannerTitle,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                            Row(
+                              children: [
+                                const Icon(Icons.inventory_2, color: Colors.teal, size: 28),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l.gitInfoBannerTitle,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        l.gitInfoBannerSubtitle,
+                                        style: const TextStyle(fontSize: 12, color: Colors.black87),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              l.gitInfoBannerSubtitle,
-                              style: const TextStyle(fontSize: 12, color: Colors.black87),
-                            ),
+                            const SizedBox(height: 12),
+                            actionButtons,
                           ],
                         ),
+                      );
+                    }
+
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.teal.shade200),
                       ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
-                        icon: const Icon(Icons.file_download_outlined, size: 16),
-                        label: Text(l.gitExportExcelBtn),
-                        onPressed: () => _exportGitLedgerCsv(context, filteredItems),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.inventory_2, color: Colors.teal, size: 28),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l.gitInfoBannerTitle,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  l.gitInfoBannerSubtitle,
+                                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Flexible(
+                            child: actionButtons,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
 
@@ -147,15 +232,24 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                                 suffixIcon: ValueListenableBuilder<TextEditingValue>(
                                   valueListenable: _searchCtrl,
                                   builder: (context, value, _) {
-                                    return value.text.isNotEmpty
-                                        ? IconButton(
-                                            icon: const Icon(Icons.clear, size: 18),
-                                            onPressed: () {
-                                              _searchCtrl.clear();
-                                              setState(() {});
-                                            },
-                                          )
-                                        : const SizedBox.shrink();
+                                    if (value.text.isEmpty) return const SizedBox.shrink();
+                                    return Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                                          tooltip: l.gitCopyFieldTooltip,
+                                          onPressed: () => CopyHelper.copy(context, _searchCtrl.text),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.clear, size: 18),
+                                          onPressed: () {
+                                            _searchCtrl.clear();
+                                            setState(() {});
+                                          },
+                                        ),
+                                      ],
+                                    );
                                   },
                                 ),
                                 isDense: true,
@@ -233,43 +327,172 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                                 DataColumn(label: Text(l.gitColContainers, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l.gitColCertifiedDate, style: const TextStyle(fontWeight: FontWeight.bold))),
                                 DataColumn(label: Text(l.gitColLedgerStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.gitColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                               ],
                               rows: filteredItems.map((item) {
                                 final isDelivered = item.isDeliveredToWarehouse;
+                                final statusStr = isDelivered ? l.gitStatusDeliveredToWarehouse : l.gitStatusInTransit;
+                                final rowSummary =
+                                    '${item.importFileCode}\t${item.poNumber}\t${item.itemCode}\t${item.itemName}\t${item.invoicedQty.toStringAsFixed(0)}\t${item.packagesCount} ${item.packageType}\t${item.containersCount} × ${item.containerType}\t${item.certifiedDate}\t$statusStr';
+
                                 return DataRow(cells: [
+                                  // Import File Code badge
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.charcoal.withOpacity(0.08),
+                                    CopyableTableCell(
+                                      value: item.importFileCode,
+                                      rowSummary: rowSummary,
+                                      child: InkWell(
+                                        onTap: () => CopyHelper.copy(
+                                          context,
+                                          item.importFileCode,
+                                          customMessage: '${l.gitColFileCode}: ${item.importFileCode}',
+                                        ),
                                         borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(item.importFileCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
-                                    ),
-                                  ),
-                                  DataCell(Text(item.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                  DataCell(Text(item.itemCode, style: const TextStyle(fontFamily: 'monospace'))),
-                                  DataCell(Text(item.itemName, style: const TextStyle(fontWeight: FontWeight.w600))),
-                                  DataCell(Text(l.gitKpiQuantityValue(item.invoicedQty.toStringAsFixed(0)), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo))),
-                                  DataCell(Text('${item.packagesCount} ${item.packageType}')),
-                                  DataCell(Text('${item.containersCount} × ${item.containerType}')),
-                                  DataCell(Text(item.certifiedDate)),
-                                  DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: (isDelivered ? Colors.green : Colors.teal).shade50,
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: (isDelivered ? Colors.green : Colors.teal).shade300),
-                                      ),
-                                      child: Text(
-                                        isDelivered ? l.gitStatusDeliveredToWarehouse : l.gitStatusInTransit,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: isDelivered ? Colors.green.shade900 : Colors.teal.shade900,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.charcoal.withOpacity(0.08),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(item.importFileCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                                              const SizedBox(width: 4),
+                                              const Icon(Icons.copy, size: 12, color: AppTheme.charcoal),
+                                            ],
+                                          ),
                                         ),
                                       ),
+                                    ),
+                                  ),
+                                  // PO Number badge
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: item.poNumber,
+                                      rowSummary: rowSummary,
+                                      child: InkWell(
+                                        onTap: () => CopyHelper.copy(
+                                          context,
+                                          item.poNumber,
+                                          customMessage: '${l.gitColPoNumber}: ${item.poNumber}',
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(item.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                            const SizedBox(width: 4),
+                                            const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  // Item Code badge
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: item.itemCode,
+                                      rowSummary: rowSummary,
+                                      child: InkWell(
+                                        onTap: () => CopyHelper.copy(
+                                          context,
+                                          item.itemCode,
+                                          customMessage: '${l.gitColItemCode}: ${item.itemCode}',
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(item.itemCode, style: const TextStyle(fontFamily: 'monospace')),
+                                            const SizedBox(width: 4),
+                                            Icon(Icons.copy, size: 12, color: Colors.grey.shade600),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  // Item Description
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: item.itemName,
+                                      rowSummary: rowSummary,
+                                      child: Text(item.itemName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    ),
+                                  ),
+                                  // Invoiced Qty
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: item.invoicedQty.toStringAsFixed(0),
+                                      rowSummary: rowSummary,
+                                      child: Text(
+                                        l.gitKpiQuantityValue(item.invoicedQty.toStringAsFixed(0)),
+                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo),
+                                      ),
+                                    ),
+                                  ),
+                                  // Packages
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: '${item.packagesCount} ${item.packageType}',
+                                      rowSummary: rowSummary,
+                                      child: Text('${item.packagesCount} ${item.packageType}'),
+                                    ),
+                                  ),
+                                  // Containers
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: '${item.containersCount} × ${item.containerType}',
+                                      rowSummary: rowSummary,
+                                      child: Text('${item.containersCount} × ${item.containerType}'),
+                                    ),
+                                  ),
+                                  // Certified Date
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: item.certifiedDate,
+                                      rowSummary: rowSummary,
+                                      child: Text(item.certifiedDate),
+                                    ),
+                                  ),
+                                  // Ledger Status
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: statusStr,
+                                      rowSummary: rowSummary,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: (isDelivered ? Colors.green : Colors.teal).shade50,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: (isDelivered ? Colors.green : Colors.teal).shade300),
+                                        ),
+                                        child: Text(
+                                          statusStr,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: isDelivered ? Colors.green.shade900 : Colors.teal.shade900,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  // Quick Row Copy Action
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.copy_rounded, size: 18, color: AppTheme.cobalt),
+                                          tooltip: l.gitCopyRowSummaryBtn,
+                                          onPressed: () => CopyHelper.copy(
+                                            context,
+                                            rowSummary,
+                                            customMessage: l.gitCopyRowSummarySuccess,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ]);
@@ -284,7 +507,8 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
             ),
           );
         },
-      );
+      ),
+    );
 
     if (widget.isEmbedded) {
       return bodyContent;
@@ -334,40 +558,6 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Future<void> _exportGitLedgerCsv(BuildContext context, List<GitLineItemModel> items) async {
-    final buffer = StringBuffer();
-    buffer.write('\uFEFF');
-    buffer.writeln('Sorour Logistics ERP — سجل بضاعة بالطريق وتتبع الشحنات (Goods In Transit Ledger)');
-    buffer.writeln('تاريخ التصدير,${DateTime.now().toIso8601String().split('T')[0]}');
-    buffer.writeln('');
-    buffer.writeln('كود ملف الشحنة,أمر الشراء,كود الصنف,اسم ووصف الصنف,الكمية المشحونة,عدد الطرود,نوع التعبئة,عدد الحاويات,نوع الحاوية,تاريخ الإفراج,حالة الاستلام المخزني');
-
-    for (final it in items) {
-      buffer.writeln(
-        '${it.importFileCode},'
-        '${it.poNumber},'
-        '${it.itemCode},'
-        '"${it.itemName.replaceAll('"', '""')}",'
-        '${it.invoicedQty},'
-        '${it.packagesCount},'
-        '"${it.packageType.replaceAll('"', '""')}",'
-        '${it.containersCount},'
-        '"${it.containerType.replaceAll('"', '""')}",'
-        '${it.certifiedDate},'
-        '${it.isDeliveredToWarehouse ? "تم الاستلام بالمخزن" : "بضاعة بالطريق (In-Transit)"}',
-      );
-    }
-
-    final filename = 'Phase6_Goods_In_Transit_Ledger_${DateTime.now().millisecondsSinceEpoch}.csv';
-    await FileSaveHelper.saveText(
-      context: context,
-      textContent: buffer.toString(),
-      defaultFileName: filename,
-      dialogTitle: 'حفظ سجل بضاعة بالطريق بصيغة Excel / CSV',
-      allowedExtensions: ['csv', 'xlsx'],
     );
   }
 }

@@ -16,6 +16,7 @@ import '../models/supplier_model.dart';
 import '../providers/suppliers_provider.dart';
 import '../widgets/supplier_details_dialog.dart';
 import '../widgets/route_intelligence_dialog.dart';
+import '../widgets/supplier_scorecard_dialog.dart';
 import '../widgets/goeic_verification_dialog.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
@@ -566,6 +567,17 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
                     ref,
                     supplierId: supplier.supplierId!,
                     supplierName: supplier.companyName,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.workspace_premium_outlined, color: Colors.amber, size: 20),
+                  tooltip: l10n.supplierScorecardBtnTooltip,
+                  onPressed: () => showSupplierScorecardDialog(
+                    context,
+                    ref,
+                    supplierId: supplier.supplierId!,
+                    supplierName: supplier.companyName,
+                    country: supplier.foreignExporterCountry,
                   ),
                 ),
                 IconButton(

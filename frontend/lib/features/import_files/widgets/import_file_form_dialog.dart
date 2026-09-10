@@ -21,6 +21,8 @@ import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
+import '../../experience_guide/providers/experience_guide_provider.dart';
+import '../../experience_guide/models/guide_entry_model.dart';
 
 
 class ImportFileFormDialog extends ConsumerStatefulWidget {
@@ -49,6 +51,10 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
   late TextEditingController _form46Controller;
   late TextEditingController _notesController;
   late TextEditingController _ownerController;
+  late TextEditingController _hsCodeController;
+  late TextEditingController _productCategoryController;
+  GuideMatchResultModel? _matchedGuidance;
+  bool _isMatchingGuide = false;
 
   int? _selectedCompanyId;
   String _companyName = '';
@@ -98,6 +104,8 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         ? f.owner
         : (f?.owner != null && f!.owner.isNotEmpty && f.owner != 'Kamal' ? f.owner : '');
     _ownerController = TextEditingController(text: initialOwner);
+    _hsCodeController = TextEditingController(text: f?.hsCode ?? '');
+    _productCategoryController = TextEditingController(text: f?.productCategory ?? '');
 
     if (f?.fileOpeningDate != null && f!.fileOpeningDate!.isNotEmpty) {
       _fileOpeningDate = DateTime.tryParse(f.fileOpeningDate!) ?? DateTime.now();
@@ -197,6 +205,8 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     _form46Controller.dispose();
     _notesController.dispose();
     _ownerController.dispose();
+    _hsCodeController.dispose();
+    _productCategoryController.dispose();
     super.dispose();
   }
 
@@ -276,6 +286,8 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         'status': _status,
         'owner': selectedOwner,
         'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        'hs_code': _hsCodeController.text.trim().isEmpty ? null : _hsCodeController.text.trim(),
+        'product_category': _productCategoryController.text.trim().isEmpty ? null : _productCategoryController.text.trim(),
       };
 
       if (widget.fileToEdit == null) {
@@ -383,6 +395,25 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _matchGuide() async {
+    final hsCode = _hsCodeController.text.trim();
+    if (hsCode.isEmpty) return;
+    setState(() => _isMatchingGuide = true);
+    try {
+      final result = await ref.read(experienceGuideProvider.notifier).matchShipment(
+        hsCode: hsCode,
+        destinationPort: _podController.text.trim().isEmpty ? null : _podController.text.trim(),
+        shippingLine: _selectedScenarioController.text.trim().isEmpty ? null : _selectedScenarioController.text.trim(),
+        supplier: null,
+      );
+      if (mounted) setState(() => _matchedGuidance = result);
+    } catch (_) {
+      if (mounted) setState(() => _matchedGuidance = null);
+    } finally {
+      if (mounted) setState(() => _isMatchingGuide = false);
     }
   }
 
@@ -544,6 +575,115 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+
+                // ── HS Code & Product Category ─────────────────────────────
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        controller: _hsCodeController,
+                        decoration: InputDecoration(
+                          labelText: l.guideHsCode,
+                          hintText: 'مثال: 8520',
+                          prefixIcon: const Icon(Icons.inventory_2_outlined, color: AppTheme.cobalt, size: 20),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: _isMatchingGuide
+                              ? const Padding(
+                                  padding: EdgeInsets.all(10),
+                                  child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                                )
+                              : IconButton(
+                                  icon: const Icon(Icons.search, color: AppTheme.cobalt),
+                                  tooltip: l.guideMatchButton,
+                                  onPressed: _matchGuide,
+                                ),
+                        ),
+                        onFieldSubmitted: (_) => _matchGuide(),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        controller: _productCategoryController,
+                        decoration: InputDecoration(
+                          labelText: l.guideProductCategory,
+                          hintText: 'مثال: إلكترونيات صوتية',
+                          prefixIcon: const Icon(Icons.category_outlined, color: AppTheme.cobalt, size: 20),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ── Guide Alert Banner ─────────────────────────────────────
+                if (_matchedGuidance != null && _matchedGuidance!.matchedEntries.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _matchedGuidance!.matchedEntries.any((e) => e.severity == 'critical')
+                          ? AppTheme.crimson.withOpacity(0.08)
+                          : AppTheme.orange.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _matchedGuidance!.matchedEntries.any((e) => e.severity == 'critical')
+                            ? AppTheme.crimson
+                            : AppTheme.orange,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              _matchedGuidance!.matchedEntries.any((e) => e.severity == 'critical')
+                                  ? Icons.error_outline
+                                  : Icons.warning_amber_outlined,
+                              color: _matchedGuidance!.matchedEntries.any((e) => e.severity == 'critical')
+                                  ? AppTheme.crimson
+                                  : AppTheme.orange,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${l.guideMatchResultLabel} (${_matchedGuidance!.matchedEntries.length})',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: _matchedGuidance!.matchedEntries.any((e) => e.severity == 'critical')
+                                    ? AppTheme.crimson
+                                    : AppTheme.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ...(_matchedGuidance!.matchedEntries.take(3).map((e) => Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('• ', style: TextStyle(fontWeight: FontWeight.bold)),
+                              Expanded(
+                                child: Text(
+                                  e.title,
+                                  style: const TextStyle(fontSize: 13),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ))),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
 
                 // Multi Invoices & Packing Lists Bar

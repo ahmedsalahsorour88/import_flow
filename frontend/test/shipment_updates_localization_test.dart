@@ -216,6 +216,184 @@ void main() {
       expect(en.shipmentUpdateBtnCancel, isNotEmpty);
       expect(ar.shipmentUpdateSuccessSaved, isNotEmpty);
       expect(en.shipmentUpdateSuccessSaved, isNotEmpty);
+
+      // Export & Copy Tools (Task B & Task C)
+      expect(ar.shipmentUpdatesExportTsvBtn, isNotEmpty);
+      expect(en.shipmentUpdatesExportTsvBtn, isNotEmpty);
+      expect(ar.shipmentUpdatesExportTsvSuccess, isNotEmpty);
+      expect(en.shipmentUpdatesExportTsvSuccess, isNotEmpty);
+      expect(ar.shipmentUpdatesExportExcelBtn, isNotEmpty);
+      expect(en.shipmentUpdatesExportExcelBtn, isNotEmpty);
+      expect(ar.shipmentUpdatesExportPdfBtn, isNotEmpty);
+      expect(en.shipmentUpdatesExportPdfBtn, isNotEmpty);
+      expect(ar.shipmentUpdateCopySummaryBtn, isNotEmpty);
+      expect(en.shipmentUpdateCopySummarySuccess, isNotEmpty);
+      expect(ar.shipmentUpdateCodeBadgeLabel, isNotEmpty);
+      expect(en.shipmentUpdateCodeBadgeLabel, isNotEmpty);
+      expect(ar.shipmentUpdateConsultCodeBadgeLabel, isNotEmpty);
+      expect(en.shipmentUpdateConsultCodeBadgeLabel, isNotEmpty);
+      expect(ar.shipmentUpdateCopyFieldTooltip, isNotEmpty);
+      expect(en.shipmentUpdateCopyFieldTooltip, isNotEmpty);
+
+      // TSV Headers
+      expect(ar.shipmentUpdatesTsvHeaderCode, isNotEmpty);
+      expect(en.shipmentUpdatesTsvHeaderCode, isNotEmpty);
+      expect(ar.shipmentUpdatesTsvHeaderDate, isNotEmpty);
+      expect(en.shipmentUpdatesTsvHeaderDate, isNotEmpty);
+      expect(ar.shipmentUpdatesTsvHeaderCategory, isNotEmpty);
+      expect(en.shipmentUpdatesTsvHeaderCategory, isNotEmpty);
+      expect(ar.shipmentUpdatesTsvHeaderPhase, isNotEmpty);
+      expect(en.shipmentUpdatesTsvHeaderPhase, isNotEmpty);
+      expect(ar.shipmentUpdatesTsvHeaderNotes, isNotEmpty);
+      expect(en.shipmentUpdatesTsvHeaderNotes, isNotEmpty);
+      expect(ar.shipmentUpdatesTsvHeaderCostItem, isNotEmpty);
+      expect(en.shipmentUpdatesTsvHeaderCostItem, isNotEmpty);
+      expect(ar.shipmentUpdatesTsvHeaderPrevCost, isNotEmpty);
+      expect(en.shipmentUpdatesTsvHeaderPrevCost, isNotEmpty);
+      expect(ar.shipmentUpdatesTsvHeaderNewCost, isNotEmpty);
+      expect(en.shipmentUpdatesTsvHeaderNewCost, isNotEmpty);
+      expect(ar.shipmentUpdatesTsvHeaderPriority, isNotEmpty);
+      expect(en.shipmentUpdatesTsvHeaderPriority, isNotEmpty);
+      expect(ar.shipmentUpdatesTsvHeaderAssignedUser, isNotEmpty);
+      expect(en.shipmentUpdatesTsvHeaderAssignedUser, isNotEmpty);
+      expect(ar.shipmentUpdatesTsvHeaderStatus, isNotEmpty);
+      expect(en.shipmentUpdatesTsvHeaderStatus, isNotEmpty);
+
+      // Consultation & Doc Statuses
+      expect(ar.shipmentUpdateConsultStatusInProgress, isNotEmpty);
+      expect(en.shipmentUpdateConsultStatusInProgress, isNotEmpty);
+      expect(ar.shipmentUpdateConsultStatusClearanceReady, isNotEmpty);
+      expect(en.shipmentUpdateConsultStatusClearanceReady, isNotEmpty);
+      expect(ar.shipmentUpdateConsultStatusBlocked, isNotEmpty);
+      expect(en.shipmentUpdateConsultStatusBlocked, isNotEmpty);
+      expect(ar.shipmentUpdateConsultStatusActionRequired, isNotEmpty);
+      expect(en.shipmentUpdateConsultStatusActionRequired, isNotEmpty);
+      expect(ar.shipmentUpdateConsultStatusCompleted, isNotEmpty);
+      expect(en.shipmentUpdateConsultStatusCompleted, isNotEmpty);
+
+      expect(ar.shipmentUpdateDocStatusApproved, isNotEmpty);
+      expect(en.shipmentUpdateDocStatusApproved, isNotEmpty);
+      expect(ar.shipmentUpdateDocStatusPending, isNotEmpty);
+      expect(en.shipmentUpdateDocStatusPending, isNotEmpty);
+      expect(ar.shipmentUpdateDocStatusReceived, isNotEmpty);
+      expect(en.shipmentUpdateDocStatusReceived, isNotEmpty);
+      expect(ar.shipmentUpdateDocStatusVerified, isNotEmpty);
+      expect(en.shipmentUpdateDocStatusVerified, isNotEmpty);
+      expect(ar.shipmentUpdateDocStatusRejected, isNotEmpty);
+      expect(en.shipmentUpdateDocStatusRejected, isNotEmpty);
+
+      expect(ar.shipmentUpdateCostLabel, isNotEmpty);
+      expect(en.shipmentUpdateCostLabel, isNotEmpty);
+      expect(ar.shipmentUpdateCostCurrencyUsd, isNotEmpty);
+      expect(en.shipmentUpdateCostCurrencyUsd, isNotEmpty);
+    });
+
+    test('All Screen 42 Arabic strings adhere strictly to the zero Latin character rule', () {
+      final latinRegex = RegExp(r'[A-Za-z]');
+      final arabicStrings = [
+        ar.shipmentUpdateEngineTitle,
+        ar.shipmentUpdateRefreshTooltip,
+        ar.shipmentUpdateNoShipmentsRegistered,
+        ar.shipmentUpdateSelectShipmentPrompt,
+        ar.shipmentUpdateComprehensiveDailyCheckinBtn,
+        ar.shipmentUpdateCustomsSecTitle,
+        ar.shipmentUpdateCustomsNoStudies,
+        ar.shipmentUpdateCustomsEmptyPrompt,
+        ar.shipmentUpdateBtnPrintPdf,
+        ar.shipmentUpdateBtnViewChecklist,
+        ar.shipmentUpdateBtnEditDocs,
+        ar.shipmentUpdateBtnRecordDailyUpdate,
+        ar.shipmentUpdatePhase1Name,
+        ar.shipmentUpdatePhase2Name,
+        ar.shipmentUpdatePhase3Name,
+        ar.shipmentUpdatePhase4Name,
+        ar.shipmentUpdatePhase5Name,
+        ar.shipmentUpdatePhase6Name,
+        ar.shipmentUpdatePhase7Name,
+        ar.shipmentUpdatePhase8Name,
+        ar.shipmentUpdatePhase9Name,
+        ar.shipmentUpdatePhase10Name,
+        ar.shipmentUpdateStatusCompleted,
+        ar.shipmentUpdateStatusCurrent,
+        ar.shipmentUpdateStatusFuture,
+        ar.shipmentUpdateColActions,
+        ar.shipmentUpdateColCode,
+        ar.shipmentUpdateColDate,
+        ar.shipmentUpdateColType,
+        ar.shipmentUpdateColTargetStage,
+        ar.shipmentUpdateColNotes,
+        ar.shipmentUpdateColCostAdjustment,
+        ar.shipmentUpdateColAssignedUser,
+        ar.shipmentUpdateBadgeDaily,
+        ar.shipmentUpdateBadgeCostAdj,
+        ar.shipmentUpdateBadgeFollowUp,
+        ar.shipmentUpdateBadgeFutureAlert,
+        ar.shipmentUpdateMetricEstDuties,
+        ar.shipmentUpdateMetricApprovedDocs,
+        ar.shipmentUpdateMetricBlockingIssues,
+        ar.shipmentUpdateMetricZeroBlocking,
+        ar.shipmentUpdateMetricReadinessRate,
+        ar.shipmentUpdateDialogTitle,
+        ar.shipmentUpdateFieldShipmentLabel,
+        ar.shipmentUpdateFieldShipmentRequired,
+        ar.shipmentUpdateFieldCategoryLabel,
+        ar.shipmentUpdateCatOptFollowUp,
+        ar.shipmentUpdateCatOptCostAdjustment,
+        ar.shipmentUpdateCatOptFutureAlert,
+        ar.shipmentUpdateCatOptDailyCheckin,
+        ar.shipmentUpdateFieldTargetStageLabel,
+        ar.shipmentUpdateFieldCostItemLabel,
+        ar.shipmentUpdateFieldPrevCostLabel,
+        ar.shipmentUpdateFieldNewCostLabel,
+        ar.shipmentUpdateFieldAlertPriorityLabel,
+        ar.shipmentUpdatePriorityLow,
+        ar.shipmentUpdatePriorityNormal,
+        ar.shipmentUpdatePriorityHigh,
+        ar.shipmentUpdatePriorityCritical,
+        ar.shipmentUpdateFieldDateLabel,
+        ar.shipmentUpdateFieldNotesLabel,
+        ar.shipmentUpdateFieldNotesHint,
+        ar.shipmentUpdateFieldNotesRequired,
+        ar.shipmentUpdateBtnSaveUpdate,
+        ar.shipmentUpdateBtnCancel,
+        ar.shipmentUpdateSuccessSaved,
+        ar.shipmentUpdatesExportTsvBtn,
+        ar.shipmentUpdatesExportTsvSuccess,
+        ar.shipmentUpdatesExportExcelBtn,
+        ar.shipmentUpdatesExportPdfBtn,
+        ar.shipmentUpdateCopySummaryBtn,
+        ar.shipmentUpdateCopySummarySuccess,
+        ar.shipmentUpdateCodeBadgeLabel,
+        ar.shipmentUpdateConsultCodeBadgeLabel,
+        ar.shipmentUpdateCopyFieldTooltip,
+        ar.shipmentUpdatesTsvHeaderCode,
+        ar.shipmentUpdatesTsvHeaderDate,
+        ar.shipmentUpdatesTsvHeaderCategory,
+        ar.shipmentUpdatesTsvHeaderPhase,
+        ar.shipmentUpdatesTsvHeaderNotes,
+        ar.shipmentUpdatesTsvHeaderCostItem,
+        ar.shipmentUpdatesTsvHeaderPrevCost,
+        ar.shipmentUpdatesTsvHeaderNewCost,
+        ar.shipmentUpdatesTsvHeaderPriority,
+        ar.shipmentUpdatesTsvHeaderAssignedUser,
+        ar.shipmentUpdatesTsvHeaderStatus,
+        ar.shipmentUpdateConsultStatusInProgress,
+        ar.shipmentUpdateConsultStatusClearanceReady,
+        ar.shipmentUpdateConsultStatusBlocked,
+        ar.shipmentUpdateConsultStatusActionRequired,
+        ar.shipmentUpdateConsultStatusCompleted,
+        ar.shipmentUpdateDocStatusApproved,
+        ar.shipmentUpdateDocStatusPending,
+        ar.shipmentUpdateDocStatusReceived,
+        ar.shipmentUpdateDocStatusVerified,
+        ar.shipmentUpdateDocStatusRejected,
+        ar.shipmentUpdateCostLabel,
+        ar.shipmentUpdateCostCurrencyUsd,
+      ];
+
+      for (final s in arabicStrings) {
+        expect(latinRegex.hasMatch(s), isFalse, reason: 'Found Latin characters in: "$s"');
+      }
     });
 
     test('Zero stacked Arabic + English in titles and labels', () {

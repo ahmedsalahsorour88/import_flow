@@ -111,3 +111,54 @@ def get_completed_activities_for_files(db: Session, import_file_codes: List[str]
     for act in activities:
         result.setdefault(act.import_file_code, []).append(act)
     return result
+
+
+# ─── Configurable Step Risk & Settings Repository (Addendum: Section 10) ───
+
+from modules.lifecycle_board.model import StepConfig, StepConfigAuditLog, PendingReferenceRecord
+
+
+def get_all_step_configs(db: Session) -> List[StepConfig]:
+    return db.query(StepConfig).order_by(StepConfig.phase_id.asc(), StepConfig.step_code.asc()).all()
+
+
+def get_step_config(db: Session, step_code: str) -> Optional[StepConfig]:
+    return db.query(StepConfig).filter(StepConfig.step_code == step_code).first()
+
+
+def save_step_config(db: Session, config: StepConfig) -> StepConfig:
+    db.add(config)
+    db.commit()
+    db.refresh(config)
+    return config
+
+
+def save_step_config_audit_log(db: Session, log: StepConfigAuditLog) -> StepConfigAuditLog:
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    return log
+
+
+def get_step_config_audit_logs(db: Session, step_code: Optional[str] = None) -> List[StepConfigAuditLog]:
+    query = db.query(StepConfigAuditLog)
+    if step_code:
+        query = query.filter(StepConfigAuditLog.step_code == step_code)
+    return query.order_by(StepConfigAuditLog.id.desc()).all()
+
+
+def save_pending_reference(db: Session, rec: PendingReferenceRecord) -> PendingReferenceRecord:
+    db.add(rec)
+    db.commit()
+    db.refresh(rec)
+    return rec
+
+
+def get_pending_references(db: Session, import_file_code: Optional[str] = None, step_code: Optional[str] = None) -> List[PendingReferenceRecord]:
+    query = db.query(PendingReferenceRecord)
+    if import_file_code:
+        query = query.filter(PendingReferenceRecord.import_file_code == import_file_code)
+    if step_code:
+        query = query.filter(PendingReferenceRecord.step_code == step_code)
+    return query.order_by(PendingReferenceRecord.id.desc()).all()
+

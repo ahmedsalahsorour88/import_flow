@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/shipment_updates_provider.dart';
@@ -110,7 +111,7 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
 
     _noteController = TextEditingController();
     _dateController = TextEditingController(text: DateTime.now().toString().split(' ')[0]);
-    _costItemController = TextEditingController(text: 'Freight / Duties');
+    _costItemController = TextEditingController();
     _prevCostController = TextEditingController(text: '0.0');
     _newCostController = TextEditingController(text: '0.0');
   }
@@ -176,191 +177,227 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
     final l = context.l10n;
     final importFilesState = ref.watch(importFilesProvider);
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Container(
-        width: 620,
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  const Icon(Icons.published_with_changes, color: AppTheme.cobalt, size: 28),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      l.shipmentUpdateDialogTitle,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal),
-                      overflow: TextOverflow.ellipsis,
+    return SelectionArea(
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        child: Container(
+          width: 620,
+          padding: const EdgeInsets.all(24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    const Icon(Icons.published_with_changes, color: AppTheme.cobalt, size: 28),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        l.shipmentUpdateDialogTitle,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
-                ],
-              ),
-              const Divider(),
-              const SizedBox(height: 10),
+                    const SizedBox(width: 8),
+                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                  ],
+                ),
+                const Divider(),
+                const SizedBox(height: 10),
 
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 1. Shipment Selector
-                      importFilesState.when(
-                        loading: () => const LinearProgressIndicator(),
-                        error: (_, __) => const SizedBox.shrink(),
-                        data: (files) {
-                          return SearchableDropdownField<int>(
-                            value: _selectedFileId,
-                            labelText: l.shipmentUpdateFieldShipmentLabel,
-                            items: files.map((f) => SearchableDropdownItem<int>(
-                              value: f.importFileId,
-                              label: '${f.primaryNameWithCode} - ${f.supplierName} (${f.currentModule})',
-                            )).toList(),
-                            onChanged: (val) {
-                              setState(() {
-                                _selectedFileId = val;
-                                if (val != null) {
-                                  final sel = files.firstWhere((f) => f.importFileId == val);
-                                  _selectedFileCode = sel.importFileCode;
-                                }
-                              });
-                            },
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 14),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 1. Shipment Selector
+                        importFilesState.when(
+                          loading: () => const LinearProgressIndicator(),
+                          error: (_, __) => const SizedBox.shrink(),
+                          data: (files) {
+                            return SearchableDropdownField<int>(
+                              value: _selectedFileId,
+                              labelText: l.shipmentUpdateFieldShipmentLabel,
+                              items: files.map((f) => SearchableDropdownItem<int>(
+                                value: f.importFileId,
+                                label: '${f.primaryNameWithCode} - ${f.supplierName} (${f.currentModule})',
+                              )).toList(),
+                              onChanged: (val) {
+                                setState(() {
+                                  _selectedFileId = val;
+                                  if (val != null) {
+                                    final sel = files.firstWhere((f) => f.importFileId == val);
+                                    _selectedFileCode = sel.importFileCode;
+                                  }
+                                });
+                              },
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 14),
 
-                      // 2. Update Category & Target Phase Row
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: _updateCategory,
-                              isExpanded: true,
-                              decoration: InputDecoration(labelText: l.shipmentUpdateFieldCategoryLabel, border: const OutlineInputBorder()),
-                              items: [
-                                DropdownMenuItem(value: 'Follow-up & Notes', child: Text(l.shipmentUpdateCatOptFollowUp, overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Phase Cost Adjustment', child: Text(l.shipmentUpdateCatOptCostAdjustment, overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Future Phase Alert', child: Text(l.shipmentUpdateCatOptFutureAlert, overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: 'Daily Check-in', child: Text(l.shipmentUpdateCatOptDailyCheckin, overflow: TextOverflow.ellipsis)),
-                              ],
-                              onChanged: (v) => setState(() => _updateCategory = v!),
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedPhase,
-                              isExpanded: true,
-                              decoration: InputDecoration(labelText: l.shipmentUpdateFieldTargetStageLabel, border: const OutlineInputBorder()),
-                              items: _phaseCodes.map((code) => DropdownMenuItem(value: code, child: Text(_getPhaseName(l, code), overflow: TextOverflow.ellipsis))).toList(),
-                              onChanged: (v) => setState(() => _selectedPhase = v!),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Conditional Type B: Phase Cost Adjustment Fields
-                      if (_updateCategory == 'Phase Cost Adjustment') ...[
+                        // 2. Update Category & Target Phase Row
                         Row(
                           children: [
                             Expanded(
-                              child: TextFormField(
-                                controller: _costItemController,
-                                decoration: InputDecoration(labelText: l.shipmentUpdateFieldCostItemLabel, border: const OutlineInputBorder()),
+                              child: DropdownButtonFormField<String>(
+                                value: _updateCategory,
+                                isExpanded: true,
+                                decoration: InputDecoration(labelText: l.shipmentUpdateFieldCategoryLabel, border: const OutlineInputBorder()),
+                                items: [
+                                  DropdownMenuItem(value: 'Follow-up & Notes', child: Text(l.shipmentUpdateCatOptFollowUp, overflow: TextOverflow.ellipsis)),
+                                  DropdownMenuItem(value: 'Phase Cost Adjustment', child: Text(l.shipmentUpdateCatOptCostAdjustment, overflow: TextOverflow.ellipsis)),
+                                  DropdownMenuItem(value: 'Future Phase Alert', child: Text(l.shipmentUpdateCatOptFutureAlert, overflow: TextOverflow.ellipsis)),
+                                  DropdownMenuItem(value: 'Daily Check-in', child: Text(l.shipmentUpdateCatOptDailyCheckin, overflow: TextOverflow.ellipsis)),
+                                ],
+                                onChanged: (v) => setState(() => _updateCategory = v!),
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 14),
                             Expanded(
-                              child: TextFormField(
-                                controller: _prevCostController,
-                                keyboardType: TextInputType.number,
-                                decoration: InputDecoration(labelText: l.shipmentUpdateFieldPrevCostLabel, border: const OutlineInputBorder()),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _newCostController,
-                                keyboardType: TextInputType.number,
-                                decoration: InputDecoration(labelText: l.shipmentUpdateFieldNewCostLabel, border: const OutlineInputBorder()),
+                              child: DropdownButtonFormField<String>(
+                                value: _selectedPhase,
+                                isExpanded: true,
+                                decoration: InputDecoration(labelText: l.shipmentUpdateFieldTargetStageLabel, border: const OutlineInputBorder()),
+                                items: _phaseCodes.map((code) => DropdownMenuItem(value: code, child: Text(_getPhaseName(l, code), overflow: TextOverflow.ellipsis))).toList(),
+                                onChanged: (v) => setState(() => _selectedPhase = v!),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 14),
-                      ],
 
-                      // Conditional Type C: Future Phase Alert Fields
-                      if (_updateCategory == 'Future Phase Alert') ...[
-                        DropdownButtonFormField<String>(
-                          value: _alertPriority,
-                          isExpanded: true,
-                          decoration: InputDecoration(labelText: l.shipmentUpdateFieldAlertPriorityLabel, border: const OutlineInputBorder()),
-                          items: [
-                            DropdownMenuItem(value: 'Low', child: Text(l.shipmentUpdatePriorityLow)),
-                            DropdownMenuItem(value: 'Normal', child: Text(l.shipmentUpdatePriorityNormal)),
-                            DropdownMenuItem(value: 'High', child: Text(l.shipmentUpdatePriorityHigh)),
-                            DropdownMenuItem(value: 'Critical', child: Text(l.shipmentUpdatePriorityCritical)),
-                          ],
-                          onChanged: (v) => setState(() => _alertPriority = v!),
+                        // Conditional Type B: Phase Cost Adjustment Fields
+                        if (_updateCategory == 'Phase Cost Adjustment') ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _costItemController,
+                                  decoration: InputDecoration(
+                                    labelText: l.shipmentUpdateFieldCostItemLabel,
+                                    border: const OutlineInputBorder(),
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 16),
+                                      tooltip: l.shipmentUpdateCopyFieldTooltip,
+                                      onPressed: () => CopyHelper.copy(context, _costItemController.text, customMessage: l.shipmentUpdateCopyFieldTooltip),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _prevCostController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    labelText: l.shipmentUpdateFieldPrevCostLabel,
+                                    border: const OutlineInputBorder(),
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 16),
+                                      tooltip: l.shipmentUpdateCopyFieldTooltip,
+                                      onPressed: () => CopyHelper.copy(context, _prevCostController.text, customMessage: l.shipmentUpdateCopyFieldTooltip),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _newCostController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    labelText: l.shipmentUpdateFieldNewCostLabel,
+                                    border: const OutlineInputBorder(),
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 16),
+                                      tooltip: l.shipmentUpdateCopyFieldTooltip,
+                                      onPressed: () => CopyHelper.copy(context, _newCostController.text, customMessage: l.shipmentUpdateCopyFieldTooltip),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+
+                        // Conditional Type C: Future Phase Alert Fields
+                        if (_updateCategory == 'Future Phase Alert') ...[
+                          DropdownButtonFormField<String>(
+                            value: _alertPriority,
+                            isExpanded: true,
+                            decoration: InputDecoration(labelText: l.shipmentUpdateFieldAlertPriorityLabel, border: const OutlineInputBorder()),
+                            items: [
+                              DropdownMenuItem(value: 'Low', child: Text(l.shipmentUpdatePriorityLow)),
+                              DropdownMenuItem(value: 'Normal', child: Text(l.shipmentUpdatePriorityNormal)),
+                              DropdownMenuItem(value: 'High', child: Text(l.shipmentUpdatePriorityHigh)),
+                              DropdownMenuItem(value: 'Critical', child: Text(l.shipmentUpdatePriorityCritical)),
+                            ],
+                            onChanged: (v) => setState(() => _alertPriority = v!),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+
+                        // Log Date
+                        TextFormField(
+                          controller: _dateController,
+                          decoration: InputDecoration(
+                            labelText: l.shipmentUpdateFieldDateLabel,
+                            prefixIcon: const Icon(Icons.event),
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.copy_rounded, size: 16),
+                              tooltip: l.shipmentUpdateCopyFieldTooltip,
+                              onPressed: () => CopyHelper.copy(context, _dateController.text, customMessage: l.shipmentUpdateCopyFieldTooltip),
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 14),
+
+                        // Notes Input
+                        TextFormField(
+                          controller: _noteController,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            labelText: l.shipmentUpdateFieldNotesLabel,
+                            hintText: l.shipmentUpdateFieldNotesHint,
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.copy_rounded, size: 16),
+                              tooltip: l.shipmentUpdateCopyFieldTooltip,
+                              onPressed: () => CopyHelper.copy(context, _noteController.text, customMessage: l.shipmentUpdateCopyFieldTooltip),
+                            ),
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty) ? l.shipmentUpdateFieldNotesRequired : null,
+                        ),
                       ],
-
-                      // Log Date
-                      TextFormField(
-                        controller: _dateController,
-                        decoration: InputDecoration(
-                          labelText: l.shipmentUpdateFieldDateLabel,
-                          prefixIcon: const Icon(Icons.event),
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Notes Input
-                      TextFormField(
-                        controller: _noteController,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          labelText: l.shipmentUpdateFieldNotesLabel,
-                          hintText: l.shipmentUpdateFieldNotesHint,
-                          border: const OutlineInputBorder(),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? l.shipmentUpdateFieldNotesRequired : null,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // Actions Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton(onPressed: () => Navigator.pop(context), child: Text(l.shipmentUpdateBtnCancel)),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
-                    onPressed: _isSubmitting ? null : _submit,
-                    icon: _isSubmitting
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.check, color: Colors.white),
-                    label: Text(l.shipmentUpdateBtnSaveUpdate, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-            ],
+                // Actions Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton(onPressed: () => Navigator.pop(context), child: Text(l.shipmentUpdateBtnCancel)),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+                      onPressed: _isSubmitting ? null : _submit,
+                      icon: _isSubmitting
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.check, color: Colors.white),
+                      label: Text(l.shipmentUpdateBtnSaveUpdate, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

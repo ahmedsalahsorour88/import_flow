@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
@@ -150,6 +150,86 @@ void main() {
       expect(en.confirmHoldBtn, isNotEmpty);
       expect(ar.shipmentHeldSuccessSnack, isNotEmpty);
       expect(en.shipmentHeldSuccessSnack, isNotEmpty);
+
+      // New Export & Toolbar Getters
+      expect(ar.lifecycleExportTsvBtn, isNotEmpty);
+      expect(en.lifecycleExportTsvBtn, isNotEmpty);
+      expect(ar.lifecycleExportExcelBtn, isNotEmpty);
+      expect(en.lifecycleExportExcelBtn, isNotEmpty);
+      expect(ar.lifecyclePrintPdfBtn, isNotEmpty);
+      expect(en.lifecyclePrintPdfBtn, isNotEmpty);
+      expect(ar.lifecycleCopyDossierBtn, isNotEmpty);
+      expect(en.lifecycleCopyDossierBtn, isNotEmpty);
+      expect(ar.lifecycleCopyDossierSuccess, isNotEmpty);
+      expect(en.lifecycleCopyDossierSuccess, isNotEmpty);
+      expect(ar.lifecycleDossierHeader, isNotEmpty);
+      expect(en.lifecycleDossierHeader, isNotEmpty);
+      expect(ar.lifecycleExportTsvDialogTitle, isNotEmpty);
+      expect(en.lifecycleExportTsvDialogTitle, isNotEmpty);
+      expect(ar.lifecycleExportExcelDialogTitle, isNotEmpty);
+      expect(en.lifecycleExportExcelDialogTitle, isNotEmpty);
+
+      // New Radar Helpers & Headers
+      expect(ar.radarDossierHeader, isNotEmpty);
+      expect(en.radarDossierHeader, isNotEmpty);
+      expect(ar.radarExportTsvDialogTitle, isNotEmpty);
+      expect(en.radarExportTsvDialogTitle, isNotEmpty);
+      expect(ar.radarExportExcelDialogTitle, isNotEmpty);
+      expect(en.radarExportExcelDialogTitle, isNotEmpty);
+      expect(ar.searchLiveRadarHint, isNotEmpty);
+      expect(en.searchLiveRadarHint, isNotEmpty);
+      expect(ar.colBillOfLadingPrefix, isNotEmpty);
+      expect(en.colBillOfLadingPrefix, isNotEmpty);
+      expect(ar.colEtaPrefix, isNotEmpty);
+      expect(en.colEtaPrefix, isNotEmpty);
+      expect(ar.colCarrierUnderPrep, isNotEmpty);
+      expect(en.colCarrierUnderPrep, isNotEmpty);
+      expect(ar.demurrageFeesFormatted('100', '5000'), contains('100'));
+      expect(en.demurrageFeesFormatted('100', '5000'), contains('100'));
+      expect(ar.freeDaysConsumed(5, 14), contains('5'));
+      expect(en.freeDaysConsumed(5, 14), contains('5'));
+      expect(ar.liveRadarError('Err'), contains('Err'));
+      expect(en.liveRadarError('Err'), contains('Err'));
+
+      // 11 Kanban TSV Headers
+      expect(ar.lifecycleTsvHeaderFileCode, isNotEmpty);
+      expect(en.lifecycleTsvHeaderFileCode, isNotEmpty);
+      expect(ar.lifecycleTsvHeaderPreviousStep, isNotEmpty);
+      expect(en.lifecycleTsvHeaderPreviousStep, isNotEmpty);
+      expect(ar.lifecycleTsvHeaderCurrentStep, isNotEmpty);
+      expect(en.lifecycleTsvHeaderCurrentStep, isNotEmpty);
+      expect(ar.lifecycleTsvHeaderNextStep, isNotEmpty);
+      expect(en.lifecycleTsvHeaderNextStep, isNotEmpty);
+      expect(ar.lifecycleTsvHeaderCompany, isNotEmpty);
+      expect(en.lifecycleTsvHeaderCompany, isNotEmpty);
+      expect(ar.lifecycleTsvHeaderSupplier, isNotEmpty);
+      expect(en.lifecycleTsvHeaderSupplier, isNotEmpty);
+      expect(ar.lifecycleTsvHeaderPoNumber, isNotEmpty);
+      expect(en.lifecycleTsvHeaderPoNumber, isNotEmpty);
+      expect(ar.lifecycleTsvHeaderShipmentMode, isNotEmpty);
+      expect(en.lifecycleTsvHeaderShipmentMode, isNotEmpty);
+      expect(ar.lifecycleTsvHeaderEstimatedCost, isNotEmpty);
+      expect(en.lifecycleTsvHeaderEstimatedCost, isNotEmpty);
+      expect(ar.lifecycleTsvHeaderStatus, isNotEmpty);
+      expect(en.lifecycleTsvHeaderStatus, isNotEmpty);
+      expect(ar.lifecycleTsvHeaderNotes, isNotEmpty);
+      expect(en.lifecycleTsvHeaderNotes, isNotEmpty);
+
+      // 7 Radar TSV Headers
+      expect(ar.radarTsvHeaderFileCode, isNotEmpty);
+      expect(en.radarTsvHeaderFileCode, isNotEmpty);
+      expect(ar.radarTsvHeaderCarrierVessel, isNotEmpty);
+      expect(en.radarTsvHeaderCarrierVessel, isNotEmpty);
+      expect(ar.radarTsvHeaderBlRoute, isNotEmpty);
+      expect(en.radarTsvHeaderBlRoute, isNotEmpty);
+      expect(ar.radarTsvHeaderArrivalStatus, isNotEmpty);
+      expect(en.radarTsvHeaderArrivalStatus, isNotEmpty);
+      expect(ar.radarTsvHeaderDemurrageRisk, isNotEmpty);
+      expect(en.radarTsvHeaderDemurrageRisk, isNotEmpty);
+      expect(ar.radarTsvHeaderTestingStatus, isNotEmpty);
+      expect(en.radarTsvHeaderTestingStatus, isNotEmpty);
+      expect(ar.radarTsvHeaderDocReadiness, isNotEmpty);
+      expect(en.radarTsvHeaderDocReadiness, isNotEmpty);
     });
 
     test('Arabic static strings should not contain English or Latin characters', () {
@@ -215,6 +295,57 @@ void main() {
       expect(latinPattern.hasMatch(ar.holdReasonRequired), isFalse);
       expect(latinPattern.hasMatch(ar.confirmHoldBtn), isFalse);
       expect(latinPattern.hasMatch(ar.shipmentHeldSuccessSnack), isFalse);
+
+      // New Toolbar & Export & TSV getters zero-Latin
+      expect(latinPattern.hasMatch(ar.lifecycleExportTsvBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleExportExcelBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecyclePrintPdfBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleCopyDossierBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleCopyDossierSuccess), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleDossierHeader), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleExportTsvDialogTitle), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleExportExcelDialogTitle), isFalse);
+      expect(latinPattern.hasMatch(ar.radarDossierHeader), isFalse);
+      expect(latinPattern.hasMatch(ar.radarExportTsvDialogTitle), isFalse);
+      expect(latinPattern.hasMatch(ar.radarExportExcelDialogTitle), isFalse);
+      expect(latinPattern.hasMatch(ar.searchLiveRadarHint), isFalse);
+      expect(latinPattern.hasMatch(ar.colBillOfLadingPrefix), isFalse);
+      expect(latinPattern.hasMatch(ar.colEtaPrefix), isFalse);
+      expect(latinPattern.hasMatch(ar.colCarrierUnderPrep), isFalse);
+
+      // 11 Kanban TSV Headers zero-Latin
+      expect(latinPattern.hasMatch(ar.lifecycleTsvHeaderFileCode), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleTsvHeaderPreviousStep), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleTsvHeaderCurrentStep), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleTsvHeaderNextStep), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleTsvHeaderCompany), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleTsvHeaderSupplier), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleTsvHeaderPoNumber), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleTsvHeaderShipmentMode), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleTsvHeaderEstimatedCost), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleTsvHeaderStatus), isFalse);
+      expect(latinPattern.hasMatch(ar.lifecycleTsvHeaderNotes), isFalse);
+
+      // 7 Radar TSV Headers zero-Latin
+      expect(latinPattern.hasMatch(ar.radarTsvHeaderFileCode), isFalse);
+      expect(latinPattern.hasMatch(ar.radarTsvHeaderCarrierVessel), isFalse);
+      expect(latinPattern.hasMatch(ar.radarTsvHeaderBlRoute), isFalse);
+      expect(latinPattern.hasMatch(ar.radarTsvHeaderArrivalStatus), isFalse);
+      expect(latinPattern.hasMatch(ar.radarTsvHeaderDemurrageRisk), isFalse);
+      expect(latinPattern.hasMatch(ar.radarTsvHeaderTestingStatus), isFalse);
+      expect(latinPattern.hasMatch(ar.radarTsvHeaderDocReadiness), isFalse);
+    });
+
+    test('Zero language stacking: no bilingual slashes in pure Arabic strings', () {
+      expect(ar.lifecycleBoardTitle.contains('/'), isFalse);
+      expect(ar.holdDialogTitle.contains('/'), isFalse);
+      expect(ar.riskFilterWarning.contains('/'), isFalse);
+      expect(ar.sampleFilterApproved.contains('/'), isFalse);
+      for (int i = 1; i <= 21; i++) {
+        final code = 'STEP_${i.toString().padLeft(2, '0')}';
+        expect(ar.stepParam1Label(code).contains('/'), isFalse, reason: 'Failed for stepParam1 $code');
+        expect(ar.stepParam2Label(code).contains('/'), isFalse, reason: 'Failed for stepParam2 $code');
+      }
     });
   });
 }

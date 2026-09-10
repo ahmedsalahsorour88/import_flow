@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../providers/customs_tariff_provider.dart';
 
   void showAddAgreementDialog(
@@ -20,56 +21,78 @@ import '../providers/customs_tariff_provider.dart';
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(l10n.addAgreementDialogTitle(hsCode)),
-          content: Form(
-            key: formKey,
-            child: SizedBox(
-              width: 450,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: nameCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.agreementNameLabel,
-                      hintText: l10n.agreementNameHint,
+          content: SelectionArea(
+            child: Form(
+              key: formKey,
+              child: SizedBox(
+                width: 450,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.agreementNameLabel,
+                        hintText: l10n.agreementNameHint,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          tooltip: l10n.copyTooltip,
+                          onPressed: () => CopyHelper.copy(context, nameCtrl.text),
+                        ),
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? l10n.agreementNameRequired
+                          : null,
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? l10n.agreementNameRequired
-                        : null,
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: countriesCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.agreementCountriesLabel,
-                      hintText: l10n.agreementCountriesHint,
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: countriesCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.agreementCountriesLabel,
+                        hintText: l10n.agreementCountriesHint,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          tooltip: l10n.copyTooltip,
+                          onPressed: () => CopyHelper.copy(context, countriesCtrl.text),
+                        ),
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? l10n.agreementCountriesRequired
+                          : null,
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? l10n.agreementCountriesRequired
-                        : null,
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: pctCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: l10n.dutyReductionPctLabel,
-                      hintText: l10n.dutyReductionPctHint,
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: pctCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: l10n.dutyReductionPctLabel,
+                        hintText: l10n.dutyReductionPctHint,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          tooltip: l10n.copyTooltip,
+                          onPressed: () => CopyHelper.copy(context, pctCtrl.text),
+                        ),
+                      ),
+                      validator: (v) => (v == null || double.tryParse(v) == null)
+                          ? l10n.invalidNumberError
+                          : null,
                     ),
-                    validator: (v) => (v == null || double.tryParse(v) == null)
-                        ? l10n.invalidNumberError
-                        : null,
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: notesCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.agreementConditionsLabel,
-                      hintText: l10n.agreementConditionsHint,
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: notesCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.agreementConditionsLabel,
+                        hintText: l10n.agreementConditionsHint,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          tooltip: l10n.copyTooltip,
+                          onPressed: () => CopyHelper.copy(context, notesCtrl.text),
+                        ),
+                      ),
+                      maxLines: 2,
                     ),
-                    maxLines: 2,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

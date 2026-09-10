@@ -95,7 +95,7 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
     final tabsNotifier = ref.read(workspaceTabsProvider.notifier);
 
     return Container(
-      height: 38,
+      height: 42,
       decoration: BoxDecoration(
         color: const Color(0xFFF1F4F8),
         border: Border(

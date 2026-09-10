@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/file_save_helper.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_consultation_model.dart';
 
 class NafezaFeeItem {
@@ -101,6 +103,299 @@ class CustomsExportService {
     return NafezaFeeBreakdownResult(grandTotal: grandTotal, groups: groups);
   }
 
+  /// Exports Customs Calculation Lines to a TSV string with UTF-8 BOM and localized headers
+  static Future<String> exportCustomsLinesTsv({
+    required BuildContext context,
+    required List<CustomsItemCalcRow> calcLines,
+    required String currency,
+    bool copyToClipboard = true,
+  }) async {
+    final l = context.l10n;
+    final buffer = StringBuffer();
+    buffer.write('\uFEFF');
+    final headers = [
+      l.customsTaxTsvHeaderHsCode,
+      l.customsTaxTsvHeaderDescription,
+      l.customsTaxTsvHeaderOrigin,
+      l.customsTaxTsvHeaderQty,
+      l.customsTaxTsvHeaderUnit,
+      l.customsTaxTsvHeaderForeignPrice,
+      l.customsTaxTsvHeaderFobEgp,
+      l.customsTaxTsvHeaderFreightEgp,
+      l.customsTaxTsvHeaderInsuranceEgp,
+      l.customsTaxTsvHeaderCifEgp,
+      l.customsTaxTsvHeaderDutyRate,
+      l.customsTaxTsvHeaderDutyAmount,
+      l.customsTaxTsvHeaderVatRate,
+      l.customsTaxTsvHeaderVatAmount,
+      l.customsTaxTsvHeaderScheduleTax,
+      l.customsTaxTsvHeaderCustomsFees,
+      l.customsTaxTsvHeaderTotalTaxes,
+      l.customsTaxTsvHeaderRegulatoryConditions,
+    ];
+    buffer.writeln(headers.join('\t'));
+
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    for (final line in calcLines) {
+      final conditions = line.regulatoryAuthority != null
+          ? '${line.regulatoryAuthority} - ${line.priorApprovalNote ?? ""}'
+          : (isArabic ? 'مستوفى' : 'Compliant');
+      final row = [
+        line.hsCode,
+        line.description,
+        line.countryOfOrigin ?? '-',
+        line.qty.toStringAsFixed(0),
+        line.unit,
+        line.foreignPrice.toStringAsFixed(2),
+        line.fobEgp.toStringAsFixed(2),
+        line.freightEgp.toStringAsFixed(2),
+        line.insuranceEgp.toStringAsFixed(2),
+        line.cifEgp.toStringAsFixed(2),
+        '${line.dutyRate}%',
+        line.dutyAmountEgp.toStringAsFixed(2),
+        '${line.vatRate}%',
+        line.vatAmountEgp.toStringAsFixed(2),
+        line.scheduleTaxAmountEgp.toStringAsFixed(2),
+        (line.customsServiceFeeAmountEgp + line.developmentFeeAmountEgp).toStringAsFixed(2),
+        line.totalTaxesAndDutiesEgp.toStringAsFixed(2),
+        conditions,
+      ];
+      buffer.writeln(row.join('\t'));
+    }
+
+    final result = buffer.toString();
+    if (copyToClipboard && context.mounted) {
+      await CopyHelper.copy(context, result, customMessage: l.customsTaxCopiedTsvSuccess);
+    }
+    return result;
+  }
+
+  /// Builds a comprehensive structured plain-text dossier for the customs assessment and Nafeza breakdown
+  static String buildCustomsDutyDossier({
+    required BuildContext context,
+    required String title,
+    required String? importFileCode,
+    required String brokerName,
+    required String currency,
+    required double exchangeRate,
+    required double totalFreightEgp,
+    required double totalInsuranceEgp,
+    required List<CustomsItemCalcRow> calcLines,
+    required NafezaFeeBreakdownResult nafezaResult,
+  }) {
+    final l = context.l10n;
+    final buffer = StringBuffer();
+    final now = DateTime.now().toLocal().toString().split('.').first;
+    final totalFobEgp = calcLines.fold(0.0, (s, l) => s + l.fobEgp);
+    final totalCifEgp = calcLines.fold(0.0, (s, l) => s + l.cifEgp);
+    final totalDutyEgp = calcLines.fold(0.0, (s, l) => s + l.dutyAmountEgp);
+    final totalVatEgp = calcLines.fold(0.0, (s, l) => s + l.vatAmountEgp);
+    final totalTaxesAndDuties = calcLines.fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final egpLabel = isArabic ? 'ج.م' : 'EGP';
+
+    buffer.writeln('====================================================');
+    buffer.writeln('📋 ${l.customsTaxDossierTitle}');
+    buffer.writeln('====================================================');
+    buffer.writeln('${l.titleField}: $title');
+    buffer.writeln('${isArabic ? "ملف الشحنة" : "Import File"}: ${importFileCode ?? "-"}');
+    buffer.writeln('${l.customsBrokerLabel}: $brokerName');
+    buffer.writeln('${l.exchangeRateLabel}: $exchangeRate $egpLabel ($currency)');
+    buffer.writeln('${isArabic ? "التاريخ" : "Date"}: $now');
+    buffer.writeln('----------------------------------------------------');
+    buffer.writeln('💰 ${l.sectionFinancialEstimates}:');
+    buffer.writeln('  • ${l.fobEgpCol}: ${totalFobEgp.toStringAsFixed(2)} $egpLabel');
+    buffer.writeln('  • ${l.freightDataHeader}: ${totalFreightEgp.toStringAsFixed(2)} $egpLabel');
+    buffer.writeln('  • ${l.insuranceEgpLabel}: ${totalInsuranceEgp.toStringAsFixed(2)} $egpLabel');
+    buffer.writeln('  • ${l.cifEgpCol}: ${totalCifEgp.toStringAsFixed(2)} $egpLabel');
+    buffer.writeln('  • ${l.customsDutyCol}: ${totalDutyEgp.toStringAsFixed(2)} $egpLabel');
+    buffer.writeln('  • ${l.vatCol}: ${totalVatEgp.toStringAsFixed(2)} $egpLabel');
+    buffer.writeln('  • ${l.totalTaxesAndDutiesCol}: ${totalTaxesAndDuties.toStringAsFixed(2)} $egpLabel');
+    buffer.writeln('  • ${l.nafezaDeclarationBreakdown}: ${nafezaResult.grandTotal.toStringAsFixed(2)} $egpLabel');
+    buffer.writeln('----------------------------------------------------');
+    buffer.writeln('📦 ${l.customsTaxTsvHeaderHsCode} (${calcLines.length}):');
+    for (var i = 0; i < calcLines.length; i++) {
+      final line = calcLines[i];
+      buffer.writeln('  [${i + 1}] ${line.hsCode} | ${line.description}');
+      buffer.writeln('      ${l.quantityAndUnitCol}: ${line.qty.toStringAsFixed(0)} ${line.unit} | CIF: ${line.cifEgp.toStringAsFixed(2)} $egpLabel');
+      buffer.writeln('      ${l.customsDutyCol}: ${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)} $egpLabel) | VAT: ${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)} $egpLabel)');
+      buffer.writeln('      ${l.totalTaxesAndDutiesCol}: ${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel');
+      if (line.regulatoryAuthority != null || line.priorApprovalNote != null) {
+        buffer.writeln('      ${l.customsTaxTsvHeaderRegulatoryConditions}: ${line.regulatoryAuthority ?? ""} - ${line.priorApprovalNote ?? ""}');
+      }
+    }
+    buffer.writeln('----------------------------------------------------');
+    buffer.writeln('🏛️ ${l.nafezaDeclarationBreakdown}:');
+    for (final g in nafezaResult.groups) {
+      buffer.writeln('  • ${l.nafezaCollectionPrefix} ${g.groupName}: ${g.totalAmount.toStringAsFixed(2)} $egpLabel');
+      for (final itm in g.items) {
+        buffer.writeln('      [${itm.code}] ${itm.nameAr}: ${itm.calculatedAmount.toStringAsFixed(2)} $egpLabel (${itm.calculationType})');
+      }
+    }
+    buffer.writeln('====================================================');
+    return buffer.toString();
+  }
+
+  /// Copies the customs assessment dossier to clipboard
+  static Future<void> copyCustomsDutyDossier({
+    required BuildContext context,
+    required String title,
+    required String? importFileCode,
+    required String brokerName,
+    required String currency,
+    required double exchangeRate,
+    required double totalFreightEgp,
+    required double totalInsuranceEgp,
+    required List<CustomsItemCalcRow> calcLines,
+    required NafezaFeeBreakdownResult nafezaResult,
+  }) async {
+    final dossier = buildCustomsDutyDossier(
+      context: context,
+      title: title,
+      importFileCode: importFileCode,
+      brokerName: brokerName,
+      currency: currency,
+      exchangeRate: exchangeRate,
+      totalFreightEgp: totalFreightEgp,
+      totalInsuranceEgp: totalInsuranceEgp,
+      calcLines: calcLines,
+      nafezaResult: nafezaResult,
+    );
+    final l = context.l10n;
+    await CopyHelper.copy(context, dossier, customMessage: l.customsTaxCopiedDossierSuccess);
+  }
+
+  /// Exports Customs Tax Review Sessions to a TSV string with UTF-8 BOM
+  static Future<String> exportConsultationsLogTsv({
+    required BuildContext context,
+    required List<CustomsConsultationModel> sessions,
+    bool copyToClipboard = true,
+  }) async {
+    final l = context.l10n;
+    final buffer = StringBuffer();
+    buffer.write('\uFEFF');
+    final headers = [
+      l.customsTaxLogTsvHeaderCode,
+      l.customsTaxLogTsvHeaderFile,
+      l.customsTaxLogTsvHeaderTitle,
+      l.customsTaxLogTsvHeaderBroker,
+      l.customsTaxLogTsvHeaderEstimatedDuties,
+      l.customsTaxLogTsvHeaderReadiness,
+      l.customsTaxLogTsvHeaderStatus,
+      l.customsTaxLogTsvHeaderCreatedDate,
+    ];
+    buffer.writeln(headers.join('\t'));
+
+    for (final s in sessions) {
+      final fileCodeStr = s.importFileCode ?? (s.importFileId != null ? 'IMP-${s.importFileId}' : '-');
+      final dateStr = s.createdAt.split('T').first.split(' ').first;
+      final row = [
+        s.consultationCode,
+        fileCodeStr,
+        s.title,
+        s.brokerName,
+        s.estimatedDutiesEgp.toStringAsFixed(2),
+        '${s.readinessPercentage.toStringAsFixed(0)}%',
+        s.overallStatus,
+        dateStr,
+      ];
+      buffer.writeln(row.join('\t'));
+    }
+
+    final result = buffer.toString();
+    if (copyToClipboard && context.mounted) {
+      await CopyHelper.copy(context, result, customMessage: l.customsTaxCopiedTsvSuccess);
+    }
+    return result;
+  }
+
+  /// Exports Customs Tax Review Sessions to Excel/CSV file with UTF-8 BOM
+  static Future<String?> exportConsultationsLogExcel({
+    required BuildContext context,
+    required List<CustomsConsultationModel> sessions,
+  }) async {
+    final l = context.l10n;
+    final buffer = StringBuffer();
+    buffer.write('\uFEFF');
+    buffer.writeln('"${l.taxReviewLogTab}"');
+    buffer.writeln('"${l.date}: ${DateTime.now().toLocal().toString().split('.').first}"');
+    buffer.writeln('');
+
+    final headers = [
+      l.customsTaxLogTsvHeaderCode,
+      l.customsTaxLogTsvHeaderFile,
+      l.customsTaxLogTsvHeaderTitle,
+      l.customsTaxLogTsvHeaderBroker,
+      l.customsTaxLogTsvHeaderEstimatedDuties,
+      l.customsTaxLogTsvHeaderReadiness,
+      l.customsTaxLogTsvHeaderStatus,
+      l.customsTaxLogTsvHeaderCreatedDate,
+    ];
+    buffer.writeln(headers.map((h) => '"$h"').join(','));
+
+    for (final s in sessions) {
+      final fileCodeStr = s.importFileCode ?? (s.importFileId != null ? 'IMP-${s.importFileId}' : '-');
+      final dateStr = s.createdAt.split('T').first.split(' ').first;
+      final row = [
+        s.consultationCode,
+        fileCodeStr,
+        s.title.replaceAll('"', '""'),
+        s.brokerName.replaceAll('"', '""'),
+        s.estimatedDutiesEgp.toStringAsFixed(2),
+        '${s.readinessPercentage.toStringAsFixed(0)}%',
+        s.overallStatus,
+        dateStr,
+      ];
+      buffer.writeln(row.map((r) => '"$r"').join(','));
+    }
+
+    final defaultFileName = 'Customs_Tax_Review_Log_${DateTime.now().millisecondsSinceEpoch}.csv';
+    return FileSaveHelper.saveText(
+      context: context,
+      textContent: buffer.toString(),
+      defaultFileName: defaultFileName,
+      dialogTitle: l.customsTaxExportExcelDialogTitle,
+      allowedExtensions: ['csv', 'xlsx'],
+    );
+  }
+
+  /// Builds a text dossier summary of the visible consultations log
+  static String buildConsultationsLogDossier({
+    required BuildContext context,
+    required List<CustomsConsultationModel> sessions,
+  }) {
+    final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final egpLabel = isArabic ? 'ج.م' : 'EGP';
+    final buffer = StringBuffer();
+    final now = DateTime.now().toLocal().toString().split('.').first;
+    buffer.writeln('====================================================');
+    buffer.writeln('📊 ${l.taxReviewLogTab} — ${l.customsTaxDossierTitle}');
+    buffer.writeln('====================================================');
+    buffer.writeln('${l.date}: $now');
+    buffer.writeln('${l.totalStudiesMetric}: ${sessions.length}');
+    buffer.writeln('----------------------------------------------------');
+    for (var i = 0; i < sessions.length; i++) {
+      final s = sessions[i];
+      final fileCodeStr = s.importFileCode ?? (s.importFileId != null ? 'IMP-${s.importFileId}' : '-');
+      buffer.writeln('[${i + 1}] ${s.consultationCode} | $fileCodeStr | ${s.title}');
+      buffer.writeln('    ${l.customsBrokerLabel}: ${s.brokerName} | ${l.statusCol}: ${s.overallStatus}');
+      buffer.writeln('    ${l.customsDutyCol}: ${s.estimatedDutiesEgp.toStringAsFixed(2)} $egpLabel | ${l.customsInspectionReadiness}: ${s.readinessPercentage.toStringAsFixed(0)}%');
+    }
+    buffer.writeln('====================================================');
+    return buffer.toString();
+  }
+
+  /// Copies the consultations log dossier summary to clipboard
+  static Future<void> copyConsultationsLogDossier({
+    required BuildContext context,
+    required List<CustomsConsultationModel> sessions,
+  }) async {
+    final dossier = buildConsultationsLogDossier(context: context, sessions: sessions);
+    final l = context.l10n;
+    await CopyHelper.copy(context, dossier, customMessage: l.customsTaxCopiedDossierSuccess);
+  }
+
   /// Exports the complete customs calculation & Nafeza statement to an Excel-compatible CSV file (UTF-8 BOM)
   static Future<String?> exportCustomsStudyToExcel({
     required BuildContext context,
@@ -111,31 +406,59 @@ class CustomsExportService {
     required double exchangeRate,
     required double totalFreightEgp,
     required double totalInsuranceEgp,
-    required List<dynamic> calcLines,
+    required List<CustomsItemCalcRow> calcLines,
     required NafezaFeeBreakdownResult nafezaResult,
     required List<CustomsBrokerQuoteItemModel> brokerQuoteItems,
   }) async {
+    final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final egpLabel = isArabic ? 'ج.م' : 'EGP';
     final buffer = StringBuffer();
     // Write UTF-8 BOM for instant Arabic Excel compatibility
     buffer.write('\uFEFF');
 
     // 1. Header Information
-    buffer.writeln('Sorour Logistics ERP — تقرير دراسة الاستشارة الجمركية وبيان نافذة الرسمي');
-    buffer.writeln('عنوان الدراسة:,"$title"');
-    buffer.writeln('ملف الشحنة:,"${importFileCode ?? 'غير محدد'}"');
-    buffer.writeln('المستخلص الجمركي:,"$brokerName"');
-    buffer.writeln('تاريخ الاستخراج:,"${DateTime.now().toLocal().toString().split('.').first}"');
-    buffer.writeln('عملة الفاتورة:,"$currency",سعر الصرف الجمركي:,"$exchangeRate EGP"');
-    buffer.writeln('إجمالي النولون:,"$totalFreightEgp EGP",إجمالي التأمين:,"$totalInsuranceEgp EGP"');
+    buffer.writeln(isArabic
+        ? 'Sorour Logistics ERP — تقرير دراسة الاستشارة الجمركية وبيان نافذة الرسمي'
+        : 'Sorour Logistics ERP — Customs Assessment & Official Nafeza Statement');
+    buffer.writeln('${l.titleField}:,"$title"');
+    buffer.writeln('${isArabic ? "ملف الشحنة" : "Import File"}:,"${importFileCode ?? (isArabic ? "غير محدد" : "Unassigned")}"');
+    buffer.writeln('${l.customsBrokerLabel}:,"$brokerName"');
+    buffer.writeln('${isArabic ? "التاريخ" : "Date"}:,"${DateTime.now().toLocal().toString().split('.').first}"');
+    buffer.writeln('${isArabic ? "العملة" : "Currency"}:,"$currency",${l.exchangeRateLabel}:,"$exchangeRate $egpLabel"');
+    buffer.writeln('${l.freightDataHeader}:,"$totalFreightEgp $egpLabel",${l.insuranceEgpLabel}:,"$totalInsuranceEgp $egpLabel"');
     buffer.writeln('');
 
     // 2. HS Code Itemized Customs Breakdown Table
-    buffer.writeln('=== جدول تفاصيل بنود التعريفة والضرائب الجمركية للشحنة ===');
-    buffer.writeln('بند التعريفة (HS Code),بيان الصنف والمواصفات,الكمية,الوحدة,القيمة ($currency),FOB (EGP),النولون (EGP),التأمين (EGP),CIF الجمركي (EGP),ضريبة الوارد %,مبلغ الوارد (EGP),ض.قيمة مضافة %,مبلغ VAT (EGP),ض.جدول %,خدمات/تنمية %,إجمالي الضرائب والرسوم (EGP),الاشتراطات والعروض');
+    buffer.writeln(isArabic
+        ? '=== جدول تفاصيل بنود التعريفة والضرائب الجمركية للشحنة ==='
+        : '=== HS Code Customs Tariff & Tax Breakdown ===');
+    final tableHeaders = [
+      l.customsTaxTsvHeaderHsCode,
+      l.customsTaxTsvHeaderDescription,
+      l.customsTaxTsvHeaderOrigin,
+      l.customsTaxTsvHeaderQty,
+      l.customsTaxTsvHeaderUnit,
+      '${l.customsTaxTsvHeaderForeignPrice} ($currency)',
+      l.customsTaxTsvHeaderFobEgp,
+      l.customsTaxTsvHeaderFreightEgp,
+      l.customsTaxTsvHeaderInsuranceEgp,
+      l.customsTaxTsvHeaderCifEgp,
+      l.customsTaxTsvHeaderDutyRate,
+      l.customsTaxTsvHeaderDutyAmount,
+      l.customsTaxTsvHeaderVatRate,
+      l.customsTaxTsvHeaderVatAmount,
+      l.customsTaxTsvHeaderScheduleTax,
+      l.customsTaxTsvHeaderCustomsFees,
+      l.customsTaxTsvHeaderTotalTaxes,
+      l.customsTaxTsvHeaderRegulatoryConditions,
+    ];
+    buffer.writeln(tableHeaders.map((h) => '"$h"').join(','));
 
     for (final line in calcLines) {
       final hs = line.hsCode;
       final desc = line.description.replaceAll('"', '""');
+      final orig = line.countryOfOrigin ?? '-';
       final qty = line.qty;
       final unit = line.unit;
       final fPrice = line.foreignPrice.toStringAsFixed(2);
@@ -147,52 +470,62 @@ class CustomsExportService {
       final dAmt = line.dutyAmountEgp.toStringAsFixed(2);
       final vRate = line.vatRate.toStringAsFixed(1);
       final vAmt = line.vatAmountEgp.toStringAsFixed(2);
-      final sRate = line.scheduleTaxRate.toStringAsFixed(1);
-      final svc = (line.customsServiceFeeAmountEgp + line.developmentFeeAmountEgp).toStringAsFixed(2);
+      final sAmt = line.scheduleTaxAmountEgp.toStringAsFixed(2);
+      final svcAmt = (line.customsServiceFeeAmountEgp + line.developmentFeeAmountEgp).toStringAsFixed(2);
       final lineTot = line.totalTaxesAndDutiesEgp.toStringAsFixed(2);
-      final reqs = line.regulatoryAuthority != null ? '${line.regulatoryAuthority} - ${line.priorApprovalNote ?? ''}' : 'مطابق';
+      final reqs = line.regulatoryAuthority != null
+          ? '${line.regulatoryAuthority} - ${line.priorApprovalNote ?? ""}'.replaceAll('"', '""')
+          : (isArabic ? 'مستوفى' : 'Compliant');
 
-      buffer.writeln('"$hs","$desc",$qty,"$unit",$fPrice,$fob,$frt,$ins,$cif,$dRate%,$dAmt,$vRate%,$vAmt,$sRate%,$svc,$lineTot,"$reqs"');
+      buffer.writeln('"$hs","$desc","$orig",$qty,"$unit",$fPrice,$fob,$frt,$ins,$cif,"$dRate%",$dAmt,"$vRate%",$vAmt,$sAmt,$svcAmt,$lineTot,"$reqs"');
     }
     buffer.writeln('');
 
-    // 3. Nafeza Statement Fee Breakdown (تفاصيل بنود التحصيل والإقرارات الرسمية)
-    buffer.writeln('=== تفاصيل بنود التحصيل والإقرارات الرسمية (Nafeza Statement Fee Breakdown) ===');
-    buffer.writeln('مجموعة التحصيل,كود البند,اسم البند / نوع الرسم,نوع الحساب,المبلغ المحسوب (ج.م)');
+    // 3. Nafeza Statement Fee Breakdown
+    buffer.writeln(isArabic
+        ? '=== تفاصيل بنود التحصيل والإقرارات الرسمية نافذة ==='
+        : '=== Official Nafeza Statement Fee Breakdown ===');
+    buffer.writeln('"${isArabic ? "مجموعة التحصيل" : "Collection Group"}","${isArabic ? "كود البند" : "Item Code"}","${isArabic ? "اسم البند" : "Item Name"}","${isArabic ? "نوع الحساب" : "Calc Type"}","${isArabic ? "المبلغ (ج.م)" : "Amount (EGP)"}"');
 
     for (final group in nafezaResult.groups) {
       for (final item in group.items) {
-        final calcTypeLabel = item.calculationType == 'flat' ? 'قطعي' : (item.calculationType == 'reference' ? 'مرجعي' : 'مشتق');
-        buffer.writeln('"تحصيل ${group.groupName}","[${item.code}]","${item.nameAr}","$calcTypeLabel",${item.calculatedAmount.toStringAsFixed(2)}');
+        final calcTypeLabel = item.calculationType == 'flat'
+            ? l.nafezaCalculationFlat
+            : (item.calculationType == 'reference' ? l.nafezaCalculationReference : l.nafezaCalculationDerived);
+        buffer.writeln('"${l.nafezaCollectionPrefix} ${group.groupName}","[${item.code}]","${item.nameAr}","$calcTypeLabel",${item.calculatedAmount.toStringAsFixed(2)}');
       }
-      buffer.writeln('"إجمالي تحصيل ${group.groupName}","","","",${group.totalAmount.toStringAsFixed(2)}');
+      buffer.writeln('"${isArabic ? "إجمالي تحصيل" : "Total"} ${group.groupName}","","","",${group.totalAmount.toStringAsFixed(2)}');
     }
-    buffer.writeln('"إجمالي بيان نافذة الرسمي (Grand Total)","","","",${nafezaResult.grandTotal.toStringAsFixed(2)}');
+    buffer.writeln('"${isArabic ? "إجمالي بيان نافذة الرسمي" : "Grand Total Nafeza Statement"}","","","",${nafezaResult.grandTotal.toStringAsFixed(2)}');
     buffer.writeln('');
 
     // 4. Broker Clearance & Logistics Quotes (عرض أسعار المخلص)
     if (brokerQuoteItems.isNotEmpty) {
-      buffer.writeln('=== تفاصيل عرض أسعار التخليص الجمركي والنقل للمستخلص ($brokerName) ===');
-      buffer.writeln('اسم المصروف / الخدمة,التصنيف,الوحدة,سعر الوحدة,العملة,الكمية,الحالة,الإجمالي (EGP)');
+      buffer.writeln('=== ${isArabic ? "تفاصيل عرض أسعار التخليص الجمركي والنقل" : "Clearance & Logistics Quotation"} ($brokerName) ===');
+      buffer.writeln('"${isArabic ? "اسم المصروف" : "Expense Name"}","${isArabic ? "التصنيف" : "Category"}","${isArabic ? "الوحدة" : "Unit"}",${isArabic ? "سعر الوحدة" : "Unit Price"},"${isArabic ? "العملة" : "Currency"}",${isArabic ? "الكمية" : "Quantity"},"${isArabic ? "الحالة" : "Status"}",${isArabic ? "الإجمالي ($egpLabel)" : "Total ($egpLabel)"}');
       double brokerTotal = 0.0;
       for (final q in brokerQuoteItems) {
         final total = q.isApplicable ? q.totalAmount : 0.0;
         if (q.isApplicable) brokerTotal += total;
-        buffer.writeln('"${q.expenseName}","${q.category}","${q.unitType}",${q.unitPrice},"${q.currency}",${q.qty},"${q.isApplicable ? 'مطبق' : 'غير مطبق'}",${total.toStringAsFixed(2)}');
+        final statusLabel = q.isApplicable ? (isArabic ? 'مطبق' : 'Applied') : (isArabic ? 'غير مطبق' : 'Not Applied');
+        buffer.writeln('"${q.expenseName}","${q.category}","${q.unitType}",${q.unitPrice},"${q.currency}",${q.qty},"$statusLabel",${total.toStringAsFixed(2)}');
       }
-      buffer.writeln('"إجمالي عرض أسعار المخلص المطبق","","","","","",,"${brokerTotal.toStringAsFixed(2)}"');
+      buffer.writeln('"${isArabic ? "إجمالي عرض أسعار المخلص المطبق" : "Total Applied Broker Fees"}","","","","","",,"${brokerTotal.toStringAsFixed(2)}"');
       buffer.writeln('');
     }
 
     // Save dialog via FileSaveHelper
-    final cleanCode = (importFileCode != null && importFileCode.trim().isNotEmpty) ? importFileCode.replaceAll(RegExp(r'[^0-9A-Za-z_-]'), '_') : '${DateTime.now().millisecondsSinceEpoch}';
-    final defaultFileName = 'Phase1_Customs_Consultation_Study_${cleanCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final cleanCode = (importFileCode != null && importFileCode.trim().isNotEmpty)
+        ? importFileCode.replaceAll(RegExp(r'[^0-9A-Za-z_-]'), '_')
+        : '${DateTime.now().millisecondsSinceEpoch}';
+    final defaultFileName = 'Customs_Tax_Review_${cleanCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
       defaultFileName: defaultFileName,
-      dialogTitle: 'حفظ دراسة الجمارك وبيان نافذة بصيغة Excel / CSV',
+      dialogTitle: l.customsTaxExportExcelDialogTitle,
       allowedExtensions: ['csv', 'xlsx'],
     );
   }
 }
+

@@ -222,6 +222,40 @@ void main() {
       expect(en.initialCostAtBooking('1000', '50.0').contains('1000'), isTrue);
       expect(ar.actualCostAtSettlement('980', '49.0').contains('980'), isTrue);
       expect(en.actualCostAtSettlement('980', '49.0').contains('980'), isTrue);
+
+      // Currencies TSV & exports
+      expect(ar.currenciesExportTsvBtn.isNotEmpty, isTrue);
+      expect(en.currenciesExportTsvBtn.isNotEmpty, isTrue);
+      expect(ar.currenciesExportTsvSuccess.isNotEmpty, isTrue);
+      expect(en.currenciesExportTsvSuccess.isNotEmpty, isTrue);
+      expect(ar.currencyCopySummaryBtn.isNotEmpty, isTrue);
+      expect(en.currencyCopySummaryBtn.isNotEmpty, isTrue);
+      expect(ar.currencyCopySummarySuccess.isNotEmpty, isTrue);
+      expect(en.currencyCopySummarySuccess.isNotEmpty, isTrue);
+      expect(ar.currencyCodeBadgeLabel.isNotEmpty, isTrue);
+      expect(en.currencyCodeBadgeLabel.isNotEmpty, isTrue);
+      expect(ar.currencyCopyFieldTooltip.isNotEmpty, isTrue);
+      expect(en.currencyCopyFieldTooltip.isNotEmpty, isTrue);
+      expect(ar.exportCurrencyPdfBtn.isNotEmpty, isTrue);
+      expect(en.exportCurrencyPdfBtn.isNotEmpty, isTrue);
+      expect(ar.exportCurrencyExcelBtn.isNotEmpty, isTrue);
+      expect(en.exportCurrencyExcelBtn.isNotEmpty, isTrue);
+      expect(ar.currenciesTsvHeaderIsoCode.isNotEmpty, isTrue);
+      expect(en.currenciesTsvHeaderIsoCode.isNotEmpty, isTrue);
+      expect(ar.currenciesTsvHeaderName.isNotEmpty, isTrue);
+      expect(en.currenciesTsvHeaderName.isNotEmpty, isTrue);
+      expect(ar.currenciesTsvHeaderSymbol.isNotEmpty, isTrue);
+      expect(en.currenciesTsvHeaderSymbol.isNotEmpty, isTrue);
+      expect(ar.currenciesTsvHeaderIsBase.isNotEmpty, isTrue);
+      expect(en.currenciesTsvHeaderIsBase.isNotEmpty, isTrue);
+      expect(ar.currenciesTsvHeaderCommercialRate.isNotEmpty, isTrue);
+      expect(en.currenciesTsvHeaderCommercialRate.isNotEmpty, isTrue);
+      expect(ar.currenciesTsvHeaderCustomsRate.isNotEmpty, isTrue);
+      expect(en.currenciesTsvHeaderCustomsRate.isNotEmpty, isTrue);
+      expect(ar.currenciesTsvHeaderStatus.isNotEmpty, isTrue);
+      expect(en.currenciesTsvHeaderStatus.isNotEmpty, isTrue);
+      expect(ar.currenciesTsvHeaderDecimals.isNotEmpty, isTrue);
+      expect(en.currenciesTsvHeaderDecimals.isNotEmpty, isTrue);
     });
 
     test('Arabic static translations contain ZERO Latin characters (Pure Arabic)', () {
@@ -302,6 +336,22 @@ void main() {
       expect(latinPattern.hasMatch(ar.initialRateLabel), isFalse);
       expect(latinPattern.hasMatch(ar.settlementRateLabel), isFalse);
       expect(latinPattern.hasMatch(ar.calculateGainLossBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.currenciesExportTsvBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.currenciesExportTsvSuccess), isFalse);
+      expect(latinPattern.hasMatch(ar.currencyCopySummaryBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.currencyCopySummarySuccess), isFalse);
+      expect(latinPattern.hasMatch(ar.currencyCodeBadgeLabel), isFalse);
+      expect(latinPattern.hasMatch(ar.currencyCopyFieldTooltip), isFalse);
+      expect(latinPattern.hasMatch(ar.exportCurrencyPdfBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.exportCurrencyExcelBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.currenciesTsvHeaderIsoCode), isFalse);
+      expect(latinPattern.hasMatch(ar.currenciesTsvHeaderName), isFalse);
+      expect(latinPattern.hasMatch(ar.currenciesTsvHeaderSymbol), isFalse);
+      expect(latinPattern.hasMatch(ar.currenciesTsvHeaderIsBase), isFalse);
+      expect(latinPattern.hasMatch(ar.currenciesTsvHeaderCommercialRate), isFalse);
+      expect(latinPattern.hasMatch(ar.currenciesTsvHeaderCustomsRate), isFalse);
+      expect(latinPattern.hasMatch(ar.currenciesTsvHeaderStatus), isFalse);
+      expect(latinPattern.hasMatch(ar.currenciesTsvHeaderDecimals), isFalse);
     });
   });
 }

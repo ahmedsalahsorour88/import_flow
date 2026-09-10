@@ -907,17 +907,22 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Icon(_getTargetIcon(_selectedTarget), color: AppTheme.cobalt, size: 20),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        isArabic
-                                            ? 'بيانات تكويد ${_targetName(context, _selectedTarget)}'
-                                            : '${_targetName(context, _selectedTarget)} Registration Profile',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
-                                      ),
-                                    ],
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Icon(_getTargetIcon(_selectedTarget), color: AppTheme.cobalt, size: 20),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            isArabic
+                                                ? 'بيانات تكويد ${_targetName(context, _selectedTarget)}'
+                                                : '${_targetName(context, _selectedTarget)} Registration Profile',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                   Row(
                                     children: [
@@ -1092,9 +1097,12 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                 children: [
                   Icon(Icons.content_paste_rounded, size: 16, color: _inputModeTab == 0 ? Colors.white : AppTheme.charcoal),
                   const SizedBox(width: 6),
-                  Text(
-                    isArabic ? 'لصق نص حر' : 'Paste Free Text',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: _inputModeTab == 0 ? Colors.white : AppTheme.charcoal),
+                  Flexible(
+                    child: Text(
+                      isArabic ? 'لصق نص حر' : 'Paste Free Text',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: _inputModeTab == 0 ? Colors.white : AppTheme.charcoal),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -1118,9 +1126,12 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                 children: [
                   Icon(Icons.attach_file_rounded, size: 16, color: _inputModeTab == 1 ? Colors.white : AppTheme.charcoal),
                   const SizedBox(width: 6),
-                  Text(
-                    isArabic ? 'مستند أو صورة أو ملف' : 'Document or Image File',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: _inputModeTab == 1 ? Colors.white : AppTheme.charcoal),
+                  Flexible(
+                    child: Text(
+                      isArabic ? 'مستند أو صورة أو ملف' : 'Document or Image File',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: _inputModeTab == 1 ? Colors.white : AppTheme.charcoal),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -1177,7 +1188,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             ),
             const SizedBox(height: 6),
             Text(
-              isArabic ? 'يدعم ملفات: PDF, PNG, JPG, Excel, Word' : 'Supported formats: PDF, Images (PNG/JPG), Excel, Word',
+              isArabic ? 'يدعم ملفات: المستندات والصور والجداول الإلكترونية' : 'Supported formats: PDF, Images (PNG/JPG), Excel, Word',
               style: const TextStyle(color: Colors.grey, fontSize: 11),
             ),
           ],
@@ -1275,6 +1286,42 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
       'Commercial Register',
     ];
 
+    String getSupplierTypeLabel(String val) {
+      if (!isArabic) return val;
+      switch (val) {
+        case 'Manufacturer':
+          return 'مصنع';
+        case 'Foreign Supplier / Trader':
+          return 'مورد أجنبي أو تاجر';
+        case 'Authorized Agent / Distributor':
+          return 'وكيل معتمد أو موزع';
+        case 'Exporter':
+          return 'مصدر';
+        default:
+          return val;
+      }
+    }
+
+    String getRegTypeLabel(String val) {
+      if (!isArabic) return val;
+      switch (val) {
+        case 'Factory Registration':
+          return 'سجل مصنع';
+        case 'Foreign Exporter Number (Nafeza)':
+          return 'رقم المصدر الأجنبي بمنظومة نافذة';
+        case 'Company Registration Number':
+          return 'رقم تسجيل الشركة';
+        case 'VAT Number':
+          return 'رقم ضريبة القيمة المضافة';
+        case 'Tax Number':
+          return 'الرقم الضريبي';
+        case 'Commercial Register':
+          return 'السجل التجاري';
+        default:
+          return val;
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1296,7 +1343,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                 value: supplierTypeOptions.contains(_supplierType) ? _supplierType : supplierTypeOptions.first,
                 labelText: isArabic ? 'نوع المورد *' : 'Supplier Type *',
                 items: supplierTypeOptions
-                    .map((type) => SearchableDropdownItem<String>(value: type, label: type))
+                    .map((type) => SearchableDropdownItem<String>(value: type, label: getSupplierTypeLabel(type)))
                     .toList(),
                 onChanged: (v) {
                   if (v != null) setState(() => _supplierType = v);
@@ -1309,7 +1356,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                 value: regTypeOptions.contains(_supplierRegType) ? _supplierRegType : regTypeOptions.first,
                 labelText: isArabic ? 'نوع السجل الأجنبي *' : 'Registration Type *',
                 items: regTypeOptions
-                    .map((type) => SearchableDropdownItem<String>(value: type, label: type))
+                    .map((type) => SearchableDropdownItem<String>(value: type, label: getRegTypeLabel(type)))
                     .toList(),
                 onChanged: (v) {
                   if (v != null) setState(() => _supplierRegType = v);
@@ -1432,7 +1479,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextFormField(
                 controller: _mobileCtrl,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'المحمول / الواتساب' : 'Mobile Number',
+                  labelText: isArabic ? 'المحمول ورقم التواصل' : 'Mobile Number',
                   prefixIcon: const Icon(Icons.smartphone_rounded, size: 18),
                 ),
               ),
@@ -1806,7 +1853,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         TextFormField(
           controller: _nafezaTokenCtrl,
           decoration: InputDecoration(
-            labelText: isArabic ? 'معرف توكن نافذة / ملاحظات إضافية' : 'Nafeza E-Token ID / Additional Notes',
+            labelText: isArabic ? 'معرف توكن نافذة أو ملاحظات إضافية' : 'Nafeza E-Token ID / Additional Notes',
             prefixIcon: const Icon(Icons.vpn_key_rounded, size: 18, color: Colors.blue),
           ),
         ),
@@ -2175,7 +2222,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextFormField(
                 controller: _phoneCtrl,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'هاتف الطوارئ والتتبع 24/7 *' : '24/7 Emergency & Tracking Phone *',
+                  labelText: isArabic ? 'هاتف الطوارئ والتتبع على مدار الساعة *' : '24/7 Emergency & Tracking Phone *',
                   prefixIcon: const Icon(Icons.phone_rounded, size: 18),
                 ),
               ),
@@ -2490,23 +2537,23 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     if (isArabic) {
       switch (target) {
         case EntityTarget.supplier:
-          return 'الصق هنا ترويسة الفاتورة المبدئية أو كارت المورد الأجنبي:\n\nمثال:\nSuzhou Yuheng Textile Co., Ltd\nFactory Address: No.16, Kangsheng Road, Changshu, Jiangsu, China\nVAT Number: 91320581MA1X7... CargoX ID: 0x71C8a9...\nTel: +86-512-52889988\nEmail: export@yuheng.com\nSWIFT: BKCHCNBJ920';
+          return 'الصق هنا ترويسة الفاتورة المبدئية أو كارت المورد الأجنبي:\n\nمثال:\nشركة شينخوا العالمية للنسيج المحدودة\nعنوان المصنع: طريق كانغ شينغ، تشانغشو، الصين\nالرقم الضريبي: 91320581MA1X7... كود كارجو إكس: 0x71C8a9...\nالهاتف: +86-512-52889988\nالبريد الإلكتروني: export@yuheng.com\nكود السويفت: BKCHCNBJ920';
         case EntityTarget.company:
           return 'الصق هنا بيانات الشركة المستوردة أو السجل التجاري والبطاقة الضريبية:\n\nمثال:\nشركة النيل للاستيراد والتصدير ش.م.م\nالعنوان: 15 شارع مصدق، الدقي، الجيزة، مصر\nالسجل التجاري: 184520 | البطاقة الاستيرادية: 489201\nالرقم الضريبي: 200-183-044\nالهاتف: +20 2 3762 1000 | البريد: info@nile-import.com\nتوكن نافذة: NFT-88921-EG';
         case EntityTarget.customsBroker:
-          return 'الصق هنا كارت أو بيانات مكتب التخليص الجمركي:\n\nمثال:\nمكتب الأهرام للتخليص الجمركي والخدمات اللوجستية\nالعنوان: 14 شارع السلطان حسين، الإسكندرية، مصر\nرقم رخصة التخليص: 14820/2021 | الرقم الضريبي: 312-884-912\nموانئ العمل: ميناء الإسكندرية، الدخيلة، السخنة، دمياط\nمسؤول التخليص: طارق محمود (01001234567)\nالبريد: clearance@ahram-customs.com | الهاتف: 034876000';
+          return 'الصق هنا كارت أو بيانات مكتب التخليص الجمركي:\n\nمثال:\nمكتب الأهرام للتخليص الجمركي والخدمات اللوجستية\nالعنوان: 14 شارع السلطان حسين، الإسكندرية، مصر\nرقم رخصة التخليص: 14820-2021 | الرقم الضريبي: 312-884-912\nموانئ العمل: ميناء الإسكندرية، الدخيلة، السخنة، دمياط\nمسؤول التخليص: طارق محمود (01001234567)\nالبريد: clearance@ahram-customs.com | الهاتف: 034876000';
         case EntityTarget.shippingLine:
-          return 'الصق هنا بيانات الخط الملاحي والناقل البحري:\n\nمثال:\nHapag-Lloyd AG\nكود SCAC: HLCU\nرابط التتبع: https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html\nالموقع: https://www.hapag-lloyd.com\nالبريد: egypt@hlag.com | الهاتف: +20 2 2696 4500\nالعنوان: مجمع سيتي ستارز، مبنى 3، مصر الجديدة، القاهرة';
+          return 'الصق هنا بيانات الخط الملاحي والناقل البحري:\n\nمثال:\nشركة هاباج لويد للملاحة البحرية\nكود سكاك: HLCU\nالبريد الإلكتروني: egypt@hlag.com | الهاتف: +20 2 2696 4500\nالعنوان: مجمع سيتي ستارز، مبنى 3، مصر الجديدة، القاهرة';
         case EntityTarget.freightForwarder:
-          return 'الصق هنا بيانات شركة الشحن الدولي:\n\nمثال:\nApex Global Freight Forwarding Ltd\nالسجل التجاري: 294810 | رخصة فياتا: EG-7721\nخدمات الشحن: شحن بحري كلي وجزئي، شحن جوي، نقل متعدد الوسائط\nمسؤول التسعير: كريم نبيل (01223456789)\nالبريد: pricing@apex-freight.com | الموقع: https://www.apex-freight.com\nالعنوان: 22 شارع حسن علام، مصر الجديدة، القاهرة';
+          return 'الصق هنا بيانات شركة الشحن الدولي:\n\nمثال:\nشركة أبيكس العالمية للشحن والتفريغ المحدودة\nالسجل التجاري: 294810 | رخصة فياتا: EG-7721\nخدمات الشحن: شحن بحري كلي وجزئي، شحن جوي، نقل متعدد الوسائط\nمسؤول التسعير: كريم نبيل (01223456789)\nالبريد: pricing@apex-freight.com | الهاتف: 0222998877\nالعنوان: 22 شارع حسن علام، مصر الجديدة، القاهرة';
         case EntityTarget.inlandTransport:
-          return 'الصق هنا بيانات شركة النقل البري والأسطول:\n\nمثال:\nشركة الرواد للنقل الثقيل وخدمات الأسطول\nترخيص النقل: TR-88412 | الرقم الضريبي: 412-990-123\nأنواع الأسطول: تريلات حاويات، سطحات 40 قدم، لوابد، مبردات\nمسؤول الحركة: مصطفى جمال (01118889999 - 24/7)\nالبريد: dispatch@rowad-transport.com\nالجراج: قطعة 4، المنطقة الصناعية، العاشر من رمضان';
+          return 'الصق هنا بيانات شركة النقل البري والأسطول:\n\nمثال:\nشركة الرواد للنقل الثقيل وخدمات الأسطول\nترخيص النقل: TR-88412 | الرقم الضريبي: 412-990-123\nأنواع الأسطول: تريلات حاويات، سطحات 40 قدم، لوابد، مبردات\nمسؤول الحركة: مصطفى جمال (01118889999 - على مدار الساعة)\nالبريد: dispatch@rowad-transport.com\nالجراج: قطعة 4، المنطقة الصناعية، العاشر من رمضان';
         case EntityTarget.inspectionAgency:
-          return 'الصق هنا بيانات شركة الفحص والمعاينة:\n\nمثال:\nSGS Egypt International Inspection & Testing\nرقم الاعتماد: GOIEC-REG-4412 / ISO 17020\nنطاق الفحص: فحص ما قبل الشحن (PSI)، شهادات المطابقة (VOC)، تحاليل كيميائية\nمسؤول المعاينة: م. حسام فاروق (01025554433)\nالبريد: egypt.industrial@sgs.com | الموقع: https://www.sgs.com\nالعنوان: المنطقة الحرة، ميناء الإسكندرية';
+          return 'الصق هنا بيانات شركة الفحص والمعاينة:\n\nمثال:\nالشركة الدولية للفحص والمعاينة وإصدار الشهادات\nرقم الاعتماد: GOIEC-REG-4412 أو أيزو 17020\nنطاق الفحص: فحص ما قبل الشحن، شهادات المطابقة، تحاليل كيميائية\nمسؤول المعاينة: م. حسام فاروق (01025554433)\nالبريد: egypt.industrial@sgs.com | الهاتف: 034887766\nالعنوان: المنطقة الحرة، ميناء الإسكندرية';
         case EntityTarget.insuranceCompany:
-          return 'الصق هنا بيانات شركة التأمين البحري:\n\nمثال:\nشركة مصر للتأمين - قطاع التأمين البحري وجسم السفن\nترخيص الرقابة المالية: INS-001 | الرقم الضريبي: 100-200-300\nمسؤول الاكتتاب: أيمن حلمي (01007776655)\nالخط الساخن: 19990 | البريد: marine.cargo@misr-ins.com.eg\nالموقع: https://www.misr-ins.com.eg\nالتغطية: شروط مجمع مكتتبي التأمين في لندن (أ) - كافة الأخطار والحروب والإضرابات\nالعنوان: 7 شارع طلعت حرب، وسط البلد، القاهرة';
+          return 'الصق هنا بيانات شركة التأمين البحري:\n\nمثال:\nشركة مصر للتأمين - قطاع التأمين البحري وجسم السفن\nترخيص الرقابة المالية: INS-001 | الرقم الضريبي: 100-200-300\nمسؤول الاكتتاب: أيمن حلمي (01007776655)\nالخط الساخن: 19990 | البريد: marine.cargo@misr-ins.com.eg\nالتغطية: شروط مجمع مكتتبي التأمين في لندن (أ) - كافة الأخطار والحروب والإضرابات\nالعنوان: 7 شارع طلعت حرب، وسط البلد، القاهرة';
         case EntityTarget.bank:
-          return 'الصق هنا بيانات البنك المصرفي والسويفت كود:\n\nمثال:\nالبنك الأهلي المصري (NBE)\nكود السويفت: NBEGEGCX001\nكود البنك: NBE-001 | الفرع: فرع الشركات الرئيسي\nمسؤول العمليات: أحمد سالم\nالهاتف: +20 2 2594 5000 | البريد: corporate@nbe.com.eg\nالعنوان: 1187 كورنيش النيل، القاهرة، مصر';
+          return 'الصق هنا بيانات البنك المصرفي والسويفت كود:\n\nمثال:\nالبنك الأهلي المصري\nكود السويفت: NBEGEGCX001\nكود البنك: NBE-001 | الفرع: فرع الشركات الرئيسي\nمسؤول العمليات: أحمد سالم\nالهاتف: +20 2 2594 5000 | البريد: corporate@nbe.com.eg\nالعنوان: 1187 كورنيش النيل، القاهرة، مصر';
         case EntityTarget.partner:
           return 'الصق هنا بيانات الشريك اللوجستي...';
       }
@@ -2551,7 +2598,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
 
     addField('اسم الكيان', 'Entity Name', _companyNameCtrl.text);
     addField('الاسم بالعربية', 'Arabic Name', _arabicNameCtrl.text);
-    addField('رقم السجل / التعريف الضريبي', 'Tax / Reg ID', _taxIdCtrl.text.isNotEmpty ? _taxIdCtrl.text : _foreignTaxIdCtrl.text);
+    addField('رقم السجل والتعريف الضريبي', 'Tax / Reg ID', _taxIdCtrl.text.isNotEmpty ? _taxIdCtrl.text : _foreignTaxIdCtrl.text);
     addField('معرف كارجو إكس', 'CargoX Platform ID', _cargoxIdCtrl.text);
     addField('رقم السجل التجاري', 'Commercial Register', _commercialRegisterCtrl.text);
     addField('البطاقة الاستيرادية', 'Importer Card', _importerCardCtrl.text);

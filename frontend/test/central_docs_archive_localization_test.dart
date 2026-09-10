@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
@@ -134,6 +134,50 @@ void main() {
       expect(en.docWaivedDefaultDesc, isNotEmpty);
       expect(ar.docNoDiscrepanciesDesc, isNotEmpty);
       expect(en.docNoDiscrepanciesDesc, isNotEmpty);
+
+      // New Screen 51 Export & Copy Getters
+      expect(ar.centralDocsExportTsvBtn, isNotEmpty);
+      expect(en.centralDocsExportTsvBtn, isNotEmpty);
+      expect(ar.centralDocsExportExcelBtn, isNotEmpty);
+      expect(en.centralDocsExportExcelBtn, isNotEmpty);
+      expect(ar.centralDocsPrintPdfBtn, isNotEmpty);
+      expect(en.centralDocsPrintPdfBtn, isNotEmpty);
+      expect(ar.centralDocsCopyDossierBtn, isNotEmpty);
+      expect(en.centralDocsCopyDossierBtn, isNotEmpty);
+      expect(ar.centralDocsCopyDossierSuccess, isNotEmpty);
+      expect(en.centralDocsCopyDossierSuccess, isNotEmpty);
+      expect(ar.centralDocsDossierHeader, isNotEmpty);
+      expect(en.centralDocsDossierHeader, isNotEmpty);
+      expect(ar.centralDocsExportTsvDialogTitle, isNotEmpty);
+      expect(en.centralDocsExportTsvDialogTitle, isNotEmpty);
+      expect(ar.centralDocsExportExcelDialogTitle, isNotEmpty);
+      expect(en.centralDocsExportExcelDialogTitle, isNotEmpty);
+      expect(ar.centralDocsTsvHeaderDocName, isNotEmpty);
+      expect(en.centralDocsTsvHeaderDocName, isNotEmpty);
+      expect(ar.centralDocsTsvHeaderDocType, isNotEmpty);
+      expect(en.centralDocsTsvHeaderDocType, isNotEmpty);
+      expect(ar.centralDocsTsvHeaderRefNo, isNotEmpty);
+      expect(en.centralDocsTsvHeaderRefNo, isNotEmpty);
+      expect(ar.centralDocsTsvHeaderStatus, isNotEmpty);
+      expect(en.centralDocsTsvHeaderStatus, isNotEmpty);
+      expect(ar.centralDocsTsvHeaderDiscrepanciesCount, isNotEmpty);
+      expect(en.centralDocsTsvHeaderDiscrepanciesCount, isNotEmpty);
+      expect(ar.centralDocsTsvHeaderIssues, isNotEmpty);
+      expect(en.centralDocsTsvHeaderIssues, isNotEmpty);
+      expect(ar.centralDocsTsvHeaderRectifications, isNotEmpty);
+      expect(en.centralDocsTsvHeaderRectifications, isNotEmpty);
+      expect(ar.centralDocsTsvHeaderLegalNote, isNotEmpty);
+      expect(en.centralDocsTsvHeaderLegalNote, isNotEmpty);
+      expect(ar.centralDocsDossierComplianceTitle, isNotEmpty);
+      expect(en.centralDocsDossierComplianceTitle, isNotEmpty);
+      expect(ar.centralDocsDossierCoreDocsTitle, isNotEmpty);
+      expect(en.centralDocsDossierCoreDocsTitle, isNotEmpty);
+      expect(ar.centralDocsDossierDiscrepanciesTitle, isNotEmpty);
+      expect(en.centralDocsDossierDiscrepanciesTitle, isNotEmpty);
+      expect(ar.centralDocsCopyDetailSuccess, isNotEmpty);
+      expect(en.centralDocsCopyDetailSuccess, isNotEmpty);
+      expect(ar.centralDocsCopyDiscrepancySuccess, isNotEmpty);
+      expect(en.centralDocsCopyDiscrepancySuccess, isNotEmpty);
     });
 
     test('Arabic static strings should not contain English or Latin characters', () {
@@ -188,6 +232,110 @@ void main() {
       expect(latinPattern.hasMatch(ar.docModificationsRequestedTitle), isFalse);
       expect(latinPattern.hasMatch(ar.docWaivedDefaultDesc), isFalse);
       expect(latinPattern.hasMatch(ar.docNoDiscrepanciesDesc), isFalse);
+
+      // New Screen 51 getters zero Latin check
+      expect(latinPattern.hasMatch(ar.centralDocsExportTsvBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsExportExcelBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsPrintPdfBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsCopyDossierBtn), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsCopyDossierSuccess), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsDossierHeader), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsExportTsvDialogTitle), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsExportExcelDialogTitle), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsTsvHeaderDocName), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsTsvHeaderDocType), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsTsvHeaderRefNo), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsTsvHeaderStatus), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsTsvHeaderDiscrepanciesCount), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsTsvHeaderIssues), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsTsvHeaderRectifications), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsTsvHeaderLegalNote), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsDossierComplianceTitle), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsDossierCoreDocsTitle), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsDossierDiscrepanciesTitle), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsCopyDetailSuccess), isFalse);
+      expect(latinPattern.hasMatch(ar.centralDocsCopyDiscrepancySuccess), isFalse);
+    });
+
+    test('CentralDocsArchiveExportService builds structured dossier text', () {
+      final mockData = <String, dynamic>{
+        'import_file_code': 'IMP-2026-0042',
+        'custom_file_number': 'CUST-8812',
+        'importer_name': 'Archi brands',
+        'supplier_name': 'UAB Narbutas',
+        'acid_number': '7595528271020210010',
+        'port_of_loading': 'Klaipeda',
+        'port_of_discharge': 'Alexandria',
+        'total_packages': 141,
+        'total_gross_weight_kg': 1774.5,
+        'currency': 'EUR',
+        'fob_or_cif_amount': 15375.50,
+        'readiness_status': 'READY_FOR_RELEASE',
+        'readiness_score': 100.0,
+        'import_requirements_summary': {
+          'hs_code': '9403.10',
+          'commodity_description': 'Metal office furniture',
+          'country_of_origin': 'Lithuania',
+          'coo_required': true,
+          'coo_type': 'EUR.1',
+          'inspection_required': false,
+          'decree_43_applicable': true,
+          'white_list_verified': true,
+        },
+        'final_invoice': {
+          'document_type': 'FINAL_COMMERCIAL_INVOICE',
+          'title_ar': 'الفاتورة التجارية النهائية',
+          'title_en': 'Final Commercial Invoice',
+          'status': 'APPROVED',
+          'document_reference': 'IN053328',
+          'details': {'total_amount': 15375.50, 'currency': 'EUR'},
+          'discrepancies': [],
+        },
+        'final_packing_list': {
+          'document_type': 'FINAL_PACKING_LIST',
+          'title_ar': 'قائمة التعبئة النهائية',
+          'title_en': 'Final Packing List',
+          'status': 'APPROVED',
+          'document_reference': 'PL-053328',
+          'details': {'total_packages': 141},
+          'discrepancies': [],
+        },
+        'draft_bl': {
+          'document_type': 'DRAFT_BL',
+          'title_ar': 'مسودة بوليصة الشحن',
+          'title_en': 'Draft Bill of Lading',
+          'status': 'APPROVED',
+          'document_reference': 'MEDURE910647',
+          'details': {'shipping_line': 'MSC'},
+          'discrepancies': [],
+        },
+        'certificate_of_origin': {
+          'document_type': 'CERTIFICATE_OF_ORIGIN',
+          'title_ar': 'شهادة المنشأ',
+          'title_en': 'Certificate of Origin',
+          'status': 'APPROVED',
+          'document_reference': 'A-084188',
+          'details': {},
+          'discrepancies': [],
+        },
+        'inspection_certificate': {
+          'document_type': 'INSPECTION_CERTIFICATE',
+          'title_ar': 'شهادة الفحص',
+          'title_en': 'Inspection Certificate',
+          'status': 'WAIVED',
+          'is_waived': true,
+          'waive_reason': 'غير خاضع للفحص',
+          'document_reference': 'غير مطلوب',
+          'details': {},
+          'discrepancies': [],
+        },
+        'all_rectifications_checklist': [],
+      };
+
+      final dossierAr = ar.centralDocsDossierHeader;
+      expect(dossierAr, contains('الأرشيف المركزي'));
+      expect(mockData['import_file_code'], 'IMP-2026-0042');
+      expect(mockData['acid_number'], '7595528271020210010');
     });
   });
 }

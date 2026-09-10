@@ -61,6 +61,8 @@ class ImportFile(Base):
     incoterm_code = Column(String(20), nullable=False, default="FOB") # FOB, CIF, CFR, etc.
     priority = Column(String(20), nullable=False, default="High") # Low, Medium, High, Critical
     shipment_category = Column(String(50), nullable=False, default="New Purchase") # New Purchase, Repair, Replacement, Sample
+    hs_code = Column(String(50), nullable=True) # e.g. 8520
+    product_category = Column(String(100), nullable=True) # e.g. أجهزة ومعدات صوتية وأكوستيك
     
     required_eta = Column(Date, nullable=True) # 15-Aug-2026
     file_opening_date = Column(Date, nullable=True, default=date.today) # تاريخ فتح الملف
@@ -121,6 +123,10 @@ class ImportFile(Base):
     created_by = Column(String(100), default="System", nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
     updated_by = Column(String(100), default="System", nullable=False)
+
+    # Traceability & Cloning (UX-CLONE-011)
+    cloned_from_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=True)
+    cloned_from_code = Column(String(50), nullable=True)
 
     # Relationships
     company = relationship("ImportCompany", foreign_keys=[company_id])

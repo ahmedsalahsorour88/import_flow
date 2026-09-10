@@ -1,6 +1,21 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
+  // ── Responsive Breakpoints (Logical Pixels) ──────────────────────────────
+  static const double breakpointSm = 600.0;   // Mobile / compact
+  static const double breakpointMd = 900.0;   // Tablet / compact desktop
+  static const double breakpointLg = 1200.0;  // Standard desktop
+  static const double breakpointXl = 1600.0;  // Wide / ultrawide desktop
+
+  /// Width threshold below which horizontal tabs convert to vertical sidebar.
+  static const double tabBarSidebarThreshold = 800.0;
+
+  /// Width threshold below which vertical sidebar converts to mobile dropdown/drawer.
+  static const double tabBarDropdownThreshold = 550.0;
+
+  /// Tab count at or above which vertical sidebar is preferred automatically.
+  static const int tabCountSidebarThreshold = 4;
+
   // ── Flat Color Palette ────────────────────────────────────────────────────
   static const Color charcoal = Color(0xFF2C3E50);
   static const Color cobalt = Color(0xFF3498DB);
@@ -26,6 +41,7 @@ class AppTheme {
   static const Color emeraldBorder = Color(0x6627AE60); // emerald ~40%
   static const Color orangeLight = Color(0x1AE67E22);   // orange ~10%
   static const Color crimsonLight = Color(0x14C0392B);  // crimson ~8%
+  static const Color crimsonBorder = Color(0x66C0392B); // crimson ~40%
   static const Color charcoalSurface = Color(0x0A2C3E50); // charcoal ~4%
 
   // ── Shared BoxDecorations ─────────────────────────────────────────────────

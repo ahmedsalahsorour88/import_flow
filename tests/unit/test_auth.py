@@ -68,6 +68,45 @@ class TestAuthAndRBAC(unittest.TestCase):
         with self.assertRaises(Exception):
             self.auth_service.register_user(user_in2)
 
+    def test_resolve_user_with_token_and_headers_fallback(self):
+        from modules.auth.permissions import resolve_user
+
+        # Create admin and operator
+        admin_in = UserCreate(
+            username="mainadmin",
+            email="mainadmin@importflow.com",
+            full_name="Main Admin",
+            password="adminpassword",
+            role="ADMIN",
+        )
+        admin = self.auth_service.register_user(admin_in)
+
+        op_in = UserCreate(
+            username="op_user",
+            email="op@importflow.com",
+            full_name="Operator User",
+            password="oppassword",
+            role="OPERATOR",
+        )
+        op = self.auth_service.register_user(op_in)
+
+        # 1. Resolve with valid Bearer token
+        token = create_access_token({"sub": str(op.user_id), "role": "OPERATOR"})
+        resolved = resolve_user(self.db, authorization=f"Bearer {token}")
+        self.assertEqual(resolved.user_id, op.user_id)
+
+        # 2. Resolve via x-user-name header
+        resolved_name = resolve_user(self.db, x_user_name="op_user")
+        self.assertEqual(resolved_name.user_id, op.user_id)
+
+        # 3. Resolve via x-user-role header
+        resolved_role = resolve_user(self.db, x_user_role="ADMIN")
+        self.assertEqual(resolved_role.user_id, admin.user_id)
+
+        # 4. Fallback to active ADMIN when no auth headers are provided (Desktop app support)
+        fallback = resolve_user(self.db)
+        self.assertEqual(fallback.role, "ADMIN")
+
 
 if __name__ == "__main__":
     unittest.main()

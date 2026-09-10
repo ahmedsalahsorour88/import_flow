@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
@@ -44,138 +45,175 @@ import '../providers/customs_tariff_provider.dart';
               ),
             ],
           ),
-          content: SingleChildScrollView(
-            child: SizedBox(
-              width: 550,
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(8),
-                        border:
-                            Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+          content: SelectionArea(
+            child: SingleChildScrollView(
+              child: SizedBox(
+                width: 550,
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobalt.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border:
+                              Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l10n.verificationProtocolHeader,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: AppTheme.charcoal),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              l10n.verificationProtocolText,
+                              style:
+                                  const TextStyle(fontSize: 12, color: Colors.black87),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.verificationProtocolHeader,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: AppTheme.charcoal),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: verifiedByController,
+                        decoration: InputDecoration(
+                          labelText: l10n.verifiedByAuditorLabel,
+                          prefixIcon: const Icon(Icons.person_outline),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            tooltip: l10n.copyTooltip,
+                            onPressed: () => CopyHelper.copy(context, verifiedByController.text),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            l10n.verificationProtocolText,
-                            style:
-                                const TextStyle(fontSize: 12, color: Colors.black87),
+                        ),
+                        validator: (val) => val == null || val.trim().isEmpty
+                            ? l10n.auditorNameRequired
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: sourceUrlController,
+                        decoration: InputDecoration(
+                          labelText: l10n.sourceUrlLabel,
+                          prefixIcon: const Icon(Icons.link),
+                          hintText:
+                              'https://www.nafeza.gov.eg/ar/tarrif?code=...',
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            tooltip: l10n.copyTooltip,
+                            onPressed: () => CopyHelper.copy(context, sourceUrlController.text),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SearchableDropdownField<String>(
+                        value: confidence,
+                        labelText: l10n.confidenceLevelLabel,
+                        searchHintText: l10n.searchHint,
+                        items: [
+                          SearchableDropdownItem(
+                              value: 'verified_manual',
+                              label: l10n.confidenceManualAudit),
+                          SearchableDropdownItem(
+                              value: 'verified_official_gazette',
+                              label: l10n.confidenceOfficialGazette),
+                          SearchableDropdownItem(
+                              value: 'draft', label: l10n.confidenceDraft),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setState(() => confidence = val);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: priorApprovalNoteController,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          labelText: l10n.priorApprovalSpecialConditionsLabel,
+                          prefixIcon: const Icon(Icons.notes),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            tooltip: l10n.copyTooltip,
+                            onPressed: () => CopyHelper.copy(context, priorApprovalNoteController.text),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(l10n.taxRatesVerificationHeader,
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: dutyRateController,
+                              keyboardType: TextInputType.number,
+                              decoration:
+                                  InputDecoration(
+                                labelText: l10n.dutyRateLabel,
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.copy_rounded, size: 16),
+                                  tooltip: l10n.copyTooltip,
+                                  onPressed: () => CopyHelper.copy(context, dutyRateController.text),
+                                ),
+                              ),
+                              validator: (val) =>
+                                  val == null || double.tryParse(val) == null
+                                      ? l10n.invalidNumberError
+                                      : null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextFormField(
+                              controller: vatRateController,
+                              keyboardType: TextInputType.number,
+                              decoration:
+                                  InputDecoration(
+                                labelText: l10n.vatRateLabel,
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.copy_rounded, size: 16),
+                                  tooltip: l10n.copyTooltip,
+                                  onPressed: () => CopyHelper.copy(context, vatRateController.text),
+                                ),
+                              ),
+                              validator: (val) =>
+                                  val == null || double.tryParse(val) == null
+                                      ? l10n.invalidNumberError
+                                      : null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextFormField(
+                              controller: scheduleTaxRateController,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                labelText: l10n.scheduleTaxRateLabel,
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.copy_rounded, size: 16),
+                                  tooltip: l10n.copyTooltip,
+                                  onPressed: () => CopyHelper.copy(context, scheduleTaxRateController.text),
+                                ),
+                              ),
+                              validator: (val) =>
+                                  val == null || double.tryParse(val) == null
+                                      ? l10n.invalidNumberError
+                                      : null,
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: verifiedByController,
-                      decoration: InputDecoration(
-                        labelText: l10n.verifiedByAuditorLabel,
-                        prefixIcon: const Icon(Icons.person_outline),
-                      ),
-                      validator: (val) => val == null || val.trim().isEmpty
-                          ? l10n.auditorNameRequired
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: sourceUrlController,
-                      decoration: InputDecoration(
-                        labelText: l10n.sourceUrlLabel,
-                        prefixIcon: const Icon(Icons.link),
-                        hintText:
-                            'https://www.nafeza.gov.eg/ar/tarrif?code=...',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SearchableDropdownField<String>(
-                      value: confidence,
-                      labelText: l10n.confidenceLevelLabel,
-                      searchHintText: l10n.searchHint,
-                      items: [
-                        SearchableDropdownItem(
-                            value: 'verified_manual',
-                            label: l10n.confidenceManualAudit),
-                        SearchableDropdownItem(
-                            value: 'verified_official_gazette',
-                            label: l10n.confidenceOfficialGazette),
-                        SearchableDropdownItem(
-                            value: 'draft', label: l10n.confidenceDraft),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) setState(() => confidence = val);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: priorApprovalNoteController,
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        labelText: l10n.priorApprovalSpecialConditionsLabel,
-                        prefixIcon: const Icon(Icons.notes),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(l10n.taxRatesVerificationHeader,
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: dutyRateController,
-                            keyboardType: TextInputType.number,
-                            decoration:
-                                InputDecoration(labelText: l10n.dutyRateLabel),
-                            validator: (val) =>
-                                val == null || double.tryParse(val) == null
-                                    ? l10n.invalidNumberError
-                                    : null,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextFormField(
-                            controller: vatRateController,
-                            keyboardType: TextInputType.number,
-                            decoration:
-                                InputDecoration(labelText: l10n.vatRateLabel),
-                            validator: (val) =>
-                                val == null || double.tryParse(val) == null
-                                    ? l10n.invalidNumberError
-                                    : null,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextFormField(
-                            controller: scheduleTaxRateController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                                labelText: l10n.scheduleTaxRateLabel),
-                            validator: (val) =>
-                                val == null || double.tryParse(val) == null
-                                    ? l10n.invalidNumberError
-                                    : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

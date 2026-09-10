@@ -1,5 +1,5 @@
 """
-ImportFlow ERP — Backend PyInstaller Builder
+Sorour Logistics ERP — Backend PyInstaller Builder
 Compiles FastAPI backend into a standalone `backend.exe` executable.
 """
 import os
@@ -11,7 +11,7 @@ ROOT_DIR = Path(__file__).resolve().parent
 
 def build_backend():
     print("===============================================================================")
-    print("           ImportFlow ERP - Compiling Standalone Backend Executable            ")
+    print("        Sorour Logistics ERP - Compiling Standalone Backend Executable         ")
     print("===============================================================================")
 
     hidden_imports = [

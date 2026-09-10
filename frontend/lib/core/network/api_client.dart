@@ -1,16 +1,17 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../features/auth/providers/auth_provider.dart';
 import '../constants/api_constants.dart';
 
-/// Centralized Dio HTTP client provider for ImportFlow ERP.
+/// Centralized Dio HTTP client provider for Sorour Logistics ERP.
 /// All features must use this provider instead of creating their own Dio().
 ///
 /// Features:
 /// - Unified base URL from ApiConstants
 /// - Consistent timeouts (connect: 30s, receive: 180s for large uploads)
 /// - Centralized error interceptor
-/// - Auth token injection (ready for auth implementation)
+/// - Auth token and role headers injection
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
@@ -21,6 +22,25 @@ final dioProvider = Provider<Dio>((ref) {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+      },
+    ),
+  );
+
+  // ── Auth Token & Role Header Interceptor ──────────────────
+  dio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) {
+        try {
+          final authState = ref.read(authProvider);
+          if (authState.token != null && authState.token!.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer ${authState.token}';
+          }
+          if (authState.user != null) {
+            options.headers['x-user-role'] = authState.user!.role;
+            options.headers['x-user-name'] = authState.user!.username;
+          }
+        } catch (_) {}
+        handler.next(options);
       },
     ),
   );
@@ -58,7 +78,7 @@ final dioProvider = Provider<Dio>((ref) {
 /// Upload-optimized Dio client (180s timeout, no JSON content-type).
 /// Use for multipart file uploads to /smart-upload endpoints.
 final uploadDioProvider = Provider<Dio>((ref) {
-  return Dio(
+  final dio = Dio(
     BaseOptions(
       baseUrl: ApiConstants.baseUrl,
       connectTimeout: const Duration(seconds: 120),
@@ -66,4 +86,24 @@ final uploadDioProvider = Provider<Dio>((ref) {
       sendTimeout: const Duration(seconds: 180),
     ),
   );
+
+  dio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) {
+        try {
+          final authState = ref.read(authProvider);
+          if (authState.token != null && authState.token!.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer ${authState.token}';
+          }
+          if (authState.user != null) {
+            options.headers['x-user-role'] = authState.user!.role;
+            options.headers['x-user-name'] = authState.user!.username;
+          }
+        } catch (_) {}
+        handler.next(options);
+      },
+    ),
+  );
+
+  return dio;
 });

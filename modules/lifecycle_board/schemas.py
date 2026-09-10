@@ -178,3 +178,65 @@ class LiveLogisticsSummaryResponse(BaseModel):
     under_sample_testing_count: int
     incomplete_documents_count: int
     items: List[LiveLogisticsTrackingItem]
+
+
+# ─── Configurable Step Risk Classification Schemas (Addendum: Section 10) ───
+
+class StepConfigResponse(BaseModel):
+    id: int
+    step_code: str
+    step_name_ar: str
+    step_name_en: str
+    phase_id: int
+    skip_policy: str = "blocked" # "blocked", "single_approval", "dual_approval"
+    reason_required: bool = True # always True
+    reason_categories: List[str] = Field(default_factory=list)
+    approver_roles: List[str] = Field(default_factory=lambda: ["Manager"])
+    supports_pending_reference: bool = False
+    last_modified_by: Optional[str] = None
+    last_modified_at: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StepConfigUpdateRequest(BaseModel):
+    skip_policy: Optional[str] = Field(None, pattern=r"^(blocked|single_approval|dual_approval)$")
+    reason_categories: Optional[List[str]] = None
+    approver_roles: Optional[List[str]] = None
+    supports_pending_reference: Optional[bool] = None
+    justification: str = Field(..., min_length=5, description="Mandatory short explanation for classification change (Section 10.3 & 10.7)")
+
+
+class StepConfigAuditLogResponse(BaseModel):
+    id: int
+    step_code: str
+    action: str
+    changed_by: str
+    changed_at: str
+    old_policy: Optional[str] = None
+    new_policy: Optional[str] = None
+    old_approver_roles: Optional[List[str]] = None
+    new_approver_roles: Optional[List[str]] = None
+    old_supports_pending_reference: Optional[bool] = None
+    new_supports_pending_reference: Optional[bool] = None
+    justification: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RegisterPendingReferenceRequest(BaseModel):
+    import_file_code: str = Field(..., min_length=2, max_length=50)
+    step_code: str = Field(..., min_length=2, max_length=50)
+    reference_number: str = Field(..., min_length=1, max_length=100)
+    reason_text: str = Field(..., min_length=3)
+    expected_completion_date: Optional[str] = None
+
+
+class RegisterPendingReferenceResponse(BaseModel):
+    message: str
+    import_file_code: str
+    step_code: str
+    reference_number: str
+    reason_text: str
+    expected_completion_date: Optional[str] = None
+    status: str = "Reference recorded – pending full documentation"
+    registered_at: str
+

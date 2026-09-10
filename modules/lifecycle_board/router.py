@@ -3,7 +3,7 @@ FastAPI Router for 6-Phase Lifecycle Board & Stage Transitions
 """
 
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -15,11 +15,95 @@ from modules.lifecycle_board.schemas import (
     SkipStepPayload,
     MultiStageSetPayload,
     LifecycleSyncRequest,
+    StepConfigResponse,
+    StepConfigUpdateRequest,
+    StepConfigAuditLogResponse,
+    RegisterPendingReferenceRequest,
+    RegisterPendingReferenceResponse,
 )
 import modules.lifecycle_board.service as service
 
 router = APIRouter(prefix="/api/v1/lifecycle-board", tags=["Shipment Lifecycle Board (6 Phases / 21 Steps)"])
 
+
+# ─── Configurable Step Risk & Settings Endpoints (Addendum: Section 10) ───
+
+@router.get(
+    "/step-configs",
+    response_model=List[StepConfigResponse],
+    summary="Get configuration of all lifecycle steps (Addendum: Section 10)",
+)
+def get_all_step_configs(
+    db: Session = Depends(get_db),
+    x_user_role: Optional[str] = Header(None),
+):
+    return service.get_all_step_configs_service(db)
+
+
+@router.get(
+    "/step-configs/{step_code}",
+    response_model=StepConfigResponse,
+    summary="Get configuration for a specific lifecycle step",
+)
+def get_step_config(
+    step_code: str,
+    db: Session = Depends(get_db),
+):
+    return service.get_step_config_service(db, step_code)
+
+
+@router.put(
+    "/step-configs/{step_code}",
+    response_model=StepConfigResponse,
+    summary="Update step skip policy, reason categories, approver roles, or pending ref eligibility (Manager Only, Section 10.7)",
+)
+def update_step_config(
+    step_code: str,
+    payload: StepConfigUpdateRequest,
+    db: Session = Depends(get_db),
+    x_user_role: Optional[str] = Header(None),
+    x_user_name: Optional[str] = Header(None),
+):
+    return service.update_step_config_service(
+        db=db,
+        step_code=step_code,
+        payload=payload,
+        current_user_role=x_user_role,
+        current_username=x_user_name,
+    )
+
+
+@router.get(
+    "/step-configs/{step_code}/audit-logs",
+    response_model=List[StepConfigAuditLogResponse],
+    summary="Get change audit trail for a step's classification rules (Section 10.3)",
+)
+def get_step_config_audit_logs(
+    step_code: str,
+    db: Session = Depends(get_db),
+):
+    return service.get_step_config_audit_logs_service(db, step_code=step_code)
+
+
+@router.post(
+    "/stages/register-pending-reference",
+    response_model=RegisterPendingReferenceResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Register reference number now, complete full compliance later (Section 10.4)",
+)
+def register_pending_reference(
+    payload: RegisterPendingReferenceRequest,
+    db: Session = Depends(get_db),
+    x_user_name: Optional[str] = Header(None),
+):
+    return service.register_pending_reference_service(
+        db=db,
+        payload=payload,
+        current_username=x_user_name,
+    )
+
+
+# ─── Operational Board & Lifecycle Endpoints ───
 
 @router.get(
     "/summary",
@@ -77,14 +161,23 @@ def sync_lifecycle_step(payload: LifecycleSyncRequest, db: Session = Depends(get
     )
 
 
-
 @router.post(
     "/stages/skip",
     status_code=status.HTTP_200_OK,
-    summary="Skip an operational step and activate next step(s) without disrupting workflow",
+    summary="Skip an operational step enforcing live step_config policy and audit logging",
 )
-def skip_step(payload: SkipStepPayload, db: Session = Depends(get_db)):
-    return service.skip_step_service(db, payload)
+def skip_step(
+    payload: SkipStepPayload,
+    db: Session = Depends(get_db),
+    x_user_role: Optional[str] = Header(None),
+    x_user_name: Optional[str] = Header(None),
+):
+    return service.skip_step_service(
+        db=db,
+        payload=payload,
+        current_user_role=x_user_role,
+        current_username=x_user_name,
+    )
 
 
 @router.post(
@@ -94,4 +187,5 @@ def skip_step(payload: SkipStepPayload, db: Session = Depends(get_db)):
 )
 def set_multi_active_stages(payload: MultiStageSetPayload, db: Session = Depends(get_db)):
     return service.set_multi_active_stages_service(db, payload)
+
 

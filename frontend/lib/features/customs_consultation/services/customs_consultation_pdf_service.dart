@@ -417,6 +417,253 @@ class CustomsConsultationPdfService {
     );
   }
 
+  /// Prints or previews consultation PDF via Printing.layoutPdf
+  static Future<void> printOrPreviewConsultationPdf(BuildContext context, CustomsConsultationModel session) async {
+    final pdfBytes = await generateConsultationPdf(session);
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdfBytes,
+      name: 'Customs_Consultation_${session.consultationCode}',
+    );
+  }
+
+  /// Generates and prints or previews customs tax calculation report PDF
+  static Future<void> printOrPreviewCalculationReportPdf({
+    required BuildContext context,
+    required String title,
+    required String? importFileCode,
+    required String brokerName,
+    required String currency,
+    required double exchangeRate,
+    required double totalFreightEgp,
+    required double totalInsuranceEgp,
+    required List<CustomsItemCalcRow> calcLines,
+    required NafezaFeeBreakdownResult nafezaResult,
+    required List<CustomsBrokerQuoteItemModel> brokerQuoteItems,
+    required List<CustomsChecklistItemModel> checklist,
+  }) async {
+    final session = CustomsConsultationModel(
+      consultationId: 0,
+      consultationCode: importFileCode != null ? 'CALC-$importFileCode' : 'CALC-${DateTime.now().millisecondsSinceEpoch}',
+      brokerId: 0,
+      brokerName: brokerName.isNotEmpty ? brokerName : 'Customs Broker',
+      title: title.isNotEmpty ? title : 'Customs Tax & Tariff Assessment',
+      overallStatus: 'Pending Review',
+      estimatedDutiesEgp: calcLines.fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp),
+      totalBrokerFeesEgp: brokerQuoteItems.fold(0.0, (s, i) => s + (i.isApplicable ? i.totalAmount : 0.0)),
+      checklistItems: checklist,
+      brokerQuoteItems: brokerQuoteItems,
+      createdAt: DateTime.now().toIso8601String(),
+      updatedAt: DateTime.now().toIso8601String(),
+    );
+    final pdfBytes = await generateConsultationPdf(session);
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdfBytes,
+      name: 'Customs_Tax_Assessment_${DateTime.now().millisecondsSinceEpoch}',
+    );
+  }
+
+  /// Generates an enterprise-grade Arabic A4 PDF statement for the list of customs consultations / tax reviews
+  static Future<Uint8List> generateConsultationsLogPdf(List<CustomsConsultationModel> sessions) async {
+    final pdf = pw.Document();
+
+    pw.Font arabicFont;
+    pw.Font arabicBoldFont;
+    try {
+      arabicFont = await PdfGoogleFonts.cairoRegular();
+      arabicBoldFont = await PdfGoogleFonts.cairoBold();
+    } catch (_) {
+      arabicFont = await PdfGoogleFonts.amiriRegular();
+      arabicBoldFont = await PdfGoogleFonts.amiriBold();
+    }
+
+    final theme = pw.ThemeData.withFont(
+      base: arabicFont,
+      bold: arabicBoldFont,
+    );
+
+    final totalEstimatedDuties = sessions.fold(0.0, (sum, s) => sum + s.estimatedDutiesEgp);
+    final readyCount = sessions.where((s) => s.overallStatus == 'Clearance Ready').length;
+    final blockedCount = sessions.where((s) => s.overallStatus == 'Blocked' || s.hasBlockingIssues).length;
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        theme: theme,
+        textDirection: pw.TextDirection.rtl,
+        margin: const pw.EdgeInsets.all(20),
+        build: (pw.Context context) {
+          return [
+            // Header Box
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(
+                color: PdfColor.fromHex('#2C3E50'),
+                borderRadius: pw.BorderRadius.circular(6),
+              ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'سجل دراسات الضرائب والرسوم الجمركية وبيان 46',
+                        style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
+                      ),
+                      pw.SizedBox(height: 3),
+                      pw.Text(
+                        'منظومة إدارة الاستيراد والتخليص الجمركي — كشف رسمي',
+                        style: const pw.TextStyle(color: PdfColors.white, fontSize: 9),
+                      ),
+                    ],
+                  ),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        'إجمالي الدراسات: ${sessions.length}',
+                        style: pw.TextStyle(color: PdfColors.white, fontSize: 10, fontWeight: pw.FontWeight.bold),
+                      ),
+                      pw.Text(
+                        'تاريخ الطباعة: ${DateTime.now().toLocal().toString().split(".").first}',
+                        style: const pw.TextStyle(color: PdfColors.white, fontSize: 8),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 10),
+
+            // Summary Metrics Row
+            pw.Row(
+              children: [
+                _buildPdfMetricBox('إجمالي الدراسات', '${sessions.length}', PdfColor.fromHex('#2C3E50')),
+                pw.SizedBox(width: 8),
+                _buildPdfMetricBox('جاهز للتخليص', '$readyCount', PdfColor.fromHex('#27AE60')),
+                pw.SizedBox(width: 8),
+                _buildPdfMetricBox('معطل / عوائق', '$blockedCount', blockedCount > 0 ? PdfColor.fromHex('#C0392B') : PdfColors.grey700),
+                pw.SizedBox(width: 8),
+                _buildPdfMetricBox('إجمالي الرسوم التقديرية', '${totalEstimatedDuties.toStringAsFixed(2)} ج.م', PdfColor.fromHex('#2980B9')),
+              ],
+            ),
+            pw.SizedBox(height: 12),
+
+            // Consultations Table
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey300),
+              columnWidths: const {
+                0: pw.FlexColumnWidth(1.2), // Code
+                1: pw.FlexColumnWidth(1.1), // Import File
+                2: pw.FlexColumnWidth(2.8), // Title
+                3: pw.FlexColumnWidth(1.8), // Broker
+                4: pw.FlexColumnWidth(1.6), // Duties
+                5: pw.FlexColumnWidth(1.0), // Readiness
+                6: pw.FlexColumnWidth(1.2), // Status
+              },
+              children: [
+                pw.TableRow(
+                  decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECF0F1')),
+                  children: [
+                    _buildPdfTableHeader('كود الدراسة'),
+                    _buildPdfTableHeader('ملف الشحنة'),
+                    _buildPdfTableHeader('الموضوع / الوصف'),
+                    _buildPdfTableHeader('المستخلص الجمركي'),
+                    _buildPdfTableHeader('الرسوم التقديرية'),
+                    _buildPdfTableHeader('الجاهزية'),
+                    _buildPdfTableHeader('الحالة'),
+                  ],
+                ),
+                ...sessions.map((s) {
+                  final fileCodeStr = s.importFileCode ?? (s.importFileId != null ? 'IMP-${s.importFileId}' : '—');
+                  return pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(s.consultationCode, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2980B9'))),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(fileCodeStr, style: const pw.TextStyle(fontSize: 8)),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(s.title, style: const pw.TextStyle(fontSize: 8)),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(s.brokerName, style: const pw.TextStyle(fontSize: 8)),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text('${s.estimatedDutiesEgp.toStringAsFixed(2)} ج.م', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#C0392B'))),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text('${s.readinessPercentage.toStringAsFixed(0)}%', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          s.overallStatus == 'Clearance Ready'
+                              ? 'جاهز للتخليص'
+                              : (s.overallStatus == 'Blocked'
+                                  ? 'معطل'
+                                  : (s.overallStatus == 'In Progress'
+                                      ? 'قيد الإجراء'
+                                      : (s.overallStatus == 'Action Required'
+                                          ? 'مطلوب إجراء'
+                                          : 'قيد المراجعة'))),
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+                // Total Summary Row
+                pw.TableRow(
+                  decoration: pw.BoxDecoration(color: PdfColor.fromHex('#F5EEF8')),
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text('الإجمالي', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2C3E50'))),
+                    ),
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('')),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text('${sessions.length} استشارة', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                    ),
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('')),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        '${totalEstimatedDuties.toStringAsFixed(2)} ج.م',
+                        style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#C0392B')),
+                      ),
+                    ),
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('')),
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('')),
+                  ],
+                ),
+              ],
+            ),
+          ];
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  /// Prints or previews consultations log statement via Printing.layoutPdf
+  static Future<void> printOrPreviewConsultationsLogPdf(BuildContext context, List<CustomsConsultationModel> sessions) async {
+    final pdfBytes = await generateConsultationsLogPdf(sessions);
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdfBytes,
+      name: 'Customs_Tax_Review_Log_${DateTime.now().millisecondsSinceEpoch}',
+    );
+  }
+
   static pw.Widget _buildPdfMetricBox(String title, String value, PdfColor color) {
     return pw.Expanded(
       child: pw.Container(
@@ -448,3 +695,4 @@ class CustomsConsultationPdfService {
     );
   }
 }
+

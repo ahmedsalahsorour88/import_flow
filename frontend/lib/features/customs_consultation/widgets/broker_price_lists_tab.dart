@@ -5,9 +5,12 @@ import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../customs_clearance_quotations/screens/customs_clearance_quotations_screen.dart';
+import '../services/clearance_expense_types_export_service.dart';
 import 'price_list_form_dialog.dart';
+import '../../../core/widgets/clone_entity_review_dialog.dart';
 
 class BrokerPriceListsTab extends ConsumerStatefulWidget {
   const BrokerPriceListsTab({super.key});
@@ -21,6 +24,15 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
   String _mgmtExpenseSearch = '';
   String _mgmtExpenseCategory = 'All';
   int _managementSubTabIndex = 0;
+  final ScrollController _catalogVerticalScrollController = ScrollController();
+  final ScrollController _catalogHorizontalScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _catalogVerticalScrollController.dispose();
+    _catalogHorizontalScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -200,6 +212,25 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                   decoration: BoxDecoration(color: pl.isActive ? Colors.green.shade100 : Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
                                   child: Text(pl.isActive ? l.activePriceListStatus : l.archivedPriceListStatus, style: TextStyle(color: pl.isActive ? Colors.green.shade900 : Colors.red.shade900, fontSize: 11, fontWeight: FontWeight.bold)),
                                 ),
+                                if (pl.clonedFromCode != null && pl.clonedFromCode!.isNotEmpty) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.cobalt.withOpacity(0.10),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                    ),
+                                    child: Text(
+                                      l.clonedFromBadge(pl.clonedFromCode!),
+                                      style: const TextStyle(
+                                        color: AppTheme.cobalt,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 const Spacer(),
                                 ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
@@ -210,6 +241,60 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                   onPressed: () => showPriceListFormDialog(context, ref, existingPriceList: pl, brokersList: brokersList),
                                   icon: const Icon(Icons.edit, color: Colors.white, size: 14),
                                   label: Text(l.editPricesAndItemsBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ),
+                                const SizedBox(width: 6),
+                                IconButton(
+                                  icon: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.cobalt, size: 20),
+                                  tooltip: l.clonePriceListActionTooltip,
+                                  onPressed: () {
+                                    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                                    CloneEntityReviewDialog.show(
+                                      context,
+                                      entityType: l.clonePriceListDialogTitle,
+                                      sourceCode: pl.priceListCode,
+                                      suggestedNewCode: '${pl.priceListCode}-CLONE',
+                                      sourceTitle: pl.title,
+                                      copiedFieldsSummary: {
+                                        isAr ? 'المخلص الجمركي' : 'Customs Broker': pl.brokerName,
+                                        isAr ? 'ميناء التخليص' : 'Target Port': pl.portName ?? '-',
+                                        isAr ? 'عدد بنود الأسعار' : 'Items Count': '${pl.items.length}',
+                                        isAr ? 'تاريخ السريان' : 'Effective From': pl.effectiveFrom,
+                                      },
+                                      mandatorilyResetFields: [
+                                        l.cloneFieldStatusDraftBadge,
+                                        isAr ? 'تحديث رقم الإصدار تلقائياً (الإصدار الجديد)' : 'Increment version number',
+                                        isAr ? 'توليد كود مرجعي فريد غير مكرر' : 'Generate unique new reference code',
+                                      ],
+                                      allowCopyLineItems: true,
+                                      allowCopyAttachments: false,
+                                      initialCopyLineItems: true,
+                                      initialCopyAttachments: false,
+                                      onConfirm: ({
+                                        required String newCode,
+                                        required String newTitle,
+                                        required bool copyLineItems,
+                                        required bool copyAttachments,
+                                        String? notes,
+                                      }) async {
+                                        final sm = ScaffoldMessenger.of(context);
+                                        await ref.read(brokerPriceListsProvider.notifier).clonePriceList(
+                                          pl.priceListId,
+                                          {
+                                            'new_price_list_code': newCode,
+                                            'new_title': newTitle,
+                                            'copy_items': copyLineItems,
+                                            if (notes != null) 'notes': notes,
+                                          },
+                                        );
+                                        sm.showSnackBar(
+                                          SnackBar(
+                                            content: Text(l.clonedSuccessfullyToast(newCode)),
+                                            backgroundColor: AppTheme.emerald,
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
                                 ),
                                 const SizedBox(width: 6),
                                 IconButton(
@@ -306,8 +391,35 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
       },
     );
   }
+  String _formatCategory(String cat, bool isArabic) {
+    if (isArabic) {
+      if (cat.contains('(') && cat.contains(')')) {
+        final start = cat.indexOf('(') + 1;
+        final end = cat.indexOf(')');
+        return cat.substring(start, end).trim();
+      }
+      return cat;
+    } else {
+      return cat.split('(').first.trim();
+    }
+  }
+
+  String _formatUnit(String unit, bool isArabic) {
+    if (isArabic) {
+      if (unit.contains('(') && unit.contains(')')) {
+        final start = unit.indexOf('(') + 1;
+        final end = unit.indexOf(')');
+        return unit.substring(start, end).trim();
+      }
+      return unit;
+    } else {
+      return unit.split('(').first.trim();
+    }
+  }
+
   Widget _buildExpenseCatalogView(AsyncValue<List<ClearanceExpenseTypeModel>> expenseTypesAsync) {
     final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     return expenseTypesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(child: Text('❌ Error: $e')),
@@ -321,193 +433,755 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
           return true;
         }).toList();
 
-        return Column(
-          children: [
-            // Toolbar
-            Card(
-              elevation: 1,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 250,
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: l.searchExpenseCatalogHint,
-                          prefixIcon: const Icon(Icons.search, size: 18),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          isDense: true,
-                        ),
-                        onChanged: (v) => setState(() => _mgmtExpenseSearch = v),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    SizedBox(
-                      width: 250,
-                      child: SearchableDropdownField<String>(
-                        value: _mgmtExpenseCategory,
-                        labelText: l.filterCategoryLabel,
-                        items: [
-                          SearchableDropdownItem(value: 'All', label: l.allCategoriesItem),
-                          const SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'Clearance Fees'),
-                          const SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'Procedures & Approvals'),
-                          const SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'Inland Transport'),
-                          const SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'Port & Handling'),
-                          const SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'Other Fees'),
+        return SelectionArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Toolbar
+              Card(
+                elevation: 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 250,
+                            child: TextField(
+                              decoration: InputDecoration(
+                                hintText: l.searchExpenseCatalogHint,
+                                prefixIcon: const Icon(Icons.search, size: 18),
+                                suffixIcon: _mgmtExpenseSearch.isNotEmpty
+                                    ? Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16),
+                                            tooltip: l.copyExpenseRowSummaryTooltip,
+                                            onPressed: () => CopyHelper.copy(context, _mgmtExpenseSearch),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.clear, size: 16),
+                                            onPressed: () => setState(() => _mgmtExpenseSearch = ''),
+                                          ),
+                                        ],
+                                      )
+                                    : null,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                isDense: true,
+                              ),
+                              onChanged: (v) => setState(() => _mgmtExpenseSearch = v),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 280,
+                            child: SearchableDropdownField<String>(
+                              value: _mgmtExpenseCategory,
+                              labelText: l.filterCategoryLabel,
+                              items: [
+                                SearchableDropdownItem(value: 'All', label: l.allCategoriesItem),
+                                SearchableDropdownItem(
+                                  value: 'Clearance Fees (أتعاب ومصاريف تخليص)',
+                                  label: isArabic ? 'أتعاب ومصاريف تخليص' : 'Clearance Fees',
+                                ),
+                                SearchableDropdownItem(
+                                  value: 'Procedures & Approvals (إجراءات وموافقات وفحص)',
+                                  label: isArabic ? 'إجراءات وموافقات وفحص' : 'Procedures & Approvals',
+                                ),
+                                SearchableDropdownItem(
+                                  value: 'Inland Transport (نقل بري وشاحنات)',
+                                  label: isArabic ? 'نقل بري وشاحنات' : 'Inland Transport',
+                                ),
+                                SearchableDropdownItem(
+                                  value: 'Port & Handling (موانئ وتعتيق وتفريغ)',
+                                  label: isArabic ? 'موانئ وتعتيق وتفريغ' : 'Port & Handling',
+                                ),
+                                SearchableDropdownItem(
+                                  value: 'Other Fees (مصاريف أخرى)',
+                                  label: isArabic ? 'مصاريف أخرى' : 'Other Fees',
+                                ),
+                              ],
+                              onChanged: (v) => setState(() => _mgmtExpenseCategory = v ?? 'All'),
+                            ),
+                          ),
+                          const Spacer(),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                            onPressed: _showAddExpenseTypeDialog,
+                            icon: const Icon(Icons.add, color: Colors.white),
+                            label: Text(l.addNewExpenseTypeBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          ),
                         ],
-                        onChanged: (v) => setState(() => _mgmtExpenseCategory = v ?? 'All'),
                       ),
-                    ),
-                    const Spacer(),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                      onPressed: _showAddExpenseTypeDialog,
-                      icon: const Icon(Icons.add, color: Colors.white),
-                      label: Text(l.addNewExpenseTypeBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Table of Expenses
-            Expanded(
-              child: Card(
-                elevation: 2,
-                child: SingleChildScrollView(
-                  child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
-                    headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    columns: [
-                      DataColumn(label: Text(l.expenseCodeCol)),
-                      DataColumn(label: Text(l.expenseNameArCol)),
-                      DataColumn(label: Text(l.expenseNameEnCol)),
-                      DataColumn(label: Text(l.expenseCategoryCol)),
-                      DataColumn(label: Text(l.calculationUnitCol)),
-                      DataColumn(label: Text(l.defaultCurrencyCol)),
+                      const SizedBox(height: 10),
+                      // Export Action Buttons Bar
+                      Row(
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.emerald,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.table_view_rounded, size: 16),
+                            label: Text(l.expenseCatalogExportExcelBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            onPressed: () => ClearanceExpenseTypesExportService.exportExcel(context, filtered),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+                            label: Text(l.expenseCatalogExportPdfBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            onPressed: () => ClearanceExpenseTypesExportService.printOrSavePdf(context, filtered),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.grid_on_rounded, size: 16),
+                            label: Text(l.expenseCatalogExportTsvBtn, style: const TextStyle(fontSize: 12)),
+                            onPressed: () => ClearanceExpenseTypesExportService.exportTsv(context, filtered),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.copy_all_rounded, size: 16),
+                            label: Text(l.expenseCatalogCopyDossierBtn, style: const TextStyle(fontSize: 12)),
+                            onPressed: () => ClearanceExpenseTypesExportService.copyDossier(context, filtered),
+                          ),
+                          const Spacer(),
+                          Text(
+                            l.expenseCatalogTotalCountLabel(filtered.length),
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                          ),
+                        ],
+                      ),
                     ],
-                    rows: filtered.map((exp) {
-                      return DataRow(
-                        cells: [
-                          DataCell(Text(exp.expenseCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                          DataCell(Text(exp.nameAr, style: const TextStyle(fontWeight: FontWeight.bold))),
-                          DataCell(Text(exp.nameEn ?? '-')),
-                          DataCell(Text(exp.category.split('(').first.trim())),
-                          DataCell(Text(exp.defaultUnit)),
-                          DataCell(Text(exp.defaultCurrency)),
-                        ],
-                      );
-                    }).toList(),
                   ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+
+              // Table of Expenses (Responsive & Proportionate)
+              Expanded(
+                child: Card(
+                  elevation: 2,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return Scrollbar(
+                        controller: _catalogVerticalScrollController,
+                        thumbVisibility: true,
+                        child: SingleChildScrollView(
+                          controller: _catalogVerticalScrollController,
+                          scrollDirection: Axis.vertical,
+                          child: Scrollbar(
+                            controller: _catalogHorizontalScrollController,
+                            thumbVisibility: true,
+                            trackVisibility: true,
+                            notificationPredicate: (notif) => notif.depth == 1 || notif.metrics.axis == Axis.horizontal,
+                            child: SingleChildScrollView(
+                              controller: _catalogHorizontalScrollController,
+                              scrollDirection: Axis.horizontal,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                                child: DataTable(
+                                  columnSpacing: 14,
+                                  horizontalMargin: 12,
+                                  headingRowHeight: 42,
+                                  dataRowMinHeight: 48,
+                                  dataRowMaxHeight: 56,
+                                  headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
+                                  headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  columns: [
+                                    DataColumn(label: Text(l.expenseCodeCol)),
+                                    DataColumn(label: Text(isArabic ? 'الإجراءات' : 'Actions')),
+                                    DataColumn(label: Text(l.expenseNameArCol)),
+                                    DataColumn(label: Text(l.expenseNameEnCol)),
+                                    DataColumn(label: Text(l.expenseCategoryCol)),
+                                    DataColumn(label: Text(l.calculationUnitCol)),
+                                    DataColumn(label: Text(l.defaultCurrencyCol)),
+                                  ],
+                                  rows: filtered.map((exp) {
+                                    final rowSummary = ClearanceExpenseTypesExportService.toRowSummary(exp, l, isArabic: isArabic);
+                                    final catText = _formatCategory(exp.category, isArabic);
+                                    final unitText = _formatUnit(exp.defaultUnit, isArabic);
+                                    return DataRow(
+                                      cells: [
+                                        // 1. Code with Clickable Copy Badge
+                                        DataCell(
+                                          CopyableTableCell(
+                                            value: exp.expenseCode,
+                                            rowSummary: rowSummary,
+                                            child: InkWell(
+                                              onTap: () => CopyHelper.copy(context, exp.expenseCode),
+                                              borderRadius: BorderRadius.circular(4),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.cobalt.withOpacity(0.08),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(exp.expenseCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
+                                                    const SizedBox(width: 4),
+                                                    const Icon(Icons.copy_rounded, size: 12, color: AppTheme.cobalt),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        // 2. Actions (Edit, Delete, Copy) - Prominently Placed in 2nd Column
+                                        DataCell(
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade50,
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: Colors.grey.shade300),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                IconButton(
+                                                  icon: const Icon(Icons.edit_rounded, size: 17, color: AppTheme.cobalt),
+                                                  tooltip: l.editExpenseTooltip,
+                                                  splashRadius: 16,
+                                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                                  padding: EdgeInsets.zero,
+                                                  onPressed: () => _showEditExpenseTypeDialog(exp),
+                                                ),
+                                                Container(width: 1, height: 16, color: Colors.grey.shade300),
+                                                IconButton(
+                                                  icon: const Icon(Icons.delete_outline_rounded, size: 17, color: Colors.red),
+                                                  tooltip: l.deleteExpenseTooltip,
+                                                  splashRadius: 16,
+                                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                                  padding: EdgeInsets.zero,
+                                                  onPressed: () => _showDeleteExpenseTypeConfirmDialog(exp),
+                                                ),
+                                                Container(width: 1, height: 16, color: Colors.grey.shade300),
+                                                IconButton(
+                                                  icon: const Icon(Icons.control_point_duplicate_rounded, size: 16, color: AppTheme.cobalt),
+                                                  tooltip: l.cloneRowTooltip,
+                                                  splashRadius: 16,
+                                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                                  padding: EdgeInsets.zero,
+                                                  onPressed: () => _showAddExpenseTypeDialog(template: exp),
+                                                ),
+                                                Container(width: 1, height: 16, color: Colors.grey.shade300),
+                                                IconButton(
+                                                  icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                                  tooltip: l.copyExpenseRowSummaryTooltip,
+                                                  splashRadius: 16,
+                                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                                  padding: EdgeInsets.zero,
+                                                  onPressed: () => CopyHelper.copy(context, rowSummary),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        // 3. Name Ar
+                                        DataCell(
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(maxWidth: 220),
+                                            child: CopyableTableCell(
+                                              value: exp.nameAr,
+                                              rowSummary: rowSummary,
+                                              child: Text(
+                                                exp.nameAr,
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        // 4. Name En
+                                        DataCell(
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(maxWidth: 220),
+                                            child: CopyableTableCell(
+                                              value: exp.nameEn ?? '-',
+                                              rowSummary: rowSummary,
+                                              child: Text(
+                                                exp.nameEn ?? '-',
+                                                style: const TextStyle(fontSize: 12),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        // 5. Category
+                                        DataCell(
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(maxWidth: 160),
+                                            child: CopyableTableCell(
+                                              value: catText,
+                                              rowSummary: rowSummary,
+                                              child: Text(
+                                                catText,
+                                                style: const TextStyle(fontSize: 12),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        // 6. Calculation Unit
+                                        DataCell(
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(maxWidth: 130),
+                                            child: CopyableTableCell(
+                                              value: unitText,
+                                              rowSummary: rowSummary,
+                                              child: Text(
+                                                unitText,
+                                                style: const TextStyle(fontSize: 12),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        // 7. Default Currency
+                                        DataCell(
+                                          CopyableTableCell(
+                                            value: exp.defaultCurrency,
+                                            rowSummary: rowSummary,
+                                            child: Text(
+                                              exp.defaultCurrency,
+                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
   }
-  void _showAddExpenseTypeDialog() {
+
+  void _showEditExpenseTypeDialog(ClearanceExpenseTypeModel exp) {
     final l = context.l10n;
-    final codeCtrl = TextEditingController();
-    final nameArCtrl = TextEditingController();
-    final nameEnCtrl = TextEditingController();
-    String category = 'Clearance Fees (أتعاب ومصاريف تخليص)';
-    String defaultUnit = 'Per Invoice (لكل فاتورة)';
-    String currency = 'EGP';
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final formKey = GlobalKey<FormState>();
+    final codeCtrl = TextEditingController(text: exp.expenseCode);
+    final nameArCtrl = TextEditingController(text: exp.nameAr);
+    final nameEnCtrl = TextEditingController(text: exp.nameEn ?? '');
+    String category = exp.category;
+    String defaultUnit = exp.defaultUnit;
+    String currency = exp.defaultCurrency;
+    bool isSaving = false;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => AlertDialog(
-          title: Text(l.newExpenseTypeDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
+          title: Row(
+            children: [
+              const Icon(Icons.edit_rounded, color: AppTheme.cobalt),
+              const SizedBox(width: 8),
+              Text(l.editExpenseTypeDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
           content: SizedBox(
-            width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: codeCtrl,
-                  decoration: InputDecoration(labelText: l.expenseCodeField, border: const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: nameArCtrl,
-                  decoration: InputDecoration(labelText: l.expenseNameArField, border: const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: nameEnCtrl,
-                  decoration: InputDecoration(labelText: l.expenseNameEnField, border: const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                SearchableDropdownField<String>(
-                  value: category,
-                  labelText: l.categoryCol,
-                  items: const [
-                    SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'Clearance Fees'),
-                    SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'Procedures & Approvals'),
-                    SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'Inland Transport'),
-                    SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'Port & Handling'),
-                    SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'Other Fees'),
-                  ],
-                  onChanged: (v) => setDlgState(() => category = v ?? category),
-                ),
-                const SizedBox(height: 12),
-                Row(
+            width: 500,
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: TextFormField(
-                        initialValue: defaultUnit,
-                        decoration: InputDecoration(labelText: l.defaultCalculationUnitField, border: const OutlineInputBorder()),
-                        onChanged: (v) => defaultUnit = v,
+                    TextFormField(
+                      controller: codeCtrl,
+                      decoration: InputDecoration(
+                        labelText: l.expenseCodeField,
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'يرجى إدخال الكود' : 'Code required') : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: nameArCtrl,
+                      decoration: InputDecoration(
+                        labelText: l.expenseNameArField,
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'يرجى إدخال الاسم العربي' : 'Arabic name required') : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: nameEnCtrl,
+                      decoration: InputDecoration(
+                        labelText: l.expenseNameEnField,
+                        border: const OutlineInputBorder(),
+                        isDense: true,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: SearchableDropdownField<String>(
-                        value: currency,
-                        labelText: l.defaultCurrencyCol,
-                        items: const [
-                          SearchableDropdownItem(value: 'EGP', label: 'EGP'),
-                          SearchableDropdownItem(value: 'USD', label: 'USD'),
-                          SearchableDropdownItem(value: 'EUR', label: 'EUR'),
-                        ],
-                        onChanged: (v) => setDlgState(() => currency = v ?? 'EGP'),
-                      ),
+                    const SizedBox(height: 12),
+                    SearchableDropdownField<String>(
+                      value: category,
+                      labelText: l.categoryCol,
+                      items: [
+                        SearchableDropdownItem(
+                          value: 'Clearance Fees (أتعاب ومصاريف تخليص)',
+                          label: isArabic ? 'أتعاب ومصاريف تخليص' : 'Clearance Fees',
+                        ),
+                        SearchableDropdownItem(
+                          value: 'Procedures & Approvals (إجراءات وموافقات وفحص)',
+                          label: isArabic ? 'إجراءات وموافقات وفحص' : 'Procedures & Approvals',
+                        ),
+                        SearchableDropdownItem(
+                          value: 'Inland Transport (نقل بري وشاحنات)',
+                          label: isArabic ? 'نقل بري وشاحنات' : 'Inland Transport',
+                        ),
+                        SearchableDropdownItem(
+                          value: 'Port & Handling (موانئ وتعتيق وتفريغ)',
+                          label: isArabic ? 'موانئ وتعتيق وتفريغ' : 'Port & Handling',
+                        ),
+                        SearchableDropdownItem(
+                          value: 'Other Fees (مصاريف أخرى)',
+                          label: isArabic ? 'مصاريف أخرى' : 'Other Fees',
+                        ),
+                      ],
+                      onChanged: (v) => setDlgState(() => category = v ?? category),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: defaultUnit,
+                            decoration: InputDecoration(
+                              labelText: l.defaultCalculationUnitField,
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            onChanged: (v) => defaultUnit = v,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SearchableDropdownField<String>(
+                            value: currency,
+                            labelText: l.defaultCurrencyCol,
+                            items: const [
+                              SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                              SearchableDropdownItem(value: 'USD', label: 'USD'),
+                              SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                            ],
+                            onChanged: (v) => setDlgState(() => currency = v ?? 'EGP'),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.cancel)),
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              child: Text(l.cancel),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDlgState(() => isSaving = true);
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await ref.read(clearanceExpenseTypesProvider.notifier).updateExpenseType(
+                          exp.expenseId,
+                          {
+                            'expense_code': codeCtrl.text.trim(),
+                            'name_ar': nameArCtrl.text.trim(),
+                            'name_en': nameEnCtrl.text.trim().isNotEmpty ? nameEnCtrl.text.trim() : null,
+                            'category': category,
+                            'default_unit': defaultUnit,
+                            'default_currency': currency,
+                            'display_order': exp.displayOrder,
+                            'is_active': exp.isActive,
+                          },
+                        );
+                        ref.invalidate(clearanceExpenseTypesProvider);
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(l.expenseTypeUpdatedToast),
+                            backgroundColor: AppTheme.emerald,
+                          ),
+                        );
+                      } catch (e) {
+                        setDlgState(() => isSaving = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(l.saveExpenseBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteExpenseTypeConfirmDialog(ClearanceExpenseTypeModel exp) {
+    final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    bool isDeleting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.red),
+              const SizedBox(width: 8),
+              Text(l.confirmDeleteExpenseTypeTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            l.confirmDeleteExpenseTypeMsg(exp.nameAr, exp.expenseCode),
+            style: const TextStyle(fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+              child: Text(l.cancel),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: isDeleting
+                  ? null
+                  : () async {
+                      setDlgState(() => isDeleting = true);
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await ref.read(clearanceExpenseTypesProvider.notifier).deleteExpenseType(exp.expenseId);
+                        ref.invalidate(clearanceExpenseTypesProvider);
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(l.expenseTypeDeletedToast),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      } catch (e) {
+                        setDlgState(() => isDeleting = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+              child: isDeleting
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(isArabic ? 'حذف' : 'Delete', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddExpenseTypeDialog({ClearanceExpenseTypeModel? template}) {
+    final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final formKey = GlobalKey<FormState>();
+    final codeCtrl = TextEditingController(text: template != null ? '${template.expenseCode}-CLONE' : '');
+    final nameArCtrl = TextEditingController(text: template != null ? '${template.nameAr} (نسخة)' : '');
+    final nameEnCtrl = TextEditingController(text: template != null ? (template.nameEn != null ? '${template.nameEn} (Copy)' : '') : '');
+    String category = template?.category ?? 'Clearance Fees (أتعاب ومصاريف تخليص)';
+    String defaultUnit = template?.defaultUnit ?? 'Per Invoice (لكل فاتورة)';
+    String currency = template?.defaultCurrency ?? 'EGP';
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: Text(
+            template != null
+                ? (isArabic ? 'استنساخ بند المصروف المرجعي' : 'Clone Clearance Expense Item')
+                : l.newExpenseTypeDialogTitle,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: SizedBox(
+            width: 500,
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: codeCtrl,
+                      decoration: InputDecoration(
+                        labelText: l.expenseCodeField,
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'يرجى إدخال الكود' : 'Code required') : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: nameArCtrl,
+                      decoration: InputDecoration(
+                        labelText: l.expenseNameArField,
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'يرجى إدخال الاسم العربي' : 'Arabic name required') : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: nameEnCtrl,
+                      decoration: InputDecoration(
+                        labelText: l.expenseNameEnField,
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SearchableDropdownField<String>(
+                      value: category,
+                      labelText: l.categoryCol,
+                      items: [
+                        SearchableDropdownItem(
+                          value: 'Clearance Fees (أتعاب ومصاريف تخليص)',
+                          label: isArabic ? 'أتعاب ومصاريف تخليص' : 'Clearance Fees',
+                        ),
+                        SearchableDropdownItem(
+                          value: 'Procedures & Approvals (إجراءات وموافقات وفحص)',
+                          label: isArabic ? 'إجراءات وموافقات وفحص' : 'Procedures & Approvals',
+                        ),
+                        SearchableDropdownItem(
+                          value: 'Inland Transport (نقل بري وشاحنات)',
+                          label: isArabic ? 'نقل بري وشاحنات' : 'Inland Transport',
+                        ),
+                        SearchableDropdownItem(
+                          value: 'Port & Handling (موانئ وتعتيق وتفريغ)',
+                          label: isArabic ? 'موانئ وتعتيق وتفريغ' : 'Port & Handling',
+                        ),
+                        SearchableDropdownItem(
+                          value: 'Other Fees (مصاريف أخرى)',
+                          label: isArabic ? 'مصاريف أخرى' : 'Other Fees',
+                        ),
+                      ],
+                      onChanged: (v) => setDlgState(() => category = v ?? category),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: defaultUnit,
+                            decoration: InputDecoration(
+                              labelText: l.defaultCalculationUnitField,
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            onChanged: (v) => defaultUnit = v,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SearchableDropdownField<String>(
+                            value: currency,
+                            labelText: l.defaultCurrencyCol,
+                            items: const [
+                              SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                              SearchableDropdownItem(value: 'USD', label: 'USD'),
+                              SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                            ],
+                            onChanged: (v) => setDlgState(() => currency = v ?? 'EGP'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              child: Text(l.cancel),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
-              onPressed: () async {
-                final nameAr = nameArCtrl.text.trim();
-                if (nameAr.isEmpty) return;
-                try {
-                  await ref.read(clearanceExpenseTypesProvider.notifier).createExpenseType({
-                    'expense_code': codeCtrl.text.trim().isNotEmpty ? codeCtrl.text.trim() : 'EXP-${DateTime.now().millisecondsSinceEpoch % 1000}',
-                    'name_ar': nameAr,
-                    'name_en': nameEnCtrl.text.trim().isNotEmpty ? nameEnCtrl.text.trim() : null,
-                    'category': category,
-                    'default_unit': defaultUnit,
-                    'default_currency': currency,
-                    'display_order': 99,
-                    'is_active': true,
-                  });
-                  if (ctx.mounted) Navigator.pop(ctx);
-                } catch (e) {
-                  if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red));
-                }
-              },
-              child: Text(l.saveExpenseBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDlgState(() => isSaving = true);
+                      try {
+                        await ref.read(clearanceExpenseTypesProvider.notifier).createExpenseType({
+                          'expense_code': codeCtrl.text.trim(),
+                          'name_ar': nameArCtrl.text.trim(),
+                          'name_en': nameEnCtrl.text.trim().isNotEmpty ? nameEnCtrl.text.trim() : null,
+                          'category': category,
+                          'default_unit': defaultUnit,
+                          'default_currency': currency,
+                          'display_order': 99,
+                          'is_active': true,
+                        });
+                        ref.invalidate(clearanceExpenseTypesProvider);
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      } catch (e) {
+                        setDlgState(() => isSaving = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(l.saveExpenseBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 
-/// Button variant options for ImportFlow ERP.
+/// Button variant options for Sorour Logistics ERP.
 enum AppButtonVariant {
   /// Primary action (cobalt blue) — Save, Confirm, Submit
   primary,
@@ -26,7 +26,7 @@ enum AppButtonSize {
   large,   // 48px height
 }
 
-/// 🎯 Unified Professional Button for ImportFlow ERP.
+/// 🎯 Unified Professional Button for Sorour Logistics ERP.
 ///
 /// Replaces all `ElevatedButton.styleFrom(...)` and `OutlinedButton.styleFrom(...)`
 /// scattered across the codebase. Single source of truth for button appearance.

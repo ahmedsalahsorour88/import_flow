@@ -63,6 +63,22 @@ from modules.original_documents_collection.model import OriginalDocumentsCollect
 from modules.cargo_insurance.model import CargoInsuranceCertificate
 from modules.route_intelligence.model import RouteOperationalNote
 from modules.simulation.model import SavedSimulationScenario
+from modules.lifecycle_board.model import (
+    ShipmentStageActivity,
+    StepConfig,
+    StepConfigAuditLog,
+    PendingReferenceRecord,
+)
+from modules.smart_email_listener.model import InboundEmailLog
+from modules.formal_letters.model import FormalLetterRecord
+from modules.freight_data_connector.model import (
+    FreightIndexSnapshot,
+    DemurrageRule,
+    PortDemurrageTariff,
+    ExternalApiQuotaLog,
+)
+from modules.expense_catalog.model import ExpenseCatalog
+from modules.experience_guide.model import GuideEntry, GuideEntryScope
 
 
 
@@ -111,6 +127,11 @@ from modules.original_documents_collection.router import router as original_docu
 from modules.production_sync.router import router as production_sync_router
 from modules.route_intelligence.router import router as route_intelligence_router
 from modules.simulation.router import router as simulation_router
+from modules.smart_email_listener.router import router as smart_email_listener_router
+from modules.formal_letters.router import router as formal_letters_router
+from modules.freight_data_connector.router import freight_data_router
+from modules.expense_catalog.router import router as expense_catalog_router
+from modules.experience_guide.router import router as experience_guide_router
 
 
 
@@ -121,8 +142,8 @@ from modules.simulation.router import router as simulation_router
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
-    title="ImportFlow ERP API",
-    version="1.0.155",
+    title="Sorour Logistics ERP API",
+    version="1.0.158",
 )
 
 # ==================================================
@@ -223,6 +244,11 @@ app.include_router(original_documents_collection_router)
 app.include_router(production_sync_router)
 app.include_router(route_intelligence_router)
 app.include_router(simulation_router)
+app.include_router(smart_email_listener_router)
+app.include_router(formal_letters_router)
+app.include_router(freight_data_router)
+app.include_router(expense_catalog_router)
+app.include_router(experience_guide_router)
 
 
 
@@ -248,8 +274,8 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 @app.get("/")
 def dashboard():
     return {
-        "system": "ImportFlow ERP",
-        "version": "1.0.155",
+        "system": "Sorour Logistics ERP",
+        "version": "1.0.158",
         "status": "running",
     }
 
@@ -279,8 +305,8 @@ def health_check():
 
     return {
         "status": "OK",
-        "system": "ImportFlow ERP",
-        "version": "1.0.155",
+        "system": "Sorour Logistics ERP",
+        "version": "1.0.158",
         "database": {
             "connected": db_exists,
             "path": db_path,
@@ -308,7 +334,7 @@ def shutdown_system():
     threading.Thread(target=_delayed_exit, daemon=True).start()
     return {
         "status": "shutting down",
-        "message": "ImportFlow backend is shutting down gracefully...",
+        "message": "Sorour Logistics backend is shutting down gracefully...",
     }
 
 

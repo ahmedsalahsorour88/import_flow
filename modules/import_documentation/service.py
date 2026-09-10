@@ -1056,8 +1056,16 @@ def _group_ocr_boxes_into_lines(ocr_res, y_threshold: float = 15.0) -> List[str]
 def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
     """
     High-accuracy optical character recognition (OCR) for scanned PDFs and images.
-    Uses RapidOCR with spatial line grouping + pytesseract fallback.
+    Uses ArabicRapidOCREngine (with Arabic ONNX model + RTL support) with default RapidOCR and pytesseract fallbacks.
     """
+    try:
+        from modules.import_documentation.arabic_ocr_engine import extract_arabic_ocr_text
+        arabic_text = extract_arabic_ocr_text(filename, content_bytes)
+        if arabic_text and len(arabic_text.strip()) > 30:
+            return arabic_text
+    except Exception as e:
+        logger.warning(f"Arabic OCR engine failed for '{filename}': {e}. Falling back to default RapidOCR.")
+
     lower = filename.lower()
     extracted_lines: List[str] = []
 

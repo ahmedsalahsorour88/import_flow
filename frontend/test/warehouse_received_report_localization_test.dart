@@ -26,6 +26,50 @@ void main() {
       expect(ar.whReportExportSuccessMsg.isNotEmpty, true);
       expect(en.whReportExportSuccessMsg.isNotEmpty, true);
 
+      // New Export & Copy Actions
+      expect(ar.whReportExportTsvBtn.isNotEmpty, true);
+      expect(en.whReportExportTsvBtn.isNotEmpty, true);
+      expect(ar.whReportPrintPdfBtn.isNotEmpty, true);
+      expect(en.whReportPrintPdfBtn.isNotEmpty, true);
+      expect(ar.whReportCopyDossierBtn.isNotEmpty, true);
+      expect(en.whReportCopyDossierBtn.isNotEmpty, true);
+      expect(ar.whReportCopiedTsvSuccess.isNotEmpty, true);
+      expect(en.whReportCopiedTsvSuccess.isNotEmpty, true);
+      expect(ar.whReportCopiedExcelSuccess.isNotEmpty, true);
+      expect(en.whReportCopiedExcelSuccess.isNotEmpty, true);
+      expect(ar.whReportCopiedDossierSuccess.isNotEmpty, true);
+      expect(en.whReportCopiedDossierSuccess.isNotEmpty, true);
+      expect(ar.whReportCopyRowSummaryBtn.isNotEmpty, true);
+      expect(en.whReportCopyRowSummaryBtn.isNotEmpty, true);
+      expect(ar.whReportCopyRowSummarySuccess.isNotEmpty, true);
+      expect(en.whReportCopyRowSummarySuccess.isNotEmpty, true);
+      expect(ar.whReportCopyFieldTooltip.isNotEmpty, true);
+      expect(en.whReportCopyFieldTooltip.isNotEmpty, true);
+      expect(ar.whReportSearchCopied.isNotEmpty, true);
+      expect(en.whReportSearchCopied.isNotEmpty, true);
+      expect(ar.whReportColActions.isNotEmpty, true);
+      expect(en.whReportColActions.isNotEmpty, true);
+      expect(ar.whReportColWarehouse.isNotEmpty, true);
+      expect(en.whReportColWarehouse.isNotEmpty, true);
+      expect(ar.whReportColArrivalDate.isNotEmpty, true);
+      expect(en.whReportColArrivalDate.isNotEmpty, true);
+      expect(ar.whReportCopyBadgeSuccess('ملف', '101'), contains('101'));
+      expect(en.whReportCopyBadgeSuccess('File', '101'), contains('101'));
+
+      // Dossier & PDF headers
+      expect(ar.whReportPdfTitle.isNotEmpty, true);
+      expect(en.whReportPdfTitle.isNotEmpty, true);
+      expect(ar.whReportPdfSubtitle.isNotEmpty, true);
+      expect(en.whReportPdfSubtitle.isNotEmpty, true);
+      expect(ar.whReportDossierHeader.isNotEmpty, true);
+      expect(en.whReportDossierHeader.isNotEmpty, true);
+      expect(ar.whReportDossierKpiSummary.isNotEmpty, true);
+      expect(en.whReportDossierKpiSummary.isNotEmpty, true);
+      expect(ar.whReportDossierRecordsDetails.isNotEmpty, true);
+      expect(en.whReportDossierRecordsDetails.isNotEmpty, true);
+      expect(ar.whReportDossierFooter.isNotEmpty, true);
+      expect(en.whReportDossierFooter.isNotEmpty, true);
+
       // KPI Metrics
       expect(ar.whReportKpiInvoicedQty.isNotEmpty, true);
       expect(en.whReportKpiInvoicedQty.isNotEmpty, true);
@@ -85,6 +129,25 @@ void main() {
         ar.whReportInfoBannerSubtitle,
         ar.whReportExportExcelBtn,
         ar.whReportExportSuccessMsg,
+        ar.whReportExportTsvBtn,
+        ar.whReportPrintPdfBtn,
+        ar.whReportCopyDossierBtn,
+        ar.whReportCopiedTsvSuccess,
+        ar.whReportCopiedExcelSuccess,
+        ar.whReportCopiedDossierSuccess,
+        ar.whReportCopyRowSummaryBtn,
+        ar.whReportCopyRowSummarySuccess,
+        ar.whReportCopyFieldTooltip,
+        ar.whReportSearchCopied,
+        ar.whReportColActions,
+        ar.whReportColWarehouse,
+        ar.whReportColArrivalDate,
+        ar.whReportPdfTitle,
+        ar.whReportPdfSubtitle,
+        ar.whReportDossierHeader,
+        ar.whReportDossierKpiSummary,
+        ar.whReportDossierRecordsDetails,
+        ar.whReportDossierFooter,
         ar.whReportKpiInvoicedQty,
         ar.whReportKpiReceivedQty,
         ar.whReportKpiDamagedQty,
@@ -125,6 +188,9 @@ void main() {
       expect(ar.whReportColPoNumber.contains('('), false);
       expect(ar.whReportColVarianceQty.contains('('), false);
       expect(ar.whReportStatusApprovedAndReceived.contains('('), false);
+      expect(ar.whReportExportTsvBtn.contains('/'), false);
+      expect(ar.whReportPrintPdfBtn.contains('/'), false);
+      expect(ar.whReportCopyDossierBtn.contains('/'), false);
     });
   });
 }

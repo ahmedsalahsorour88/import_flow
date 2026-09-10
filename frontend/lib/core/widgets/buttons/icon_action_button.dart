@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 
-/// 🎯 Unified Icon Action Button for ImportFlow ERP data tables.
+/// 🎯 Unified Icon Action Button for Sorour Logistics ERP data tables.
 ///
 /// Replaces the private `_actionBtn()` method in `RowActionsPill` and any
 /// similar inline icon buttons scattered in table rows.

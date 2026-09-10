@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/locale_provider.dart';
+import 'package:frontend/features/freight_quotations/screens/freight_quotations_comparison_screen.dart';
 import 'package:frontend/features/freight_quotations/screens/freight_quotations_screen.dart';
 
 void main() {
@@ -90,7 +91,68 @@ void main() {
       final avgSettled = navInSettledTimes.reduce((a, b) => a + b) / navInSettledTimes.length;
       final avgNavOut = navOutTimes.reduce((a, b) => a + b) / navOutTimes.length;
 
-      debugPrint('Screen 49 Benchmark: First Frame: ${avgFirstFrame.toStringAsFixed(1)}ms | Settled: ${avgSettled.toStringAsFixed(1)}ms | Nav-OUT: ${avgNavOut.toStringAsFixed(1)}ms');
+      debugPrint('Screen 49 (FreightQuotationsScreen) Benchmark: First Frame: ${avgFirstFrame.toStringAsFixed(1)}ms | Settled: ${avgSettled.toStringAsFixed(1)}ms | Nav-OUT: ${avgNavOut.toStringAsFixed(1)}ms');
+
+      expect(avgFirstFrame, lessThan(300), reason: 'Nav-IN First Frame must be under 300ms');
+      expect(avgSettled, lessThan(350), reason: 'Nav-IN Settled must be under 350ms');
+      expect(avgNavOut, lessThan(150), reason: 'Nav-OUT must be under 150ms');
+    });
+
+    testWidgets('Measure Dimension A and Dimension B on FreightQuotationsComparisonScreen', (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final List<int> navInFirstFrameTimes = [];
+      final List<int> navInSettledTimes = [];
+      final List<int> navOutTimes = [];
+
+      for (var i = 1; i <= 3; i++) {
+        final navWatch = Stopwatch()..start();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              localeProvider.overrideWith((ref) {
+                final n = LocaleNotifier();
+                n.setLocale(const Locale('ar'));
+                return n;
+              }),
+            ],
+            child: const MaterialApp(
+              home: AppLocalizationsProvider(
+                locale: Locale('ar'),
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: FreightQuotationsComparisonScreen(),
+                ),
+              ),
+            ),
+          ),
+        );
+        final firstFrameMs = navWatch.elapsedMilliseconds;
+        navInFirstFrameTimes.add(firstFrameMs);
+        await tester.pumpAndSettle();
+        navWatch.stop();
+        final settledMs = navWatch.elapsedMilliseconds;
+        navInSettledTimes.add(settledMs);
+
+        final outWatch = Stopwatch()..start();
+        await tester.pumpWidget(
+          const MaterialApp(home: Scaffold(body: Center(child: Text('Empty')))),
+        );
+        await tester.pumpAndSettle();
+        outWatch.stop();
+        final navOutMs = outWatch.elapsedMilliseconds;
+        navOutTimes.add(navOutMs);
+
+        debugPrint('Comparison Run #$i: Nav-IN (First Frame): ${firstFrameMs}ms | Settled: ${settledMs}ms | Nav-OUT: ${navOutMs}ms');
+      }
+
+      final avgFirstFrame = navInFirstFrameTimes.reduce((a, b) => a + b) / navInFirstFrameTimes.length;
+      final avgSettled = navInSettledTimes.reduce((a, b) => a + b) / navInSettledTimes.length;
+      final avgNavOut = navOutTimes.reduce((a, b) => a + b) / navOutTimes.length;
+
+      debugPrint('Screen 49 (FreightQuotationsComparisonScreen) Benchmark: First Frame: ${avgFirstFrame.toStringAsFixed(1)}ms | Settled: ${avgSettled.toStringAsFixed(1)}ms | Nav-OUT: ${avgNavOut.toStringAsFixed(1)}ms');
 
       expect(avgFirstFrame, lessThan(300), reason: 'Nav-IN First Frame must be under 300ms');
       expect(avgSettled, lessThan(350), reason: 'Nav-IN Settled must be under 350ms');

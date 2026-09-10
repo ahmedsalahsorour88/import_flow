@@ -334,10 +334,10 @@ class LclLoadingTrackingModel {
       case 'LOADING_COMPLETED':
         return 'اكتملت التعبئة بالمخزن';
       case 'LOADING_IN_PROGRESS':
-        return 'جاري التعبئة في CFS';
+        return 'جاري التعبئة بمخزن التجميع';
       case 'ARRIVED_AT_SUPPLIER':
       case 'ARRIVED_AT_CFS':
-        return 'وصلت لمخزن التجميع (CFS)';
+        return 'وصلت لمخزن التجميع المشترك';
       case 'ASSIGNED':
         return 'تمت جدولة التجميع';
       default:

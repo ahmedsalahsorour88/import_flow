@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
+import 'copyable_data_helper.dart';
 
 /// Progress state notifier for AI / OCR extraction operations
 class ExtractionProgressController extends ChangeNotifier {
@@ -62,7 +63,7 @@ class ExtractionProgressController extends ChangeNotifier {
           _status = 'جاري إرسال المستند ومعالجة الصفحات...';
         } else if (_percent >= 0.50 && _percent < 0.75) {
           _currentStep = 3;
-          _stepLabel = 'المرحلة 3 من 4: التعرف الضوئي OCR واستخراج الجداول';
+          _stepLabel = 'المرحلة 3 من 4: التعرف الضوئي واستخراج الجداول';
           _status = 'جاري تحليل النصوص، أرقام البنود، والأسعار...';
         } else if (_percent >= 0.75) {
           _currentStep = 4;
@@ -162,109 +163,120 @@ class ExtractionProgressDialog extends StatelessWidget {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 12,
-          child: Container(
-            width: 520,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: Colors.white,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(12),
+          child: SelectionArea(
+            child: Container(
+              width: 520,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.white,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobalt.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 28),
                       ),
-                      child: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 28),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.charcoal,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              activeStepLabel,
+                              style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: pctInt == 100 ? AppTheme.emerald : AppTheme.cobalt,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '$pctInt%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.grey, size: 22),
+                        tooltip: l.closeAndCancelExtractionTooltip,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          controller.cancel();
+                          onCancel?.call();
+                          Navigator.of(context, rootNavigator: true).pop();
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // File metadata badge
+                  if (fileName != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
                         children: [
-                          Text(
-                            title,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.charcoal,
+                          const Icon(Icons.insert_drive_file_outlined, size: 18, color: Colors.blueGrey),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              fileName!,
+                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            activeStepLabel,
-                            style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600),
+                          IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                            tooltip: l.copyTooltip,
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => CopyHelper.copy(context, fileName!),
                           ),
+                          if (fileSize != null) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              fileSize!,
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: pctInt == 100 ? AppTheme.emerald : AppTheme.cobalt,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '$pctInt%',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.grey, size: 22),
-                      tooltip: l.closeAndCancelExtractionTooltip,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () {
-                        controller.cancel();
-                        onCancel?.call();
-                        Navigator.of(context, rootNavigator: true).pop();
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // File metadata badge
-                if (fileName != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.insert_drive_file_outlined, size: 18, color: Colors.blueGrey),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            fileName!,
-                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (fileSize != null)
-                          Text(
-                            fileSize!,
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                          ),
-                      ],
-                    ),
-                  ),
 
                 // Animated Progress Bar (0% -> 100%)
                 ClipRRect(
@@ -338,7 +350,8 @@ class ExtractionProgressDialog extends StatelessWidget {
               ],
             ),
           ),
-        );
+        ),
+      );
       },
     );
   }

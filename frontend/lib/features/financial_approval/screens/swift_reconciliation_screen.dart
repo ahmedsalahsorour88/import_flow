@@ -6,6 +6,8 @@ import '../../../core/theme/app_theme.dart';
 import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../services/financial_export_service.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 import 'package:flutter/services.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -75,7 +77,120 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
     super.dispose();
   }
 
+  void _exportTsv(List<PaymentRequestModel> payments) {
+    final l10n = context.l10n;
+    final buffer = StringBuffer();
+    // Header
+    buffer.writeln([
+      l10n.swiftTsvHeaderPaymentCode,
+      l10n.swiftTsvHeaderImportFile,
+      l10n.swiftTsvHeaderBeneficiary,
+      l10n.swiftTsvHeaderBank,
+      l10n.swiftTsvHeaderRequestDate,
+      l10n.swiftTsvHeaderSwiftReceiptDate,
+      l10n.swiftTsvHeaderProcessingDays,
+      l10n.swiftTsvHeaderRequestedAmount,
+      l10n.swiftTsvHeaderTransferredAmount,
+      l10n.swiftTsvHeaderVariance,
+      l10n.swiftTsvHeaderSwiftRef,
+      l10n.swiftTsvHeaderStatus,
+    ].join('\t'));
+
+    for (final p in payments) {
+      final days = p.swiftProcessingDays != null ? '${p.swiftProcessingDays}' : '-';
+      final transferred = p.swiftTransferredAmount != null
+          ? '${p.swiftTransferredAmount} ${p.swiftTransferredCurrency ?? p.currencyCode}'
+          : '-';
+      final variance = p.swiftVarianceAmount != null
+          ? '${p.swiftVarianceAmount} ${p.swiftTransferredCurrency ?? p.currencyCode}'
+          : '-';
+      final status = p.swiftVarianceStatus ??
+          (p.swiftReferenceNo != null && p.swiftReferenceNo!.isNotEmpty
+              ? l10n.swiftBadgeMatchedFull
+              : l10n.swiftBadgePending);
+
+      buffer.writeln([
+        p.paymentCode,
+        p.importFileCode ?? '-',
+        p.beneficiaryName ?? p.supplierName,
+        p.bankName ?? '-',
+        p.requestDate,
+        p.swiftReceiptDate ?? '-',
+        days,
+        '${p.requestedAmount} ${p.currencyCode}',
+        transferred,
+        variance,
+        p.swiftReferenceNo ?? '-',
+        status,
+      ].join('\t'));
+    }
+
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.swiftExportTsvSuccess),
+        backgroundColor: AppTheme.emerald,
+      ),
+    );
+  }
+
+  void _copyPaymentDossier(PaymentRequestModel pay) {
+    final l10n = context.l10n;
+    final status = pay.swiftVarianceStatus ??
+        (pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty
+            ? l10n.swiftBadgeMatchedFull
+            : l10n.swiftBadgePending);
+    final text = '''
+${l10n.swiftDetailsDialogTitle(pay.paymentCode)}
+${l10n.swiftRequestTitleLabel} ${pay.title}
+${l10n.swiftTsvHeaderImportFile}: ${pay.importFileCode ?? "-"}
+${l10n.swiftBeneficiaryLabel} ${pay.beneficiaryName ?? pay.supplierName}
+${l10n.swiftBankLabel} ${pay.bankName ?? "-"} | SWIFT: ${pay.swiftCode ?? "-"} | ${l10n.swiftAccountLabel} ${pay.ibanAccountNo ?? "-"}
+${l10n.swiftRequestDateLabel}: ${pay.requestDate.isNotEmpty ? pay.requestDate : "-"}
+${l10n.swiftReceiptDateLabel}: ${pay.swiftReceiptDate ?? l10n.swiftBadgePending}
+${l10n.swiftProcessingTimeLabel}: ${pay.swiftProcessingDays != null ? "${pay.swiftProcessingDays}" : "-"}
+${l10n.swiftRequestedAmountLabel}: ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}
+${l10n.swiftTransferredAmountLabel}: ${pay.swiftTransferredAmount != null ? "${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}" : "-"}
+${l10n.swiftVarianceLabel}: ${pay.swiftVarianceAmount != null ? "${pay.swiftVarianceAmount!.toStringAsFixed(2)} ${pay.currencyCode}" : "-"} ($status)
+${l10n.swiftColSwiftRef}: ${pay.swiftReferenceNo ?? l10n.swiftStatusUnregistered}
+${l10n.swiftReconciliationNotesLabel}: ${pay.swiftReconciliationNotes ?? "-"}
+'''.trim();
+
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.swiftCopySummarySuccess),
+        backgroundColor: AppTheme.emerald,
+      ),
+    );
+  }
+
+  void _copyFilteredSummary(List<PaymentRequestModel> payments) {
+    final l10n = context.l10n;
+    final matchedCount = payments.where((p) => p.swiftVarianceStatus == 'Matched').length;
+    final pendingCount = payments.where((p) => p.swiftReferenceNo == null || p.swiftReferenceNo!.isEmpty).length;
+    final varianceCount = payments.where((p) => p.swiftVarianceStatus == 'Deficit' || p.swiftVarianceStatus == 'Surplus').length;
+
+    final summary = '''
+${l10n.swiftScreenTitle}
+${l10n.swiftTableTitle(payments.length)}
+${l10n.swiftTotalRequestsMetric}: ${payments.length}
+${l10n.swiftMatchedSwiftMetric}: $matchedCount
+${l10n.swiftPendingSwiftMetric}: $pendingCount
+${l10n.swiftVariancesMetric}: $varianceCount
+'''.trim();
+
+    Clipboard.setData(ClipboardData(text: summary));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.swiftCopySummarySuccess),
+        backgroundColor: AppTheme.emerald,
+      ),
+    );
+  }
+
   Future<void> _pickAndExtractFile({int? targetPaymentId}) async {
+    final l10n = context.l10n;
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
@@ -92,7 +207,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
       if (fileBytes == null || fileBytes.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('⚠️ تعذر قراءة بيانات الملف المحدد'), backgroundColor: AppTheme.orange),
+            SnackBar(content: Text(l10n.swiftFileReadErrorSnack), backgroundColor: AppTheme.orange),
           );
         }
         return;
@@ -124,25 +239,19 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
             }
           });
 
-          final isArabic = Localizations.localeOf(context).languageCode == 'ar';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                isArabic
-                    ? '📄 تم استخراج بيانات السويفت بنجاح من ملف "$filename" (${_detectedFileType ?? "مستند"}) ⚡'
-                    : '📄 SWIFT data extracted successfully from "$filename" (${_detectedFileType ?? "Document"}) ⚡',
+                l10n.swiftExtractSuccessSnack(filename, _detectedFileType ?? l10n.swiftDocumentDefaultType),
               ),
               backgroundColor: AppTheme.emerald,
             ),
           );
         } else {
-          final isArabic = Localizations.localeOf(context).languageCode == 'ar';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                isArabic
-                    ? '❌ تعذر استخراج السويفت من الملف: ${res['error']}'
-                    : '❌ Failed to extract SWIFT from file: ${res['error']}',
+                l10n.swiftExtractErrorSnack(res['error']?.toString() ?? ''),
               ),
               backgroundColor: AppTheme.crimson,
             ),
@@ -151,10 +260,9 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
       }
     } catch (e) {
       if (mounted) {
-        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isArabic ? '❌ خطأ أثناء استخراج الملف: $e' : '❌ Error extracting file: $e'),
+            content: Text(l10n.swiftExtractErrorSnack(e.toString())),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -165,16 +273,12 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
   }
 
   Future<void> _runSmartSwiftExtraction({int? targetPaymentId}) async {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l10n = context.l10n;
     final text = _rawSwiftTextController.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            isArabic
-                ? '⚠️ يرجى لصق أو إدخال نص رسالة السويفت أو إشعار البنك أولاً'
-                : '⚠️ Please paste or enter SWIFT message or bank advice text first',
-          ),
+          content: Text(l10n.swiftEmptyInputErrorSnack),
           backgroundColor: AppTheme.orange,
         ),
       );
@@ -199,11 +303,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                isArabic
-                    ? '⚡ تم استخراج بيانات السويفت وتحديد طلب السداد المطابق بنجاح'
-                    : '⚡ SWIFT data extracted and matched with payment request successfully',
-              ),
+              content: Text(l10n.swiftParseSuccessSnack),
               backgroundColor: AppTheme.emerald,
             ),
           );
@@ -211,9 +311,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                isArabic
-                    ? '❌ تعذر تحليل السويفت: ${res['error']}'
-                    : '❌ Failed to parse SWIFT: ${res['error']}',
+                l10n.swiftParseErrorSnack(res['error']?.toString() ?? ''),
               ),
               backgroundColor: AppTheme.crimson,
             ),
@@ -224,7 +322,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isArabic ? '❌ خطأ في الاتصال: $e' : '❌ Connection error: $e'),
+            content: Text(l10n.swiftConnectionErrorSnack(e.toString())),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -236,7 +334,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
 
   Future<void> _executeSmartReconciliation(PaymentRequestModel pay) async {
     if (_extractedSwift == null) return;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l10n = context.l10n;
 
     final swiftRef = _extractedSwift!['transaction_reference'] ?? 'SWIFT-${DateTime.now().millisecondsSinceEpoch}';
     final rawDate = _extractedSwift!['value_date'] ?? DateTime.now().toString().substring(0, 10);
@@ -256,9 +354,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
         swiftTransferredCurrency: curr,
         swiftCode: swiftCode,
         ibanAccountNo: iban,
-        swiftReconciliationNotes: isArabic
-            ? 'تمت المطابقة والتأكيد الذكي بواسطة محرك استخراج السويفت'
-            : 'Smart reconciliation and confirmation executed via Smart AI SWIFT Engine',
+        swiftReconciliationNotes: l10n.swiftScreenSubtitle,
         autoExecute: true,
       );
 
@@ -268,9 +364,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              isArabic
-                  ? '🎉 تم تأكيد مطابقة السويفت ($swiftRef) واعتماد سداد الطلب (${updated.paymentCode}) وتحديث ملف الاستيراد بنجاح!'
-                  : '🎉 SWIFT ($swiftRef) matched, payment (${updated.paymentCode}) approved, and Import File updated successfully!',
+              l10n.swiftReconcileSuccessSnack(swiftRef, updated.paymentCode),
             ),
             backgroundColor: AppTheme.emerald,
             duration: const Duration(seconds: 4),
@@ -281,7 +375,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isArabic ? '❌ خطأ أثناء تأكيد المطابقة: $e' : '❌ Error during match confirmation: $e'),
+            content: Text(l10n.swiftReconcileErrorSnack(e.toString())),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -292,6 +386,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
   }
 
   void _showSwiftReconciliationDialog(PaymentRequestModel pay) {
+    final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
     final swiftRefController = TextEditingController(text: pay.swiftReferenceNo ?? '');
     final transferredAmountController = TextEditingController(
@@ -322,7 +417,6 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             final transferredAmt = double.tryParse(transferredAmountController.text.trim()) ?? 0.0;
@@ -337,138 +431,123 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
             if (transferredAmt <= 0) {
               varianceColor = Colors.grey;
               varianceIcon = Icons.hourglass_empty;
-              varianceText = isArabic ? 'بانتظار إدخال المبلغ' : 'Waiting for amount entry';
+              varianceText = l10n.swiftWaitingAmountEntry;
             } else if (variance.abs() < 0.001) {
               varianceColor = AppTheme.emerald;
               varianceIcon = Icons.check_circle;
-              varianceText = isArabic ? 'مطابق تماماً (بدون فروقات)' : '100% Matched (No Variances)';
+              varianceText = l10n.swiftBadgeMatchedFull;
             } else if (variance < 0) {
               varianceColor = AppTheme.crimson;
               varianceIcon = Icons.arrow_downward;
-              varianceText = isArabic
-                  ? 'عجز / نقص في قيمة السويفت بمقدار ${variance.abs().toStringAsFixed(2)} ${pay.currencyCode}'
-                  : 'Deficit in SWIFT by ${variance.abs().toStringAsFixed(2)} ${pay.currencyCode}';
+              varianceText = l10n.swiftBadgeDeficit(variance.abs().toStringAsFixed(2), pay.currencyCode);
             } else {
               varianceColor = AppTheme.orange;
               varianceIcon = Icons.arrow_upward;
-              varianceText = isArabic
-                  ? 'زيادة في قيمة السويفت بمقدار ${variance.toStringAsFixed(2)} ${pay.currencyCode}'
-                  : 'Surplus in SWIFT by ${variance.toStringAsFixed(2)} ${pay.currencyCode}';
+              varianceText = l10n.swiftBadgeSurplus(variance.toStringAsFixed(2), pay.currencyCode);
             }
 
-            return AlertDialog(
-              title: Row(
-                children: [
-                  const Icon(Icons.account_balance, color: AppTheme.cobalt),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      '${isArabic ? "تسجيل ومطابقة السويفت البنكي:" : "Register & Reconcile Bank SWIFT:"} ${pay.paymentCode}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            return SelectionArea(
+              child: AlertDialog(
+                title: Row(
+                  children: [
+                    const Icon(Icons.account_balance, color: AppTheme.cobalt),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        l10n.swiftReconcileDialogTitle(pay.paymentCode),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 680,
-                child: Form(
-                  key: formKey,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Summary of Payment Request
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.blue.shade200),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('${isArabic ? "عنوان الطلب:" : "Request Title:"} ${pay.title}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                  if (pay.importFileCode != null)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
-                                      child: Text(pay.importFileCode!, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                content: SizedBox(
+                  width: 680,
+                  child: Form(
+                    key: formKey,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Summary of Payment Request
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text('${l10n.swiftRequestTitleLabel} ${pay.title}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                     ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Expanded(child: Text('${isArabic ? "المورد المستفيد:" : "Beneficiary:"} ${pay.beneficiaryName ?? pay.supplierName}', style: const TextStyle(fontSize: 12))),
-                                  Expanded(child: Text('${isArabic ? "البنك:" : "Bank:"} ${pay.bankName ?? "-"} (${pay.swiftCode ?? "-"})', style: const TextStyle(fontSize: 12))),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Expanded(child: Text('${isArabic ? "تاريخ تقديم الطلب:" : "Request Date:"} ${pay.requestDate.isNotEmpty ? pay.requestDate : "-"}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal))),
-                                  Expanded(child: Text('${isArabic ? "المبلغ المطلوب:" : "Requested Amount:"} ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Quick Smart AI Extract Button inside Dialog
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.purple.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.auto_awesome, color: Colors.purple, size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text('${context.l10n.swiftExtractorTitle}:', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple)),
-                              ),
-                              TextButton.icon(
-                                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                                icon: const Icon(Icons.description, size: 14),
-                                label: Text(isArabic ? 'نموذج تجريبي' : 'Sample MT103', style: const TextStyle(fontSize: 11)),
-                                onPressed: () async {
-                                  final res = await ref.read(paymentRequestsProvider.notifier).smartExtractSwift(
-                                    rawText: kSampleSwiftMT103,
-                                    targetPaymentId: pay.paymentId,
-                                  );
-                                  if (res['success'] == true && res['parsed_swift'] != null) {
-                                    final p = res['parsed_swift'] as Map<String, dynamic>;
-                                    setDialogState(() {
-                                      if (p['transaction_reference'] != null) swiftRefController.text = p['transaction_reference'];
-                                      if (p['amount'] != null) transferredAmountController.text = p['amount'].toString();
-                                      if (p['currency'] != null) currencyController.text = p['currency'];
-                                      if (p['value_date'] != null) {
-                                        receiptDate = DateTime.tryParse(p['value_date']) ?? receiptDate;
-                                      }
-                                    });
-                                  }
-                                },
-                              ),
-                              const SizedBox(width: 4),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.purple.shade700,
-                                  visualDensity: VisualDensity.compact,
+                                    if (pay.importFileCode != null)
+                                      InkWell(
+                                        borderRadius: BorderRadius.circular(4),
+                                        onTap: () => CopyHelper.copy(context, pay.importFileCode!),
+                                        child: Tooltip(
+                                          message: l10n.swiftCopyFieldTooltip,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.copy_rounded, color: Colors.white, size: 12),
+                                                const SizedBox(width: 4),
+                                                Text(pay.importFileCode!, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                                icon: const Icon(Icons.paste, color: Colors.white, size: 14),
-                                label: Text(isArabic ? 'لصق واستخراج ⚡' : 'Paste & Extract ⚡', style: const TextStyle(color: Colors.white, fontSize: 11)),
-                                onPressed: () async {
-                                  final data = await Clipboard.getData(Clipboard.kTextPlain);
-                                  if (data != null && data.text != null && data.text!.isNotEmpty) {
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Expanded(child: Text('${l10n.swiftBeneficiaryLabel} ${pay.beneficiaryName ?? pay.supplierName}', style: const TextStyle(fontSize: 12))),
+                                    Expanded(child: Text('${l10n.swiftBankLabel} ${pay.bankName ?? "-"} (${pay.swiftCode ?? "-"})', style: const TextStyle(fontSize: 12))),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Expanded(child: Text('${l10n.swiftRequestDateLabel}: ${pay.requestDate.isNotEmpty ? pay.requestDate : "-"}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal))),
+                                    Expanded(child: Text('${l10n.swiftRequestedAmountLabel}: ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Quick Smart AI Extract Button inside Dialog
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.purple.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.auto_awesome, color: Colors.purple, size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text('${l10n.swiftExtractorHeader}:', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple)),
+                                ),
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                                  icon: const Icon(Icons.description, size: 14),
+                                  label: Text(l10n.swiftSampleMT103Chip, style: const TextStyle(fontSize: 11)),
+                                  onPressed: () async {
                                     final res = await ref.read(paymentRequestsProvider.notifier).smartExtractSwift(
-                                      rawText: data.text!,
+                                      rawText: kSampleSwiftMT103,
                                       targetPaymentId: pay.paymentId,
                                     );
                                     if (res['success'] == true && res['parsed_swift'] != null) {
@@ -482,29 +561,21 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                         }
                                       });
                                     }
-                                  }
-                                },
-                              ),
-                              const SizedBox(width: 4),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.cobalt,
-                                  visualDensity: VisualDensity.compact,
+                                  },
                                 ),
-                                icon: const Icon(Icons.upload_file, color: Colors.white, size: 14),
-                                label: Text(isArabic ? 'رفع مستند 📁' : 'Upload File 📁', style: const TextStyle(color: Colors.white, fontSize: 11)),
-                                onPressed: () async {
-                                  final result = await FilePicker.pickFiles(
-                                    type: FileType.custom,
-                                    allowedExtensions: ['pdf', 'docx', 'doc', 'xlsx', 'xls', 'csv', 'jpg', 'jpeg', 'png', 'webp', 'bmp', 'txt'],
-                                    withData: true,
-                                  );
-                                  if (result != null && result.files.isNotEmpty) {
-                                    final f = result.files.first;
-                                    if (f.bytes != null) {
-                                      final res = await ref.read(paymentRequestsProvider.notifier).smartExtractSwiftFromFile(
-                                        fileBytes: f.bytes!,
-                                        filename: f.name,
+                                const SizedBox(width: 4),
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.purple.shade700,
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  icon: const Icon(Icons.paste, color: Colors.white, size: 14),
+                                  label: Text(l10n.swiftPasteAndExtractChip, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                                  onPressed: () async {
+                                    final data = await Clipboard.getData(Clipboard.kTextPlain);
+                                    if (data != null && data.text != null && data.text!.isNotEmpty) {
+                                      final res = await ref.read(paymentRequestsProvider.notifier).smartExtractSwift(
+                                        rawText: data.text!,
                                         targetPaymentId: pay.paymentId,
                                       );
                                       if (res['success'] == true && res['parsed_swift'] != null) {
@@ -519,262 +590,315 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                         });
                                       }
                                     }
-                                  }
-                                },
+                                  },
+                                ),
+                                const SizedBox(width: 4),
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.cobalt,
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  icon: const Icon(Icons.upload_file, color: Colors.white, size: 14),
+                                  label: Text(l10n.swiftUploadDocChip, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                                  onPressed: () async {
+                                    final result = await FilePicker.pickFiles(
+                                      type: FileType.custom,
+                                      allowedExtensions: ['pdf', 'docx', 'doc', 'xlsx', 'xls', 'csv', 'jpg', 'jpeg', 'png', 'webp', 'bmp', 'txt'],
+                                      withData: true,
+                                    );
+                                    if (result != null && result.files.isNotEmpty) {
+                                      final f = result.files.first;
+                                      if (f.bytes != null) {
+                                        final res = await ref.read(paymentRequestsProvider.notifier).smartExtractSwiftFromFile(
+                                          fileBytes: f.bytes!,
+                                          filename: f.name,
+                                          targetPaymentId: pay.paymentId,
+                                        );
+                                        if (res['success'] == true && res['parsed_swift'] != null) {
+                                          final p = res['parsed_swift'] as Map<String, dynamic>;
+                                          setDialogState(() {
+                                            if (p['transaction_reference'] != null) swiftRefController.text = p['transaction_reference'];
+                                            if (p['amount'] != null) transferredAmountController.text = p['amount'].toString();
+                                            if (p['currency'] != null) currencyController.text = p['currency'];
+                                            if (p['value_date'] != null) {
+                                              receiptDate = DateTime.tryParse(p['value_date']) ?? receiptDate;
+                                            }
+                                          });
+                                        }
+                                      }
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Input Fields
+                          Row(
+                            children: [
+                              // SWIFT Receipt Date
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () async {
+                                    final picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: receiptDate,
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime(2030),
+                                    );
+                                    if (picked != null) {
+                                      setDialogState(() => receiptDate = picked);
+                                    }
+                                  },
+                                  child: InputDecorator(
+                                    decoration: InputDecoration(
+                                      labelText: l10n.swiftReceiptDateLabel,
+                                      border: const OutlineInputBorder(),
+                                      prefixIcon: const Icon(Icons.calendar_today, color: AppTheme.cobalt),
+                                    ),
+                                    child: Text(receiptDate.toString().substring(0, 10), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // SWIFT Reference No
+                              Expanded(
+                                child: TextFormField(
+                                  controller: swiftRefController,
+                                  decoration: InputDecoration(
+                                    labelText: '${l10n.swiftColSwiftRef} *',
+                                    border: const OutlineInputBorder(),
+                                    prefixIcon: const Icon(Icons.tag, color: AppTheme.cobalt),
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 18),
+                                      tooltip: l10n.swiftCopyFieldTooltip,
+                                      onPressed: () => CopyHelper.copy(context, swiftRefController.text),
+                                    ),
+                                  ),
+                                  validator: (v) => (v == null || v.trim().isEmpty) ? l10n.swiftEnterSwiftRefError : null,
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 14),
+                          const SizedBox(height: 14),
 
-                        // Input Fields
-                        Row(
-                          children: [
-                            // SWIFT Receipt Date
-                            Expanded(
-                              child: InkWell(
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: receiptDate,
-                                    firstDate: DateTime(2020),
-                                    lastDate: DateTime(2030),
-                                  );
-                                  if (picked != null) {
-                                    setDialogState(() => receiptDate = picked);
-                                  }
-                                },
-                                child: InputDecorator(
-                                  decoration: InputDecoration(
-                                    labelText: isArabic ? 'تاريخ استلام السويفت من البنك *' : 'Bank SWIFT Receipt Date *',
-                                    border: const OutlineInputBorder(),
-                                    prefixIcon: const Icon(Icons.calendar_today, color: AppTheme.cobalt),
-                                  ),
-                                  child: Text(receiptDate.toString().substring(0, 10), style: const TextStyle(fontWeight: FontWeight.bold)),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            // SWIFT Reference No
-                            Expanded(
-                              child: TextFormField(
-                                controller: swiftRefController,
-                                decoration: InputDecoration(
-                                  labelText: isArabic ? 'رقم السويفت البنكي (SWIFT Ref) *' : 'SWIFT Reference (MT103) *',
-                                  border: const OutlineInputBorder(),
-                                  prefixIcon: const Icon(Icons.tag, color: AppTheme.cobalt),
-                                ),
-                                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'يرجى إدخال رقم السويفت' : 'Please enter SWIFT reference') : null,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-
-                        Row(
-                          children: [
-                            // Transferred Amount
-                            Expanded(
-                              flex: 2,
-                              child: TextFormField(
-                                controller: transferredAmountController,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: InputDecoration(
-                                  labelText: isArabic ? 'القيمة المصدرة من السويفت *' : 'SWIFT Transferred Amount *',
-                                  border: const OutlineInputBorder(),
-                                  prefixIcon: const Icon(Icons.attach_money, color: AppTheme.emerald),
-                                ),
-                                onChanged: (v) => setDialogState(() {}),
-                                validator: (v) {
-                                  if (v == null || v.trim().isEmpty) return isArabic ? 'يرجى إدخال المبلغ' : 'Please enter amount';
-                                  final num = double.tryParse(v.trim());
-                                  if (num == null || num <= 0) return isArabic ? 'المبلغ يجب أن يكون أكبر من 0' : 'Amount must be > 0';
-                                  return null;
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            // Currency
-                            Expanded(
-                              flex: 1,
-                              child: TextFormField(
-                                controller: currencyController,
-                                decoration: InputDecoration(
-                                  labelText: isArabic ? 'العملة *' : 'Currency *',
-                                  border: const OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Reconciliation Live Comparison Box
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: varianceColor.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: varianceColor.withOpacity(0.4), width: 1.5),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
                             children: [
-                              Row(
-                                children: [
-                                  Icon(varianceIcon, color: varianceColor, size: 20),
-                                  const SizedBox(width: 8),
-                                  Text(isArabic ? 'نتيجة المقارنة والمطابقة الفورية:' : 'Instant Reconciliation Result:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: varianceColor)),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '${isArabic ? "مدة التنفيذ:" : "Processing Time:"} $safeDays ${isArabic ? "يوم ما بين تاريخ الطلب وتاريخ السويفت" : "days between request and SWIFT"}',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: safeDays <= 3 ? Colors.green.shade100 : (safeDays <= 7 ? Colors.orange.shade100 : Colors.red.shade100),
-                                      borderRadius: BorderRadius.circular(12),
+                              // Transferred Amount
+                              Expanded(
+                                flex: 2,
+                                child: TextFormField(
+                                  controller: transferredAmountController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: InputDecoration(
+                                    labelText: '${l10n.swiftTransferredAmountLabel} *',
+                                    border: const OutlineInputBorder(),
+                                    prefixIcon: const Icon(Icons.attach_money, color: AppTheme.emerald),
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 18),
+                                      tooltip: l10n.swiftCopyFieldTooltip,
+                                      onPressed: () => CopyHelper.copy(context, transferredAmountController.text),
                                     ),
-                                    child: Text(
-                                      safeDays <= 3
-                                          ? (isArabic ? '⚡ تنفيذ فوري ($safeDays أيام)' : '⚡ Instant ($safeDays days)')
-                                          : (safeDays <= 7 ? (isArabic ? '⏱️ مدة معقولة ($safeDays أيام)' : '⏱️ Reasonable ($safeDays days)') : (isArabic ? '⚠️ تأخير ($safeDays أيام)' : '⚠️ Delayed ($safeDays days)')),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: safeDays <= 3 ? Colors.green.shade800 : (safeDays <= 7 ? Colors.orange.shade900 : Colors.red.shade900),
+                                  ),
+                                  onChanged: (v) => setDialogState(() {}),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) return l10n.swiftEnterAmountError;
+                                    final num = double.tryParse(v.trim());
+                                    if (num == null || num <= 0) return l10n.swiftAmountGreaterThanZeroError;
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Currency
+                              Expanded(
+                                flex: 1,
+                                child: TextFormField(
+                                  controller: currencyController,
+                                  decoration: InputDecoration(
+                                    labelText: l10n.swiftCurrencyLabel,
+                                    border: const OutlineInputBorder(),
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 18),
+                                      tooltip: l10n.swiftCopyFieldTooltip,
+                                      onPressed: () => CopyHelper.copy(context, currencyController.text),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Reconciliation Live Comparison Box
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: varianceColor.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: varianceColor.withOpacity(0.4), width: 1.5),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(varianceIcon, color: varianceColor, size: 20),
+                                    const SizedBox(width: 8),
+                                    Text(l10n.swiftMatchingMatrixTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: varianceColor)),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      l10n.swiftDaysBetweenDates(safeDays),
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: safeDays <= 3 ? Colors.green.shade100 : (safeDays <= 7 ? Colors.orange.shade100 : Colors.red.shade100),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        safeDays <= 3
+                                            ? l10n.swiftExecutionInstantTag(safeDays)
+                                            : (safeDays <= 7 ? l10n.swiftExecutionReasonableTag(safeDays) : l10n.swiftExecutionDelayedTag(safeDays)),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: safeDays <= 3 ? Colors.green.shade800 : (safeDays <= 7 ? Colors.orange.shade900 : Colors.red.shade900),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('${isArabic ? "المبلغ المطلوب:" : "Requested Amount:"} ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', style: const TextStyle(fontSize: 12)),
-                                  Text('${isArabic ? "المبلغ المنفذ:" : "Transferred Amount:"} ${transferredAmt.toStringAsFixed(2)} ${pay.currencyCode}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: varianceColor)),
-                                ],
-                              ),
-                              const Divider(),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(varianceText, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: varianceColor)),
-                                  if (variance != 0)
-                                    Text(
-                                      '${isArabic ? "الفارق:" : "Variance:"} ${variance >= 0 ? "+" : ""}${variance.toStringAsFixed(2)} ${pay.currencyCode}',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: varianceColor, fontSize: 13),
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Auto-Sync Info Banner
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.amber.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.amber.shade300),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.bolt, color: Colors.orange, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  isArabic
-                                      ? '⚡ سيتم تلقائياً تحديث رقم السويفت (swift no) في ملف الاستيراد المربوط بمجرد الحفظ والاعتماد.'
-                                      : '⚡ Linked Import File SWIFT number will be automatically updated upon confirmation.',
-                                  style: const TextStyle(fontSize: 11, color: Colors.brown, fontWeight: FontWeight.w600),
+                                  ],
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('${l10n.swiftRequestedAmountLabel}: ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', style: const TextStyle(fontSize: 12)),
+                                    Text('${l10n.swiftTransferredAmountLabel}: ${transferredAmt.toStringAsFixed(2)} ${pay.currencyCode}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: varianceColor)),
+                                  ],
+                                ),
+                                const Divider(),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(varianceText, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: varianceColor)),
+                                    if (variance != 0)
+                                      Text(
+                                        '${l10n.swiftVarianceLabel}: ${variance >= 0 ? "+" : ""}${variance.toStringAsFixed(2)} ${pay.currencyCode}',
+                                        style: TextStyle(fontWeight: FontWeight.bold, color: varianceColor, fontSize: 13),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
+                          const SizedBox(height: 12),
 
-                        // Notes Field
-                        TextFormField(
-                          controller: notesController,
-                          maxLines: 2,
-                          decoration: InputDecoration(
-                            labelText: isArabic ? 'ملاحظات المطابقة والفروقات البنكية (إن وجدت)' : 'Reconciliation Notes & Bank Variances (if any)',
-                            border: const OutlineInputBorder(),
+                          // Auto-Sync Info Banner
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.amber.shade300),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.bolt, color: Colors.orange, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    l10n.swiftSyncShipmentNotice,
+                                    style: const TextStyle(fontSize: 11, color: Colors.brown, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+
+                          // Notes Field
+                          TextFormField(
+                            controller: notesController,
+                            maxLines: 2,
+                            decoration: InputDecoration(
+                              labelText: l10n.swiftReconciliationNotesLabel,
+                              border: const OutlineInputBorder(),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 18),
+                                tooltip: l10n.swiftCopyFieldTooltip,
+                                onPressed: () => CopyHelper.copy(context, notesController.text),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogCtx),
-                  child: Text(isArabic ? 'إلغاء' : 'Cancel'),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
-                  icon: const Icon(Icons.check, color: Colors.white, size: 18),
-                  label: Text(
-                    isArabic ? 'حفظ واعتماد السويفت وتحديث ملف الشحنة' : 'Save, Approve SWIFT & Sync Shipment',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogCtx),
+                    child: Text(l10n.swiftCancelBtn),
                   ),
-                  onPressed: () async {
-                    if (!formKey.currentState!.validate()) return;
-                    Navigator.pop(dialogCtx);
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+                    icon: const Icon(Icons.check, color: Colors.white, size: 18),
+                    label: Text(
+                      l10n.swiftSaveAndSyncBtn,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () async {
+                      if (!formKey.currentState!.validate()) return;
+                      Navigator.pop(dialogCtx);
 
-                    setState(() => _isProcessing = true);
-                    try {
-                      final updated = await ref.read(paymentRequestsProvider.notifier).reconcileSwift(
-                        paymentId: pay.paymentId,
-                        swiftReferenceNo: swiftRefController.text.trim(),
-                        swiftReceiptDate: receiptDate.toString().substring(0, 10),
-                        swiftTransferredAmount: transferredAmt,
-                        swiftTransferredCurrency: currencyController.text.trim().isNotEmpty ? currencyController.text.trim() : 'USD',
-                        swiftReconciliationNotes: notesController.text.trim(),
-                      );
+                      setState(() => _isProcessing = true);
+                      try {
+                        final updated = await ref.read(paymentRequestsProvider.notifier).reconcileSwift(
+                          paymentId: pay.paymentId,
+                          swiftReferenceNo: swiftRefController.text.trim(),
+                          swiftReceiptDate: receiptDate.toString().substring(0, 10),
+                          swiftTransferredAmount: transferredAmt,
+                          swiftTransferredCurrency: currencyController.text.trim().isNotEmpty ? currencyController.text.trim() : 'USD',
+                          swiftReconciliationNotes: notesController.text.trim(),
+                        );
 
-                      // Also refresh Import Files provider so swift_no is live immediately
-                      ref.read(importFilesProvider.notifier).fetchImportFiles();
+                        // Also refresh Import Files provider so swift_no is live immediately
+                        ref.read(importFilesProvider.notifier).fetchImportFiles();
 
-                      if (mounted && updated != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              isArabic
-                                  ? '✅ تم مطابقة السويفت بنجاح (${updated.swiftReferenceNo}) وتحديث ملف الاستيراد آلياً ⚡'
-                                  : '✅ SWIFT matched successfully (${updated.swiftReferenceNo}) & Import File synced ⚡',
+                        if (mounted && updated != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                l10n.swiftReconcileSuccessSnack(updated.swiftReferenceNo ?? '', updated.paymentCode),
+                              ),
+                              backgroundColor: AppTheme.emerald,
                             ),
-                            backgroundColor: AppTheme.emerald,
-                          ),
-                        );
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(l10n.swiftReconcileErrorSnack(e.toString())),
+                              backgroundColor: AppTheme.crimson,
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _isProcessing = false);
                       }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(isArabic ? '❌ خطأ أثناء المطابقة: $e' : '❌ Error during reconciliation: $e'),
-                            backgroundColor: AppTheme.crimson,
-                          ),
-                        );
-                      }
-                    } finally {
-                      if (mounted) setState(() => _isProcessing = false);
-                    }
-                  },
-                ),
-              ],
+                    },
+                  ),
+                ],
+              ),
             );
           },
         );
@@ -788,90 +912,147 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
   }
 
   void _showSwiftDetailsDialog(PaymentRequestModel pay) {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l10n = context.l10n;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('${isArabic ? "تفاصيل السويفت البنكي:" : "Bank SWIFT Details:"} ${pay.paymentCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            _buildVarianceBadge(pay.swiftVarianceStatus, pay.swiftVarianceAmount, pay.currencyCode, isArabic: isArabic),
-          ],
-        ),
-        content: SizedBox(
-          width: 580,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(pay.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
-                const SizedBox(height: 6),
-                Text('${isArabic ? "المورد المستفيد:" : "Beneficiary:"} ${pay.beneficiaryName ?? pay.supplierName}'),
-                Text('${isArabic ? "البنك:" : "Bank:"} ${pay.bankName ?? "-"} | SWIFT: ${pay.swiftCode ?? "-"} | ${isArabic ? "الحساب:" : "Account:"} ${pay.ibanAccountNo ?? "-"}'),
-                const Divider(),
-                Row(
-                  children: [
-                    _buildStatPill(isArabic ? 'تاريخ تقديم الطلب' : 'Request Date', pay.requestDate.isNotEmpty ? pay.requestDate : '-', AppTheme.charcoal),
-                    const SizedBox(width: 8),
-                    _buildStatPill(isArabic ? 'تاريخ استلام السويفت' : 'SWIFT Receipt Date', pay.swiftReceiptDate ?? (isArabic ? 'بانتظار السويفت' : 'Pending SWIFT'), AppTheme.cobalt),
-                    const SizedBox(width: 8),
-                    _buildStatPill(isArabic ? 'مدة التنفيذ' : 'Processing Time', pay.swiftProcessingDays != null ? '${pay.swiftProcessingDays} ${isArabic ? "يوم" : "Days"}' : '-', Colors.teal),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _buildStatPill(isArabic ? 'المبلغ المطلوب' : 'Requested Amount', '${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', AppTheme.cobalt),
-                    const SizedBox(width: 8),
-                    _buildStatPill(isArabic ? 'المبلغ المنفذ بالسويفت' : 'Transferred Amount', pay.swiftTransferredAmount != null ? '${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}' : '-', AppTheme.emerald),
-                    const SizedBox(width: 8),
-                    _buildStatPill(isArabic ? 'الفارق' : 'Variance', pay.swiftVarianceAmount != null ? '${pay.swiftVarianceAmount!.toStringAsFixed(2)} ${pay.currencyCode}' : '-', Colors.orange),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (ctx) => SelectionArea(
+        child: AlertDialog(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(l10n.swiftDetailsDialogTitle(pay.paymentCode), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              _buildVarianceBadge(pay.swiftVarianceStatus, pay.swiftVarianceAmount, pay.currencyCode),
+            ],
+          ),
+          content: SizedBox(
+            width: 600,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.tag, color: AppTheme.cobalt, size: 18),
-                          const SizedBox(width: 6),
-                          Text('${context.l10n.swiftCodeLabel}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(width: 8),
-                          Text(pay.swiftReferenceNo ?? (isArabic ? 'غير مسجل' : 'Unregistered'), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 14)),
-                        ],
+                      Expanded(
+                        child: Text(pay.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
                       ),
-                      if (pay.swiftReconciliationNotes != null && pay.swiftReconciliationNotes!.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text('${isArabic ? "ملاحظات المطابقة:" : "Reconciliation Notes:"} ${pay.swiftReconciliationNotes}'),
-                      ],
+                      if (pay.importFileCode != null)
+                        InkWell(
+                          borderRadius: BorderRadius.circular(4),
+                          onTap: () => CopyHelper.copy(context, pay.importFileCode!),
+                          child: Tooltip(
+                            message: l10n.swiftCopyFieldTooltip,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.copy_rounded, color: Colors.white, size: 12),
+                                  const SizedBox(width: 4),
+                                  Text(pay.importFileCode!, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text('${l10n.swiftBeneficiaryLabel} ${pay.beneficiaryName ?? pay.supplierName}'),
+                  Text('${l10n.swiftBankLabel} ${pay.bankName ?? "-"} | SWIFT: ${pay.swiftCode ?? "-"} | ${l10n.swiftAccountLabel} ${pay.ibanAccountNo ?? "-"}'),
+                  const Divider(),
+                  Row(
+                    children: [
+                      _buildStatPill(l10n.swiftRequestDateLabel, pay.requestDate.isNotEmpty ? pay.requestDate : '-', AppTheme.charcoal),
+                      const SizedBox(width: 8),
+                      _buildStatPill(l10n.swiftColSwiftDate, pay.swiftReceiptDate ?? l10n.swiftBadgePending, AppTheme.cobalt),
+                      const SizedBox(width: 8),
+                      _buildStatPill(l10n.swiftProcessingTimeLabel, pay.swiftProcessingDays != null ? l10n.swiftDaysCount(pay.swiftProcessingDays) : '-', Colors.teal),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _buildStatPill(l10n.swiftRequestedAmountLabel, '${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', AppTheme.cobalt),
+                      const SizedBox(width: 8),
+                      _buildStatPill(l10n.swiftTransferredAmountLabel, pay.swiftTransferredAmount != null ? '${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}' : '-', AppTheme.emerald),
+                      const SizedBox(width: 8),
+                      _buildStatPill(l10n.swiftVarianceLabel, pay.swiftVarianceAmount != null ? '${pay.swiftVarianceAmount!.toStringAsFixed(2)} ${pay.currencyCode}' : '-', Colors.orange),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.tag, color: AppTheme.cobalt, size: 18),
+                            const SizedBox(width: 6),
+                            Text('${l10n.swiftColSwiftRef}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Text(pay.swiftReferenceNo ?? l10n.swiftStatusUnregistered, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 14)),
+                                  if (pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    InkWell(
+                                      onTap: () => CopyHelper.copy(context, pay.swiftReferenceNo!),
+                                      child: Tooltip(
+                                        message: l10n.swiftCopyFieldTooltip,
+                                        child: const Icon(Icons.copy_rounded, size: 15, color: AppTheme.cobalt),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (pay.swiftReconciliationNotes != null && pay.swiftReconciliationNotes!.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text('${l10n.swiftReconciliationNotesLabel}: ${pay.swiftReconciliationNotes}'),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.swiftCloseBtn)),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson, size: 16),
+              label: Text(l10n.swiftPrintSlipBtn),
+              onPressed: () {
+                FinancialExportService.printOrSaveSwiftSlipPdf(context: context, payment: pay);
+              },
+            ),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 16),
+              label: Text(l10n.swiftCopySummaryBtn),
+              onPressed: () => _copyPaymentDossier(pay),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+              icon: const Icon(Icons.edit, color: Colors.white, size: 16),
+              label: Text(l10n.swiftEditBtn, style: const TextStyle(color: Colors.white)),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _showSwiftReconciliationDialog(pay);
+              },
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(isArabic ? 'إغلاق' : 'Close')),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-            icon: const Icon(Icons.edit, color: Colors.white, size: 16),
-            label: Text(isArabic ? 'تعديل المطابقة' : 'Edit Reconciliation', style: const TextStyle(color: Colors.white)),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _showSwiftReconciliationDialog(pay);
-            },
-          ),
-        ],
       ),
     );
   }
@@ -897,7 +1078,8 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
     );
   }
 
-  Widget _buildVarianceBadge(String? status, double? variance, String currency, {bool isArabic = true}) {
+  Widget _buildVarianceBadge(String? status, double? variance, String currency) {
+    final l10n = context.l10n;
     if (status == 'Matched' || (variance != null && variance.abs() < 0.001)) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -907,7 +1089,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           children: [
             const Icon(Icons.check_circle, color: Colors.green, size: 14),
             const SizedBox(width: 4),
-            Text(isArabic ? 'مطابق تماماً' : '100% Matched', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11)),
+            Text(l10n.swiftBadgeMatchedFull, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11)),
           ],
         ),
       );
@@ -920,7 +1102,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           children: [
             const Icon(Icons.arrow_downward, color: Colors.red, size: 14),
             const SizedBox(width: 4),
-            Text('${isArabic ? "عجز" : "Deficit"} (${variance?.toStringAsFixed(2)} $currency)', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 11)),
+            Text(l10n.swiftBadgeDeficit(variance?.abs().toStringAsFixed(2) ?? '0.00', currency), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 11)),
           ],
         ),
       );
@@ -933,7 +1115,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           children: [
             const Icon(Icons.arrow_upward, color: Colors.orange, size: 14),
             const SizedBox(width: 4),
-            Text('${isArabic ? "زيادة" : "Surplus"} (+${variance?.toStringAsFixed(2)} $currency)', style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 11)),
+            Text(l10n.swiftBadgeSurplus(variance?.toStringAsFixed(2) ?? '0.00', currency), style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 11)),
           ],
         ),
       );
@@ -941,7 +1123,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12)),
-        child: Text(isArabic ? 'بانتظار السويفت' : 'Pending SWIFT', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 11)),
+        child: Text(l10n.swiftBadgePending, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 11)),
       );
     }
   }
@@ -960,15 +1142,26 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           children: [
             Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
             const SizedBox(height: 2),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-                color: color,
+            InkWell(
+              onTap: () => CopyHelper.copy(context, value),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+                        color: color,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.copy_rounded, size: 12, color: color.withOpacity(0.7)),
+                ],
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -976,7 +1169,8 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
     );
   }
 
-  Widget _buildMatchingMatrixBox(List<PaymentRequestModel> paymentsList, {bool isArabic = true}) {
+  Widget _buildMatchingMatrixBox(List<PaymentRequestModel> paymentsList) {
+    final l10n = context.l10n;
     PaymentRequestModel? matchedPay;
     if (_selectedPaymentIdForReconcile != null) {
       matchedPay = paymentsList.firstWhere(
@@ -991,7 +1185,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
     }
 
     if (matchedPay == null) {
-      return Center(child: Text(isArabic ? 'لا توجد طلبات سداد مسجلة للمطابقة' : 'No payment requests registered for matching'));
+      return Center(child: Text(l10n.swiftNoMatchingRecords));
     }
 
     final score = _matchedPayment?['confidence_score'] ?? 100;
@@ -1010,7 +1204,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                 const Icon(Icons.compare_arrows, color: AppTheme.emerald, size: 18),
                 const SizedBox(width: 6),
                 Text(
-                  isArabic ? '2. المطابقة مع طلب السداد المسجل في النظام' : '2. Match with System Registered Payment Request',
+                  l10n.swiftMatchingMatrixTitle,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                 ),
               ],
@@ -1028,9 +1222,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                   Icon(score >= 80 ? Icons.check_circle : Icons.warning_amber, size: 13, color: score >= 80 ? Colors.green : Colors.orange),
                   const SizedBox(width: 4),
                   Text(
-                    score >= 80
-                        ? (isArabic ? 'تطابق ممتاز ($score%)' : 'Excellent Match ($score%)')
-                        : (isArabic ? 'تطابق جزئي ($score%)' : 'Partial Match ($score%)'),
+                    l10n.swiftConfidenceScoreTag(score),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -1046,7 +1238,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
 
         // Dropdown to change or select Payment Request
         SearchableDropdownField<int>(
-          labelText: isArabic ? 'طلب السداد المستهدف' : 'Target Payment Request',
+          labelText: l10n.swiftTargetPaymentLabel,
           items: paymentsList.where((p) => p.isActive).map((p) {
             return SearchableDropdownItem<int>(
               value: p.paymentId,
@@ -1075,35 +1267,35 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           child: Column(
             children: [
               _buildCompareRow(
-                isArabic ? 'المبلغ والعملة:' : 'Amount & CCY:',
-                '${isArabic ? "المطلوب:" : "Req:"} ${matchedPay.requestedAmount.toStringAsFixed(2)} ${matchedPay.currencyCode}',
-                '${isArabic ? "السويفت:" : "SWIFT:"} ${_extractedSwift!['amount']} ${_extractedSwift!['currency']}',
+                '${l10n.swiftRequestedAmountLabel}:',
+                '${l10n.swiftRequestedAmountLabel}: ${matchedPay.requestedAmount.toStringAsFixed(2)} ${matchedPay.currencyCode}',
+                '${l10n.swiftTransferredAmountLabel}: ${_extractedSwift!['amount']} ${_extractedSwift!['currency']}',
                 isAmtMatched,
-                variance == 0.0 ? (isArabic ? 'مطابق 100%' : '100% Match') : '${isArabic ? "فارق:" : "Var:"} ${variance.toStringAsFixed(2)}',
+                variance == 0.0 ? l10n.swiftBadgeMatchedFull : l10n.swiftBadgeDeficit(variance.abs().toStringAsFixed(2), matchedPay.currencyCode),
               ),
               const Divider(height: 12),
               _buildCompareRow(
-                isArabic ? 'المورد المستفيد:' : 'Beneficiary:',
+                l10n.swiftBeneficiaryLabel,
                 matchedPay.beneficiaryName ?? matchedPay.supplierName,
                 _extractedSwift!['beneficiary_name'] ?? '-',
                 true,
-                isArabic ? 'مطابق' : 'Matched',
+                l10n.swiftBadgeMatchedFull,
               ),
               const Divider(height: 12),
               _buildCompareRow(
-                isArabic ? 'كود السويفت البنكي:' : 'Bank SWIFT Code:',
+                '${l10n.swiftBankLabel} / SWIFT:',
                 matchedPay.swiftCode ?? '-',
                 _extractedSwift!['beneficiary_bank_swift'] ?? '-',
                 matchedPay.swiftCode == null || matchedPay.swiftCode == _extractedSwift!['beneficiary_bank_swift'],
-                isArabic ? 'مؤكد' : 'Verified',
+                l10n.swiftBadgeMatchedFull,
               ),
               const Divider(height: 12),
               _buildCompareRow(
-                isArabic ? 'رقم الحساب / IBAN:' : 'Account / IBAN:',
+                l10n.swiftAccountLabel,
                 matchedPay.ibanAccountNo ?? '-',
                 _extractedSwift!['beneficiary_account_or_iban'] ?? '-',
                 true,
-                isArabic ? 'مؤكد' : 'Verified',
+                l10n.swiftBadgeMatchedFull,
               ),
             ],
           ),
@@ -1123,9 +1315,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.verified, color: Colors.white, size: 20),
             label: Text(
-              isArabic
-                  ? 'تأكيد المطابقة، اعتماد سداد ${matchedPay.paymentCode} وتحديث ملف الشحنة آلياً ⚡'
-                  : 'Confirm Match, Approve ${matchedPay.paymentCode} & Auto-Sync Shipment ⚡',
+              l10n.swiftExecuteReconcileBtn,
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
             ),
             onPressed: _isSmartReconciling ? null : () => _executeSmartReconciliation(matchedPay!),
@@ -1140,20 +1330,26 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
       children: [
         SizedBox(width: 110, child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
         Expanded(
-          child: Text(
-            sysVal,
-            style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: InkWell(
+            onTap: () => CopyHelper.copy(context, sysVal),
+            child: Text(
+              sysVal,
+              style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
         const Icon(Icons.arrow_right_alt, color: Colors.grey, size: 16),
         Expanded(
-          child: Text(
-            swiftVal,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isMatch ? AppTheme.emerald : AppTheme.crimson),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: InkWell(
+            onTap: () => CopyHelper.copy(context, swiftVal),
+            child: Text(
+              swiftVal,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isMatch ? AppTheme.emerald : AppTheme.crimson),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
         Container(
@@ -1172,7 +1368,8 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
     );
   }
 
-  Widget _buildSmartSwiftSection(List<PaymentRequestModel> paymentsList, {bool isArabic = true}) {
+  Widget _buildSmartSwiftSection(List<PaymentRequestModel> paymentsList) {
+    final l10n = context.l10n;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1206,9 +1403,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    isArabic
-                        ? '⚡ محرك الاستخراج الذكي والمطابقة الفورية لبيانات السويفت'
-                        : '⚡ Smart AI SWIFT MT103 Extractor & Auto-Reconciler',
+                    l10n.swiftExtractorHeader,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -1223,7 +1418,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                   ),
                   icon: const Icon(Icons.description, size: 16),
                   label: Text(
-                    isArabic ? 'تحميل نموذج سويفت تجريبي 📄' : 'Load Sample SWIFT 📄',
+                    l10n.swiftLoadSampleBtn,
                     style: const TextStyle(fontSize: 11),
                   ),
                   onPressed: () {
@@ -1233,9 +1428,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  tooltip: isArabic
-                      ? (_isSmartSectionExpanded ? 'طي الأداة' : 'توسيع الأداة')
-                      : (_isSmartSectionExpanded ? 'Collapse' : 'Expand'),
+                  tooltip: _isSmartSectionExpanded ? l10n.swiftCollapseToolTooltip : l10n.swiftExpandToolTooltip,
                   icon: Icon(
                     _isSmartSectionExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                     color: Colors.white,
@@ -1283,18 +1476,21 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                 Row(
                                   children: [
                                     Text(
-                                      isArabic ? 'المستند المستخرج: ' : 'Extracted Document: ',
+                                      '${l10n.swiftExtractedDocLabel} ',
                                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple.shade900),
                                     ),
-                                    Text(
-                                      _uploadedFileName!,
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple.shade800),
+                                    Expanded(
+                                      child: Text(
+                                        _uploadedFileName!,
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple.shade800),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${isArabic ? "النوع:" : "Type:"} ${_detectedFileType ?? (isArabic ? "مستند" : "Document")} ${_uploadedFileSize != null ? "• ${isArabic ? "الحجم:" : "Size:"} ${(_uploadedFileSize! / 1024).toStringAsFixed(1)} KB" : ""}',
+                                  '${l10n.swiftDocTypePrefix} ${_detectedFileType ?? l10n.swiftDocumentDefaultType} ${_uploadedFileSize != null ? "• ${l10n.swiftDocSizePrefix} ${(_uploadedFileSize! / 1024).toStringAsFixed(1)} KB" : ""}',
                                   style: TextStyle(fontSize: 11, color: Colors.purple.shade700),
                                 ),
                               ],
@@ -1307,13 +1503,13 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             ),
                             icon: const Icon(Icons.refresh, size: 14),
-                            label: Text(isArabic ? 'تغيير الملف' : 'Change File', style: const TextStyle(fontSize: 11)),
+                            label: Text(l10n.swiftUploadFileBtn, style: const TextStyle(fontSize: 11)),
                             onPressed: () => _pickAndExtractFile(),
                           ),
                           const SizedBox(width: 6),
                           IconButton(
                             icon: const Icon(Icons.close, size: 16, color: Colors.purple),
-                            tooltip: isArabic ? 'إزالة الملف' : 'Remove File',
+                            tooltip: l10n.swiftCloseBtn,
                             onPressed: () {
                               setState(() {
                                 _uploadedFileName = null;
@@ -1336,13 +1532,16 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                           maxLines: 5,
                           style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                           decoration: InputDecoration(
-                            hintText: isArabic
-                                ? 'الصق نص رسالة السويفت البنكي (MT103) أو ارفع ملف المستند (Word / Excel / PDF / صورة)...\nمثال: {1:F01ARAIECXXXXX...} :20/TRANSACTION REFERENCE NUMBER : FT/26228/KZ70Q\n:32A/Value Date, CCY, Amount : 260818USD43704,00\n:59/Beneficiary Customer : SUZHOU YUHENG TEXTILE CO., LTD'
-                                : 'Paste SWIFT MT103 message text or upload document (Word / Excel / PDF / Image)...\nExample: {1:F01ARAIECXXXXX...} :20/TRANSACTION REFERENCE NUMBER : FT/26228/KZ70Q\n:32A/Value Date, CCY, Amount : 260818USD43704,00\n:59/Beneficiary Customer : SUZHOU YUHENG TEXTILE CO., LTD',
+                            hintText: l10n.swiftRawTextPlaceholder,
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                             filled: true,
                             fillColor: Colors.grey.shade50,
                             contentPadding: const EdgeInsets.all(12),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.copy_rounded, size: 18),
+                              tooltip: l10n.swiftCopyFieldTooltip,
+                              onPressed: () => CopyHelper.copy(context, _rawSwiftTextController.text),
+                            ),
                           ),
                         ),
                       ),
@@ -1359,9 +1558,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                 : const Icon(Icons.upload_file, color: Colors.white, size: 18),
                             label: Text(
-                              isArabic
-                                  ? '📁 رفع واستخراج من ملف\n(Word / Excel / PDF / صورة)'
-                                  : '📁 Upload & Extract File\n(Word / Excel / PDF / Image)',
+                              l10n.swiftUploadFileBtn,
                               textAlign: TextAlign.center,
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                             ),
@@ -1378,7 +1575,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                 : const Icon(Icons.bolt, color: Colors.white, size: 18),
                             label: Text(
-                              isArabic ? 'استخراج ومطابقة النص ⚡' : 'Extract & Reconcile ⚡',
+                              l10n.swiftExtractFromTextBtn,
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                             ),
                             onPressed: _isExtracting ? null : () => _runSmartSwiftExtraction(),
@@ -1392,7 +1589,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
                                 icon: const Icon(Icons.paste, size: 14),
-                                label: Text(isArabic ? 'لصق' : 'Paste', style: const TextStyle(fontSize: 11)),
+                                label: Text(l10n.swiftPasteAndExtractChip, style: const TextStyle(fontSize: 11)),
                                 onPressed: () async {
                                   final data = await Clipboard.getData(Clipboard.kTextPlain);
                                   if (data != null && data.text != null && data.text!.isNotEmpty) {
@@ -1404,7 +1601,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                               const SizedBox(width: 4),
                               TextButton.icon(
                                 icon: const Icon(Icons.clear, size: 14, color: Colors.grey),
-                                label: Text(isArabic ? 'تفريغ' : 'Clear', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                label: Text(l10n.swiftCancelBtn, style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                 onPressed: () {
                                   _rawSwiftTextController.clear();
                                   setState(() {
@@ -1453,7 +1650,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                         const Icon(Icons.account_balance, color: AppTheme.cobalt, size: 18),
                                         const SizedBox(width: 6),
                                         Text(
-                                          isArabic ? '1. بيانات السويفت المستخرجة (MT103)' : '1. Extracted SWIFT Details (MT103)',
+                                          l10n.swiftExtractorHeader,
                                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                         ),
                                       ],
@@ -1462,7 +1659,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
                                       child: Text(
-                                        'Ref: ${_extractedSwift!['transaction_reference'] ?? (isArabic ? "غير محدد" : "Unspecified")}',
+                                        'Ref: ${_extractedSwift!['transaction_reference'] ?? l10n.swiftStatusUnregistered}',
                                         style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                                       ),
                                     ),
@@ -1471,27 +1668,27 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                 const SizedBox(height: 10),
                                 Row(
                                   children: [
-                                    _buildInfoField(isArabic ? 'المبلغ المنفذ' : 'Transferred Amt', '${_extractedSwift!['amount']} ${_extractedSwift!['currency']}', AppTheme.emerald, isBold: true),
+                                    _buildInfoField(l10n.swiftColTransferredAmount, '${_extractedSwift!['amount']} ${_extractedSwift!['currency']}', AppTheme.emerald, isBold: true),
                                     const SizedBox(width: 8),
-                                    _buildInfoField(isArabic ? 'تاريخ التحويل' : 'Value Date', _extractedSwift!['value_date_formatted'] ?? _extractedSwift!['value_date'] ?? '-', AppTheme.charcoal),
+                                    _buildInfoField(l10n.swiftColSwiftDate, _extractedSwift!['value_date_formatted'] ?? _extractedSwift!['value_date'] ?? '-', AppTheme.charcoal),
                                     const SizedBox(width: 8),
-                                    _buildInfoField(isArabic ? 'العمولات' : 'Charges', _extractedSwift!['charge_details'] ?? 'SHA', Colors.teal),
+                                    _buildInfoField(l10n.swiftColVarianceStatus, _extractedSwift!['charge_details'] ?? 'SHA', Colors.teal),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                Text('${isArabic ? "المورد المستفيد:" : "Beneficiary:"} ${_extractedSwift!['beneficiary_name'] ?? "-"}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                Text('${l10n.swiftExtractedReceiverPrefix} ${_extractedSwift!['beneficiary_name'] ?? "-"}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    Expanded(child: Text('${isArabic ? "كود السويفت:" : "SWIFT Code:"} ${_extractedSwift!['beneficiary_bank_swift'] ?? "-"}', style: const TextStyle(fontSize: 11))),
-                                    Expanded(child: Text('${isArabic ? "رقم الحساب / IBAN:" : "Account / IBAN:"} ${_extractedSwift!['beneficiary_account_or_iban'] ?? "-"}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                    Expanded(child: Text('${l10n.swiftColSwiftRef}: ${_extractedSwift!['beneficiary_bank_swift'] ?? "-"}', style: const TextStyle(fontSize: 11))),
+                                    Expanded(child: Text('${l10n.swiftAccountLabel}: ${_extractedSwift!['beneficiary_account_or_iban'] ?? "-"}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
-                                Text('${isArabic ? "الآمر بالتحويل:" : "Ordering Customer:"} ${_extractedSwift!['ordering_customer_name'] ?? "-"} (${_extractedSwift!['ordering_account_or_iban'] ?? "-"})', style: TextStyle(fontSize: 11, color: Colors.grey.shade800)),
+                                Text('${l10n.swiftExtractedSenderPrefix}: ${_extractedSwift!['ordering_customer_name'] ?? "-"} (${_extractedSwift!['ordering_account_or_iban'] ?? "-"})', style: TextStyle(fontSize: 11, color: Colors.grey.shade800)),
                                 if (_extractedSwift!['pi_number'] != null || _extractedSwift!['payment_details'] != null) ...[
                                   const SizedBox(height: 4),
-                                  Text('${isArabic ? "الفاتورة / التفاصيل:" : "Invoice / Details:"} ${_extractedSwift!['pi_number'] ?? _extractedSwift!['payment_details']}', style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
+                                  Text('${l10n.swiftRequestTitleLabel} ${_extractedSwift!['pi_number'] ?? _extractedSwift!['payment_details']}', style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
                                 ],
                               ],
                             ),
@@ -1509,7 +1706,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: Colors.green.shade300),
                             ),
-                            child: _buildMatchingMatrixBox(paymentsList, isArabic: isArabic),
+                            child: _buildMatchingMatrixBox(paymentsList),
                           ),
                         ),
                       ],
@@ -1525,7 +1722,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
 
   @override
   Widget build(BuildContext context) {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l10n = context.l10n;
     final paymentsState = ref.watch(paymentRequestsProvider);
     final paymentsList = paymentsState.valueOrNull ?? [];
 
@@ -1565,269 +1762,400 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
         ? (reconciledItems.map((p) => p.swiftProcessingDays!).reduce((a, b) => a + b) / reconciledItems.length).toStringAsFixed(1)
         : '0.0';
 
-    final content = _isProcessing
-        ? const Center(child: CircularProgressIndicator())
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // KPI Metric Cards
-                Row(
-                  children: [
-                    _buildKPICard(isArabic ? 'إجمالي طلبات السداد' : 'Total Requests', totalRequests.toString(), Icons.receipt_long, AppTheme.cobalt),
-                    const SizedBox(width: 12),
-                    _buildKPICard(isArabic ? 'بانتظار السويفت' : 'Pending SWIFT', pendingSwift.toString(), Icons.hourglass_top, Colors.orange),
-                    const SizedBox(width: 12),
-                    _buildKPICard(isArabic ? 'سويفت مطابق 100%' : '100% Matched', matchedSwift.toString(), Icons.check_circle_outline, AppTheme.emerald),
-                    const SizedBox(width: 12),
-                    _buildKPICard(isArabic ? 'فروقات (عجز / زيادة)' : 'Variances', discrepancySwift.toString(), Icons.compare_arrows, AppTheme.crimson),
-                    const SizedBox(width: 12),
-                    _buildKPICard(isArabic ? 'متوسط مدة التنفيذ' : 'Avg Processing Time', '$avgDays ${isArabic ? "يوم" : "Days"}', Icons.speed, Colors.teal),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Smart AI SWIFT MT103 Extractor & Auto-Reconciler Tool
-                _buildSmartSwiftSection(paymentsList, isArabic: isArabic),
-                const SizedBox(height: 16),
-
-                // Filter & Search Toolbar
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
-                  ),
-                  child: Row(
+    final content = SelectionArea(
+      child: _isProcessing
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // KPI Metric Cards
+                  Row(
                     children: [
-                      Expanded(
-                        flex: 3,
-                        child: ValueListenableBuilder<TextEditingValue>(
-                          valueListenable: _searchController,
-                          builder: (context, val, child) {
-                            return TextField(
-                              controller: _searchController,
-                              decoration: InputDecoration(
-                                hintText: isArabic ? 'بحث بكود الطلب، ملف الشحنة، المورد، رقم السويفت...' : 'Search by payment code, shipment file, supplier, SWIFT ref...',
-                                prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
-                                suffixIcon: val.text.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear, size: 18),
-                                        onPressed: () {
-                                          _searchController.clear();
-                                          setState(() {});
-                                        },
-                                      )
-                                    : null,
-                                border: const OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                              onChanged: (v) => setState(() {}),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Filter Chips
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          _buildFilterChip(isArabic ? 'الكل ($totalRequests)' : 'All ($totalRequests)', 'ALL'),
-                          _buildFilterChip(isArabic ? 'بانتظار السويفت ($pendingSwift)' : 'Pending SWIFT ($pendingSwift)', 'PENDING'),
-                          _buildFilterChip(isArabic ? 'مطابق ($matchedSwift)' : 'Matched ($matchedSwift)', 'MATCHED'),
-                          _buildFilterChip(isArabic ? 'فروقات ($discrepancySwift)' : 'Variances ($discrepancySwift)', 'DEFICIT'),
-                        ],
-                      ),
+                      _buildKPICard(l10n.swiftTotalRequestsMetric, totalRequests.toString(), Icons.receipt_long, AppTheme.cobalt),
+                      const SizedBox(width: 12),
+                      _buildKPICard(l10n.swiftPendingSwiftMetric, pendingSwift.toString(), Icons.hourglass_top, Colors.orange),
+                      const SizedBox(width: 12),
+                      _buildKPICard(l10n.swiftMatchedSwiftMetric, matchedSwift.toString(), Icons.check_circle_outline, AppTheme.emerald),
+                      const SizedBox(width: 12),
+                      _buildKPICard(l10n.swiftVariancesMetric, discrepancySwift.toString(), Icons.compare_arrows, AppTheme.crimson),
+                      const SizedBox(width: 12),
+                      _buildKPICard(l10n.swiftAvgProcessingTimeMetric, l10n.swiftDaysCount(avgDays), Icons.speed, Colors.teal),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                // Table of Payment Requests & SWIFTs
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                          border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                  // Smart AI SWIFT MT103 Extractor & Auto-Reconciler Tool
+                  _buildSmartSwiftSection(paymentsList),
+                  const SizedBox(height: 16),
+
+                  // Filter & Search Toolbar
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: ValueListenableBuilder<TextEditingValue>(
+                            valueListenable: _searchController,
+                            builder: (context, val, child) {
+                              return TextField(
+                                controller: _searchController,
+                                decoration: InputDecoration(
+                                  hintText: l10n.swiftSearchPlaceholder,
+                                  prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
+                                  suffixIcon: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (val.text.isNotEmpty)
+                                        IconButton(
+                                          icon: const Icon(Icons.clear, size: 18),
+                                          onPressed: () {
+                                            _searchController.clear();
+                                            setState(() {});
+                                          },
+                                        ),
+                                      IconButton(
+                                        icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
+                                        tooltip: l10n.swiftCopyBtn,
+                                        onPressed: () => CopyHelper.copy(context, _searchController.text),
+                                      ),
+                                    ],
+                                  ),
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                onChanged: (v) => setState(() {}),
+                              );
+                            },
+                          ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        const SizedBox(width: 16),
+                        // Filter Chips
+                        Wrap(
+                          spacing: 8,
                           children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.table_chart, color: AppTheme.charcoal, size: 20),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '${isArabic ? "سجل طلبات السداد ومطابقة السويفت" : "Payment Requests & SWIFT Reconciliation"} (${filtered.length})',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                ),
-                              ],
-                            ),
-                            Row(
-                              children: [
-                                const Icon(Icons.bolt, color: Colors.orange, size: 16),
-                                const SizedBox(width: 4),
-                                Text(
-                                  isArabic ? 'التحديث التلقائي لملفات الشحنة مفعل ⚡' : 'Shipment Files Live Auto-Sync Active ⚡',
-                                  style: const TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
+                            _buildFilterChip(l10n.swiftFilterAll(totalRequests), 'ALL'),
+                            _buildFilterChip(l10n.swiftFilterPending(pendingSwift), 'PENDING'),
+                            _buildFilterChip(l10n.swiftFilterMatched(matchedSwift), 'MATCHED'),
+                            _buildFilterChip(l10n.swiftFilterVariances(discrepancySwift), 'DEFICIT'),
                           ],
                         ),
-                      ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
-                      if (filtered.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Center(
-                            child: Text(
-                              isArabic ? 'لا توجد طلبات سداد تطابق معايير البحث الحالية.' : 'No payment requests match current search criteria.',
-                              style: const TextStyle(color: Colors.grey),
-                            ),
+                  // Table of Payment Requests & SWIFTs
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
                           ),
-                        )
-                      else
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                            columns: [
-                              DataColumn(label: Text(isArabic ? 'كود الطلب / الملف' : 'Payment Code / File', style: const TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text(isArabic ? 'المورد المستفيد والبنك' : 'Beneficiary & Bank', style: const TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text(isArabic ? 'تاريخ تقديم الطلب' : 'Request Date', style: const TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text(isArabic ? 'تاريخ استلام السويفت' : 'SWIFT Receipt Date', style: const TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text(isArabic ? 'مدة التنفيذ' : 'Processing Time', style: const TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text(isArabic ? 'المبلغ المطلوب' : 'Requested Amount', style: const TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text(isArabic ? 'المبلغ المنفذ بالسويفت' : 'Transferred Amount', style: const TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text(isArabic ? 'حالة المطابقة والفارق' : 'Variance & Status', style: const TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text(isArabic ? 'رقم السويفت (MT103)' : 'SWIFT Ref (MT103)', style: const TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text(isArabic ? '⚡ العمليات' : '⚡ Actions', style: const TextStyle(fontWeight: FontWeight.bold))),
-                            ],
-                            rows: filtered.map((pay) {
-                              final isReconciled = pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty;
-                              return DataRow(
-                                cells: [
-                                  DataCell(
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(pay.paymentCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                        if (pay.importFileCode != null)
-                                          Text(pay.importFileCode!, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
-                                      ],
-                                    ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.table_chart, color: AppTheme.charcoal, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    l10n.swiftTableTitle(filtered.length),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                   ),
-                                  DataCell(
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(pay.beneficiaryName ?? pay.supplierName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                                        Text(pay.bankName ?? (isArabic ? 'بنك غير محدد' : 'Unspecified Bank'), style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                                      ],
-                                    ),
-                                  ),
-                                  DataCell(Text(pay.requestDate.isNotEmpty ? pay.requestDate : '-')),
-                                  DataCell(
-                                    Text(
-                                      pay.swiftReceiptDate ?? (isArabic ? 'بانتظار السويفت' : 'Pending SWIFT'),
-                                      style: TextStyle(
-                                        fontWeight: isReconciled ? FontWeight.bold : FontWeight.normal,
-                                        color: isReconciled ? AppTheme.charcoal : Colors.grey,
+                                  const SizedBox(width: 16),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.bolt, color: Colors.orange, size: 16),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        l10n.swiftAutoSyncNotice,
+                                        style: const TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold),
                                       ),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    pay.swiftProcessingDays != null
-                                        ? Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(
-                                              color: pay.swiftProcessingDays! <= 3 ? Colors.green.shade50 : (pay.swiftProcessingDays! <= 7 ? Colors.orange.shade50 : Colors.red.shade50),
-                                              borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(
-                                                color: pay.swiftProcessingDays! <= 3 ? Colors.green.shade300 : (pay.swiftProcessingDays! <= 7 ? Colors.orange.shade300 : Colors.red.shade300),
-                                              ),
-                                            ),
-                                            child: Text(
-                                              '⚡ ${pay.swiftProcessingDays} ${isArabic ? "يوم" : "Days"}',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: pay.swiftProcessingDays! <= 3 ? Colors.green.shade800 : (pay.swiftProcessingDays! <= 7 ? Colors.orange.shade900 : Colors.red.shade900),
-                                              ),
-                                            ),
-                                          )
-                                        : Text(isArabic ? '⏳ معلق' : '⏳ Pending', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                                  ),
-                                  DataCell(Text('${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', style: const TextStyle(fontWeight: FontWeight.w600))),
-                                  DataCell(
-                                    pay.swiftTransferredAmount != null
-                                        ? Text(
-                                            '${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                                          )
-                                        : const Text('-', style: TextStyle(color: Colors.grey)),
-                                  ),
-                                  DataCell(_buildVarianceBadge(pay.swiftVarianceStatus, pay.swiftVarianceAmount, pay.currencyCode, isArabic: isArabic)),
-                                  DataCell(
-                                    pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty
-                                        ? Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.blue.shade200)),
-                                            child: Text(pay.swiftReferenceNo!, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11)),
-                                          )
-                                        : Text(isArabic ? 'غير مسجل' : 'Unregistered', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                                  ),
-                                  DataCell(
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: isReconciled ? AppTheme.cobalt : AppTheme.emerald,
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                          ),
-                                          icon: Icon(isReconciled ? Icons.edit : Icons.account_balance, color: Colors.white, size: 14),
-                                          label: Text(
-                                            isReconciled ? (isArabic ? 'تعديل السويفت' : 'Edit SWIFT') : (isArabic ? 'تسجيل السويفت' : 'Register SWIFT'),
-                                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                          ),
-                                          onPressed: () => _showSwiftReconciliationDialog(pay),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        IconButton(
-                                          icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
-                                          tooltip: isArabic ? 'عرض التفاصيل' : 'View Details',
-                                          onPressed: () => _showSwiftDetailsDialog(pay),
-                                        ),
-                                      ],
-                                    ),
+                                    ],
                                   ),
                                 ],
-                              );
-                            }).toList(),
+                              ),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                children: [
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.cobalt,
+                                      side: const BorderSide(color: AppTheme.cobalt),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
+                                    icon: const Icon(Icons.table_view, size: 16),
+                                    label: Text(l10n.swiftExportTsvBtn, style: const TextStyle(fontSize: 12)),
+                                    onPressed: filtered.isEmpty ? null : () => _exportTsv(filtered),
+                                  ),
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.emerald,
+                                      side: const BorderSide(color: AppTheme.emerald),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
+                                    icon: const Icon(Icons.file_download, size: 16),
+                                    label: Text(l10n.swiftExportExcelBtn, style: const TextStyle(fontSize: 12)),
+                                    onPressed: filtered.isEmpty
+                                        ? null
+                                        : () => FinancialExportService.exportSwiftReconciliationToExcel(
+                                              context: context,
+                                              payments: filtered,
+                                            ),
+                                  ),
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.charcoal,
+                                      side: const BorderSide(color: Colors.grey),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
+                                    icon: const Icon(Icons.copy_all, size: 16),
+                                    label: Text(l10n.swiftCopySummaryBtn, style: const TextStyle(fontSize: 12)),
+                                    onPressed: filtered.isEmpty ? null : () => _copyFilteredSummary(filtered),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                    ],
+
+                        if (filtered.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Center(
+                              child: Text(
+                                l10n.swiftNoMatchingPayments,
+                                style: const TextStyle(color: Colors.grey),
+                              ),
+                            ),
+                          )
+                        else
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: DataTable(
+                              headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                              columns: [
+                                DataColumn(label: Text(l10n.swiftColPaymentCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.swiftColBeneficiaryBank, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.swiftColRequestDate, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.swiftColSwiftDate, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.swiftColProcessingTime, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.swiftColRequestedAmount, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.swiftColTransferredAmount, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.swiftColVarianceStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.swiftColSwiftRef, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.swiftColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              ],
+                              rows: filtered.map((pay) {
+                                final isReconciled = pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty;
+                                final rowSummary = '${pay.paymentCode} | ${pay.importFileCode ?? "-"} | ${pay.beneficiaryName ?? pay.supplierName} | ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode} | ${pay.swiftReferenceNo ?? l10n.swiftPendingSwiftBadge}';
+                                return DataRow(
+                                  cells: [
+                                    DataCell(
+                                      CopyableTableCell(
+                                        value: '${pay.paymentCode}${pay.importFileCode != null ? " / ${pay.importFileCode}" : ""}',
+                                        rowSummary: rowSummary,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(pay.paymentCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                const SizedBox(width: 4),
+                                                _buildCopyBadge(pay.paymentCode, tooltip: l10n.swiftCopyBtn),
+                                              ],
+                                            ),
+                                            if (pay.importFileCode != null)
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(pay.importFileCode!, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                                                  const SizedBox(width: 4),
+                                                  _buildCopyBadge(pay.importFileCode!, tooltip: l10n.swiftCopyBtn),
+                                                ],
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      CopyableTableCell(
+                                        value: '${pay.beneficiaryName ?? pay.supplierName} - ${pay.bankName ?? l10n.swiftUnspecifiedBank}',
+                                        rowSummary: rowSummary,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(pay.beneficiaryName ?? pay.supplierName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                            Text(pay.bankName ?? l10n.swiftUnspecifiedBank, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      CopyableTableCell(
+                                        value: pay.requestDate.isNotEmpty ? pay.requestDate : '-',
+                                        rowSummary: rowSummary,
+                                        child: Text(pay.requestDate.isNotEmpty ? pay.requestDate : '-'),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      CopyableTableCell(
+                                        value: pay.swiftReceiptDate ?? l10n.swiftPendingSwiftBadge,
+                                        rowSummary: rowSummary,
+                                        child: Text(
+                                          pay.swiftReceiptDate ?? l10n.swiftPendingSwiftBadge,
+                                          style: TextStyle(
+                                            fontWeight: isReconciled ? FontWeight.bold : FontWeight.normal,
+                                            color: isReconciled ? AppTheme.charcoal : Colors.grey,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      CopyableTableCell(
+                                        value: pay.swiftProcessingDays != null ? l10n.swiftDaysCount(pay.swiftProcessingDays.toString()) : l10n.swiftProcessingPending,
+                                        rowSummary: rowSummary,
+                                        child: pay.swiftProcessingDays != null
+                                            ? Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: pay.swiftProcessingDays! <= 3
+                                                      ? Colors.green.shade50
+                                                      : (pay.swiftProcessingDays! <= 7 ? Colors.orange.shade50 : Colors.red.shade50),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  border: Border.all(
+                                                    color: pay.swiftProcessingDays! <= 3
+                                                        ? Colors.green.shade300
+                                                        : (pay.swiftProcessingDays! <= 7 ? Colors.orange.shade300 : Colors.red.shade300),
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  '⚡ ${l10n.swiftDaysCount(pay.swiftProcessingDays.toString())}',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: pay.swiftProcessingDays! <= 3
+                                                        ? Colors.green.shade800
+                                                        : (pay.swiftProcessingDays! <= 7 ? Colors.orange.shade900 : Colors.red.shade900),
+                                                  ),
+                                                ),
+                                              )
+                                            : Text(l10n.swiftProcessingPending, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      CopyableTableCell(
+                                        value: '${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}',
+                                        rowSummary: rowSummary,
+                                        child: Text('${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      CopyableTableCell(
+                                        value: pay.swiftTransferredAmount != null
+                                            ? '${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}'
+                                            : '-',
+                                        rowSummary: rowSummary,
+                                        child: pay.swiftTransferredAmount != null
+                                            ? Text(
+                                                '${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}',
+                                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                              )
+                                            : const Text('-', style: TextStyle(color: Colors.grey)),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      CopyableTableCell(
+                                        value: '${pay.swiftVarianceStatus ?? "-"} ${pay.swiftVarianceAmount != null ? pay.swiftVarianceAmount!.toStringAsFixed(2) : ""}',
+                                        rowSummary: rowSummary,
+                                        child: _buildVarianceBadge(pay.swiftVarianceStatus, pay.swiftVarianceAmount, pay.currencyCode),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      CopyableTableCell(
+                                        value: pay.swiftReferenceNo ?? l10n.swiftUnregistered,
+                                        rowSummary: rowSummary,
+                                        child: pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty
+                                            ? Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                    decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.blue.shade200)),
+                                                    child: Text(pay.swiftReferenceNo!, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11)),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  _buildCopyBadge(pay.swiftReferenceNo!, tooltip: l10n.swiftCopyBtn),
+                                                ],
+                                              )
+                                            : Text(l10n.swiftUnregistered, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: isReconciled ? AppTheme.cobalt : AppTheme.emerald,
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            ),
+                                            icon: Icon(isReconciled ? Icons.edit : Icons.account_balance, color: Colors.white, size: 14),
+                                            label: Text(
+                                              isReconciled ? l10n.swiftEditBtn : l10n.swiftRegisterBtn,
+                                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                            ),
+                                            onPressed: () => _showSwiftReconciliationDialog(pay),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          IconButton(
+                                            icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
+                                            tooltip: l10n.swiftDetailsBtn,
+                                            onPressed: () => _showSwiftDetailsDialog(pay),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.copy, color: AppTheme.cobalt, size: 16),
+                                            tooltip: l10n.swiftCopyDossierBtn,
+                                            onPressed: () => _copyPaymentDossier(pay),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          );
+    );
 
     if (widget.isEmbedded) {
       return Container(
@@ -1845,7 +2173,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
             const Icon(Icons.account_balance, color: AppTheme.cobalt),
             const SizedBox(width: 10),
             Text(
-              isArabic ? 'مركز مطابقة وتأكيد السويفت البنكي' : 'Bank SWIFT Tracking & Reconciliation Engine',
+              l10n.swiftScreenTitle,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ],
@@ -1853,7 +2181,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: isArabic ? 'تحديث البيانات' : 'Refresh Data',
+            tooltip: l10n.swiftRefreshBtn,
             onPressed: () {
               ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
               ref.read(importFilesProvider.notifier).fetchImportFiles();
@@ -1909,6 +2237,24 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
       onSelected: (selected) {
         if (selected) setState(() => _selectedStatusFilter = value);
       },
+    );
+  }
+
+  Widget _buildCopyBadge(String text, {String? tooltip}) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(4),
+      onTap: () => CopyHelper.copy(context, text),
+      child: Tooltip(
+        message: tooltip ?? context.l10n.swiftCopyBtn,
+        child: Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: AppTheme.cobalt.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Icon(Icons.copy_rounded, size: 12, color: AppTheme.cobalt),
+        ),
+      ),
     );
   }
 }

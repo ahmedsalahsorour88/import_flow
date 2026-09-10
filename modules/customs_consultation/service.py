@@ -21,6 +21,8 @@ from modules.customs_consultation.schemas import (
     CustomsConsultationCreate,
     CustomsConsultationUpdate,
     CustomsConsultationResponse,
+    CloneBrokerPriceListRequest,
+    CloneConsultationRequest,
 )
 from modules.customs_consultation.repository import (
     ClearanceExpenseTypeRepository,
@@ -164,6 +166,71 @@ class BrokerPriceListService:
             )
         deleted = BrokerPriceListRepository.soft_delete(db, pl)
         return BrokerPriceListResponse.model_validate(deleted)
+
+    @staticmethod
+    def clone_price_list(
+        db: Session, price_list_id: int, schema: CloneBrokerPriceListRequest
+    ) -> BrokerPriceListResponse:
+        original = BrokerPriceListRepository.get_by_id(db, price_list_id)
+        if not original:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Broker Price List with ID '{price_list_id}' not found.",
+            )
+
+        target_code = schema.new_price_list_code
+        if not target_code:
+            target_code = f"{original.price_list_code}-CLONE"
+            idx = 1
+            while db.query(BrokerPriceList).filter(BrokerPriceList.price_list_code == target_code).first():
+                target_code = f"{original.price_list_code}-CLONE{idx}"
+                idx += 1
+        else:
+            existing = db.query(BrokerPriceList).filter(BrokerPriceList.price_list_code == target_code).first()
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"كود قائمة الأسعار '{target_code}' مستخدم بالفعل.",
+                )
+
+        new_pl = BrokerPriceList(
+            price_list_code=target_code,
+            title=schema.new_title,
+            broker_id=original.broker_id,
+            broker_name=original.broker_name,
+            port_name=original.port_name,
+            effective_from=schema.effective_from or date.today(),
+            effective_to=schema.effective_to,
+            version=original.version + 1,
+            is_active=True,
+            notes=schema.notes or f"مستنسخة من: {original.price_list_code}",
+            cloned_from_id=original.price_list_id,
+            cloned_from_code=original.price_list_code,
+        )
+        db.add(new_pl)
+        db.flush()
+
+        from modules.customs_consultation.model import BrokerPriceListItem
+        for itm in original.items:
+            cloned_item = BrokerPriceListItem(
+                price_list_id=new_pl.price_list_id,
+                expense_type_id=itm.expense_type_id,
+                expense_name=itm.expense_name,
+                category=itm.category,
+                unit_type=itm.unit_type,
+                standard_price=itm.standard_price,
+                currency=itm.currency,
+                min_price=itm.min_price,
+                max_price=itm.max_price,
+                notes=itm.notes,
+                is_active=itm.is_active,
+            )
+            db.add(cloned_item)
+
+        db.commit()
+        db.refresh(new_pl)
+        return BrokerPriceListResponse.model_validate(new_pl)
+
 
 
 # ==============================================================================
@@ -363,6 +430,95 @@ class CustomsConsultationService:
             )
         restored_session = CustomsConsultationRepository.restore(db, db_session)
         return CustomsConsultationService._compute_session_metrics(db, restored_session)
+
+    @staticmethod
+    def clone_consultation(
+        db: Session, consultation_id: int, schema: CloneConsultationRequest
+    ) -> CustomsConsultationResponse:
+        original = CustomsConsultationRepository.get_by_id(db, consultation_id)
+        if not original:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Customs Consultation with ID '{consultation_id}' not found.",
+            )
+
+        target_code = schema.new_consultation_code
+        if not target_code:
+            target_code = f"{original.consultation_code}-CLONE"
+            idx = 1
+            while db.query(CustomsConsultationSession).filter(CustomsConsultationSession.consultation_code == target_code).first():
+                target_code = f"{original.consultation_code}-CLONE{idx}"
+                idx += 1
+        else:
+            existing = db.query(CustomsConsultationSession).filter(CustomsConsultationSession.consultation_code == target_code).first()
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"كود الاستشارة الجمركية '{target_code}' مستخدم بالفعل.",
+                )
+
+        new_sess = CustomsConsultationSession(
+            consultation_code=target_code,
+            title=schema.new_title,
+            broker_id=original.broker_id,
+            broker_name=original.broker_name,
+            broker_contact_person=original.broker_contact_person,
+            broker_price_list_id=original.broker_price_list_id,
+            import_file_id=schema.target_import_file_id or original.import_file_id,
+            po_id=None,
+            project_id=original.project_id,
+            overall_status="Draft",
+            has_blocking_issues=False,
+            readiness_percentage=0.0,
+            estimated_duties_egp=original.estimated_duties_egp,
+            total_broker_fees_egp=original.total_broker_fees_egp,
+            notes=schema.notes or f"مستنسخة من: {original.consultation_code}",
+            is_active=True,
+            cloned_from_id=original.consultation_id,
+            cloned_from_code=original.consultation_code,
+        )
+        db.add(new_sess)
+        db.flush()
+
+        from modules.customs_consultation.model import CustomsChecklistItem, CustomsBrokerQuoteItem
+        if schema.copy_checklist_items:
+            for chk in original.checklist_items:
+                cloned_chk = CustomsChecklistItem(
+                    consultation_id=new_sess.consultation_id,
+                    document_type=chk.document_type,
+                    hs_code=chk.hs_code,
+                    is_required=chk.is_required,
+                    required_text=chk.required_text,
+                    responsible_party=chk.responsible_party,
+                    is_blocking_shipment=chk.is_blocking_shipment,
+                    status="Pending",
+                    remarks=chk.remarks,
+                    regulatory_agency=chk.regulatory_agency,
+                    corrective_action_required=chk.corrective_action_required,
+                )
+                db.add(cloned_chk)
+
+        if schema.copy_broker_quote_items:
+            for quote_item in original.broker_quote_items:
+                cloned_q = CustomsBrokerQuoteItem(
+                    consultation_id=new_sess.consultation_id,
+                    expense_type_id=quote_item.expense_type_id,
+                    expense_name=quote_item.expense_name,
+                    category=quote_item.category,
+                    unit_type=quote_item.unit_type,
+                    unit_price=quote_item.unit_price,
+                    currency=quote_item.currency,
+                    qty=quote_item.qty,
+                    is_applicable=quote_item.is_applicable,
+                    total_amount=quote_item.total_amount,
+                    notes=quote_item.notes,
+                )
+                db.add(cloned_q)
+
+        db.commit()
+        db.refresh(new_sess)
+        return CustomsConsultationService._compute_session_metrics(db, new_sess)
+
 
     @staticmethod
     def recalculate_from_reconciliation_service(

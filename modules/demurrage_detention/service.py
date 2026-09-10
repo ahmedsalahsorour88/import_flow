@@ -477,7 +477,7 @@ def push_demurrage_to_financial_settlement_service(
         settlement = LandedCostSettlementRecord(
             settlement_code=f"LCS-2026-{count + 1:04d}",
             import_file_id=file_id,
-            accountant_name=req.accountant_name or "ImportFlow Accountant",
+            accountant_name=req.accountant_name or "Sorour Logistics Accountant",
             expense_invoices=[],
             created_by=user,
             updated_by=user,

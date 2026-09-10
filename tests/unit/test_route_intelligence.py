@@ -263,3 +263,114 @@ class TestRouteAndSupplierIntelligence:
         assert len(data["operational_notes"]) == 1
         assert "فحص معملي" in data["operational_notes"][0]["note_text"]
 
+    def test_price_change_and_transit_calculation(self, db_session):
+        company = ImportCompany(
+            importer_name="Tokyo Importers",
+            country="Egypt",
+            address="Cairo",
+            importer_id="IMP-TYO-001",
+            importer_id_expiry=date(2030, 1, 1),
+            vat_id="100200399",
+            vat_id_expiry=date(2030, 1, 1),
+            registration_number="REG-099",
+            registration_expiry=date(2030, 1, 1),
+        )
+        db_session.add(company)
+        db_session.commit()
+        db_session.refresh(company)
+
+        supplier = Supplier(
+            company_name="Tokyo Electronics",
+            supplier_code="SUP-TYO-003",
+            supplier_type="Manufacturer",
+            registration_type="Commercial Registration",
+            foreign_exporter_id="JP-112233",
+            foreign_exporter_country="Japan",
+            foreign_exporter_country_code="JP",
+            address="Shibuya, Tokyo",
+        )
+        db_session.add(supplier)
+
+        incoterm = Incoterm(incoterm_code="CIF", incoterm_name="Cost Insurance Freight")
+        db_session.add(incoterm)
+
+        currency = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$")
+        db_session.add(currency)
+
+        db_session.commit()
+        db_session.refresh(supplier)
+        db_session.refresh(incoterm)
+        db_session.refresh(currency)
+
+        project = Project(
+            project_name="Tokyo Tech Proj",
+            project_code="PRJ-TYO-01",
+            project_owner="Ahmed Sorour",
+            company_id=company.company_id,
+            supplier_id=supplier.supplier_id,
+            incoterm_id=incoterm.incoterm_id,
+        )
+        db_session.add(project)
+        db_session.commit()
+        db_session.refresh(project)
+
+        # PO 1 (older: price $100)
+        po1 = PurchaseOrder(
+            po_number="PO-JP-001",
+            project_id=project.project_id,
+            supplier_id=supplier.supplier_id,
+            company_id=company.company_id,
+            incoterm_id=incoterm.incoterm_id,
+            currency_id=currency.currency_id,
+            order_date=datetime.now(timezone.utc) - timedelta(days=20),
+            total_amount_fob=1000.0,
+        )
+        db_session.add(po1)
+        db_session.commit()
+        db_session.refresh(po1)
+
+        item1 = POLineItem(
+            po_id=po1.po_id,
+            item_code="CHIP-A1",
+            description_ar="رقاقة إلكترونية A1",
+            quantity=10,
+            unit_price=100.0,
+            total_price=1000.0,
+        )
+        db_session.add(item1)
+
+        # PO 2 (newer: price $110 -> +10% price change)
+        po2 = PurchaseOrder(
+            po_number="PO-JP-002",
+            project_id=project.project_id,
+            supplier_id=supplier.supplier_id,
+            company_id=company.company_id,
+            incoterm_id=incoterm.incoterm_id,
+            currency_id=currency.currency_id,
+            order_date=datetime.now(timezone.utc) - timedelta(days=5),
+            total_amount_fob=1100.0,
+        )
+        db_session.add(po2)
+        db_session.commit()
+        db_session.refresh(po2)
+
+        item2 = POLineItem(
+            po_id=po2.po_id,
+            item_code="CHIP-A1",
+            description_ar="رقاقة إلكترونية A1",
+            quantity=10,
+            unit_price=110.0,
+            total_price=1100.0,
+        )
+        db_session.add(item2)
+        db_session.commit()
+
+        intel = get_supplier_route_intelligence_service(db_session, supplier.supplier_id)
+        assert len(intel.items_price_history) == 1
+        item_history = intel.items_price_history[0]
+        assert item_history.item_code == "CHIP-A1"
+        assert item_history.last_unit_price == 110.0
+        assert item_history.previous_unit_price == 100.0
+        assert item_history.price_change_percentage == 10.0
+        assert item_history.price_trend == "increased"
+

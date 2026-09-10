@@ -125,10 +125,10 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify the greeting card matching user screenshot is rendered
-      expect(find.text('Hello'), findsOneWidget);
-      expect(find.text('Here to help - Feedback,\nChat.'), findsOneWidget);
-      expect(find.text('مساعد الاستيراد الذكي متصل'), findsOneWidget);
+      // Verify the greeting card matching user screenshot is rendered (Arabic by default)
+      expect(find.text('مرحباً'), findsOneWidget);
+      expect(find.textContaining('هنا للمساعدة'), findsOneWidget);
+      expect(find.text('مساعد الاستيراد متصل'), findsOneWidget);
 
       // Verify floating button is rendered with chat icon
       expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsOneWidget);
@@ -141,6 +141,12 @@ void main() {
       expect(container.read(aiAssistantProvider).isPanelOpen, isTrue);
       expect(find.text('مساعد الاستيراد الذكي'), findsOneWidget);
       expect(find.byIcon(Icons.close_rounded), findsWidgets);
+
+      // Switch language to English via toggle pill
+      await tester.tap(find.text('EN'));
+      await tester.pumpAndSettle();
+      expect(container.read(aiAssistantProvider).isEnglish, isTrue);
+      expect(find.text('Smart Import Assistant'), findsOneWidget);
     });
   });
 }

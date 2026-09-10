@@ -281,7 +281,7 @@ class SystemVersionInfoModel {
 
   factory SystemVersionInfoModel.fromJson(Map<String, dynamic> json) {
     return SystemVersionInfoModel(
-      systemName: json['system_name'] as String? ?? 'ImportFlow ERP - Sorour Logistics',
+      systemName: json['system_name'] as String? ?? 'Sorour Logistics ERP',
       version: json['version'] as String? ?? '1.0.52',
       buildNumber: json['build_number'] as int? ?? 53,
       releaseDate: json['release_date'] as String?,

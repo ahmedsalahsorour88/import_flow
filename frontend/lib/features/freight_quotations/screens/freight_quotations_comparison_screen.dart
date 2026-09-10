@@ -6,8 +6,10 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../services/freight_quotations_export_service.dart';
 
 class FreightQuotationsComparisonScreen extends ConsumerStatefulWidget {
   const FreightQuotationsComparisonScreen({super.key});
@@ -120,6 +122,11 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final selectedFile = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
+    final fileCode = selectedFile?.importFileCode ?? '';
+    final supplierName = selectedFile?.supplierName ?? '';
+
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.freightQuotationsComparisonTitle, style: const TextStyle(color: Colors.white)),
@@ -131,40 +138,162 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
         ],
       ),
 
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildImportFileSelector(),
-            const SizedBox(height: 24),
-            if (_isLoading)
-              const Center(child: CircularProgressIndicator())
-            else if (_error != null)
-              Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
-            else if (_selectedImportFileId == null)
-              Center(child: Text(l10n.selectImportFilePrompt, style: const TextStyle(fontSize: 18)))
-            else if (_quotations.isEmpty)
-              Center(child: Text(l10n.noFreightQuotesForFile, style: const TextStyle(fontSize: 18)))
-            else
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildMetricsBar(),
-                    const SizedBox(height: 24),
-                    Expanded(child: _buildComparisonColumns()),
-                  ],
+      body: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildImportFileSelector(importFiles),
+              const SizedBox(height: 16),
+              if (_quotations.isNotEmpty) ...[
+                _buildExportToolbar(fileCode: fileCode, supplierName: supplierName),
+                const SizedBox(height: 16),
+              ],
+              if (_isLoading)
+                const Expanded(child: Center(child: CircularProgressIndicator()))
+              else if (_error != null)
+                Expanded(child: Center(child: Text(_error!, style: const TextStyle(color: Colors.red))))
+              else if (_selectedImportFileId == null)
+                Expanded(child: Center(child: Text(l10n.selectImportFilePrompt, style: const TextStyle(fontSize: 18))))
+              else if (_quotations.isEmpty)
+                Expanded(child: Center(child: Text(l10n.noFreightQuotesForFile, style: const TextStyle(fontSize: 18))))
+              else
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildMetricsBar(),
+                      const SizedBox(height: 24),
+                      Expanded(child: _buildComparisonColumns()),
+                    ],
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildImportFileSelector() {
+  Widget _buildExportToolbar({required String fileCode, required String supplierName}) {
     final l10n = context.l10n;
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.spaceBetween,
+        children: [
+          if (fileCode.isNotEmpty)
+            InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => CopyHelper.copy(context, fileCode),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppTheme.flatCobalt.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.flatCobalt.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.copy_rounded, size: 14, color: AppTheme.flatCobalt),
+                    const SizedBox(width: 6),
+                    Text(
+                      fileCode,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppTheme.flatCobalt,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.flatCobalt,
+                  side: const BorderSide(color: AppTheme.flatCobalt),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                icon: const Icon(Icons.table_chart_outlined, size: 16),
+                label: Text(l10n.freightQuotationsExportTsvBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                onPressed: () => FreightQuotationsExportService.exportToTsv(
+                  context: context,
+                  quotations: _quotations,
+                  importFileCode: fileCode,
+                ),
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.flatEmerald,
+                  side: const BorderSide(color: AppTheme.flatEmerald),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                icon: const Icon(Icons.file_download_outlined, size: 16),
+                label: Text(l10n.freightQuotationsExportExcelBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                onPressed: () => FreightQuotationsExportService.exportToExcel(
+                  context: context,
+                  quotations: _quotations,
+                  importFileCode: fileCode,
+                ),
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.deepPurple,
+                  side: const BorderSide(color: Colors.deepPurple),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                label: Text(l10n.freightQuotationsPrintPdfBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                onPressed: () => FreightQuotationsExportService.printOrSavePdf(
+                  context: context,
+                  quotations: _quotations,
+                  importFileCode: fileCode,
+                  supplierName: supplierName,
+                ),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _charcoal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                icon: const Icon(Icons.copy_all_outlined, size: 16),
+                label: Text(l10n.freightQuotationsCopyDossierBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                onPressed: () {
+                  final text = FreightQuotationsExportService.buildDossierText(
+                    context: context,
+                    quotations: _quotations,
+                    importFileCode: fileCode,
+                    supplierName: supplierName,
+                  );
+                  CopyHelper.copy(context, text, customMessage: l10n.freightQuotationsCopyDossierSuccess);
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImportFileSelector([List<dynamic>? preloadedFiles]) {
+    final l10n = context.l10n;
+    final importFiles = preloadedFiles ?? (ref.watch(importFilesProvider).value ?? []);
 
     final items = importFiles.map((file) {
       final code = file.importFileCode;
@@ -238,18 +367,35 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
   }
 
   Widget _buildMetric(String label, String value, IconData icon, Color color) {
-    return Row(
-      children: [
-        Icon(icon, color: color, size: 32),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(color: Colors.grey)),
-            Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
-          ],
-        )
-      ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => CopyHelper.copy(context, '$label: $value'),
+      child: Tooltip(
+        message: context.l10n.copyTooltip,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 32),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: const TextStyle(color: Colors.grey)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
+                      const SizedBox(width: 4),
+                      Icon(Icons.copy_rounded, size: 12, color: color.withOpacity(0.6)),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -270,6 +416,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
         final qId = q['quotation_id'];
         final isSelected = qId == _selectedQuotationId;
         final isCheapest = qId == cheapestId;
+        final carrierName = (q['provider_name'] ?? l10n.unknownCarrierFallback).toString();
 
         return Expanded(
           child: Container(
@@ -296,7 +443,27 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
                           decoration: BoxDecoration(color: _gold, borderRadius: BorderRadius.circular(12)),
                           child: Text(l10n.badgeBestPrice, style: const TextStyle(fontWeight: FontWeight.bold)),
                         ),
-                      Text(q['provider_name'] ?? l10n.unknownCarrierFallback, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), textAlign: TextAlign.center),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(6),
+                        onTap: () => CopyHelper.copy(context, carrierName),
+                        child: Tooltip(
+                          message: l10n.copyTooltip,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  carrierName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.copy_rounded, size: 14, color: AppTheme.flatCobalt),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -314,7 +481,12 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
                       const Divider(),
                       if (q['remarks'] != null) ...[
                         Text(l10n.remarksLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text(q['remarks'].toString()),
+                        const SizedBox(height: 4),
+                        CopyableTableCell(
+                          value: q['remarks'].toString(),
+                          rowSummary: '${l10n.remarksLabel} ${q['remarks']}',
+                          child: Text(q['remarks'].toString()),
+                        ),
                       ]
                     ],
                   ),
@@ -341,12 +513,23 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
   Widget _buildDetailRow(String label, String value, {bool bold = false, Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.grey)),
-          Text(value, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal, color: color ?? _charcoal, fontSize: bold ? 16 : 14)),
-        ],
+      child: CopyableTableCell(
+        value: value,
+        rowSummary: '$label: $value',
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(color: Colors.grey)),
+            Text(
+              value,
+              style: TextStyle(
+                fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+                color: color ?? _charcoal,
+                fontSize: bold ? 16 : 14,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

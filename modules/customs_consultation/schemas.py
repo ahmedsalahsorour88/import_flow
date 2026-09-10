@@ -122,11 +122,22 @@ class BrokerPriceListUpdate(BaseModel):
 class BrokerPriceListResponse(BrokerPriceListBase):
     price_list_id: int
     price_list_code: str
+    cloned_from_id: Optional[int] = None
+    cloned_from_code: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     items: List[BrokerPriceListItemResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CloneBrokerPriceListRequest(BaseModel):
+    new_price_list_code: Optional[str] = None
+    new_title: str = Field(..., min_length=2, max_length=200)
+    effective_from: Optional[date] = None
+    effective_to: Optional[date] = None
+    notes: Optional[str] = None
+
 
 
 # ==============================================================================
@@ -245,6 +256,8 @@ class CustomsConsultationResponse(CustomsConsultationBase):
     has_blocking_issues: bool
     readiness_percentage: float
     is_active: bool
+    cloned_from_id: Optional[int] = None
+    cloned_from_code: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     checklist_items: List[CustomsChecklistItemResponse] = []
@@ -257,6 +270,16 @@ class CustomsConsultationResponse(CustomsConsultationBase):
     applied_broker_items_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CloneConsultationRequest(BaseModel):
+    new_consultation_code: Optional[str] = None
+    new_title: str = Field(..., min_length=2, max_length=200)
+    target_import_file_id: Optional[int] = None
+    copy_checklist_items: bool = Field(True, description="Copy regulatory document checklist")
+    copy_broker_quote_items: bool = Field(True, description="Copy quote breakdown items")
+    notes: Optional[str] = None
+
 
 
 # ==============================================================================

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/import_doc_stepper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
@@ -482,24 +482,26 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     final l10n = context.l10n;
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
-    return Column(
-      children: [
-        // Unified Stepper Navigation
-        ImportDocStepper(
-          steps: _buildSteps(l10n),
-          currentStep: _activeStep,
-          onStepTapped: (i) => setState(() => _activeStep = i),
-        ),
-        const Divider(height: 1),
-
-        // Body Content
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: _buildCurrentStep(importFiles),
+    return SelectionArea(
+      child: Column(
+        children: [
+          // Unified Stepper Navigation
+          ImportDocStepper(
+            steps: _buildSteps(l10n),
+            currentStep: _activeStep,
+            onStepTapped: (i) => setState(() => _activeStep = i),
           ),
-        ),
-      ],
+          const Divider(height: 1),
+
+          // Body Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: _buildCurrentStep(importFiles),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1016,63 +1018,138 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     ),
                   ],
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.crimson,
-                        side: const BorderSide(color: AppTheme.crimson),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        foregroundColor: AppTheme.cobalt,
+                        side: const BorderSide(color: AppTheme.cobalt),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       ),
-                      icon: const Icon(Icons.picture_as_pdf, size: 16),
-                      label: Text(l10n.exportPdfBtn, style: const TextStyle(fontSize: 12)),
+                      icon: const Icon(Icons.table_chart_outlined, size: 16),
+                      label: Text(l10n.exportTsvBtn, style: const TextStyle(fontSize: 12)),
                       onPressed: () {
-                        if (_selectedImportFileId != null && _activeDraftTemplate != null) {
-                          InspectionExportService.printOrSavePdf(
-                            templateData: _activeDraftTemplate!,
-                            agency: _inspAgency,
-                            certType: _inspType,
-                            acidNumber: _activeAcidNumber ?? '7595528271015010011',
-                            standards: _activeStandards,
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(l10n.exportingInspectionPdfPrompt)),
-                          );
-                        }
+                        final currentTemplate = _activeDraftTemplate ?? {
+                          'coc_number': _certNumberCtrl.text.trim().isNotEmpty ? _certNumberCtrl.text.trim() : 'DRAFT-INSP',
+                          'importer_name_and_address': _importerCtrl.text.trim(),
+                          'exporter_name_and_address': _exporterCtrl.text.trim(),
+                          'acid_number': _acidCtrl.text.trim().isNotEmpty ? _acidCtrl.text.trim() : (_activeAcidNumber ?? '7595528271015010011'),
+                          'country_of_origin': _originCountryCtrl.text.trim(),
+                          'regulatory_authority': _authorityCtrl.text.trim().isNotEmpty ? _authorityCtrl.text.trim() : 'GOEIC',
+                          'invoice_number': _invoiceNoCtrl.text.trim(),
+                          'standards': _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
+                        };
+                        InspectionExportService.saveInspectionTsvToFile(
+                          context: context,
+                          templateData: currentTemplate,
+                          agency: _inspAgency,
+                          certType: _inspType,
+                          acidNumber: _activeAcidNumber ?? _acidCtrl.text.trim(),
+                          standards: _activeStandards.isNotEmpty ? _activeStandards : _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
+                          comparisonMatrix: matrix,
+                        );
                       },
                     ),
-                    const SizedBox(width: 8),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.emerald,
                         side: const BorderSide(color: AppTheme.emerald),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       ),
-                      icon: const Icon(Icons.table_chart, size: 16),
+                      icon: const Icon(Icons.file_download_outlined, size: 16),
                       label: Text(l10n.exportExcelBtn, style: const TextStyle(fontSize: 12)),
                       onPressed: () {
-                        if (_activeDraftTemplate != null) {
-                          final csv = InspectionExportService.exportInspectionCsv(
-                            templateData: _activeDraftTemplate!,
-                            agency: _inspAgency,
-                            certType: _inspType,
-                            acidNumber: _activeAcidNumber ?? '7595528271015010011',
-                            standards: _activeStandards,
-                          );
-                          Clipboard.setData(ClipboardData(text: csv));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('📊 ${l10n.copiedInspectionExcelSuccess}'), backgroundColor: Colors.green),
-                          );
-                        }
+                        final currentTemplate = _activeDraftTemplate ?? {
+                          'coc_number': _certNumberCtrl.text.trim().isNotEmpty ? _certNumberCtrl.text.trim() : 'DRAFT-INSP',
+                          'importer_name_and_address': _importerCtrl.text.trim(),
+                          'exporter_name_and_address': _exporterCtrl.text.trim(),
+                          'acid_number': _acidCtrl.text.trim().isNotEmpty ? _acidCtrl.text.trim() : (_activeAcidNumber ?? '7595528271015010011'),
+                          'country_of_origin': _originCountryCtrl.text.trim(),
+                          'regulatory_authority': _authorityCtrl.text.trim().isNotEmpty ? _authorityCtrl.text.trim() : 'GOEIC',
+                          'invoice_number': _invoiceNoCtrl.text.trim(),
+                          'standards': _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
+                        };
+                        InspectionExportService.saveInspectionCsvToFile(
+                          context: context,
+                          templateData: currentTemplate,
+                          agency: _inspAgency,
+                          certType: _inspType,
+                          acidNumber: _activeAcidNumber ?? _acidCtrl.text.trim(),
+                          standards: _activeStandards.isNotEmpty ? _activeStandards : _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
+                          comparisonMatrix: matrix,
+                        );
                       },
                     ),
-                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.crimson,
+                        side: const BorderSide(color: AppTheme.crimson),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.picture_as_pdf, size: 16),
+                      label: Text(l10n.exportPdfBtn, style: const TextStyle(fontSize: 12)),
+                      onPressed: () {
+                        final currentTemplate = _activeDraftTemplate ?? {
+                          'coc_number': _certNumberCtrl.text.trim().isNotEmpty ? _certNumberCtrl.text.trim() : 'DRAFT-INSP',
+                          'importer_name_and_address': _importerCtrl.text.trim(),
+                          'exporter_name_and_address': _exporterCtrl.text.trim(),
+                          'acid_number': _acidCtrl.text.trim().isNotEmpty ? _acidCtrl.text.trim() : (_activeAcidNumber ?? '7595528271015010011'),
+                          'country_of_origin': _originCountryCtrl.text.trim(),
+                          'regulatory_authority': _authorityCtrl.text.trim().isNotEmpty ? _authorityCtrl.text.trim() : 'GOEIC',
+                          'invoice_number': _invoiceNoCtrl.text.trim(),
+                          'standards': _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
+                        };
+                        InspectionExportService.saveInspectionPdfToFile(
+                          context: context,
+                          templateData: currentTemplate,
+                          agency: _inspAgency,
+                          certType: _inspType,
+                          acidNumber: _activeAcidNumber ?? _acidCtrl.text.trim(),
+                          standards: _activeStandards.isNotEmpty ? _activeStandards : _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
+                          comparisonMatrix: matrix,
+                        );
+                      },
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.charcoal,
+                        side: const BorderSide(color: AppTheme.charcoal),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.copy_all_outlined, size: 16),
+                      label: Text(l10n.copyDossierBtn, style: const TextStyle(fontSize: 12)),
+                      onPressed: () {
+                        final currentTemplate = _activeDraftTemplate ?? {
+                          'coc_number': _certNumberCtrl.text.trim().isNotEmpty ? _certNumberCtrl.text.trim() : 'DRAFT-INSP',
+                          'importer_name_and_address': _importerCtrl.text.trim(),
+                          'exporter_name_and_address': _exporterCtrl.text.trim(),
+                          'acid_number': _acidCtrl.text.trim().isNotEmpty ? _acidCtrl.text.trim() : (_activeAcidNumber ?? '7595528271015010011'),
+                          'country_of_origin': _originCountryCtrl.text.trim(),
+                          'regulatory_authority': _authorityCtrl.text.trim().isNotEmpty ? _authorityCtrl.text.trim() : 'GOEIC',
+                          'invoice_number': _invoiceNoCtrl.text.trim(),
+                          'standards': _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
+                        };
+                        InspectionExportService.copyDossierToClipboard(
+                          context,
+                          templateData: currentTemplate,
+                          agency: _inspAgency,
+                          certType: _inspType,
+                          acidNumber: _activeAcidNumber ?? _acidCtrl.text.trim(),
+                          standards: _activeStandards.isNotEmpty ? _activeStandards : _specCtrl.text.trim().split('\n').where((s) => s.isNotEmpty).toList(),
+                          comparisonMatrix: matrix,
+                          overrideReason: _overrideReasonCtrl.text.trim().isNotEmpty ? _overrideReasonCtrl.text.trim() : null,
+                        );
+                      },
+                    ),
                     ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                      icon: const Icon(Icons.save, color: Colors.white),
-                      label: Text(l10n.saveToInspectionRegistryBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.cobalt,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.save, color: Colors.white, size: 16),
+                      label: Text(l10n.saveToInspectionRegistryBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                       onPressed: _saveReview,
                     ),
                   ],
@@ -1091,17 +1168,52 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   DataColumn(label: Text(l10n.colInspDetails)),
                 ],
                 rows: matrix.map((m) {
+                  final fieldLabel = m['field_label_ar']?.toString() ?? m['field']?.toString() ?? '';
+                  final sysVal = m['system_value']?.toString() ?? '—';
+                  final draftVal = m['draft_value']?.toString() ?? '—';
+                  final matchStatus = m['match_status']?.toString() ?? '';
+                  final details = m['details']?.toString() ?? '';
+                  final rowSummary = '$fieldLabel | $sysVal vs $draftVal | $matchStatus | $details';
+
                   return DataRow(cells: [
-                    DataCell(Text(m['field_label_ar'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold))),
-                    DataCell(Text(m['system_value']?.toString() ?? '—')),
-                    DataCell(Text(m['draft_value']?.toString() ?? '—')),
                     DataCell(
-                      Chip(
-                        label: Text(m['match_status'] ?? '', style: const TextStyle(fontSize: 11, color: Colors.white)),
-                        backgroundColor: m['severity'] == 'BLOCKING' ? Colors.red : (m['severity'] == 'WARNING' ? Colors.orange : Colors.green),
+                      CopyableTableCell(
+                        value: fieldLabel,
+                        rowSummary: rowSummary,
+                        child: Text(fieldLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ),
-                    DataCell(Text(m['details'] ?? '')),
+                    DataCell(
+                      CopyableTableCell(
+                        value: sysVal,
+                        rowSummary: rowSummary,
+                        child: Text(sysVal),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: draftVal,
+                        rowSummary: rowSummary,
+                        child: Text(draftVal),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: matchStatus,
+                        rowSummary: rowSummary,
+                        child: Chip(
+                          label: Text(matchStatus, style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          backgroundColor: m['severity'] == 'BLOCKING' ? Colors.red : (m['severity'] == 'WARNING' ? Colors.orange : Colors.green),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      CopyableTableCell(
+                        value: details,
+                        rowSummary: rowSummary,
+                        child: Text(details),
+                      ),
+                    ),
                   ]);
                 }).toList(),
               ),
@@ -1245,23 +1357,67 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                       rows: reviews.map((r) {
                         final rawTxt = r.rawText ?? r.draftInputData?['raw_text'] ?? '';
                         final overrideReason = r.notes ?? r.draftInputData?['override_reason'] ?? '';
+                        final createdStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
+                        final rowSummary = '${r.inspectionReviewCode} | ${r.inspectionType} | ${r.inspectionAgency} | ${r.certificateNumber} | ${r.status} | $createdStr';
 
                         return DataRow(cells: [
-                          DataCell(Text(r.inspectionReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                          DataCell(Text(r.inspectionType)),
-                          DataCell(Text(r.inspectionAgency)),
-                          DataCell(Text(r.certificateNumber)),
                           DataCell(
-                            Chip(
-                              label: Text(r.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
-                              backgroundColor: r.status == 'Verified' ? Colors.green : Colors.orange,
+                            CopyableTableCell(
+                              value: r.inspectionReviewCode,
+                              rowSummary: rowSummary,
+                              child: Text(r.inspectionReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                             ),
                           ),
-                          DataCell(Text(r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt)),
+                          DataCell(
+                            CopyableTableCell(
+                              value: r.inspectionType,
+                              rowSummary: rowSummary,
+                              child: Text(r.inspectionType),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: r.inspectionAgency,
+                              rowSummary: rowSummary,
+                              child: Text(r.inspectionAgency),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: r.certificateNumber,
+                              rowSummary: rowSummary,
+                              child: Text(r.certificateNumber),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: r.status,
+                              rowSummary: rowSummary,
+                              child: Chip(
+                                label: Text(r.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                                backgroundColor: r.status == 'Verified' ? Colors.green : Colors.orange,
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: createdStr,
+                              rowSummary: rowSummary,
+                              child: Text(createdStr),
+                            ),
+                          ),
                           DataCell(
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                // 0. Copy Row (نسخ بيانات السطر)
+                                IconButton(
+                                  icon: const Icon(Icons.copy, color: AppTheme.cobalt, size: 18),
+                                  tooltip: l10n.copyRow,
+                                  onPressed: () {
+                                    CopyHelper.copy(context, rowSummary, customMessage: l10n.copiedToClipboardGeneric);
+                                  },
+                                ),
                                 // 1. Edit (تعديل)
                                 IconButton(
                                   icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
@@ -1345,60 +1501,100 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Icon(Icons.assignment, color: AppTheme.cobalt),
-            const SizedBox(width: 8),
-            Text(l10n.inspDetailsDialogTitle(r.inspectionReviewCode)),
+            Row(
+              children: [
+                const Icon(Icons.assignment, color: AppTheme.cobalt),
+                const SizedBox(width: 8),
+                Text(l10n.inspDetailsDialogTitle(r.inspectionReviewCode)),
+              ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.copy_all, color: AppTheme.cobalt, size: 20),
+              tooltip: l10n.copyDossierBtn,
+              onPressed: () {
+                final summary = '''
+${l10n.inspDetailsDialogTitle(r.inspectionReviewCode)}
+${l10n.tileInspTypeAndAgency}: ${r.inspectionType} — ${r.inspectionAgency}
+${l10n.tileInspCertNoAndStatus}: ${r.certificateNumber} | ${r.status}
+${overrideReason.isNotEmpty ? '${l10n.tileInspOverrideReason}: $overrideReason\n' : ''}''';
+                CopyHelper.copy(ctx, summary, customMessage: l10n.copiedDossierSuccess);
+              },
+            ),
           ],
         ),
         content: SizedBox(
           width: 700,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  title: Text(l10n.tileInspTypeAndAgency),
-                  subtitle: Text('${r.inspectionType} — ${r.inspectionAgency}'),
-                  dense: true,
-                ),
-                ListTile(
-                  title: Text(l10n.tileInspCertNoAndStatus),
-                  subtitle: Text('${r.certificateNumber} | ${r.status}'),
-                  dense: true,
-                ),
-                if (overrideReason.isNotEmpty)
+          child: SelectionArea(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   ListTile(
-                    title: Text(l10n.tileInspOverrideReason),
-                    subtitle: Text(overrideReason, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                    title: Text(l10n.tileInspTypeAndAgency),
+                    subtitle: Text('${r.inspectionType} — ${r.inspectionAgency}'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: l10n.copyValue,
+                      onPressed: () => CopyHelper.copy(ctx, '${r.inspectionType} — ${r.inspectionAgency}'),
+                    ),
                     dense: true,
                   ),
-                if (r.comparisonMatrix.isNotEmpty) ...[
-                  const Divider(),
-                  Text(l10n.sectionInspDiscrepancyMatrix, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  ...r.comparisonMatrix.map((m) {
-                    final item = m is Map ? m : {};
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: Row(
-                        children: [
-                          Icon(item['match_status'] == 'MATCH' ? Icons.check_circle : Icons.warning,
-                              color: item['match_status'] == 'MATCH' ? Colors.green : Colors.orange, size: 16),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              '${item['field_label_ar'] ?? item['field']}: [${item['draft_value']}] vs [${item['system_value']}]',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                        ],
+                  ListTile(
+                    title: Text(l10n.tileInspCertNoAndStatus),
+                    subtitle: Text('${r.certificateNumber} | ${r.status}'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: l10n.copyValue,
+                      onPressed: () => CopyHelper.copy(ctx, '${r.certificateNumber} | ${r.status}'),
+                    ),
+                    dense: true,
+                  ),
+                  if (overrideReason.isNotEmpty)
+                    ListTile(
+                      title: Text(l10n.tileInspOverrideReason),
+                      subtitle: Text(overrideReason, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.copy, size: 16),
+                        tooltip: l10n.copyValue,
+                        onPressed: () => CopyHelper.copy(ctx, overrideReason),
                       ),
-                    );
-                  }),
+                      dense: true,
+                    ),
+                  if (r.comparisonMatrix.isNotEmpty) ...[
+                    const Divider(),
+                    Text(l10n.sectionInspDiscrepancyMatrix, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...r.comparisonMatrix.map((m) {
+                      final item = m is Map ? m : {};
+                      final rowText = '${item['field_label_ar'] ?? item['field']}: [${item['draft_value']}] vs [${item['system_value']}]';
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: InkWell(
+                          onTap: () => CopyHelper.copy(ctx, rowText),
+                          child: Row(
+                            children: [
+                              Icon(item['match_status'] == 'MATCH' ? Icons.check_circle : Icons.warning,
+                                  color: item['match_status'] == 'MATCH' ? Colors.green : Colors.orange, size: 16),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  rowText,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.copy, size: 14, color: Colors.grey),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

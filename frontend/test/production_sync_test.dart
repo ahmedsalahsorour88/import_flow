@@ -10,7 +10,7 @@ void main() {
   group('ProductionSyncModel Unit Tests', () {
     test('SystemVersionInfoModel fromJson should parse correctly', () {
       final json = {
-        'system_name': 'ImportFlow ERP - Sorour Logistics',
+        'system_name': 'Sorour Logistics ERP',
         'version': '1.0.52',
         'build_number': 53,
         'release_date': '2026-08-28 15:30:00',
@@ -23,7 +23,7 @@ void main() {
       };
 
       final model = SystemVersionInfoModel.fromJson(json);
-      expect(model.systemName, 'ImportFlow ERP - Sorour Logistics');
+      expect(model.systemName, 'Sorour Logistics ERP');
       expect(model.version, '1.0.52');
       expect(model.buildNumber, 53);
       expect(model.isStandalone, isTrue);

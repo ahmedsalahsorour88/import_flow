@@ -3,6 +3,7 @@ FastAPI Router for Import Files Master & Tracking Module
 """
 
 from typing import List, Optional
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -19,6 +20,7 @@ from modules.import_files.schemas import (
     FreightRfqDataResponse,
     HoldShipmentPayload,
     ResumeShipmentPayload,
+    CloneImportFileRequest,
 )
 import modules.import_files.service as service
 
@@ -47,6 +49,14 @@ def list_import_files(
     supplier_id: Optional[int] = None,
     status: Optional[str] = None,
     owner: Optional[str] = None,
+    hs_code: Optional[str] = None,
+    incoterm_code: Optional[str] = None,
+    port_of_loading: Optional[str] = None,
+    port_of_discharge: Optional[str] = None,
+    shipment_mode: Optional[str] = None,
+    carrier: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
     db: Session = Depends(get_db),
 ):
     return service.get_all_import_files_service(
@@ -57,6 +67,14 @@ def list_import_files(
         supplier_id=supplier_id,
         status=status,
         owner=owner,
+        hs_code=hs_code,
+        incoterm_code=incoterm_code,
+        port_of_loading=port_of_loading,
+        port_of_discharge=port_of_discharge,
+        shipment_mode=shipment_mode,
+        carrier=carrier,
+        date_from=date_from,
+        date_to=date_to,
     )
 
 
@@ -74,6 +92,14 @@ def list_paginated_import_files(
     supplier_id: Optional[int] = None,
     status: Optional[str] = None,
     owner: Optional[str] = None,
+    hs_code: Optional[str] = None,
+    incoterm_code: Optional[str] = None,
+    port_of_loading: Optional[str] = None,
+    port_of_discharge: Optional[str] = None,
+    shipment_mode: Optional[str] = None,
+    carrier: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
     db: Session = Depends(get_db),
 ):
     return service.get_paginated_import_files_service(
@@ -84,6 +110,14 @@ def list_paginated_import_files(
         supplier_id=supplier_id,
         status=status,
         owner=owner,
+        hs_code=hs_code,
+        incoterm_code=incoterm_code,
+        port_of_loading=port_of_loading,
+        port_of_discharge=port_of_discharge,
+        shipment_mode=shipment_mode,
+        carrier=carrier,
+        date_from=date_from,
+        date_to=date_to,
         page=page,
         page_size=page_size,
     )
@@ -268,5 +302,24 @@ def resume_shipment(
         import_file_id=import_file_id,
         resume_notes=payload.resume_notes,
     )
+
+
+@router.post(
+    "/{import_file_id}/clone",
+    response_model=ImportFileResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Clone an Import File / Shipment (Universal Clone Engine UX-CLONE-011)",
+)
+def clone_shipment(
+    import_file_id: int,
+    payload: CloneImportFileRequest,
+    db: Session = Depends(get_db),
+):
+    return service.clone_import_file_service(
+        db,
+        import_file_id=import_file_id,
+        payload=payload,
+    )
+
 
 

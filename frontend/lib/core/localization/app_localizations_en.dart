@@ -1,6 +1,6 @@
 import 'app_localizations.dart';
 
-/// English localization — default language for ImportFlow ERP.
+/// English localization — default language for Sorour Logistics ERP.
 class AppLocalizationsEn extends AppLocalizations {
   const AppLocalizationsEn();
 
@@ -1001,6 +1001,48 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get partyCarrier => 'Shipping Line';
   @override String get sessionNotesLabel => 'General Collection Session Notes';
   @override String get overrideReasonLabel => 'Discrepancy / Incomplete Documents Override Justification';
+  @override String get courierCompanyDhl => 'DHL';
+  @override String get courierCompanyFedex => 'FedEx';
+  @override String get courierCompanyAramex => 'Aramex';
+  @override String get courierCompanyUps => 'UPS';
+  @override String get courierCompanyNaqel => 'Naqel Express';
+  @override String get courierCompanySmsa => 'SMSA Express';
+  @override String get originalDocsExportTsvBtn => 'Export TSV';
+  @override String get originalDocsExportExcelBtn => 'Export Excel';
+  @override String get originalDocsPrintPdfBtn => 'Print PDF';
+  @override String get originalDocsCopyDossierBtn => 'Copy Dossier';
+  @override String get originalDocsCopiedDossierSuccess => 'Original documents collection dossier copied to clipboard successfully';
+  @override String get originalDocsCopiedTsvSuccess => 'Documents table TSV exported and copied successfully';
+  @override String get originalDocsCopiedExcelSuccess => 'Documents Excel exported successfully';
+  @override String get originalDocsExportTsvDialogTitle => 'Export Documents Collection TSV';
+  @override String get originalDocsExportExcelDialogTitle => 'Export Documents Collection Excel';
+  @override String get originalDocsExportPdfDialogTitle => 'Print Original Documents Collection Statement';
+  @override String get originalDocsDossierTitle => 'Original Documents Collection & Courier Tracking Dossier';
+  @override String get originalDocsCopyRowSuccess => 'Row data copied to clipboard successfully';
+  @override String get originalDocsTsvHeaderCourierNo => 'Courier No';
+  @override String get originalDocsTsvHeaderDocCategory => 'Document Category';
+  @override String get originalDocsTsvHeaderDocName => 'Document Name';
+  @override String get originalDocsTsvHeaderRequirement => 'Requirement';
+  @override String get originalDocsTsvHeaderResponsibleParty => 'Responsible Party';
+  @override String get originalDocsTsvHeaderPhysicalReceived => 'Physical Received';
+  @override String get originalDocsTsvHeaderReceivedDate => 'Received Date';
+  @override String get originalDocsTsvHeaderVerified => 'Verified';
+  @override String get originalDocsTsvHeaderAuditor => 'Auditor';
+  @override String get originalDocsTsvHeaderStatus => 'Status';
+  @override String get originalDocsTsvHeaderRemarks => 'Remarks';
+  @override String get originalDocsRegistryDossierTitle => 'Original Documents Collection Sessions Registry';
+  @override String get originalDocsRegistryTsvHeaderCode => 'Session Code';
+  @override String get originalDocsRegistryTsvHeaderFile => 'Import File';
+  @override String get originalDocsRegistryTsvHeaderAcid => 'ACID Number';
+  @override String get originalDocsRegistryTsvHeaderSupplier => 'Foreign Supplier';
+  @override String get originalDocsRegistryTsvHeaderTotalDocs => 'Total Docs';
+  @override String get originalDocsRegistryTsvHeaderReceivedDocs => 'Received Docs';
+  @override String get originalDocsRegistryTsvHeaderVerifiedDocs => 'Audited Docs';
+  @override String get originalDocsRegistryTsvHeaderCompletion => 'Completion %';
+  @override String get originalDocsRegistryTsvHeaderStatus => 'Status';
+  @override String get originalDocsRegistryTsvHeaderUpdatedAt => 'Updated At';
+  @override String get originalDocsRegistryCopiedSuccess => 'Sessions registry dossier copied to clipboard successfully';
+  @override String get originalDocsLoadSessionTooltip => 'Open and load session';
 
   // ── Screen 59: Production Sync Screen & Hub ───────────────────────────────
   @override String get prodSyncScreenTitle => 'Production Sync Hub';
@@ -1064,6 +1106,102 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String prodSyncRestoreError(dynamic err) => 'Restore failed: $err';
   @override String get prodSyncComparingDatabasesProgress => 'Checking and comparing databases...';
   @override String prodSyncErrorFetchingComparison(dynamic err) => 'Error fetching comparison data: $err';
+  @override String get prodSyncExportTsvBtn => 'Export TSV';
+  @override String get prodSyncExportExcelBtn => 'Export Excel';
+  @override String get prodSyncExportPdfBtn => 'Diagnostics Report (PDF)';
+  @override String get prodSyncCopyDossierBtn => 'Copy Sync Dossier';
+  @override String get prodSyncCopyDossierSuccess => 'Production sync dossier copied to clipboard successfully';
+  @override String get prodSyncExportTsvSuccess => 'Table data copied to clipboard successfully';
+  @override String get prodSyncExportExcelSuccess => 'Excel spreadsheet exported successfully';
+  @override String get prodSyncCopyRowSummaryBtn => 'Copy Row Details';
+  @override String get prodSyncCopyRowSummarySuccess => 'Table summary copied to clipboard';
+  @override String get prodSyncCopyFieldTooltip => 'Copy value';
+  @override String get prodSyncVersionBadgeLabel => 'Version';
+  @override String get prodSyncDevDbPathBadge => 'Dev DB Path';
+  @override String get prodSyncProdDbPathBadge => 'Prod DB Path';
+  @override String get prodSyncBackupTagBadge => 'Backup Type';
+  @override String get prodSyncBackupFilenameBadge => 'Backup Filename';
+  @override String get prodSyncTsvHeaderTableName => 'Table Name';
+  @override String get prodSyncTsvHeaderDevCount => 'Dev Records';
+  @override String get prodSyncTsvHeaderProdCount => 'Prod Records';
+  @override String get prodSyncTsvHeaderDiff => 'Diff';
+  @override String get prodSyncTsvHeaderStatus => 'Match Status';
+  @override String get prodSyncTsvHeaderBackupFile => 'Backup File';
+  @override String get prodSyncTsvHeaderBackupTag => 'Backup Type';
+  @override String get prodSyncTsvHeaderBackupSize => 'Size (KB)';
+  @override String get prodSyncTsvHeaderBackupDate => 'Created Date';
+  @override String get prodSyncScreenHeaderTitle => 'System Updates & Backups Hub';
+  @override String get prodSyncScreenHeaderSubtitle => 'Automated safe database upgrade, recovery snapshots, and cloud version checking';
+  @override String get prodSyncRefreshSystemStatusTooltip => 'Refresh System Status';
+  @override String get prodSyncTabUpdatesAndBackups => 'Updates & Safety Backups';
+  @override String get prodSyncTabDevToolsAndDiff => 'Dev Tools & Live Diff';
+  @override String get prodSyncSystemUpToDateMsg => 'System is up to date and running the latest version.';
+  @override String get prodSyncCheckingCloudUpdates => 'Checking for cloud updates...';
+  @override String get prodSyncOfflineModeMsg => 'System is operating in standalone offline mode.';
+  @override String prodSyncInstallVersionNow(dynamic version) => 'Install v$version Now';
+  @override String get prodSyncLaunchInstallerNow => 'Launch Installer Now';
+  @override String get prodSyncInstallingStatus => 'Installing...';
+  @override String get prodSyncCheckUpdatesBtn => 'Check for Updates';
+  @override String get prodSyncCancelBtn => 'Cancel';
+  @override String prodSyncDownloadingProgress(dynamic percent, dynamic downloaded, dynamic total) => 'Downloading update... $percent% ($downloaded of $total MB)';
+  @override String get prodSyncAutoCloseNotice => 'The application will close automatically once the download finishes to apply the update.';
+  @override String get prodSyncDownloadCompleteNotice => 'Update downloaded successfully! Click Launch Installer Now to install.';
+  @override String get prodSyncDownloadFailedFallback => 'Download failed. Please try again.';
+  @override String get prodSyncRetryBtn => 'Retry';
+  @override String prodSyncWhatsNewInVersion(dynamic version) => 'New features in version $version:';
+  @override String prodSyncInstallConfirmTitle(dynamic version) => 'Install Version $version';
+  @override String prodSyncInstallConfirmDesc(dynamic size) => 'Will download ($size) and install the new version automatically.';
+  @override String get prodSyncInstallSafeNotice1 => 'No data will be lost — database is fully protected';
+  @override String get prodSyncInstallSafeNotice2 => 'Application will close automatically during installation';
+  @override String get prodSyncInstallSafeNotice3 => 'Installation takes approximately 10 seconds';
+  @override String get prodSyncLaterBtn => 'Later';
+  @override String get prodSyncDownloadAndInstallNowBtn => 'Download & Install Now';
+  @override String get prodSyncSchemaEngineTitle => 'In-Place Schema Upgrade Engine';
+  @override String get prodSyncSchemaEngineDesc => 'The system automatically takes a safety snapshot before each upgrade, adding new tables and columns without touching operational data.';
+  @override String get prodSyncCreateInstantBackupBtn => 'Create Instant Recovery Point';
+  @override String prodSyncBackupsArchiveHeader(dynamic count) => 'Safety Backups & Recovery Archive ($count saved)';
+  @override String get prodSyncRefreshListTooltip => 'Refresh List';
+  @override String get prodSyncNoBackupsInFolder => 'No previous backups found in directory.';
+  @override String get prodSyncAutoPreUpgradeTag => 'Auto Pre-Upgrade';
+  @override String get prodSyncManualBackupTag => 'Manual Backup';
+  @override String get prodSyncRestoreActionBtn => 'Restore';
+  @override String get prodSyncSyncDevToProdBtn => 'Sync to Production DB';
+  @override String get prodSyncCompareTablesBtn => 'Inspect & Compare Tables';
+  @override String get prodSyncPullProdToDevBtn => 'Pull Production to Dev';
+  @override String get prodSyncFullBuildBtn => 'Full Production Build & Package';
+  @override String get prodSyncLaunchProdAppBtn => 'Launch Production App Now';
+  @override String get prodSyncDbNotFoundNotice => 'File not found yet (will be created upon first sync)';
+  @override String prodSyncDbLastModified(dynamic date) => 'Last modified: $date';
+  @override String prodSyncDbSizeLabel(dynamic size) => 'Size: $size KB';
+  @override String get prodSyncConfirmRestoreTitleDialog => 'Confirm Backup Restore';
+  @override String prodSyncConfirmRestoreMsgDialog(dynamic name) => 'Are you sure you want to restore this backup: $name?';
+  @override String get prodSyncConfirmRestoreSafeNotice => 'The system will automatically create an immediate safety backup of current state before restoring to guarantee zero data loss.';
+  @override String get prodSyncCancelAction => 'Cancel';
+  @override String get prodSyncRestoreNowAction => 'Restore Now';
+  @override String prodSyncActionStarting(dynamic name) => 'Starting operation: $name...';
+  @override String prodSyncActionSuccess(dynamic name) => 'Operation [$name] completed successfully!';
+  @override String prodSyncActionFailed(dynamic name) => 'Operation [$name] finished with errors. Check the log.';
+  @override String prodSyncActionUnexpectedErr(dynamic err) => 'Unexpected error: $err';
+  @override String prodSyncDiffStatusNewRecords(dynamic count) => '+$count new records to add';
+  @override String get prodSyncDiffStatusNewTable => 'Entirely New Table';
+  @override String prodSyncDiffStatusProdSurplus(dynamic count) => '$count in Production';
+  @override String get prodSyncDiffStatusMatched => 'Fully Matched';
+  @override String get prodSyncDiffFilterModified => 'Modified Only';
+  @override String prodSyncDiffFilterAll(dynamic count) => 'All Tables ($count)';
+  @override String get prodSyncDiffFilterMatched => 'Matched';
+  @override String get prodSyncDiffPanelTitle => 'Database Changes Ready for Production';
+  @override String get prodSyncDiffPanelSubtitle => 'Detailed breakdown of table differences with new or modified records';
+  @override String get prodSyncDiffCheckBtn => 'Check Changes Now';
+  @override String get prodSyncDiffEmptyInstruction => 'Click "Check Changes Now" or "Compare Tables" to inspect exact updates';
+  @override String get prodSyncDiffAllMatchedSuccess => 'No differences found — all tables are 100% matched with production!';
+  @override String get prodSyncDiffNoSearchResults => 'No tables match the current search filter.';
+  @override String get prodSyncTerminalTitle => 'Production Sync Live Terminal';
+  @override String get prodSyncTerminalReadyMsg => 'Ready. Select an operation from above to begin.';
+  @override String get prodSyncTerminalRunningMsg => 'Executing...';
+  @override String get prodSyncTerminalCopyTooltip => 'Copy Terminal Log';
+  @override String get prodSyncTerminalClearTooltip => 'Clear Terminal';
+  @override String get prodSyncTerminalCopiedToast => 'Full terminal output log copied to clipboard';
+  @override String prodSyncProgressTablesCount(dynamic current, dynamic total, dynamic synced) => 'Tables: $current of $total | Total records synced: $synced';
 
   // ── Screen 63: Goods In Transit (GIT) Ledger ─────────────────────────────
   @override String get gitLedgerTabTitle => 'Goods In Transit (GIT) Ledger';
@@ -1101,6 +1239,24 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get gitColLedgerStatus => 'Ledger Status';
   @override String get gitStatusDeliveredToWarehouse => 'Delivered to Warehouse';
   @override String get gitStatusInTransit => 'In Transit (GIT)';
+  @override String get gitExportTsvBtn => 'Export TSV';
+  @override String get gitPrintPdfBtn => 'Print PDF';
+  @override String get gitCopyDossierBtn => 'Copy Dossier';
+  @override String get gitCopiedTsvSuccess => 'Goods in transit TSV data copied and exported successfully';
+  @override String get gitCopiedExcelSuccess => 'Goods in transit ledger exported to Excel successfully';
+  @override String get gitCopiedDossierSuccess => 'Full goods in transit dossier copied to clipboard';
+  @override String get gitCopyRowSummaryBtn => 'Copy Item Summary';
+  @override String get gitCopyRowSummarySuccess => 'Goods in transit item summary copied to clipboard';
+  @override String get gitCopyFieldTooltip => 'Copy value';
+  @override String get gitPdfTitle => 'Goods In Transit (GIT) Inventory Ledger Report';
+  @override String get gitPdfSubtitle => 'Comprehensive Tracking of In-Transit Shipments and Customs Matching';
+  @override String get gitDossierHeader => 'Goods In Transit Ledger & Matching Dossier';
+  @override String get gitDossierKpiSummary => 'Ledger KPI Summary';
+  @override String get gitDossierRecordsDetails => 'Goods In Transit Line Items Breakdown';
+  @override String get gitDossierFooter => 'End of Goods In Transit Dossier — Verified by ImportFlow ERP';
+  @override String get gitPackageTypeCol => 'Package Type';
+  @override String get gitContainerTypeCol => 'Container Type';
+  @override String get gitColActions => 'Actions';
 
   // ── Screen 64: Warehouse Received Shipments Detailed Report ───────────────
   @override String get whReportTabTitle => 'Received Shipments Detailed Report';
@@ -1132,6 +1288,26 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get whReportColVarianceQty => 'Variance';
   @override String get whReportColReceiptStatus => 'Receipt Status';
   @override String get whReportStatusApprovedAndReceived => 'Approved & Received';
+  @override String get whReportExportTsvBtn => 'Export TSV';
+  @override String get whReportPrintPdfBtn => 'Print PDF Report';
+  @override String get whReportCopyDossierBtn => 'Copy Comprehensive Dossier';
+  @override String get whReportCopiedTsvSuccess => 'Received shipments report copied to clipboard as TSV successfully';
+  @override String get whReportCopiedExcelSuccess => 'Received shipments report copied to clipboard as Excel CSV successfully';
+  @override String get whReportCopiedDossierSuccess => 'Received shipments comprehensive dossier copied to clipboard successfully';
+  @override String get whReportCopyRowSummaryBtn => 'Copy Row Summary';
+  @override String get whReportCopyRowSummarySuccess => 'Row summary copied to clipboard successfully';
+  @override String get whReportCopyFieldTooltip => 'Copy value to clipboard';
+  @override String get whReportSearchCopied => 'Search query copied to clipboard';
+  @override String get whReportColActions => 'Actions';
+  @override String get whReportColWarehouse => 'Warehouse';
+  @override String get whReportColArrivalDate => 'Arrival Date';
+  @override String whReportCopyBadgeSuccess(String label, String value) => 'Copied $label ($value) to clipboard';
+  @override String get whReportPdfTitle => 'Warehouse Received Shipments & Audit Detailed Report';
+  @override String get whReportPdfSubtitle => 'Comprehensive breakdown of shipments and POs reconciling actual quantities with invoiced, shortages, and damages';
+  @override String get whReportDossierHeader => 'Warehouse Received Shipments & Reconciliation Detailed Dossier';
+  @override String get whReportDossierKpiSummary => 'Warehouse Operational KPI Summary';
+  @override String get whReportDossierRecordsDetails => 'Detailed Received Shipments & Items Records';
+  @override String get whReportDossierFooter => 'End of Report - Sorour Logistics Import & Warehouse Management';
 
   // ── Screen 8: Financial Approvals & Budgets ─────────────────────────────
   @override String get financialApprovalsTitle => 'Financial Approvals & Budget Management';
@@ -2250,6 +2426,157 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get customsClearanceExportTsvSuccess => 'Customs clearance data copied to clipboard successfully';
   @override String get customsClearanceCopyFieldTooltip => 'Copy value';
 
+  // ── Screen 60: Customs Clearance - Drawing Samples & Shortage Tracking ───────
+  @override String get drawingSamplesScreenTitle => 'Drawing Samples & Shortage Tracking';
+  @override String get drawingSamplesScreenSubtitle => 'Document regulatory lab inspections, track statutory testing deadlines, and reconcile cargo shortages';
+  @override String get drawingSamplesTabDrawnSamples => 'Laboratory Drawn Samples';
+  @override String get drawingSamplesTabShortageReconciliation => 'Cargo Examination & Shortage Tracking';
+  @override String get drawingSamplesKpiTotalSamples => 'Total Drawn Samples';
+  @override String get drawingSamplesKpiPassedSamples => 'Compliant & Passed';
+  @override String get drawingSamplesKpiPendingSamples => 'Pending Laboratory Analysis';
+  @override String get drawingSamplesKpiShortageCount => 'Documented Shortage Cases';
+  @override String get drawingSamplesExportTsvBtn => 'Export TSV';
+  @override String get drawingSamplesExportExcelBtn => 'Export Excel';
+  @override String get drawingSamplesPrintPdfBtn => 'Print PDF Dossier';
+  @override String get drawingSamplesCopyDossierBtn => 'Copy Complete Dossier';
+  @override String get drawingSamplesCopiedDossierSuccess => 'Drawing samples and shortage dossier copied to clipboard';
+  @override String get drawingSamplesCopiedTsvSuccess => 'Table data copied to clipboard in TSV format';
+  @override String get drawingSamplesCopiedExcelSuccess => 'Excel file exported successfully';
+  @override String get drawingSamplesCopyRowSummaryBtn => 'Copy Row Summary';
+  @override String get drawingSamplesCopyRowSummarySuccess => 'Row summary copied to clipboard';
+  @override String get drawingSamplesCopyFieldTooltip => 'Copy Value';
+  @override String get drawingSamplesSearchHint => 'Search by sample ID, receipt no, authority, or declaration...';
+  @override String get drawingSamplesFilterAll => 'All Samples';
+  @override String get drawingSamplesFilterPassed => 'Passed & Compliant';
+  @override String get drawingSamplesFilterPending => 'Pending Analysis';
+  @override String get drawingSamplesEmptySamples => 'No drawn sample records found';
+  @override String get drawingSamplesEmptyShortage => 'No shortage reconciliation records found';
+  @override String get drawingSamplesShortageSectionTitle => 'Cargo Examination & Shortage Protocols';
+  @override String get drawingSamplesShortageSectionDesc => 'Compare manifest weights and packages against landed physical cargo to document shortages and apply customs duty deductions or carrier claims';
+  @override String get drawingSamplesAddShortageBtn => 'Record Shortage Protocol';
+  @override String get drawingSamplesAddShortageDialogTitle => 'Record Cargo Examination Shortage Protocol';
+  @override String get drawingSamplesSummaryHeader => 'System Summary & KPIs';
+  @override String get drawingSamplesColSampleCode => 'Sample ID';
+  @override String get drawingSamplesColShortageCode => 'Protocol ID';
+  @override String get drawingSamplesColContainerPkg => 'Container / Package No.';
+  @override String get drawingSamplesColItemDesc => 'Cargo / Item Description';
+  @override String get drawingSamplesColManifestQty => 'Manifest Qty';
+  @override String get drawingSamplesColLandedQty => 'Landed Qty';
+  @override String get drawingSamplesColShortageQty => 'Shortage Qty';
+  @override String get drawingSamplesColShortagePct => 'Shortage %';
+  @override String get drawingSamplesColShortageAction => 'Customs Action';
+  @override String get drawingSamplesColShortageNotes => 'Endorsement Notes';
+  @override String get drawingSamplesShortageActionDeductDuty => 'Customs Duty & Tax Deduction';
+  @override String get drawingSamplesShortageActionCarrierClaim => 'Carrier Shortlanded Claim';
+  @override String get drawingSamplesShortageActionSurveyEndorsement => 'Joint Survey Protocol Endorsed';
+  @override String get drawingSamplesShortageSaveSuccess => 'Cargo shortage protocol recorded successfully';
+  @override String get drawingSamplesFieldSampleId => 'Sample ID';
+  @override String get drawingSamplesFieldAuthority => 'Regulatory Authority / Laboratory';
+  @override String get drawingSamplesFieldReceiptNo => 'Drawing Receipt Number';
+  @override String get drawingSamplesFieldDrawingDate => 'Drawing Date';
+  @override String get drawingSamplesFieldTestType => 'Required Test / Analysis Type';
+  @override String get drawingSamplesFieldDeclarationNo => 'Customs Declaration 46';
+  @override String get drawingSamplesFieldStatus => 'Inspection Verdict';
+  @override String get drawingSamplesFieldNotes => 'Inspector & Laboratory Notes';
+  @override String get drawingSamplesFieldContainerNo => 'Container / Package Number';
+  @override String get drawingSamplesFieldItemDesc => 'Cargo Description';
+  @override String get drawingSamplesFieldManifestQty => 'Manifest Quantity (Packages/Kg)';
+  @override String get drawingSamplesFieldLandedQty => 'Landed Quantity (Packages/Kg)';
+  @override String get drawingSamplesValidationRequired => 'This field is required';
+  @override String get drawingSamplesValidationPositiveNumber => 'Please enter a valid positive number';
+  @override String get drawingSamplesValidationLandedExceeds => 'Landed quantity cannot exceed manifest quantity';
+
+  // ── Screen 61: Customs Clearance - Discrepancy & Damage Registry ───────────────
+  @override String get discrepancyDamageScreenTitle => 'Discrepancy & Damage Protocols Registry';
+  @override String get discrepancyDamageScreenSubtitle => 'Document container breach, water damage, shortage protocols with carrier agent, customs, and marine insurance for claim recovery.';
+  @override String get discrepancyDamageKpiTotalProtocols => 'Total Protocols';
+  @override String get discrepancyDamageKpiTotalLoss => 'Total Estimated Loss';
+  @override String get discrepancyDamageKpiClaimsSubmitted => 'Claims Under Review';
+  @override String get discrepancyDamageKpiClaimsApproved => 'Claims Approved';
+  @override String get discrepancyDamageExportTsvBtn => 'Export TSV';
+  @override String get discrepancyDamageExportExcelBtn => 'Export Excel';
+  @override String get discrepancyDamagePrintPdfBtn => 'Print PDF Report';
+  @override String get discrepancyDamageCopyDossierBtn => 'Copy Protocols Dossier';
+  @override String get discrepancyDamageCopiedDossierSuccess => 'Discrepancy and damage dossier copied to clipboard successfully.';
+  @override String get discrepancyDamageCopiedTsvSuccess => 'Protocols TSV exported and saved successfully.';
+  @override String get discrepancyDamageCopiedExcelSuccess => 'Protocols Excel table exported and saved successfully.';
+  @override String get discrepancyDamageCopyRowSummaryBtn => 'Copy Protocol Summary';
+  @override String get discrepancyDamageCopyRowSummarySuccess => 'Joint inspection protocol summary copied successfully.';
+  @override String get discrepancyDamageCopyFieldTooltip => 'Copy Value';
+  @override String get discrepancyDamageSearchHint => 'Search by protocol no, declaration, container, damage type, or responsible party...';
+  @override String get discrepancyDamageFilterAll => 'All Statuses';
+  @override String get discrepancyDamageFilterSubmitted => 'Submitted to Insurance';
+  @override String get discrepancyDamageFilterApproved => 'Approved for Compensation';
+  @override String get discrepancyDamageFilterUnderReview => 'Under Investigation';
+  @override String get discrepancyDamageEmptyRecords => 'No joint inspection protocols or damage records found.';
+  @override String get discrepancyDamageAddProtocolBtn => 'New Joint Protocol';
+  @override String get discrepancyDamageAddDialogTitle => 'Record Joint Inspection & Damage Protocol';
+  @override String get discrepancyDamageSummaryHeader => 'Customs Protocol Summary';
+  @override String get discrepancyDamageColProtocolNo => 'Protocol No';
+  @override String get discrepancyDamageColDeclarationNo => 'Customs Declaration No';
+  @override String get discrepancyDamageColContainerNo => 'Container No';
+  @override String get discrepancyDamageColDamageType => 'Damage Nature';
+  @override String get discrepancyDamageColDamagedQty => 'Damaged Qty';
+  @override String get discrepancyDamageColEstimatedLoss => 'Estimated Loss';
+  @override String get discrepancyDamageColResponsibleParty => 'Responsible Party';
+  @override String get discrepancyDamageColClaimStatus => 'Claim Status';
+  @override String get discrepancyDamageColDate => 'Inspection Date';
+  @override String get discrepancyDamageColCommittee => 'Inspection Committee';
+  @override String get discrepancyDamageColNotes => 'Notes & Findings';
+  @override String get discrepancyDamageColActions => 'Actions';
+  @override String get discrepancyDamageClaimApproved => 'Approved for Compensation';
+  @override String get discrepancyDamageClaimSubmitted => 'Submitted to Insurance';
+  @override String get discrepancyDamageClaimUnderReview => 'Under Investigation';
+  @override String get discrepancyDamageFieldProtocolNo => 'Protocol Code';
+  @override String get discrepancyDamageFieldDeclarationNo => 'Customs Declaration No (46 C.M.)';
+  @override String get discrepancyDamageFieldContainerNo => 'Container or Package No';
+  @override String get discrepancyDamageFieldDamageType => 'Nature of Damage & Defect';
+  @override String get discrepancyDamageFieldDamagedQty => 'Damaged Qty or Packages';
+  @override String get discrepancyDamageFieldEstimatedLoss => 'Estimated Loss (EGP)';
+  @override String get discrepancyDamageFieldResponsibleParty => 'Responsible Party for Damage';
+  @override String get discrepancyDamageFieldCommittee => 'Joint Inspection Committee Members';
+  @override String get discrepancyDamageFieldNotes => 'Joint Committee Notes & Decisions';
+  @override String get discrepancyDamageValidationRequired => 'This field is required for legal documentation';
+  @override String get discrepancyDamageValidationPositiveNumber => 'Please enter a valid positive number';
+  @override String get discrepancyDamageSaveSuccess => 'Joint inspection protocol and damage record saved successfully.';
+  @override String get discrepancyDamageCurrencyEgp => 'EGP';
+
+  // ── Screen 62: Customs Clearance - Final Duty Payment & Release ────────────
+  @override String get finalDutyScreenTitle => 'Final Customs Duty Payment & Release Hub';
+  @override String get finalDutyScreenSubtitle => 'Nafeza duty assessment reconciliation, bank receipt verification, variance tracking, and final release permit issuance';
+  @override String get finalDutySummaryHeader => 'Customs Duty Payment & Release Summary';
+  @override String get finalDutyKpiTotalPayable => 'Total Duties Payable';
+  @override String get finalDutyKpiTotalPaid => 'Total Duties Paid';
+  @override String get finalDutyKpiPendingPayment => 'Pending Settlements';
+  @override String get finalDutyKpiNetVariance => 'Net Duty Variance';
+  @override String get finalDutyExportTsvBtn => 'Export TSV';
+  @override String get finalDutyExportExcelBtn => 'Export Excel';
+  @override String get finalDutyPrintPdfBtn => 'Print PDF';
+  @override String get finalDutyCopyDossierBtn => 'Copy Dossier';
+  @override String get finalDutyCopiedDossierSuccess => 'Duty payment & release dossier copied to clipboard';
+  @override String get finalDutyCopiedTsvSuccess => 'Duty payment table copied to clipboard as TSV';
+  @override String get finalDutyCopiedExcelSuccess => 'Duty payment table exported as Excel CSV';
+  @override String get finalDutyCopyRowSummaryBtn => 'Copy Row Summary';
+  @override String get finalDutyCopyRowSummarySuccess => 'Clearance payment summary copied to clipboard';
+  @override String get finalDutyCopyFieldTooltip => 'Copy Value';
+  @override String get finalDutySearchHint => 'Search by clearance code, declaration 46, or customs office...';
+  @override String get finalDutyFilterAll => 'All Records';
+  @override String get finalDutyFilterPaid => 'Paid';
+  @override String get finalDutyFilterPending => 'Pending Payment';
+  @override String get finalDutyFilterReleased => 'Final Release';
+  @override String get finalDutyEmptyRecords => 'No customs duty payment or release records found.';
+  @override String get finalDutyColBankReceipt => 'Bank Receipt No';
+  @override String get finalDutyColReleasePermit => 'Release Permit No';
+  @override String get finalDutyCurrencyEgp => 'EGP';
+  @override String get finalDutyStatusPaidVerified => 'Paid & Verified';
+  @override String get finalDutyStatusPendingPayment => 'Pending Payment';
+  @override String get finalDutyStatusReleased => 'Final Release Granted';
+  @override String get finalDutyDossierHeader => 'Customs Duty Payment & Release Dossier — ImportFlow ERP';
+  @override String get finalDutyDossierKpiSummary => 'Financial & Operational KPIs:';
+  @override String get finalDutyDossierRecordsDetails => 'Customs Duty Settlement & Release Registry:';
+  @override String get finalDutyPdfTitle => 'Customs Duty Payment & Release Audit Report';
+  @override String get finalDutyPdfSubtitle => 'Nafeza Payment Reconciliations, Bank Receipts, and Port Gate Out Authorizations';
+
   // ── Screen 25: Freight Booking ─────────────────────────────────────────────
   @override String get freightBookingStageTitle => 'Freight Booking & Carrier Allocation';
   @override String get freightBookingTabRegistry => 'Freight Bookings Registry';
@@ -2418,7 +2745,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get freightBookingNetDifference => 'Net Diff.';
   @override String get freightBookingBreakdownHeader => '📊 Savings breakdown (unit price diff × quantity):';
   @override String freightBookingBreakdownSavingsUnit(String name, String orig, String exec, String unitDiff, String qty, String unitType, String savings) => '• $name: (\$$orig - \$$exec = \$$unitDiff) × $qty $unitType = \$$savings USD saved';
-  @override String get freightBookingPrintSystemHeader => 'IMPORTFLOW ERP - CARRIER BOOKING CONFIRMATION';
+  @override String get freightBookingPrintSystemHeader => 'SOROUR LOGISTICS ERP - CARRIER BOOKING CONFIRMATION';
 
   // ── Screen 26 & 52: Cargo Shipping Tracking & Freight Allocations (VGM) ───
   @override String get cargoShippingAllocationsTitle => 'Freight Allocations & Cargo Shipping (VGM)';
@@ -2575,6 +2902,33 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get cargoShippingColVgmStatus => 'VGM Status';
   @override String get cargoShippingColVgmRef => 'VGM Ref No';
   @override String get cargoShippingColTrackingStatus => 'Tracking Status';
+
+  // Screen 52: Cargo Shipping 48h SLA Tracking & Export Toolbar
+  @override String get cargoShippingSlaStageTitle => 'Cargo Shipping Tracking (48h SLA)';
+  @override String get cargoShippingSlaExportTsvBtn => 'Export TSV';
+  @override String get cargoShippingSlaExportExcelBtn => 'Export Excel';
+  @override String get cargoShippingSlaPrintPdfBtn => 'Print & Save Document';
+  @override String get cargoShippingSlaCopyDossierBtn => 'Copy SLA Dossier';
+  @override String get cargoShippingSlaCopyDossierSuccess => 'Cargo shipping SLA dossier copied to clipboard';
+  @override String get cargoShippingSlaDossierHeader => 'Cargo Shipping & 48h SLA Milestone Tracking Dossier';
+  @override String get cargoShippingSlaExportTsvDialogTitle => 'Save Cargo Shipping SLA (TSV)';
+  @override String get cargoShippingSlaExportExcelDialogTitle => 'Save Cargo Shipping SLA (Excel)';
+  @override String get cargoShippingSlaTsvHeaderUnit => '#';
+  @override String get cargoShippingSlaTsvHeaderContainerNo => 'Container Number';
+  @override String get cargoShippingSlaTsvHeaderContainerType => 'Container Type';
+  @override String get cargoShippingSlaTsvHeaderSealNo => 'Seal Number';
+  @override String get cargoShippingSlaTsvHeaderAssignmentDate => 'Assignment Date';
+  @override String get cargoShippingSlaTsvHeaderArrivalDate => 'Arrival at Supplier';
+  @override String get cargoShippingSlaTsvHeaderLoadingStartDate => 'Loading Started';
+  @override String get cargoShippingSlaTsvHeaderLoadingEndDate => 'Loading Completed';
+  @override String get cargoShippingSlaTsvHeaderPortGateInDate => 'Port Gate-In';
+  @override String get cargoShippingSlaTsvHeaderSlaStatus => '48h SLA Status';
+  @override String get cargoShippingSlaTsvHeaderTrackingStatus => 'Tracking Status';
+  @override String get cargoShippingSlaTsvHeaderNotes => 'Milestone Notes';
+  @override String get cargoShippingSlaSummaryHeader => 'Cargo Shipping SLA Tracking Metrics';
+  @override String get cargoShippingSlaCopyContainerSuccess => 'Container number copied to clipboard';
+  @override String get cargoShippingSlaCopySealSuccess => 'Seal number copied to clipboard';
+  @override String get cargoShippingSlaCopyMilestoneSuccess => 'Milestone timestamp copied to clipboard';
 
   // Screen 28: Warehouse Receiving & Inspection (GRN)
   @override String get warehouseReceivingStageTitle => 'Warehouse Receiving & Inspection (GRN)';
@@ -3224,6 +3578,41 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get routeIntelligenceNotesTitle => 'Operational Notes & Historical Warnings:';
   @override String get routeIntelligenceDaysSuffix => 'days';
   @override String get routeIntelligenceCurrencyEgp => 'EGP';
+  @override String get routeIntelligencePriceChangeCol => 'Price Change %';
+  @override String get routeIntelligenceDossierCopied => 'Intelligence dossier copied to clipboard';
+  @override String get routeIntelligenceCopyDossierBtn => 'Copy Dossier';
+  @override String get routeIntelligenceAverageTransitDays => 'Avg Transit Time';
+  @override String get smartEmailListenerBtnTooltip => 'Smart Email Listener & Arrival Notice Parser';
+  @override String get smartEmailListenerDialogTitle => 'Smart Email Listener & Arrival Notice Parser';
+  @override String get smartEmailListenerSenderLabel => 'Sender Email';
+  @override String get smartEmailListenerSubjectLabel => 'Email Subject';
+  @override String get smartEmailListenerBodyLabel => 'Raw Email Content (Paste Arrival Notice)';
+  @override String get smartEmailListenerPreviewBtn => 'Analyze Email Content';
+  @override String get smartEmailListenerProcessBtn => 'Process & Update ETA / Create Task';
+  @override String get smartEmailListenerParsedCardTitle => 'Extracted Shipment Details';
+  @override String get smartEmailListenerLogsTabTitle => 'Inbound Email Logs';
+  @override String get smartEmailListenerLoadSampleBtn => 'Load Sample Notice';
+  @override String get smartEmailListenerBlNumberLabel => 'Bill of Lading (B/L)';
+  @override String get smartEmailListenerEtaLabel => 'Estimated Arrival (ETA)';
+  @override String get smartEmailListenerVesselLabel => 'Vessel Name';
+  @override String get smartEmailListenerVoyageLabel => 'Voyage';
+  @override String get smartEmailListenerContainersLabel => 'Containers';
+  @override String get smartEmailListenerMatchedFileLabel => 'Matched Import File';
+  @override String get smartEmailListenerTaskCreatedLabel => 'Delivery Order Task Created';
+  @override String get formalLetterDialogTitle => 'AI Formal Corporate Letter Drafting';
+  @override String get formalLetterTemplateLabel => 'Select Letter Template';
+  @override String get formalLetterRecipientLabel => 'Recipient Entity';
+  @override String get formalLetterBankNameLabel => 'Bank Name';
+  @override String get formalLetterBankBranchLabel => 'Bank Branch';
+  @override String get formalLetterBrokerNameLabel => 'Customs Broker Name';
+  @override String get formalLetterBrokerLicenseLabel => 'Broker License Number';
+  @override String get formalLetterExtensionDaysLabel => 'Requested Extension (Days)';
+  @override String get formalLetterCustomNotesLabel => 'Special Notes & Undertakings';
+  @override String get formalLetterGenerateBtn => 'Draft Formal Letter';
+  @override String get formalLetterCopyBtn => 'Copy Full Letter';
+  @override String get formalLetterExportTxtBtn => 'Export as Text File';
+  @override String get formalLetterLetterheadHint => 'Note: Print on official company letterhead signed and stamped.';
+  @override String get formalLetterSelectShipmentPrompt => 'Please select the target shipment file for the letter:';
   @override String get goeicHubDialogTitle => 'GOEIC Compliance & Verification Hub';
   @override String get goeicHsCodeFieldLabel => 'HS Tariff Code';
   @override String get goeicCoiCertificateCheckbox => 'Certified Pre-Shipment Inspection Certificate';
@@ -3274,6 +3663,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get scorecardScheduleReliability => 'Schedule Reliability (%)';
   @override String get scorecardStrengthsHeader => 'Strengths & Excellence:';
   @override String get scorecardImprovementsHeader => 'Improvement Areas & Audit Notes:';
+  @override String get supplierScorecardBtnTooltip => 'Supplier Performance Scorecard & Quality KPIs';
+  @override String get supplierScorecardTitle => 'Foreign Supplier Performance & Reliability Scorecard';
+  @override String supplierScorecardSubtitle(String name, String country) => 'Supplier: $name • Country: $country';
+  @override String get supplierScorecardCrdRate => 'Cargo Readiness Date (CRD) Adherence';
+  @override String get supplierScorecardDocAccuracy => 'Shipping Documents Accuracy Rate';
+  @override String get supplierScorecardFulfillmentRate => 'Purchase Order Fulfillment Rate';
+  @override String supplierScorecardTotalOrders(int count) => 'Total Completed Purchase Orders: $count';
+  @override String get supplierScorecardCopySuccess => 'Supplier scorecard summary copied to clipboard';
   @override String get partnersTsvHeaderCode => 'Partner Code';
   @override String get partnersTsvHeaderName => 'Partner Name';
   @override String get partnersTsvHeaderCategories => 'Categories';
@@ -3413,7 +3810,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ledgerStatusCol => 'Status';
   @override String get ledgerInvoiceBadge => 'Invoice';
   @override String get ledgerPaymentBadge => 'Payment';
-  @override String get soaFooterText => 'ImportFlow ERP — Multi-Currency Partner & Provider Accounting Module';
+  @override String get soaFooterText => 'Sorour Logistics ERP — Multi-Currency Partner & Provider Accounting Module';
   @override String get closeBtn => 'Close';
 
   // Screen 35: Incoterms Rules (Incoterms 2020 · Cost Items · Responsibility Matrix)
@@ -3491,6 +3888,42 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get commentNotesLabel => 'Comment / Notes';
   @override String get commentNotesHint => 'Add specific conditions or details...';
   @override String get updatedSuccessfully => 'Updated successfully';
+  @override String get incotermsCopyFieldTooltip => 'Copy field to clipboard';
+  @override String get incotermsExportTsvBtn => 'Export Incoterms (TSV)';
+  @override String get incotermsExportTsvSuccess => 'Incoterms data copied to clipboard (TSV)';
+  @override String get incotermCopySummaryBtn => 'Copy Incoterm Summary';
+  @override String get incotermCopySummarySuccess => 'Incoterm summary copied to clipboard';
+  @override String get incotermCodeBadgeLabel => 'Incoterm Code: ';
+  @override String get costItemsExportTsvBtn => 'Export Cost Items (TSV)';
+  @override String get costItemsExportTsvSuccess => 'Cost items copied to clipboard (TSV)';
+  @override String get costItemCopySummaryBtn => 'Copy Cost Item Summary';
+  @override String get costItemCopySummarySuccess => 'Cost item summary copied to clipboard';
+  @override String get costItemCodeBadgeLabel => 'Cost Item Code: ';
+  @override String get matrixExportTsvBtn => 'Export Responsibility Matrix (TSV)';
+  @override String get matrixExportTsvSuccess => 'Responsibility matrix copied to clipboard (TSV)';
+  @override String get matrixCopySummaryBtn => 'Copy Responsibility Summary';
+  @override String get matrixCopySummarySuccess => 'Responsibility details copied to clipboard';
+  @override String get incotermsTsvHeaderCode => 'Incoterm Code';
+  @override String get incotermsTsvHeaderName => 'Incoterm Name';
+  @override String get incotermsTsvHeaderVersion => 'ICC Version';
+  @override String get incotermsTsvHeaderDescription => 'Description & Risk Transfer';
+  @override String get incotermsTsvHeaderStatus => 'Status';
+  @override String get costItemsTsvHeaderCode => 'Cost Item Code';
+  @override String get costItemsTsvHeaderName => 'Cost Item Name';
+  @override String get costItemsTsvHeaderCategory => 'Cost Category';
+  @override String get costItemsTsvHeaderDescription => 'Description & Allocation Notes';
+  @override String get costItemsTsvHeaderStatus => 'Status';
+  @override String get matrixTsvHeaderIncoterm => 'Incoterm';
+  @override String get matrixTsvHeaderCostItem => 'Cost Item';
+  @override String get matrixTsvHeaderCategory => 'Category';
+  @override String get matrixTsvHeaderResponsible => 'Responsible Party';
+  @override String get matrixTsvHeaderIncluded => 'Included in Price';
+  @override String get matrixTsvHeaderNotes => 'Notes & Conditions';
+  @override String get exportIncotermsPdfBtn => 'Print / Save Incoterm PDF';
+  @override String get exportIncotermsExcelBtn => 'Export Incoterm to Excel';
+  @override String get incotermResponsibilitiesSectionTitle => 'Cost Responsibility Matrix:';
+  @override String get includedInPriceYes => 'Yes (Included in Price)';
+  @override String get includedInPriceNo => 'No (Excluded)';
 
   // Screen 36: Customs Tariff Schedule & HS Codes
   @override String get customsTariffScreenTitle => 'Customs Tariff & HS Codes';
@@ -3585,6 +4018,83 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get scheduleTaxRateLabel => 'Schedule Tax %';
   @override String tariffVerifiedSuccess(String code) => 'HS Code $code successfully verified!';
 
+  // Screen 36: Customs Tariff TSV Export & Actions
+  @override String get customsTariffExportTsvBtn => 'Export Tariffs (TSV)';
+  @override String get customsTariffExportTsvSuccess => 'Customs tariffs copied to clipboard successfully';
+  @override String get tariffCopySummaryBtn => 'Copy HS Tariff Summary';
+  @override String get tariffCopySummarySuccess => 'Customs tariff summary copied to clipboard successfully';
+  @override String get tariffCodeBadgeLabel => 'HS Code: ';
+  @override String get tariffCopyFieldTooltip => 'Copy value';
+  @override String get exportTariffPdfBtn => 'Print & Save Tariff PDF';
+  @override String get exportTariffExcelBtn => 'Export Tariff Excel';
+
+  // Screen 36: TSV Column Headers
+  @override String get tariffTsvHeaderHsCode => 'HS Code';
+  @override String get tariffTsvHeaderDescription => 'Description';
+  @override String get tariffTsvHeaderCategory => 'Category';
+  @override String get tariffTsvHeaderDutyRate => 'Import Duty %';
+  @override String get tariffTsvHeaderVatRate => 'VAT %';
+  @override String get tariffTsvHeaderScheduleTax => 'Schedule Tax %';
+  @override String get tariffTsvHeaderDevFee => 'Development Fee %';
+  @override String get tariffTsvHeaderImportFee => 'Import Fee %';
+  @override String get tariffTsvHeaderAuthority => 'Authority';
+  @override String get tariffTsvHeaderRequirements => 'Requirements';
+  @override String get tariffTsvHeaderStatus => 'Status';
+
+  // Screen 36: Smart Form & Manual Dialog
+  @override String get tariffDialogTitleAdd => 'Add HS Code & Regulations';
+  @override String tariffDialogTitleEdit(String code) => 'Edit Customs Tariff - $code';
+  @override String get tariffModeSmartText => 'Smart Text Input';
+  @override String get tariffModeManualForm => 'Manual Form Input';
+  @override String get quickExamplesLabel => 'Quick Test Examples:';
+  @override String get exampleAirConditioners => 'Air Conditioners';
+  @override String get examplePlasticsBuilding => 'Plastics & Building';
+  @override String get clearTextBtn => 'Clear Text';
+  @override String get pasteTariffBlockLabel => 'Paste Nafeza Tariff Block Here *';
+  @override String get pasteTariffBlockHint => 'Item Number:\n8415820010\nItem Description:\nAir conditioners...\nTaxes:\nImport Duty: 60%\nSchedule Tax: 8%\nVAT: 14%';
+  @override String get parseNowTooltip => 'Parse Text Immediately';
+  @override String parsedPreviewHeader(String code) => 'Extracted Tariff Preview ($code)';
+  @override String get editFieldsManuallyBtn => 'Edit Fields Manually';
+  @override String get diffHistoryTitle => 'Tariff History & Version Diff';
+  @override String get newHsVersionTitle => 'New HS Code Version';
+  @override String get diffDetailsHeader => 'Detected Differences Details:';
+  @override String get hsCodeLabelReq => 'HS Code *';
+  @override String get hsCodeHint => 'e.g. 8415820010';
+  @override String get customsCategoryLabel => 'Customs Category';
+  @override String get customsCategoryHint => 'e.g. Air Conditioners, Electronics';
+  @override String get hsDescriptionLabelReq => 'HS Item Description *';
+  @override String get hsDescriptionRequiredError => 'Item description is required';
+  @override String get taxRatesBreakdownSection => 'Tax & Fee Rates (%) :';
+  @override String get dutyRateInputLabel => 'Import Duty % *';
+  @override String get vatRateInputLabel => 'VAT % *';
+  @override String get scheduleTaxInputLabel => 'Schedule Tax %';
+  @override String get devFeeInputLabel => 'Development Fee %';
+  @override String get importFeeInputLabel => 'Import Fee %';
+  @override String get docsAndClearanceSection => 'Document & Clearance Requirements :';
+  @override String get requiresAcidCheckbox => 'Requires ACID Registration';
+  @override String get requiresCooCheckbox => 'Requires Certificate of Origin';
+  @override String get requiresInspectionCheckbox => 'Requires Compliance Inspection';
+  @override String get govAuthorityLabel => 'Competent Regulatory Authority';
+  @override String get govAuthorityHint => 'e.g. General Organization for Export & Import Control';
+  @override String get priorApprovalsLabel => 'Prior Approvals & Regulatory Procedures';
+  @override String get priorApprovalsHint => 'e.g. Prior approval required, Factory Decree 43';
+  @override String get tariffNotesLabel => 'Additional Notes & Customs Restrictions';
+  @override String get saveAllTariffAndAgreementsBtn => 'Save Tariff & All Extracted Agreements';
+  @override String get addTariffBtnShort => 'Add Tariff';
+  @override String get saveTariffChangesBtn => 'Save Changes';
+  @override String get savingProgress => 'Saving...';
+  @override String get pasteTextFirstError => 'Please paste the tariff block text first';
+  @override String get cannotExtractHsCodeError => 'Could not extract HS code from entered text';
+  @override String get saveFailureTitle => 'Save Failure Details';
+  @override String get saveFailureIntro => 'The following errors occurred while processing and saving:';
+  @override String get adjustInputsBtn => 'OK & Adjust Inputs';
+  @override String get tariffAddedSuccess => 'Customs tariff and all agreements added successfully';
+  @override String get tariffUpdatedSuccess => 'Customs tariff updated successfully';
+
+  // Screen 36: Nafeza Details Dialog
+  @override String get nafezaDetailsCopyTooltip => 'Copy Tariff Details';
+  @override String get nafezaDetailsCopySuccess => 'Tariff details copied to clipboard';
+
   // Screen 37: Ports & Transport Locations
   @override String get transportLocationsScreenTitle => 'Ports & Transport Locations';
   @override String get transportLocationsScreenSubtitle => 'Master reference for Sea Ports, Airports, Dry Ports & Land Borders (UN/LOCODE)';
@@ -3626,6 +4136,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get importingLocationsDataset => 'Importing transport locations from Excel/CSV...';
   @override String get importWarningsTitle => 'Import Warnings';
   @override String get locationsImportSuccess => 'Successfully imported transport locations!';
+  @override String get locationsExportTsvBtn => 'Export Locations (TSV)';
+  @override String get locationsExportTsvSuccess => 'Transport locations table copied to clipboard';
+  @override String get locationCopySummaryBtn => 'Copy Location Summary';
+  @override String get locationCopySummarySuccess => 'Location details copied to clipboard';
+  @override String get locationLocodeBadgeLabel => 'UN/LOCODE';
+  @override String get locationCopyFieldTooltip => 'Copy field value';
+  @override String get exportLocationPdfBtn => 'Print / Save PDF';
+  @override String get exportLocationExcelBtn => 'Download EXCEL';
+  @override String get locationsTsvHeaderUnLocode => 'UN/LOCODE';
+  @override String get locationsTsvHeaderName => 'Location Name';
+  @override String get locationsTsvHeaderType => 'Location Type';
+  @override String get locationsTsvHeaderCountry => 'Country';
+  @override String get locationsTsvHeaderCity => 'City';
+  @override String get locationsTsvHeaderStatus => 'Status';
+  @override String get locationsTsvHeaderNotes => 'Notes';
 
   // Screen 38: Currencies & Exchange Rates
   @override String get currenciesScreenTitle => 'Currencies & Exchange Rates';
@@ -3717,6 +4242,22 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get calculateGainLossBtn => 'Calculate FX Gain/Loss Now';
   @override String initialCostAtBooking(dynamic amount, dynamic rate) => 'Initial Cost at Booking: $amount EGP (Rate: $rate)';
   @override String actualCostAtSettlement(dynamic amount, dynamic rate) => 'Actual Cost at Settlement: $amount EGP (Rate: $rate)';
+  @override String get currenciesExportTsvBtn => 'Export Currencies (TSV)';
+  @override String get currenciesExportTsvSuccess => 'Currencies table copied to clipboard successfully';
+  @override String get currencyCopySummaryBtn => 'Copy Currency & Rates Summary';
+  @override String get currencyCopySummarySuccess => 'Currency and rates summary copied to clipboard';
+  @override String get currencyCodeBadgeLabel => 'Currency Code';
+  @override String get currencyCopyFieldTooltip => 'Copy field value';
+  @override String get exportCurrencyPdfBtn => 'Print / Save Currency Card (PDF)';
+  @override String get exportCurrencyExcelBtn => 'Export Currencies Table (Excel)';
+  @override String get currenciesTsvHeaderIsoCode => 'ISO Code';
+  @override String get currenciesTsvHeaderName => 'Currency Name';
+  @override String get currenciesTsvHeaderSymbol => 'Symbol';
+  @override String get currenciesTsvHeaderIsBase => 'Base Currency';
+  @override String get currenciesTsvHeaderCommercialRate => 'Commercial Rate (EGP)';
+  @override String get currenciesTsvHeaderCustomsRate => 'Customs Rate (EGP)';
+  @override String get currenciesTsvHeaderStatus => 'Status';
+  @override String get currenciesTsvHeaderDecimals => 'Decimal Places';
 
   // Generic Pagination
   @override String get rowsPerPageLabel => 'Rows per page:';
@@ -3881,6 +4422,66 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String confirmDeleteRequirementContent(dynamic code, dynamic file) => 'Are you sure you want to soft delete assessment ($code) for file ($file)?\n\nYou can restore or reactivate it at any time.';
   @override String deletedRequirementSuccessSnack(dynamic code) => '🗑️ Assessment ($code) soft deleted.';
 
+  // Screen 43: Additional Export, Copy, and Detail Getters
+  @override String get requirementsExportTsvBtn => 'Export TSV';
+  @override String get requirementsExportTsvSuccess => 'Requirements table copied to clipboard as TSV';
+  @override String get requirementsExportExcelBtn => 'Export Excel';
+  @override String get requirementsExportPdfBtn => 'Print PDF Report';
+  @override String get requirementCopySummaryBtn => 'Copy Assessment Summary';
+  @override String get requirementCopySummarySuccess => 'Regulatory assessment summary copied to clipboard';
+  @override String get requirementCodeBadgeLabel => 'Assessment Code: ';
+  @override String get requirementAcidBadgeLabel => 'ACID Number: ';
+  @override String get requirementHsBadgeLabel => 'HS Code: ';
+  @override String get requirementCopyFieldTooltip => 'Click to copy field to clipboard';
+  @override String get printRequirementSlipBtn => 'Print Compliance Slip (PDF)';
+  @override String get requirementDetailsDialogTitle => 'Regulatory Requirements & Pre-Shipment Compliance Details';
+  @override String get requirementSelectHsInstruction => 'Select an HS item to review and fulfill its 5 pillars individually:';
+  @override String requirementPillarsProgressBadge(dynamic count) => '$count/5 Fulfilled';
+  @override String get decree43NotRegisteredBadge => 'Decree 43: Not Registered';
+  @override String get decree43ExemptionChangeBtn => 'Change to Legal Exemption';
+  @override String get decree43SampleReasonGoeicReview => 'Factory registration submitted to GOEIC with incoming reference number and under active review';
+  @override String get decree43CommonExemptionsTitle => 'Common and legally authorized exemption grounds (click to select):';
+  @override String get decree43JustificationHint => 'Enter legal justification or exemption basis...';
+  @override String get decree43TaskExplanation => 'A high-priority operational task has been scheduled for the team to follow up GOEIC factory registration and notify the dashboard.';
+  @override String complianceBannerTitle(dynamic hs, dynamic desc) => 'Regulatory Compliance & Alerts for HS Item: $hs ($desc)';
+  @override String get compliancePillar1Mandatory => 'Ministerial Decree 43/2016: Release of finished consumer goods requires production in factories registered on the GOEIC whitelist.';
+  @override String get compliancePillar1Warning => 'Unregistered factories are prohibited from customs release and preliminary ACID issuance unless official exemption is documented.';
+  @override String get compliancePillar1Exemption => 'Exempted: Production inputs, raw materials, spare parts for manufacturing and services (Article 2), personal use imports, and non-commercial samples.';
+  @override String get compliancePillar2Mandatory => 'Submission of original Certificate of Origin certified by the chamber of commerce in the exporting country, fully matching invoice, packing list, and bill of lading.';
+  @override String get compliancePillar2Warning => 'Country of origin mismatch with shipping port without movement certificate, or exporter discrepancy causes loss of preferential tariff benefits.';
+  @override String get compliancePillar2Exemption => 'Preferential agreements (EUR.1, GAFTA, COMESA, Egypt-Turkey, Agadir) provide customs duty reductions and full customs exemptions.';
+  @override String get compliancePillar3Mandatory => 'Pre-shipment inspection and certificate of conformity (ILAC / ISO 17020) by an accredited international inspection agency prior to shipment sailing.';
+  @override String get compliancePillar3Warning => 'Shipping without an accredited certificate requires mandatory laboratory sampling by GOEIC with risk of rejection and re-export at importer expense.';
+  @override String get compliancePillar3Exemption => 'Authorized Economic Operator (AEO) certified companies benefit from accelerated green channel visual verification.';
+  @override String get compliancePillar4Mandatory => 'Prior regulatory approvals and permits from Egyptian authorities (EDA, EEAA, NTRA, NFSA) prior to LC opening and shipping.';
+  @override String get compliancePillar4Warning => 'Shipping controlled goods without prior permits blocks entry on the Nafeza platform and triggers customs detention or confiscation.';
+  @override String get compliancePillar4Exemption => 'Authorized industrial importers may request temporary bonded custody storage at factory warehouse pending final conformity tests.';
+  @override String get compliancePillar5Mandatory => 'Submission of Material Safety Data Sheet (MSDS) with UN/CAS codes for chemicals, Halal certificate for food/meat, and Certificate of Analysis (COA).';
+  @override String get compliancePillar5Warning => 'Unclear expiration date or production batch in Arabic on outer packaging causes rejection by the National Food Safety Authority.';
+  @override String get compliancePillar5Exemption => 'Dry goods, equipment, and industrial spare parts are fully exempt from MSDS and Halal requirements, requiring only technical catalogue inspection.';
+  @override String reqAcidNumberBadge(dynamic acid) => 'ACID: $acid';
+  @override String get acidIssuedInPhaseText => 'Issued in ACID Phase';
+
+  // TSV Column Headers for Export
+  @override String get requirementsTsvHeaderCode => 'Assessment Code';
+  @override String get requirementsTsvHeaderFileCode => 'Import File Code';
+  @override String get requirementsTsvHeaderHsCode => 'HS Code';
+  @override String get requirementsTsvHeaderCommodity => 'Commodity';
+  @override String get requirementsTsvHeaderValue => 'Shipment Value';
+  @override String get requirementsTsvHeaderCurrency => 'Currency';
+  @override String get requirementsTsvHeaderOrigin => 'Origin';
+  @override String get requirementsTsvHeaderSupplier => 'Supplier';
+  @override String get requirementsTsvHeaderDecree43 => 'Decree 43 Registration';
+  @override String get requirementsTsvHeaderCoo => 'Certificate of Origin';
+  @override String get requirementsTsvHeaderInspection => 'Pre-Shipment Inspection';
+  @override String get requirementsTsvHeaderPermit => 'Regulatory Permits';
+  @override String get requirementsTsvHeaderTechCerts => 'Technical Certificates';
+  @override String get requirementsTsvHeaderSailingStatus => 'Sailing Status';
+  @override String get requirementsTsvHeaderOverallStatus => 'Overall Status';
+  @override String get requirementsTsvHeaderRiskLevel => 'Risk Level';
+  @override String get requirementsTsvHeaderAssessedBy => 'Assessed By';
+  @override String get requirementsTsvHeaderNotes => 'Notes';
+
   // ── Screen 44: Demurrage & Detention ───────────────────────────────────────
   @override String get demurrageScreenTitle => 'Demurrage, Detention & Port Storage Monitor';
   @override String get containerTrackingsTab => 'Active Container Trackings';
@@ -4001,6 +4602,66 @@ class AppLocalizationsEn extends AppLocalizations {
         return status?.toString() ?? '';
     }
   }
+  // Screen 44 Additions: TSV Headers, Export, Copy & Dual Clock
+  @override String get demurrageTsvHeaderTrackingCode => 'Tracking Code';
+  @override String get demurrageTsvHeaderBlNumber => 'Bill of Lading No';
+  @override String get demurrageTsvHeaderCarrier => 'Shipping Line';
+  @override String get demurrageTsvHeaderPort => 'Arrival Port';
+  @override String get demurrageTsvHeaderDischargeDate => 'Discharge Date';
+  @override String get demurrageTsvHeaderGateOutDate => 'Gate-Out Date';
+  @override String get demurrageTsvHeaderEmptyReturnDate => 'Empty Return Date';
+  @override String get demurrageTsvHeaderContainersCount => 'Containers Count';
+  @override String get demurrageTsvHeaderTotalDemurrageFx => 'Demurrage Fee (FX)';
+  @override String get demurrageTsvHeaderTotalDetentionFx => 'Detention Fee (FX)';
+  @override String get demurrageTsvHeaderTotalStorageEgp => 'Port Storage (EGP)';
+  @override String get demurrageTsvHeaderCurrency => 'Currency';
+  @override String get demurrageTsvHeaderExchangeRate => 'Exchange Rate';
+  @override String get demurrageTsvHeaderTotalCostEgp => 'Total Estimated Cost (EGP)';
+  @override String get demurrageTsvHeaderStatus => 'Status';
+  @override String get demurrageTsvHeaderPushedSettlement => 'Pushed to Settlement';
+  @override String get demurrageExportTsvBtn => 'Export TSV';
+  @override String get demurrageExportTsvSuccess => 'Container trackings copied as TSV';
+  @override String get demurrageExportExcelBtn => 'Export Excel';
+  @override String get demurrageExportPdfBtn => 'Print Tracking PDF';
+  @override String get demurragePrintSlipTooltip => 'Print Demurrage Calculation Slip';
+  @override String get demurrageCopySummaryBtn => 'Copy Tracking Summary';
+  @override String get demurrageCopySummarySuccess => 'Tracking summary copied successfully';
+  @override String get demurrageCodeBadgeLabel => 'Tracking Code';
+  @override String get demurrageBlBadgeLabel => 'Bill of Lading';
+  @override String get demurrageCopyFieldTooltip => 'Click to copy to clipboard';
+  @override String get dualClockRadarBtn => 'Dual-Clock Radar';
+  @override String get dualClockRadarDialogTitle => 'Dual-Clock Radar: Demurrage & Port Storage';
+  @override String get dualClockCarrierClockTitle => 'Carrier Demurrage';
+  @override String get dualClockPortClockTitle => 'Port Storage';
+  @override String get dualClockWarning72hTitle => 'Critical Warning: Less than 72 hours remaining before port storage tier doubles!';
+  @override String get dualClockGateOutSectionTitle => 'Container Gate-Out & EIR Tracking';
+  @override String get dualClockContainerNoLabel => 'Container Number';
+  @override String get dualClockContainerNoHint => 'e.g. MSKU1234567';
+  @override String get dualClockEirReceiptLabel => 'EIR Receipt Number';
+  @override String get dualClockRecordGateOutBtn => 'Record Gate-Out';
+  @override String get dualClockEnterContainerValidation => 'Please enter container number first';
+  @override String get dualClockGateOutSuccessSnack => 'Container gate-out recorded successfully';
+  @override String get dualClockGateOutErrorSnack => 'Failed to record container gate-out';
+  @override String get dualClockRetryBtn => 'Retry';
+  @override String get dualClockCopyMetricsBtn => 'Copy Radar Metrics';
+  @override String get dualClockCopyMetricsSuccess => 'Dual-clock radar metrics copied successfully';
+  @override String get dualClockFreeDaysRemaining => 'Within Free Time';
+  @override String get dualClockOverdueDaysNote => 'Overdue';
+  @override String get dualClockCurrentTierPrefix => 'Current Tier';
+  @override String get dualClockStandardTierLabel => 'Standard Tier';
+  @override String get simBreakdownCopyTsvBtn => 'Copy Breakdown';
+  @override String get simBreakdownCopyTsvSuccess => 'Calculation breakdown copied successfully';
+  @override String get policyCopySummaryBtn => 'Copy Policy Summary';
+  @override String get policyCopySummarySuccess => 'Policy summary copied successfully';
+  @override String get policiesExportTsvBtn => 'Export Carrier Policies';
+  @override String get policiesExportTsvSuccess => 'Carrier policies copied as TSV';
+  @override String get policiesTsvHeaderCarrier => 'Shipping Line';
+  @override String get policiesTsvHeaderContainerType => 'Container Type';
+  @override String get policiesTsvHeaderDemurrageFreeDays => 'Demurrage Free Days';
+  @override String get policiesTsvHeaderDetentionFreeDays => 'Detention Free Days';
+  @override String get policiesTsvHeaderPortStorageFreeDays => 'Port Storage Free Days';
+  @override String get policiesTsvHeaderDailyStorageRateEgp => 'Daily Storage Rate (EGP)';
+  @override String get policiesTsvHeaderCurrency => 'Currency';
 
   // ── Screen 47: Audit Logs ──────────────────────────────────────────────────
   @override String get auditLogsScreenTitle => 'System Audit Trail & History Logs';
@@ -4055,6 +4716,33 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String auditEntityWithCode(dynamic type, dynamic code) => '$type #$code';
   @override String get systemMutationFallback => 'System mutation recorded';
   @override String performedByUser(dynamic user) => 'Performed by: $user';
+  @override String get auditLogsExportTsvBtn => 'Export Logs (TSV)';
+  @override String get auditLogsExportTsvSuccess => 'Audit logs table copied to clipboard';
+  @override String get auditLogCopySummaryBtn => 'Copy Log Details';
+  @override String get auditLogCopySummarySuccess => 'Log details copied to clipboard';
+  @override String get auditLogEntityCodeBadgeLabel => 'Entity Code';
+  @override String get auditLogCopyFieldTooltip => 'Copy Value';
+  @override String get exportAuditLogPdfBtn => 'Export Audit Log (PDF)';
+  @override String get exportAuditLogExcelBtn => 'Export Logs (Excel)';
+  @override String get viewEntityHistoryBtn => 'View Full Entity History';
+  @override String get auditLogsTsvHeaderLogId => 'Log ID';
+  @override String get auditLogsTsvHeaderAction => 'Action';
+  @override String get auditLogsTsvHeaderEntityType => 'Entity Type';
+  @override String get auditLogsTsvHeaderEntityCode => 'Entity Code';
+  @override String get auditLogsTsvHeaderSummary => 'Change Summary';
+  @override String get auditLogsTsvHeaderPerformedBy => 'Performed By';
+  @override String get auditLogsTsvHeaderTimestamp => 'Timestamp';
+  @override String get rowHistoryDialogTitle => 'Change History & Audit Trail';
+  @override String rowHistoryDialogSubtitle(dynamic entityType, dynamic entityTitle) => '$entityType: $entityTitle';
+  @override String get rowHistoryRefreshTooltip => 'Refresh Live History';
+  @override String get rowHistoryLoading => 'Fetching live audit logs from API...';
+  @override String get rowHistoryEmpty => 'No change history recorded yet.';
+  @override String get rowHistoryCloseBtn => 'Close';
+  @override String get rowHistoryExportTsvBtn => 'Export History (TSV)';
+  @override String get rowHistoryExportTsvSuccess => 'Entity history copied to clipboard';
+  @override String get rowHistoryExportPdfBtn => 'Export History (PDF)';
+  @override String get rowHistoryCopySummaryBtn => 'Copy Change Summary';
+  @override String get rowHistoryCopySummarySuccess => 'Change summary copied to clipboard';
 
   // ── Screen 48: Lifecycle Kanban Board ───────────────────────────────────────
   @override String get lifecycleBoardTitle => 'Shipment Lifecycle Operations Board (6 Phases / 21 Steps)';
@@ -4285,6 +4973,52 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String freeDaysRemainingBadge(dynamic days) => '$days free days remaining';
   @override String get demurrageIncurredBadge => 'Demurrage Incurred';
 
+  // Screen 48: Lifecycle Board Exports & Helpers
+  @override String get lifecycleExportTsvBtn => 'Export TSV';
+  @override String get lifecycleExportExcelBtn => 'Export Unmerged Excel';
+  @override String get lifecyclePrintPdfBtn => 'Print Landscape PDF';
+  @override String get lifecycleCopySummaryBtn => 'Copy Operational Summary';
+  @override String get lifecycleCopySummarySuccess => 'Operational summary copied to clipboard';
+  @override String get lifecycleCopyDossierBtn => 'Copy Tracking Dossier';
+  @override String get lifecycleCopyDossierSuccess => 'Tracking dossier copied to clipboard';
+  @override String get lifecycleExportTsvDialogTitle => 'Save Lifecycle Board as TSV';
+  @override String get lifecycleExportExcelDialogTitle => 'Save Lifecycle Board as Excel';
+  @override String get lifecyclePrintPdfDialogTitle => 'Logistics Lifecycle & Stages Report';
+  @override String get lifecycleDossierHeader => 'Shipment Lifecycle & Stage Board Report';
+  @override String get radarDossierHeader => 'Live Logistics Tracking Radar Report';
+  @override String get radarExportTsvDialogTitle => 'Save Logistics Radar as TSV';
+  @override String get radarExportExcelDialogTitle => 'Save Logistics Radar as Excel';
+  @override String get radarPrintPdfDialogTitle => 'Live Logistics Tracking Radar';
+  @override String liveRadarError(dynamic error) => 'An error occurred while loading logistics radar:\n$error';
+  @override String get searchLiveRadarHint => 'Search by file, B/L, supplier, or line...';
+  @override String get colBillOfLadingPrefix => 'B/L';
+  @override String get colEtaPrefix => 'ETA';
+  @override String demurrageFeesFormatted(dynamic fx, dynamic egp) => 'Demurrage: \$$fx ($egp EGP)';
+  @override String freeDaysConsumed(dynamic used, dynamic total) => 'Used $used of $total free days';
+  @override String get colCarrierUnderPrep => 'Under Preparation';
+
+  // Kanban TSV Headers
+  @override String get lifecycleTsvHeaderFileCode => 'File Code';
+  @override String get lifecycleTsvHeaderPreviousStep => 'Previous Step';
+  @override String get lifecycleTsvHeaderCurrentStep => 'Current Step';
+  @override String get lifecycleTsvHeaderNextStep => 'Next Step';
+  @override String get lifecycleTsvHeaderCompany => 'Importer';
+  @override String get lifecycleTsvHeaderSupplier => 'Foreign Supplier';
+  @override String get lifecycleTsvHeaderPoNumber => 'PO Number';
+  @override String get lifecycleTsvHeaderShipmentMode => 'Mode & Incoterm';
+  @override String get lifecycleTsvHeaderEstimatedCost => 'Estimated Cost';
+  @override String get lifecycleTsvHeaderStatus => 'Status';
+  @override String get lifecycleTsvHeaderNotes => 'Notes & Activity';
+
+  // Radar TSV Headers
+  @override String get radarTsvHeaderFileCode => 'Shipment & Incoterm';
+  @override String get radarTsvHeaderCarrierVessel => 'Carrier & Vessel';
+  @override String get radarTsvHeaderBlRoute => 'B/L & Route';
+  @override String get radarTsvHeaderArrivalStatus => 'Arrival & Dwell Time';
+  @override String get radarTsvHeaderDemurrageRisk => 'Demurrage Risk';
+  @override String get radarTsvHeaderTestingStatus => 'Regulatory Testing';
+  @override String get radarTsvHeaderDocReadiness => 'Doc Readiness %';
+
   // ==========================================
   // Screen 49: Freight Quotations Comparison (FreightQuotationsComparisonScreen)
   // ==========================================
@@ -4340,6 +5074,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String get freightQuoteAwardedSuccess => 'Freight quotation awarded and approved successfully';
   @override
   String freightQuoteAwardError(String error) => 'Error awarding quotation: $error';
+  @override
+  String get freightQuotationsExportTsvBtn => 'Export TSV';
+  @override
+  String get freightQuotationsExportExcelBtn => 'Export Excel';
+  @override
+  String get freightQuotationsPrintPdfBtn => 'Print / PDF';
+  @override
+  String get freightQuotationsCopyDossierBtn => 'Copy Dossier';
+  @override
+  String get freightQuotationsCopyDossierSuccess => 'Comparison dossier copied to clipboard';
+  @override
+  String get freightQuotationsDossierHeader => 'Freight Quotations Comparison Dossier';
+  @override
+  String get freightQuotationsExportTsvDialogTitle => 'Export Quotations as TSV';
+  @override
+  String get freightQuotationsExportExcelDialogTitle => 'Export Quotations as Excel / CSV';
+  @override
+  String get freightQuotesTsvHeaderCarrier => 'Carrier / Shipping Line';
+  @override
+  String get freightQuotesTsvHeaderTotalCost => 'Total Cost';
+  @override
+  String get freightQuotesTsvHeaderOceanFreight => 'Ocean Freight';
+  @override
+  String get freightQuotesTsvHeaderLocalCharges => 'Local Charges';
+  @override
+  String get freightQuotesTsvHeaderInlandCharges => 'Inland Charges';
+  @override
+  String get freightQuotesTsvHeaderTransitDays => 'Transit Days';
+  @override
+  String get freightQuotesTsvHeaderSailingDate => 'Sailing Date';
+  @override
+  String get freightQuotesTsvHeaderArrivalDate => 'Estimated Arrival Date';
+  @override
+  String get freightQuotesTsvHeaderFreeDays => 'Free Days';
+  @override
+  String get freightQuotesTsvHeaderStatus => 'Award Status';
+  @override
+  String get freightQuotesTsvHeaderRemarks => 'Remarks';
+  @override
+  String get vesselNameLabel => 'Vessel Name';
+  @override
+  String get voyageNumberLabel => 'Voyage Number';
+  @override
+  String get oceanFreightCostLabel => 'Ocean Freight (USD)';
+  @override
+  String get localChargesCostLabel => 'Local Charges (USD)';
+  @override
+  String get inlandCostLabel => 'Inland Transport (USD)';
+  @override
+  String get sailingDateFormLabel => 'Sailing Date';
+  @override
+  String get arrivalDateFormLabel => 'Estimated Arrival Date';
+  @override
+  String get freeDaysPodFormLabel => 'Free Days at Port';
+  @override
+  String get remarksFormLabel => 'Quotation Remarks';
 
   // ==========================================
   // Screen 50: Landed Cost Comparison (LandedCostComparisonScreen)
@@ -4413,6 +5203,84 @@ class AppLocalizationsEn extends AppLocalizations {
         return 'Other Expenses';
     }
   }
+
+  // Screen 50 Export & Incoterms Additions
+  @override
+  String get landedCostExportTsvBtn => 'Export TSV';
+  @override
+  String get landedCostExportExcelBtn => 'Export Excel';
+  @override
+  String get landedCostPrintPdfBtn => 'Print Vector PDF';
+  @override
+  String get landedCostCopyDossierBtn => 'Copy Cost Summary';
+  @override
+  String get landedCostCopyDossierSuccess => 'Landed cost summary copied to clipboard successfully';
+  @override
+  String get landedCostDossierHeader => 'Shipment Landed Cost Comparison Summary';
+  @override
+  String get landedCostExportTsvDialogTitle => 'Export Landed Cost Comparison as TSV';
+  @override
+  String get landedCostExportExcelDialogTitle => 'Export Landed Cost Comparison to Excel';
+  @override
+  String get incoRuleExporterCoversLabel => 'Included in Invoice (Exporter):';
+  @override
+  String get incoRuleImporterCoversLabel => 'Added Landed Cost Expenses (Importer):';
+  @override
+  String get incoCifRuleTitle => 'CIF / CIP Delivery Rule (Cost, Insurance & Freight)';
+  @override
+  String get incoCifRuleDesc => 'Purchase invoice includes international freight and marine insurance. Importer Landed Cost = (CIF Invoice + Customs Duties & Taxes + Port & Clearance Fees + Local Transport).';
+  @override
+  String get incoCifExporterCovers => 'Ocean Freight • Marine Insurance • Export Clearance';
+  @override
+  String get incoCifImporterCovers => 'Customs & Taxes • Clearance Fees • Port Terminal Fees • Local Inland Transport';
+  @override
+  String get incoCfrRuleTitle => 'CFR / CPT Delivery Rule (Cost & Freight)';
+  @override
+  String get incoCfrRuleDesc => 'Purchase invoice covers international freight. Importer Landed Cost = (CFR Invoice + Marine Insurance + Customs Duties & Taxes + Clearance + Local Transport).';
+  @override
+  String get incoCfrExporterCovers => 'Ocean Freight • Export Clearance';
+  @override
+  String get incoCfrImporterCovers => 'Marine Insurance • Customs & Taxes • Clearance • Local Transport';
+  @override
+  String get incoExwRuleTitle => 'EXW Delivery Rule (Ex Works - Factory Gate)';
+  @override
+  String get incoExwRuleDesc => 'Invoice covers factory goods only. Importer bears all origin-to-destination costs: (EXW Invoice + Origin Trucking + Export Clearance + Freight + Insurance + Customs + Clearance + Local Transport).';
+  @override
+  String get incoExwExporterCovers => 'Goods Packaging at Factory';
+  @override
+  String get incoExwImporterCovers => 'Origin Trucking & Export • Freight & Insurance • Customs & Taxes • Clearance & Transport';
+  @override
+  String get incoDdpRuleTitle => 'DDP Delivery Rule (Delivered Duty Paid)';
+  @override
+  String get incoDdpRuleDesc => 'Invoice covers freight, insurance, customs duties, and local delivery. Importer only bears extraordinary storage/handling fees if incurred.';
+  @override
+  String get incoDdpExporterCovers => 'Freight & Insurance • Customs Duties & Taxes • Delivery to Warehouse';
+  @override
+  String get incoDdpImporterCovers => 'Unloading / Extraordinary Storage';
+  @override
+  String get incoFobRuleTitle => 'FOB / FCA Delivery Rule (Free On Board)';
+  @override
+  String get incoFobRuleDesc => 'Invoice covers goods loaded on vessel at origin port. Importer Landed Cost = (FOB Invoice + Ocean Freight + Marine Insurance + Customs Duties & Taxes + Clearance + Local Transport).';
+  @override
+  String get incoFobExporterCovers => 'Origin Transport & Export • Loading on Vessel';
+  @override
+  String get incoFobImporterCovers => 'Ocean Freight • Marine Insurance • Customs & Taxes • Clearance & Local Transport';
+  @override
+  String get landedCostTsvHeaderSection => 'Section';
+  @override
+  String get landedCostTsvHeaderCodeOrCategory => 'Code / Category';
+  @override
+  String get landedCostTsvHeaderNameOrProvider => 'Name / Provider';
+  @override
+  String get landedCostTsvHeaderQtyOrCurrency => 'Qty / Currency';
+  @override
+  String get landedCostTsvHeaderUnitPriceOrFx => 'Unit Price / Foreign FX';
+  @override
+  String get landedCostTsvHeaderExchangeRate => 'Exchange Rate';
+  @override
+  String get landedCostTsvHeaderTotalCostEgp => 'Total Cost (EGP)';
+  @override
+  String get landedCostTsvHeaderMarkupOrVariance => 'Markup / Variance';
 
   // ==========================================
   // Screen 51: Central Docs Hub (CentralDocsArchiveScreen)
@@ -4537,6 +5405,50 @@ class AppLocalizationsEn extends AppLocalizations {
   String get docWaivedDefaultDesc => 'This document is waived or legally exempt and does not impact customs release readiness.';
   @override
   String get docNoDiscrepanciesDesc => 'This document contains no discrepancies or issues.';
+
+  // Screen 51 Export & Toolbar Getters
+  @override
+  String get centralDocsExportTsvBtn => 'Export TSV Table';
+  @override
+  String get centralDocsExportExcelBtn => 'Export to Excel';
+  @override
+  String get centralDocsPrintPdfBtn => 'Print & Save PDF';
+  @override
+  String get centralDocsCopyDossierBtn => 'Copy Central Dossier';
+  @override
+  String get centralDocsCopyDossierSuccess => 'Central documents archive dossier copied successfully';
+  @override
+  String get centralDocsDossierHeader => 'Central Documents & Rectifications Archive Dossier';
+  @override
+  String get centralDocsExportTsvDialogTitle => 'Save Central Archive TSV Table';
+  @override
+  String get centralDocsExportExcelDialogTitle => 'Save Central Archive Excel Spreadsheet';
+  @override
+  String get centralDocsTsvHeaderDocName => 'Document Name';
+  @override
+  String get centralDocsTsvHeaderDocType => 'Requirement Type';
+  @override
+  String get centralDocsTsvHeaderRefNo => 'Reference Number';
+  @override
+  String get centralDocsTsvHeaderStatus => 'Status';
+  @override
+  String get centralDocsTsvHeaderDiscrepanciesCount => 'Discrepancies Count';
+  @override
+  String get centralDocsTsvHeaderIssues => 'Issues & Discrepancies';
+  @override
+  String get centralDocsTsvHeaderRectifications => 'Rectification Instructions';
+  @override
+  String get centralDocsTsvHeaderLegalNote => 'Legal Note / Exemption Reason';
+  @override
+  String get centralDocsDossierComplianceTitle => 'Import Requirements & Regulatory Compliance';
+  @override
+  String get centralDocsDossierCoreDocsTitle => 'Core & Conditional Documents';
+  @override
+  String get centralDocsDossierDiscrepanciesTitle => 'Discrepancies & Rectifications Log';
+  @override
+  String get centralDocsCopyDetailSuccess => 'Document detail copied successfully';
+  @override
+  String get centralDocsCopyDiscrepancySuccess => 'Rectification details copied successfully';
 
   // Screen 53: Draft Inspection COC (ShipmentDraftDocsScreen & InspectionReviewTab)
   @override
@@ -4809,6 +5721,56 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importerCellLabel => 'Importer (Name, Address & Tax ID):';
   @override
   String get exporterCellLabel => 'Exporter & Producer (Name & Address):';
+  @override
+  String get exportTsvBtn => 'Export TSV';
+  @override
+  String get copyDossierBtn => 'Copy Full Dossier';
+  @override
+  String get copiedDossierSuccess => 'Inspection review dossier copied to clipboard successfully';
+  @override
+  String get copiedInspectionTsvSuccess => 'Inspection TSV data exported successfully';
+  @override
+  String get exportTsvDialogTitle => 'Save Inspection TSV File';
+  @override
+  String get exportExcelDialogTitle => 'Save Inspection Spreadsheet File';
+  @override
+  String get exportPdfDialogTitle => 'Save Inspection Certificate PDF';
+  @override
+  String cocNoPrefix(dynamic val) => 'COC NO: $val';
+  @override
+  String acidNoPrefix(dynamic val) => 'ACID NO: $val';
+  @override
+  String get certHeaderCocVoc => 'CERTIFICATE OF CONFORMITY (COC / VOC)';
+  @override
+  String get noticeBannerDraftConfirm => 'DRAFT VERIFICATION — PLEASE CONFIRM WITHIN 48 HOURS AFTER WHICH WE SHALL PROCEED TO ISSUE';
+  @override
+  String get importerTaxIdHeader => 'Importer (Name, Address & Tax ID)';
+  @override
+  String get exporterProducerHeader => 'Exporter & Producer (Name & Address)';
+  @override
+  String get inspectionDossierHeader => 'INSPECTION & CONFORMITY REVIEW DOSSIER';
+  @override
+  String get inspectionDossierBasicInfo => 'Basic Inspection Information & Parties';
+  @override
+  String get inspectionDossierInvoices => 'Commercial Invoices Subject to Inspection';
+  @override
+  String get inspectionDossierItems => 'Inspected Goods & Adopted Standards';
+  @override
+  String get inspectionDossierStandards => 'Egyptian Mandatory Standards & Protocols';
+  @override
+  String get inspectionDossierDiscrepancies => 'Discrepancy Matrix & Verification Results';
+  @override
+  String get colTsvItemNo => '#';
+  @override
+  String get colTsvProductType => 'Product Type';
+  @override
+  String get colTsvOrigin => 'Country of Origin';
+  @override
+  String get colTsvDescription => 'Description (Brand/Model)';
+  @override
+  String get colTsvQuantity => 'Quantity';
+  @override
+  String get colTsvStandard => 'Adopted Standard';
 
   // ── Screen 54: CargoX Blockchain Hub & Standard Commercial Invoice ──────────
   @override
@@ -5014,6 +5976,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get standardInvoiceTabRegistry => 'Standard Invoices Registry';
   @override
+  String get standardInvoiceTabCustomsTracks => 'Customs Tracks';
+  @override
   String get standardInvoiceNoExtractedData => 'No supplier invoice uploaded or parsed yet.';
   @override
   String get standardInvoiceNoExtractedDataSub => 'Download template first, then upload it once filled by supplier.';
@@ -5166,6 +6130,162 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get colGrossWeight => 'Gross Weight';
 
+  // Screen 54 Extensions: CargoX Toolbar, TSV/Excel Headers, Extraction Modes, Dossier
+  @override
+  String get cargoxExportTsvBtn => 'Export Envelopes (TSV)';
+  @override
+  String get cargoxExportExcelBtn => 'Export Envelopes (Excel)';
+  @override
+  String get cargoxPrintPdfBtn => 'Print Vector Envelopes Report';
+  @override
+  String get cargoxCopyDossierBtn => 'Copy CargoX Hub Dossier';
+  @override
+  String get cargoxCopiedDossierSuccess => 'CargoX envelopes dossier copied to clipboard';
+  @override
+  String get cargoxCopiedTsvSuccess => 'CargoX envelopes table copied to clipboard';
+  @override
+  String get cargoxCopiedExcelSuccess => 'CargoX envelopes Excel exported successfully';
+  @override
+  String get cargoxExportTsvDialogTitle => 'Save CargoX Envelopes (TSV)';
+  @override
+  String get cargoxExportExcelDialogTitle => 'Save CargoX Envelopes (Excel)';
+  @override
+  String get cargoxExportPdfDialogTitle => 'Save CargoX Envelopes (PDF)';
+  @override
+  String get cargoxAiDocumentExtractionBtn => 'Smart Document Extraction & Audit';
+  @override
+  String get cargoxTsvHeaderEnvelopeCode => 'Envelope Code';
+  @override
+  String get cargoxTsvHeaderImportFile => 'Import File';
+  @override
+  String get cargoxTsvHeaderAcid => 'ACID Number';
+  @override
+  String get cargoxTsvHeaderSupplier => 'Foreign Supplier';
+  @override
+  String get cargoxTsvHeaderSupplierCargoxId => 'CargoX Platform ID';
+  @override
+  String get cargoxTsvHeaderBlNumber => 'B/L Number';
+  @override
+  String get cargoxTsvHeaderStatus => 'Customs Status';
+  @override
+  String get cargoxTsvHeaderDocsCount => 'Docs Count';
+  @override
+  String get cargoxTsvHeaderTxHash => 'Blockchain TX Hash';
+  @override
+  String get cargoxTsvHeaderCustomsReceipt => 'Customs Receipt';
+  @override
+  String get cargoxTsvHeaderTransferredAt => 'Transferred At';
+  @override
+  String get cargoxDossierHeader => 'CARGOX BLOCKCHAIN & ACI DISPATCH DOSSIER';
+  @override
+  String get cargoxDossierMetricsTitle => 'DISPATCH & BLOCKCHAIN METRICS';
+  @override
+  String get cargoxDossierEnvelopesTitle => 'DIGITAL ENVELOPES REGISTER';
+  @override
+  String cargoxCopiedEnvelopeSuccess(dynamic code) => 'Envelope code copied: $code';
+  @override
+  String cargoxCopiedAcidSuccess(dynamic acid) => 'ACID number copied: $acid';
+  @override
+  String get cargoxCopiedTxHashSuccess => 'Blockchain TX hash copied to clipboard';
+  @override
+  String get cargoxCopiedReceiptSuccess => 'Customs confirmation receipt copied to clipboard';
+  @override
+  String get cargoxExtractEngineTitle => 'Multi-Track CargoX Extraction Engine';
+  @override
+  String cargoxExtractFileSubtitle(dynamic file, dynamic supplier, dynamic acid) => 'File: $file — Supplier: $supplier (ACID: $acid)';
+  @override
+  String get cargoxChooseExtractionPathPrompt => 'Select desired extraction route for Excel export:';
+  @override
+  String get cargoxModeConsolidatedTitle => '1. Single Consolidated File';
+  @override
+  String get cargoxModeConsolidatedSubtitle => 'Merge same HS Code line items with weighted unit price';
+  @override
+  String get cargoxModeDetailedTitle => '2. Single Detailed File';
+  @override
+  String get cargoxModeDetailedSubtitle => 'Extract every line item separately matching purchase order details';
+  @override
+  String get cargoxModePerInvoiceConsolidatedTitle => '3. Per-Invoice Consolidated File (ZIP Archive)';
+  @override
+  String get cargoxModePerInvoiceConsolidatedSubtitle => 'Generate separate consolidated Excel file per invoice in ZIP archive';
+  @override
+  String get cargoxModePerInvoiceDetailedTitle => '4. Per-Invoice Detailed File (ZIP Archive)';
+  @override
+  String get cargoxModePerInvoiceDetailedSubtitle => 'Generate separate detailed Excel file per invoice in ZIP archive';
+  @override
+  String get cargoxLiveItemsPreviewBtn => 'Live Preview Extracted Items';
+  @override
+  String get cargoxLiveItemsPreviewHeader => 'Extracted Items & Weight Breakdown (Live Preview):';
+  @override
+  String cargoxInvoicesCountAndLines(dynamic invCount, dynamic linesCount) => 'Invoices Count: $invCount | Line Items: $linesCount';
+  @override
+  String get cargoxAdoptAsCustomsTrackBtn => 'Adopt as Independent Customs Track';
+  @override
+  String cargoxAdoptCustomsTrackSuccess(dynamic code) => 'Customs track adopted and saved: $code';
+  @override
+  String cargoxExtractionError(dynamic err) => 'Extraction error: $err';
+  @override
+  String cargoxSaveTrackError(dynamic err) => 'Save customs track error: $err';
+  @override
+  String cargoxLivePreviewGrossNet(dynamic gross, dynamic net, dynamic unit) => 'Gross: $gross $unit | Net: $net $unit';
+  @override
+  String cargoxLivePreviewTotalValue(dynamic total, dynamic curr) => 'Total Value: $total $curr';
+  @override
+  String cargoxLivePreviewInvoiceBadge(dynamic inv) => 'Invoice: $inv';
+  @override
+  String get cargoxDocTypeCommercialInvoice => 'Commercial Invoice';
+  @override
+  String get cargoxDocTypePackingList => 'Packing List';
+  @override
+  String get cargoxDocTypeDraftBl => 'Draft Bill of Lading';
+  @override
+  String get cargoxDocTypeCooEur1 => 'Certificate of Origin / EUR.1';
+  @override
+  String get cargoxDocTypeCoa => 'Certificate of Analysis';
+  @override
+  String cargoxCopiedAttachedDocSuccess(dynamic docName) => 'Attached document copied: $docName';
+  @override
+  String get standardInvoiceSessionsExportTsvBtn => 'Export Sessions (TSV)';
+  @override
+  String get standardInvoiceSessionsExportExcelBtn => 'Export Sessions (Excel)';
+  @override
+  String get standardInvoiceSessionsPrintPdfBtn => 'Print Vector Sessions Report';
+  @override
+  String get standardInvoiceSessionsCopyDossierBtn => 'Copy Sessions Dossier';
+  @override
+  String get standardInvoiceSessionsDossierHeader => 'STANDARD COMMERCIAL INVOICE SESSIONS REGISTRY';
+  @override
+  String standardInvoiceCopiedSessionSuccess(dynamic code) => 'Session code copied: $code';
+  @override
+  String get standardInvoiceManufacturer => 'Manufacturer';
+  @override
+  String get standardInvoiceWeightNet => 'Net Weight';
+  @override
+  String get standardInvoiceTabTitle => 'Standard Commercial Invoice';
+  @override
+  String get standardInvoicePackingListTitle => 'Packing List';
+  @override
+  String get cargoxDownloadZipBtn => 'Download ZIP Archive';
+  @override
+  String customsTrackEditDialogTitle(dynamic code) => 'Edit Customs Track ($code)';
+  @override
+  String get customsTrackCustomsStatus => 'Customs Status:';
+  @override
+  String get customsTrackStatusSealed => 'Sealed & Documented';
+  @override
+  String get customsTrackNotesAndDeclaration => 'Notes & Customs Declaration:';
+  @override
+  String get customsTrackNotesHint => 'Enter any notes specific to this customs track...';
+  @override
+  String get customsTrackSaveBtn => 'Save Changes';
+  @override
+  String get customsTrackUpdateSuccessToast => 'Customs track updated successfully';
+  @override
+  String get customsTrackDeleteDialogTitle => 'Confirm Customs Track Deletion';
+  @override
+  String customsTrackDeleteDialogMessage(dynamic code) => 'Are you sure you want to delete customs track "$code"? It will not be permanently deleted, but archived.';
+  @override
+  String customsTrackDeleteSuccessToast(dynamic code) => 'Customs track $code deleted successfully';
+
   // Screen 55: Customs Clearance Quotations & RFQ Evaluator
   @override
   String get clearanceQuotesScreenTitle => 'Customs Clearance Quotations & Master Price Lists';
@@ -5220,7 +6340,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get clearanceQuotesColDuration => 'Duration';
   @override
-  String get clearanceQuotesColStatusActions => 'Status / Actions';
+  String get clearanceQuotesColStatusActions => 'Status & Actions';
   @override
   String get clearanceQuotesStatusAwardedBadge => 'Awarded';
   @override
@@ -5370,6 +6490,114 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get searchPlaceholder => 'Search here...';
 
+  // ── Screen 55: Clearance Quotations Export Toolbar & i18n ───────────────
+  @override
+  String get clearanceQuotesExportTsvBtn => 'Export TSV';
+  @override
+  String get clearanceQuotesExportExcelBtn => 'Export Excel';
+  @override
+  String get clearanceQuotesPrintPdfBtn => 'Print PDF Report';
+  @override
+  String get clearanceQuotesCopyDossierBtn => 'Copy Quotations Dossier';
+  @override
+  String get clearanceQuotesCopiedDossierSuccess => 'Clearance quotations dossier copied to clipboard successfully';
+  @override
+  String get clearanceQuotesCopiedTsvSuccess => 'Clearance quotations copied as TSV table to clipboard';
+  @override
+  String get clearanceQuotesCopiedExcelSuccess => 'Clearance quotations exported to Excel successfully';
+  @override
+  String get clearanceQuotesExportTsvDialogTitle => 'Export Clearance Quotations TSV';
+  @override
+  String get clearanceQuotesExportExcelDialogTitle => 'Export Clearance Quotations Excel';
+  @override
+  String get clearanceQuotesExportPdfDialogTitle => 'Print Clearance Quotations Report';
+  @override
+  String get clearanceQuotesDossierTitle => 'Customs Clearance Quotations Evaluation Summary';
+  @override
+  String get clearanceQuotesCopyRowSuccess => 'Row data copied to clipboard successfully';
+  @override
+  String get clearanceQuotesCopySummarySuccess => 'Quotation summary copied to clipboard successfully';
+  @override
+  String get clearanceQuotesTsvHeaderRfqCode => 'RFQ Code';
+  @override
+  String get clearanceQuotesTsvHeaderTitle => 'RFQ Title';
+  @override
+  String get clearanceQuotesTsvHeaderPort => 'Clearance Port';
+  @override
+  String get clearanceQuotesTsvHeaderShipmentType => 'Shipment Type';
+  @override
+  String get clearanceQuotesTsvHeaderContainers => 'Containers Count';
+  @override
+  String get clearanceQuotesTsvHeaderWeight => 'Gross Weight';
+  @override
+  String get clearanceQuotesTsvHeaderCbm => 'Volume CBM';
+  @override
+  String get clearanceQuotesTsvHeaderBroker => 'Customs Broker';
+  @override
+  String get clearanceQuotesTsvHeaderClearanceFee => 'Clearance Fee';
+  @override
+  String get clearanceQuotesTsvHeaderInlandTransport => 'Inland Transport';
+  @override
+  String get clearanceQuotesTsvHeaderInspectionFee => 'Inspection Fee';
+  @override
+  String get clearanceQuotesTsvHeaderPortExpenses => 'Port Expenses';
+  @override
+  String get clearanceQuotesTsvHeaderMiscFee => 'Miscellaneous Fee';
+  @override
+  String get clearanceQuotesTsvHeaderTotal => 'Estimated Total';
+  @override
+  String get clearanceQuotesTsvHeaderDays => 'Turnaround Days';
+  @override
+  String get clearanceQuotesTsvHeaderStatus => 'Status';
+  @override
+  String get clearanceQuotesTsvHeaderPriceServiceType => 'Service Category';
+  @override
+  String get clearanceQuotesTsvHeaderPriceContainerType => 'Container Type';
+  @override
+  String get clearanceQuotesTsvHeaderPriceStandardRate => 'Standard Rate';
+  @override
+  String get clearanceQuotesTsvHeaderPriceNotes => 'Notes';
+  @override
+  String get clearanceQuotesManagePriceListBtn => 'Manage Master Dated Broker Price Lists';
+  @override
+  String get clearanceQuotesPasteClipboardBtn => 'Paste from Clipboard';
+  @override
+  String get clearanceQuotesSampleAccBtn => 'Test Alexandria ACC Quotation (30,900 EGP)';
+  @override
+  String get clearanceQuotesSampleStandardBtn => 'Test Standard Sample Quotation';
+  @override
+  String get clearanceQuotesClearInputTooltip => 'Clear Input';
+  @override
+  String get clearanceQuotesOcrUploadingState => 'Uploading file and optical scanning (OCR)...';
+  @override
+  String get clearanceQuotesOcrStep1 => 'Phase 1 of 4: Uploading File';
+  @override
+  String get clearanceQuotesOcrDialogTitle => 'Extract Clearance Quotation';
+  @override
+  String clearanceQuotesOcrProgressState(dynamic percent) => 'Uploading and processing file ($percent%)...';
+  @override
+  String get clearanceQuotesOcrStep2 => 'Phase 2 of 4: Processing File';
+  @override
+  String get clearanceQuotesOcrStep4State => 'Extracting clearance fees and inland transport expenses...';
+  @override
+  String get clearanceQuotesSelectedContainerLabel => 'Selected Container:';
+  @override
+  String get clearanceQuotesSaveAsPriceListBtn => 'Code & Save as Master Broker Price List';
+  @override
+  String get clearanceQuotesRateOptionsTitle => 'Pricing options by container and weight (select required option):';
+  @override
+  String get clearanceQuotesBreakdownClearanceFee => 'Clearance Fee';
+  @override
+  String get clearanceQuotesBreakdownInlandFee => 'Inland Transport';
+  @override
+  String get clearanceQuotesBreakdownInspectionFee => 'Inspection Fee';
+  @override
+  String get clearanceQuotesBreakdownPortExpenses => 'Port Expenses';
+  @override
+  String get clearanceQuotesBreakdownEstimatedTotal => 'Estimated Total';
+  @override
+  String clearanceQuotesExpensesCatalogCount(dynamic count) => 'View itemized expenses catalog ($count items)';
+
   // ── Authentication & Login Screen ──────────────────────────────────────────
   @override
   String get loginScreenTitle => 'System Login';
@@ -5399,6 +6627,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginRoleManager => 'Operations Manager';
   @override
   String get loginRoleSpecialist => 'Logistics Specialist';
+  @override
+  String get loginCopyUsernameTooltip => 'Copy Username';
+  @override
+  String get loginUsernameCopied => 'Username copied successfully';
+  @override
+  String get loginCopyPasswordTooltip => 'Copy Password';
+  @override
+  String get loginPasswordCopied => 'Password copied successfully';
+  @override
+  String get loginDemoCredentialsCopied => 'Demo credentials copied successfully';
+  @override
+  String get loginDemoCredentialsTooltip => 'Copy Demo Credentials';
 
   // ── Shipping Scenarios & Cargo Stacking ────────────────────────────────────
   @override
@@ -6238,6 +7478,44 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get insurancePreviewPrintReadySnack => '🖨️ Ready for printing / PDF generation';
 
+  // Export & Copy Data (Cargo Insurance)
+  @override
+  String get insuranceExportTsvBtn => 'Export TSV';
+  @override
+  String get insuranceExportExcelBtn => 'Export Excel';
+  @override
+  String get insurancePrintPdfBtn => 'Print PDF Report';
+  @override
+  String get insuranceCopyDossierBtn => 'Copy Full Dossier';
+  @override
+  String get insuranceCopiedTsvSuccess => 'Insurance data copied as TSV to clipboard.';
+  @override
+  String get insuranceCopiedExcelSuccess => 'Insurance data exported to Excel CSV.';
+  @override
+  String get insuranceCopiedDossierSuccess => 'Cargo insurance dossier copied to clipboard.';
+  @override
+  String get insuranceCopyRowSummaryBtn => 'Copy Policy Summary';
+  @override
+  String get insuranceCopyRowSummarySuccess => 'Insurance certificate summary copied to clipboard.';
+  @override
+  String get insuranceCopyFieldTooltip => 'Copy Value';
+  @override
+  String get insuranceSearchCopied => 'Search query copied to clipboard.';
+  @override
+  String insuranceCopyBadgeSuccess(String label, String value) => 'Copied $label ($value) to clipboard.';
+  @override
+  String get insurancePdfTitle => 'Cargo & Marine Insurance Certificates Registry';
+  @override
+  String get insurancePdfSubtitle => 'Official Registry of Issued Cargo Insurance Policies & Coverage Clauses';
+  @override
+  String get insuranceDossierHeader => 'Cargo & Marine Insurance Policies Dossier';
+  @override
+  String get insuranceDossierKpiSummary => 'KPIs & Insured Valuation Summary';
+  @override
+  String get insuranceDossierRecordsDetails => 'Insurance Certificates Registry Details';
+  @override
+  String get insuranceDossierFooter => 'ImportFlow ERP — Official Marine & Cargo Insurance Hub';
+
   // ─── HS Code Search & Customs Explorer Screen ──────────────────────────────
   @override
   String get hsExplorerTitle => 'HS Code Explorer & Tariff History';
@@ -6418,6 +7696,325 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get hsActionExecuted => 'Action executed';
 
+  // Screen 45 Additions: Quick queries, Copy & Exports
+  @override
+  String get hsQuickQueryAc => 'Air Conditioning';
+  @override
+  String get hsQuickQueryPlastics => 'Plastics';
+  @override
+  String get hsQuickQueryMeat => 'Meat';
+  @override
+  String get hsQuickQueryWheat => 'Wheat';
+
+  @override
+  String get hsExplorerExportTsvBtn => 'Export TSV';
+  @override
+  String get hsExplorerExportTsvSuccess => 'HS Code table copied to clipboard as TSV';
+  @override
+  String get hsExplorerExportExcelBtn => 'Export Excel';
+  @override
+  String get hsExplorerExportPdfBtn => 'Print / Save PDF';
+
+  @override
+  String get hsExplorerCopyHsCodeTooltip => 'Copy HS Code';
+  @override
+  String get hsExplorerCopySummaryBtn => 'Copy HS Code Dossier';
+  @override
+  String get hsExplorerCopySummarySuccess => 'HS Code details and duty matrix copied to clipboard';
+  @override
+  String get hsExplorerCopyDutyBreakdownBtn => 'Copy Duty Calculation';
+  @override
+  String get hsExplorerCopyDutyBreakdownSuccess => 'Duty calculation matrix copied to clipboard';
+  @override
+  String get hsExplorerCopyCardRateTooltip => 'Click to copy rate';
+
+  @override
+  String get hsExplorerTsvHeaderHsCode => 'HS Code';
+  @override
+  String get hsExplorerTsvHeaderDescription => 'Description';
+  @override
+  String get hsExplorerTsvHeaderCategory => 'Category';
+  @override
+  String get hsExplorerTsvHeaderDutyRate => 'Import Duty %';
+  @override
+  String get hsExplorerTsvHeaderVatRate => 'VAT Rate %';
+  @override
+  String get hsExplorerTsvHeaderScheduleRate => 'Schedule Tax %';
+  @override
+  String get hsExplorerTsvHeaderDevFeeRate => 'Development Fee %';
+  @override
+  String get hsExplorerTsvHeaderImportFeeRate => 'Import Fee %';
+  @override
+  String get hsExplorerTsvHeaderServiceFeeRate => 'Service Fees %';
+  @override
+  String get hsExplorerTsvHeaderRegulatoryAuthority => 'Regulatory Authority';
+  @override
+  String get hsExplorerTsvHeaderAcidRequired => 'ACID Required';
+  @override
+  String get hsExplorerTsvHeaderCooRequired => 'COO Required';
+  @override
+  String get hsExplorerTsvHeaderInspectionRequired => 'Inspection Required';
+  @override
+  String get hsExplorerTsvHeaderStatus => 'Status';
+
+  // ─── Screen 46: SWIFT Message Reconciliation ──────────────────────────────
+  @override
+  String get swiftScreenTitle => 'SWIFT Message Reconciliation Center';
+  @override
+  String get swiftScreenSubtitle => 'Automated parser & real-time matching for bank SWIFT messages and transfer advices';
+  @override
+  String get swiftLiveSyncActiveBadge => 'Live shipment sync active';
+  @override
+  String get swiftTotalRequestsMetric => 'Total Payment Requests';
+  @override
+  String get swiftPendingSwiftMetric => 'Awaiting SWIFT';
+  @override
+  String get swiftMatchedSwiftMetric => 'Fully Matched';
+  @override
+  String get swiftVariancesMetric => 'Variances (Deficit/Surplus)';
+  @override
+  String get swiftAvgProcessingTimeMetric => 'Avg Processing Time';
+  @override
+  String swiftDaysCount(dynamic days) => '$days days';
+
+  @override
+  String get swiftExtractorHeader => 'Smart SWIFT Message Extractor & Real-Time Parser';
+  @override
+  String get swiftLoadSampleBtn => 'Load Sample MT103';
+  @override
+  String get swiftCollapseToolTooltip => 'Collapse tool';
+  @override
+  String get swiftExpandToolTooltip => 'Expand tool';
+  @override
+  String get swiftExtractedDocLabel => 'Extracted Document:';
+  @override
+  String get swiftDocTypePrefix => 'Type:';
+  @override
+  String get swiftDocSizePrefix => 'Size:';
+  @override
+  String get swiftDocumentDefaultType => 'Document';
+  @override
+  String get swiftRawTextPlaceholder => 'Paste raw SWIFT MT103 message or bank payment advice here...';
+  @override
+  String get swiftExtractFromTextBtn => 'Extract from Text';
+  @override
+  String get swiftUploadFileBtn => 'Upload SWIFT Document';
+  @override
+  String get swiftExtractingState => 'Extracting...';
+  @override
+  String get swiftMatchingMatrixTitle => 'Matching Candidate with Target Payment Request';
+  @override
+  String swiftConfidenceScoreTag(dynamic score) => 'Match Confidence: $score%';
+  @override
+  String get swiftExecuteReconcileBtn => 'Confirm Match & Reconcile Payment';
+  @override
+  String get swiftTargetPaymentLabel => 'Target Payment for Reconciliation:';
+  @override
+  String get swiftExtractedRefPrefix => 'SWIFT Ref:';
+  @override
+  String get swiftExtractedAmountPrefix => 'Extracted Amount:';
+  @override
+  String get swiftExtractedDatePrefix => 'Receipt Date:';
+  @override
+  String get swiftExtractedSenderPrefix => 'Sender:';
+  @override
+  String get swiftExtractedReceiverPrefix => 'Beneficiary:';
+
+  @override
+  String swiftFilterAll(int count) => 'All ($count)';
+  @override
+  String swiftFilterPending(int count) => 'Awaiting SWIFT ($count)';
+  @override
+  String swiftFilterMatched(int count) => 'Matched ($count)';
+  @override
+  String swiftFilterVariances(int count) => 'Variances ($count)';
+  @override
+  String swiftTableTitle(int count) => 'Payment Requests & SWIFT Reconciliation Ledger ($count)';
+  @override
+  String get swiftSearchPlaceholder => 'Search by payment code, shipment, supplier, SWIFT ref...';
+  @override
+  String get swiftNoMatchingRecords => 'No payment requests match the current filter criteria.';
+  @override
+  String get swiftColPaymentCode => 'Payment Code / Shipment';
+  @override
+  String get swiftColBeneficiaryBank => 'Beneficiary & Bank';
+  @override
+  String get swiftColRequestDate => 'Request Date';
+  @override
+  String get swiftColSwiftDate => 'SWIFT Date';
+  @override
+  String get swiftColProcessingTime => 'Processing Time';
+  @override
+  String get swiftColRequestedAmount => 'Requested Amount';
+  @override
+  String get swiftColTransferredAmount => 'Transferred Amount';
+  @override
+  String get swiftColVarianceStatus => 'Variance & Match Status';
+  @override
+  String get swiftColSwiftRef => 'SWIFT Reference No';
+  @override
+  String get swiftColActions => 'Actions';
+
+  @override
+  String get swiftBadgeMatchedFull => 'Fully Matched';
+  @override
+  String swiftBadgeDeficit(String amount, String ccy) => 'Deficit ($amount $ccy)';
+  @override
+  String swiftBadgeSurplus(String amount, String ccy) => 'Surplus (+$amount $ccy)';
+  @override
+  String get swiftBadgePending => 'Awaiting SWIFT';
+  @override
+  String get swiftStatusUnregistered => 'Unregistered';
+  @override
+  String get swiftStatusPendingWait => 'Pending';
+  @override
+  String get swiftWaitingAmountEntry => 'Awaiting amount entry';
+  @override
+  String swiftExecutionDaysTag(dynamic days) => '$days days';
+  @override
+  String swiftExecutionInstantTag(dynamic days) => 'Instant Execution ($days d)';
+  @override
+  String swiftExecutionReasonableTag(dynamic days) => 'Normal Execution ($days d)';
+  @override
+  String swiftExecutionDelayedTag(dynamic days) => 'Delayed ($days d)';
+
+  @override
+  String get swiftRegisterBtn => 'Register SWIFT';
+  @override
+  String get swiftEditBtn => 'Edit SWIFT';
+  @override
+  String get swiftDetailsBtn => 'View Details';
+  @override
+  String get swiftCloseBtn => 'Close';
+  @override
+  String get swiftCancelBtn => 'Cancel';
+  @override
+  String get swiftRefreshBtn => 'Refresh Data';
+  @override
+  String swiftReconcileDialogTitle(String code) => 'Register & Reconcile SWIFT: $code';
+  @override
+  String swiftDetailsDialogTitle(String code) => 'SWIFT Details: $code';
+  @override
+  String get swiftRequestTitleLabel => 'Payment Title:';
+  @override
+  String get swiftBeneficiaryLabel => 'Beneficiary:';
+  @override
+  String get swiftBankLabel => 'Bank:';
+  @override
+  String get swiftAccountLabel => 'Account:';
+  @override
+  String get swiftRequestDateLabel => 'Request Date';
+  @override
+  String get swiftRequestedAmountLabel => 'Requested Amount';
+  @override
+  String get swiftTransferredAmountLabel => 'Transferred Amount';
+  @override
+  String get swiftVarianceLabel => 'Variance';
+  @override
+  String get swiftReceiptDateLabel => 'SWIFT Receipt Date *';
+  @override
+  String get swiftCurrencyLabel => 'Currency *';
+  @override
+  String get swiftReconciliationNotesLabel => 'Reconciliation Notes & Bank Discrepancies (if any)';
+  @override
+  String get swiftSyncShipmentNotice => 'The linked import file will be automatically updated with the SWIFT reference once saved.';
+  @override
+  String get swiftSaveAndSyncBtn => 'Save & Reconcile SWIFT (Sync Shipment)';
+  @override
+  String get swiftProcessingTimeLabel => 'Processing Time';
+  @override
+  String swiftDaysBetweenDates(dynamic days) => 'Processing time: $days days between request date and SWIFT receipt';
+  @override
+  String get swiftSampleMT103Chip => 'Sample MT103';
+  @override
+  String get swiftPasteAndExtractChip => 'Paste & Extract';
+  @override
+  String get swiftUploadDocChip => 'Upload Document';
+  @override
+  String get swiftEnterSwiftRefError => 'Please enter SWIFT reference number';
+  @override
+  String get swiftEnterAmountError => 'Please enter transferred amount';
+  @override
+  String get swiftAmountGreaterThanZeroError => 'Transferred amount must be greater than zero';
+
+  @override
+  String get swiftFileReadErrorSnack => 'Failed to read the selected file';
+  @override
+  String swiftExtractSuccessSnack(String filename, String type) => 'Successfully extracted SWIFT data from "$filename" ($type)';
+  @override
+  String swiftExtractErrorSnack(String error) => 'Failed to extract SWIFT from file: $error';
+  @override
+  String get swiftEmptyInputErrorSnack => 'Please paste or enter raw SWIFT message / bank advice first';
+  @override
+  String get swiftParseSuccessSnack => 'SWIFT message parsed and matched to payment request successfully';
+  @override
+  String swiftParseErrorSnack(String error) => 'Failed to parse SWIFT message: $error';
+  @override
+  String swiftConnectionErrorSnack(String error) => 'Connection error: $error';
+  @override
+  String swiftReconcileSuccessSnack(String swiftRef, String paymentCode) => 'SWIFT ($swiftRef) successfully reconciled with payment request ($paymentCode) and import file updated!';
+  @override
+  String swiftReconcileErrorSnack(String error) => 'Error during reconciliation: $error';
+
+  @override
+  String get swiftExportTsvBtn => 'Export TSV';
+  @override
+  String get swiftExportTsvSuccess => 'Reconciliation data copied to clipboard as TSV successfully';
+  @override
+  String get swiftExportExcelBtn => 'Export Excel';
+  @override
+  String get swiftExportPdfBtn => 'Print / Save PDF Report';
+  @override
+  String get swiftCopySummaryBtn => 'Copy Summary';
+  @override
+  String get swiftCopySummarySuccess => 'SWIFT reconciliation summary copied to clipboard';
+  @override
+  String get swiftCopyFieldTooltip => 'Click to copy';
+  @override
+  String get swiftPrintSlipBtn => 'Print SWIFT Slip';
+
+  @override
+  String get swiftTsvHeaderPaymentCode => 'Payment Code';
+  @override
+  String get swiftTsvHeaderImportFile => 'Import File';
+  @override
+  String get swiftTsvHeaderBeneficiary => 'Beneficiary';
+  @override
+  String get swiftTsvHeaderBank => 'Bank';
+  @override
+  String get swiftTsvHeaderRequestDate => 'Request Date';
+  @override
+  String get swiftTsvHeaderSwiftReceiptDate => 'SWIFT Date';
+  @override
+  String get swiftTsvHeaderProcessingDays => 'Processing Days';
+  @override
+  String get swiftTsvHeaderRequestedAmount => 'Requested Amount';
+  @override
+  String get swiftTsvHeaderTransferredAmount => 'Transferred Amount';
+  @override
+  String get swiftTsvHeaderVariance => 'Variance';
+  @override
+  String get swiftTsvHeaderSwiftRef => 'SWIFT Ref';
+  @override
+  String get swiftTsvHeaderStatus => 'Status';
+
+  @override
+  String get swiftCopyBtn => 'Copy';
+  @override
+  String get swiftAutoSyncNotice => 'Shipment files live sync active';
+  @override
+  String get swiftNoMatchingPayments => 'No payment requests match current search criteria.';
+  @override
+  String get swiftPendingSwiftBadge => 'Pending SWIFT Notification';
+  @override
+  String get swiftUnspecifiedBank => 'Unspecified Bank';
+  @override
+  String get swiftProcessingPending => 'Pending';
+  @override
+  String get swiftUnregistered => 'Unregistered';
+  @override
+  String get swiftCopyDossierBtn => 'Copy Payment & SWIFT Dossier';
+
   // Dynamic Report Builder
   @override
   String get dynReportBuilderTitle => 'Dynamic Custom Report Builder';
@@ -6470,9 +8067,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get dynNoMatchingShipments => 'No shipments match the selected dynamic report filters.';
   @override
-  String get dynPdfReportTitle => 'ImportFlow ERP — Dynamic Shipment Report';
+  String get dynPdfReportTitle => 'Sorour Logistics ERP — Dynamic Shipment Report';
   @override
-  String get dynPdfConfidential => 'ImportFlow ERP — Confidential & Internal Use';
+  String get dynPdfConfidential => 'Sorour Logistics ERP — Confidential & Internal Use';
   @override
   String dynPdfGenerated(String date, int count) => 'Generated: $date | Total Records: $count';
   @override
@@ -6651,6 +8248,60 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dynColScasDeclare3A => 'Declare to 3A';
   @override
   String get dynColScasMaterialReceived => 'Material Received';
+  @override
+  String get dynRefreshTooltip => 'Refresh Data & Timestamp';
+  @override
+  String get dynCustomizeColumnsGenericBtn => 'Customize Report Columns';
+  @override
+  String get dynCopyTsvBtn => 'Copy as TSV';
+  @override
+  String dynTsvCopiedMsg(int count) => 'Copied data of $count shipments to clipboard successfully';
+  @override
+  String get dynCopyRowTooltip => 'Copy complete shipment summary';
+  @override
+  String get dynExportExcelDialogTitle => 'Export Report as Spreadsheet';
+  @override
+  String get dynExportPdfDialogTitle => 'Export Report as PDF';
+  @override
+  String dynActiveColumnsCount(int count) => 'Columns: $count';
+  @override
+  String get dynColumnPickerSubtitle => 'Select fields to include in the report, or use ready presets';
+  @override
+  String get dynCustomsReleased => 'Released';
+  @override
+  String get dynCustomsUnderClearance => 'Under Clearance';
+  @override
+  String dynDaysCount(int count) => '$count Days';
+  @override
+  String dynGrossWeightKg(String weight) => '$weight kg';
+  @override
+  String dynTotalCbm(String cbm) => '$cbm CBM';
+  @override
+  String get dynStatusPending => 'Pending';
+  @override
+  String get dynStatusDone => 'Done';
+  @override
+  String get dynStatusReceived => 'Received';
+  @override
+  String get dynCellOriginOk => 'Origin OK';
+  @override
+  String get dynCellExpressBl => 'Express BL';
+  @override
+  String get dynCellOriginCovered => 'Covered (Origin)';
+  @override
+  String get dynCellIssuedReceived => 'Received / Issued';
+  @override
+  String get dynCellPendingAcid => 'Pending ACID';
+  @override
+  String get dynCellPendingBank => 'Pending Bank';
+  @override
+  String get dynCellPending46 => 'Pending 46';
+  @override
+  String get dynCellDeliveredWarehouse => 'Delivered to Warehouse';
+  @override
+  String get dynCellInClearancePort => 'In Clearance (Port)';
+  @override
+  String dynRecordsCount(int count) => '$count records';
 
   // ── Screen 68: Comprehensive Import File Report ───────────────────────────
   @override
@@ -6845,6 +8496,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get compReportCategoryDailyCheckIn => 'Daily Check-in';
   @override
   String get compReportCategoryGeneralUpdate => 'General Operational Update';
+  @override
+  String get compReportExportTsvBtn => 'Export TSV';
+  @override
+  String get compReportExportExcelBtn => 'Export Excel';
+  @override
+  String get compReportPrintPdfBtn => 'Print / Save PDF';
+  @override
+  String get compReportCopyDossierBtn => 'Copy Full Dossier';
+  @override
+  String get compReportCopyDossierSuccess => 'Comprehensive shipment dossier copied to clipboard';
+  @override
+  String get compReportExportTsvDialogTitle => 'Export Comprehensive Report as TSV';
+  @override
+  String get compReportExportExcelDialogTitle => 'Export Comprehensive Report to Excel';
+  @override
+  String get compReportPrintPdfDialogTitle => 'Print or Save Comprehensive Shipment Report';
+  @override
+  String get compReportDossierHeader => 'Sorour Logistics ERP — Comprehensive Import File Dossier';
+  @override
+  String compReportPhaseLabel(int index) => 'Phase $index';
+  @override
+  String compReportCopyValueTooltip(String field) => 'Copy $field to clipboard';
+  @override
+  String get compReportCurrencyUsd => 'USD';
+  @override
+  String get compReportTsvColSection => 'Section';
+  @override
+  String get compReportTsvColField => 'Field';
+  @override
+  String get compReportTsvColValue => 'Value';
+  @override
+  String get compReportTsvColDetails => 'Details / Notes';
 
   // ── Users Management & RBAC Screen ──────────────────────────────────────────
   @override
@@ -7045,6 +8728,58 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get usersMgmtActionPermissionsTooltip => 'Manage Permissions';
 
+  // ── Screen 66: Export Toolbar, Copy Feedback & Permissions Detail ───────────
+  @override
+  String get usersMgmtPermBadgeGrant => '+ Grant';
+  @override
+  String get usersMgmtPermBadgeRevoke => '− Revoke';
+  @override
+  String get usersMgmtPermBadgeRole => 'Role Default';
+  @override
+  String get usersMgmtPermTooltipGrant => 'Explicitly grant this permission';
+  @override
+  String get usersMgmtPermTooltipRevoke => 'Explicitly revoke this permission';
+  @override
+  String get usersMgmtPermTooltipRevertGrant => 'Remove explicit grant (revert to role)';
+  @override
+  String get usersMgmtPermTooltipRevertRevoke => 'Remove explicit revocation (revert to role)';
+  @override
+  String get usersMgmtExportTsvBtn => 'Export TSV';
+  @override
+  String get usersMgmtExportExcelBtn => 'Export Excel';
+  @override
+  String get usersMgmtPrintPdfBtn => 'Print PDF';
+  @override
+  String get usersMgmtCopyDossierBtn => 'Copy Dossier';
+  @override
+  String get usersMgmtCopiedTsvSuccess => 'Users table copied to clipboard as TSV successfully.';
+  @override
+  String get usersMgmtCopiedExcelSuccess => 'Users Excel file exported successfully.';
+  @override
+  String get usersMgmtCopiedDossierSuccess => 'Users dossier summary copied to clipboard successfully.';
+  @override
+  String get usersMgmtCopyRowSummaryBtn => 'Copy Row Summary';
+  @override
+  String get usersMgmtCopyRowSummarySuccess => 'User row summary copied to clipboard.';
+  @override
+  String usersMgmtCopyBadgeSuccess(String label, String value) => 'Copied $label: $value successfully.';
+  @override
+  String get usersMgmtSearchCopied => 'Search query copied to clipboard.';
+  @override
+  String usersMgmtCopyFieldTooltip(String field) => 'Copy $field';
+  @override
+  String get usersMgmtPdfTitle => 'Users Management & RBAC Security Report';
+  @override
+  String get usersMgmtPdfSubtitle => 'Official Accounts Directory, Role Assignments & Access Control';
+  @override
+  String get usersMgmtDossierHeader => '=== USERS MANAGEMENT & RBAC DOSSIER (IMPORTFLOW ERP) ===';
+  @override
+  String get usersMgmtDossierKpiSummary => '--- ACCOUNTS & ROLES METRICS SUMMARY ---';
+  @override
+  String get usersMgmtDossierRecordsDetails => '--- USER ACCOUNTS DIRECTORY DETAILS ---';
+  @override
+  String get usersMgmtDossierFooter => '=== END OF USERS MANAGEMENT REPORT — IMPORTFLOW ERP ===';
+
   // ── Screen: Smart Tasks & Reminder Engine ──────────────────────────────────
   @override
   String get smartTasksTitle => 'Smart Tasks & Reminder Engine';
@@ -7205,6 +8940,48 @@ class AppLocalizationsEn extends AppLocalizations {
         return type;
     }
   }
+  @override
+  String get smartTasksExportTsvBtn => 'Copy TSV Table';
+  @override
+  String get smartTasksExportTsvSuccess => 'Smart tasks copied to clipboard as TSV table';
+  @override
+  String get smartTasksExportPdfBtn => 'Print Tasks Report';
+  @override
+  String get smartTasksExportExcelBtn => 'Export Excel';
+  @override
+  String get smartTaskCopySummaryBtn => 'Copy Task Summary';
+  @override
+  String get smartTaskCopySummarySuccess => 'Task summary copied to clipboard';
+  @override
+  String get smartTaskPrintPdfTooltip => 'Print Task Slip';
+  @override
+  String get smartTaskShareWhatsappTooltip => 'Share via WhatsApp';
+  @override
+  String get smartTaskCodeBadgeLabel => 'Task Code: Click to copy';
+  @override
+  String get smartTaskImportFileBadgeLabel => 'Shipment Code: Click to copy';
+  @override
+  String get smartTaskCopyFieldTooltip => 'Copy field to clipboard';
+  @override
+  String get smartTasksTsvHeaderCode => 'Task Code';
+  @override
+  String get smartTasksTsvHeaderType => 'Task Type';
+  @override
+  String get smartTasksTsvHeaderTitle => 'Task Title';
+  @override
+  String get smartTasksTsvHeaderShipment => 'Linked Shipment';
+  @override
+  String get smartTasksTsvHeaderPriority => 'Priority';
+  @override
+  String get smartTasksTsvHeaderReminder => 'Reminder Type';
+  @override
+  String get smartTasksTsvHeaderDueDate => 'Due Date';
+  @override
+  String get smartTasksTsvHeaderStatus => 'Status';
+  @override
+  String get smartTasksTsvHeaderAssignedUser => 'Assigned User';
+  @override
+  String get smartTasksTsvHeaderDescription => 'Description';
 
   // ── Screen 42: Operational & Daily Shipment Updates Engine ─────────────────
   @override
@@ -7448,6 +9225,70 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shipmentUpdateSuccessSaved => 'Operational update / daily check-in recorded successfully';
   @override
   String shipmentUpdateErrorSaving(String err) => 'Error saving update: $err';
+  @override
+  String get shipmentUpdatesExportTsvBtn => 'Export TSV';
+  @override
+  String get shipmentUpdatesExportTsvSuccess => 'Shipment updates copied to clipboard as TSV successfully';
+  @override
+  String get shipmentUpdatesExportExcelBtn => 'Export Excel';
+  @override
+  String get shipmentUpdatesExportPdfBtn => 'Export PDF';
+  @override
+  String get shipmentUpdateCopySummaryBtn => 'Copy Update Summary';
+  @override
+  String get shipmentUpdateCopySummarySuccess => 'Shipment update summary copied to clipboard successfully';
+  @override
+  String get shipmentUpdateCodeBadgeLabel => 'Update code copied to clipboard';
+  @override
+  String get shipmentUpdateConsultCodeBadgeLabel => 'Customs consultation code copied to clipboard';
+  @override
+  String get shipmentUpdateCopyFieldTooltip => 'Copy value to clipboard';
+  @override
+  String get shipmentUpdatesTsvHeaderCode => 'Update Code';
+  @override
+  String get shipmentUpdatesTsvHeaderDate => 'Date';
+  @override
+  String get shipmentUpdatesTsvHeaderCategory => 'Category';
+  @override
+  String get shipmentUpdatesTsvHeaderPhase => 'Target Phase';
+  @override
+  String get shipmentUpdatesTsvHeaderNotes => 'Notes & Details';
+  @override
+  String get shipmentUpdatesTsvHeaderCostItem => 'Adjusted Cost Item';
+  @override
+  String get shipmentUpdatesTsvHeaderPrevCost => 'Previous Cost';
+  @override
+  String get shipmentUpdatesTsvHeaderNewCost => 'New Cost';
+  @override
+  String get shipmentUpdatesTsvHeaderPriority => 'Priority';
+  @override
+  String get shipmentUpdatesTsvHeaderAssignedUser => 'Assigned User';
+  @override
+  String get shipmentUpdatesTsvHeaderStatus => 'Phase Status';
+  @override
+  String get shipmentUpdateConsultStatusInProgress => 'In Progress';
+  @override
+  String get shipmentUpdateConsultStatusClearanceReady => 'Clearance Ready';
+  @override
+  String get shipmentUpdateConsultStatusBlocked => 'Blocked';
+  @override
+  String get shipmentUpdateConsultStatusActionRequired => 'Action Required';
+  @override
+  String get shipmentUpdateConsultStatusCompleted => 'Completed';
+  @override
+  String get shipmentUpdateDocStatusApproved => 'Approved';
+  @override
+  String get shipmentUpdateDocStatusPending => 'Pending';
+  @override
+  String get shipmentUpdateDocStatusReceived => 'Received';
+  @override
+  String get shipmentUpdateDocStatusVerified => 'Verified';
+  @override
+  String get shipmentUpdateDocStatusRejected => 'Rejected';
+  @override
+  String get shipmentUpdateCostLabel => 'Cost';
+  @override
+  String get shipmentUpdateCostCurrencyUsd => 'USD';
 
   // Error Details Dialog & Diagnostic Formatter
   @override
@@ -8080,6 +9921,426 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get whatIfSimulatorBtn => 'What-If & FX Crisis Simulator';
   @override String get syncRatesSuccess => 'Official customs exchange rates synchronized successfully ✅';
   @override String syncRatesFailed(String error) => 'Failed to synchronize customs exchange rates: $error';
+
+  // ── Screen 56: Customs Tax & Declaration 46 Review Workspace ───────────────
+  @override String get customsTaxExportTsvBtn => 'Export Calculation as TSV';
+  @override String get customsTaxExportExcelBtn => 'Export Calculation as Excel';
+  @override String get customsTaxPrintPdfBtn => 'Print / Save Customs Assessment PDF';
+  @override String get customsTaxCopyDossierBtn => 'Copy Customs Dossier to Clipboard';
+  @override String get customsTaxCopiedDossierSuccess => 'Full customs assessment & duty dossier copied to clipboard';
+  @override String get customsTaxCopiedTsvSuccess => 'Customs tax calculation copied in TSV format';
+  @override String get customsTaxCopiedExcelSuccess => 'Customs tax calculation copied in Excel CSV format';
+  @override String get customsTaxExportTsvDialogTitle => 'Export Customs Tax Calculation (TSV)';
+  @override String get customsTaxExportExcelDialogTitle => 'Export Customs Tax Calculation (Excel)';
+  @override String get customsTaxExportPdfDialogTitle => 'Customs Tax & Tariff Assessment Report (PDF)';
+  @override String get customsTaxDossierTitle => 'Comprehensive Customs & Tariff Review Dossier';
+  @override String get customsTaxCopyRowSuccess => 'Customs line details copied to clipboard';
+  @override String get customsTaxCopySummarySuccess => 'Customs duties & taxes summary copied to clipboard';
+  @override String get customsTaxTsvHeaderHsCode => 'HS Code';
+  @override String get customsTaxTsvHeaderDescription => 'Item Description';
+  @override String get customsTaxTsvHeaderOrigin => 'Origin Country';
+  @override String get customsTaxTsvHeaderQty => 'Quantity';
+  @override String get customsTaxTsvHeaderUnit => 'Unit';
+  @override String get customsTaxTsvHeaderForeignPrice => 'Foreign Unit Price';
+  @override String get customsTaxTsvHeaderFobEgp => 'FOB Value (EGP)';
+  @override String get customsTaxTsvHeaderFreightEgp => 'Freight (EGP)';
+  @override String get customsTaxTsvHeaderInsuranceEgp => 'Insurance (EGP)';
+  @override String get customsTaxTsvHeaderCifEgp => 'CIF Customs Value (EGP)';
+  @override String get customsTaxTsvHeaderDutyRate => 'Customs Duty Rate';
+  @override String get customsTaxTsvHeaderDutyAmount => 'Customs Duty (EGP)';
+  @override String get customsTaxTsvHeaderVatRate => 'VAT Rate';
+  @override String get customsTaxTsvHeaderVatAmount => 'VAT Amount (EGP)';
+  @override String get customsTaxTsvHeaderScheduleTax => 'Schedule & Development Tax (EGP)';
+  @override String get customsTaxTsvHeaderCustomsFees => 'Customs Service & Base Fees (EGP)';
+  @override String get customsTaxTsvHeaderTotalTaxes => 'Total Customs Duties & Taxes (EGP)';
+  @override String get customsTaxTsvHeaderRegulatoryConditions => 'Prior Regulatory Conditions & Approvals';
+  @override String get customsTaxLogTsvHeaderCode => 'Session Code';
+  @override String get customsTaxLogTsvHeaderFile => 'Import File';
+  @override String get customsTaxLogTsvHeaderTitle => 'Study Title';
+  @override String get customsTaxLogTsvHeaderBroker => 'Customs Broker';
+  @override String get customsTaxLogTsvHeaderEstimatedDuties => 'Estimated Duties';
+  @override String get customsTaxLogTsvHeaderReadiness => 'Readiness Rate';
+  @override String get customsTaxLogTsvHeaderStatus => 'Status';
+  @override String get customsTaxLogTsvHeaderCreatedDate => 'Created Date';
+
+  // ── Standalone Extraction Tools & Dual Extraction ───────────────────────
+  @override String get dualExtractionEngineTitle => 'Dual Document Extraction Engine';
+  @override String get dualExtractionCommercialInvoice => 'Commercial Customs Invoice';
+  @override String get dualExtractionPackingList => 'Customs Packing List';
+  @override String get dualExtractionInvoiceModeTitle => 'Invoice Extraction Mode';
+  @override String get dualExtractionGroupingTitle => 'Invoice Line Grouping';
+  @override String get dualExtractionPlModeTitle => 'Packing List Mode';
+  @override String get dualExtractionStructureTitle => 'Package & Carton Structure';
+  @override String get dualExtractionIncludePallets => 'Include Pallet & Package Details';
+  @override String get dualExtractionPalletDataTitle => 'Pallets & Packages Details';
+  @override String get dualExtractionAddPalletBtn => 'Add Pallet';
+  @override String get dualExtractionNoPallets => 'No pallets added yet';
+  @override String get dualExtractionPreviewResults => 'Preview Dual Extraction Results';
+  @override String get dualExtractionDownloadZip => 'Download ZIP Archive';
+  @override String get dualExtractionAdoptCustomsTrack => 'Adopt as Customs Track';
+  @override String get dualExtractionTrackCreatedSuccess => 'Dual customs track created successfully';
+  @override String get dualExtractionCopySummaryTooltip => 'Copy Dual Extraction Summary';
+  @override String get dualExtractionSummaryCopied => 'Dual extraction summary copied successfully';
+  @override String get smartUploadCopyAllTooltip => 'Copy All Extracted Data';
+  @override String get smartUploadCopyAllSuccess => 'All extracted data copied successfully';
+
+  // ── Screen 67: Lifecycle Steps Risk Classification & Skip Policy Governance ──
+  @override String get stepConfigTitle => 'Lifecycle Steps Risk Classification & Skip Governance';
+  @override String get stepConfigSubtitle => 'Central dynamic management for step skip policies and pending references without code changes';
+  @override String get stepConfigAccessDeniedTitle => 'Insufficient Permissions — Manager Role Required';
+  @override String get stepConfigAccessDeniedDesc => 'According to operational governance standards, operational users are restricted from viewing or modifying step skip policies. This screen is reserved exclusively for managers.';
+  @override String get stepConfigDemoSwitchBtn => 'Switch to Manager Role (Demo)';
+  @override String get stepConfigRefreshTooltip => 'Refresh Data';
+  @override String get stepConfigSearchHint => 'Search by step code, name, or policy...';
+  @override String get stepConfigPhaseAll => 'All (21 Steps)';
+  @override String stepConfigPhaseLabel(int phase) => 'Phase $phase';
+  @override String get stepConfigEmptySearch => 'No steps match the current search criteria.';
+  @override String get stepConfigColPhaseCode => 'Phase & Code';
+  @override String get stepConfigColStepName => 'Step Name';
+  @override String get stepConfigColSkipPolicy => 'Skip Policy';
+  @override String get stepConfigColApproverRoles => 'Authorized Roles';
+  @override String get stepConfigColPendingRef => 'Pending Ref';
+  @override String get stepConfigColReasonCategories => 'Skip Reasons';
+  @override String get stepConfigColLastModified => 'Last Modified';
+  @override String get stepConfigColActions => 'Actions';
+  @override String get stepConfigPolicyBlocked => 'Strictly Blocked';
+  @override String get stepConfigPolicySingleApproval => 'Single Approval';
+  @override String get stepConfigPolicyDualApproval => 'Dual Approval';
+  @override String get stepConfigPendingRefAllowed => 'Allowed';
+  @override String get stepConfigPendingRefBlocked => 'Not Allowed';
+  @override String stepConfigReasonCategoriesCount(int count) => '$count Categories';
+  @override String get stepConfigEditTooltip => 'Edit Policy & Classification';
+  @override String get stepConfigAuditTooltip => 'Audit History Log';
+  @override String get stepConfigCopyRowTooltip => 'Copy Step Summary';
+  @override String get stepConfigCopyRowSuccess => 'Step configuration summary copied to clipboard successfully';
+  @override String stepConfigCopyBadgeSuccess(String label, String value) => 'Copied $label: $value';
+  @override String get stepConfigSearchCopied => 'Search query copied to clipboard';
+  @override String get stepConfigExportTsvBtn => 'Export TSV';
+  @override String get stepConfigExportExcelBtn => 'Export Excel';
+  @override String get stepConfigPrintPdfBtn => 'Vector PDF';
+  @override String get stepConfigCopyDossierBtn => 'Copy Dossier';
+  @override String get stepConfigCopiedTsvSuccess => 'Step configurations exported and copied as TSV successfully';
+  @override String get stepConfigCopiedExcelSuccess => 'Excel file exported successfully';
+  @override String get stepConfigCopiedDossierSuccess => 'Step governance dossier copied to clipboard successfully';
+  @override String get stepConfigPdfTitle => 'Lifecycle Steps Skip Policies & Risk Governance Report';
+  @override String get stepConfigPdfSubtitle => 'Risk criteria and preliminary approval registry for import workflow';
+  @override String get stepConfigDossierHeader => '=== Lifecycle Steps Governance & Skip Policies Dossier ===';
+  @override String get stepConfigDossierKpiSummary => '--- Governance KPI Summary ---';
+  @override String get stepConfigDossierRecordsDetails => '--- 21 Steps Detailed Configuration ---';
+  @override String get stepConfigDossierFooter => '=== End of Approved Governance Report ===';
+  @override String stepConfigEditDialogTitle(String code) => 'Edit Step Policy: $code';
+  @override String get stepConfigSkipPolicyLabel => 'Skip Policy:';
+  @override String get stepConfigPolicyItemBlocked => 'Strictly Blocked from Skipping (Non-Skippable)';
+  @override String get stepConfigPolicyItemSingleApproval => 'Single Approval (Manager or Designee)';
+  @override String get stepConfigPolicyItemDualApproval => 'Dual Approval (Manager & Compliance Head)';
+  @override String get stepConfigPendingRefToggleTitle => 'Early Pending Reference Registration';
+  @override String get stepConfigPendingRefToggleSubtitle => 'Allow recording an early reference number while step remains compliant in-progress';
+  @override String get stepConfigApproverRolesTitle => 'Authorized Approver Roles:';
+  @override String get stepConfigApproverRolesSubtitle => 'Manager role is the always-authorized default fallback';
+  @override String get stepConfigJustificationTitle => 'Modification Justification (Mandatory for Audit):';
+  @override String get stepConfigJustificationHint => 'Example: Skip permitted for direct supply shipments under general management approval...';
+  @override String get stepConfigJustificationValidator => 'Justification must be at least 5 characters long';
+  @override String get stepConfigCancelBtn => 'Cancel';
+  @override String get stepConfigSaveBtn => 'Save & Document Record';
+  @override String stepConfigSaveSuccess(String code) => 'Step policy for $code updated successfully';
+  @override String stepConfigAuditDialogTitle(String code) => 'Policy Audit History: $code';
+  @override String get stepConfigAuditEmpty => 'No previous modifications recorded for this step';
+  @override String stepConfigAuditBy(String user) => 'By: $user';
+  @override String get stepConfigAuditPolicyChange => 'Policy Change:';
+  @override String get stepConfigAuditJustification => 'Justification:';
+  @override String get stepConfigAuditCloseBtn => 'Close';
+
+  // ─── AI Assistant Overlay & Lifecycle Navigator ─────────────────────────────
+  @override String get aiAssistantTitle => 'Smart Import Assistant';
+  @override String get aiAssistantGreetingTitle => 'Hello';
+  @override String get aiAssistantGreetingBody => 'Here to help with operations and chat inquiries.';
+  @override String get aiAssistantOnlineStatus => 'Import Assistant Online';
+  @override String get aiAssistantCloseTooltip => 'Close AI Assistant';
+  @override String get aiAssistantOpenTooltip => 'Smart Import Assistant';
+  @override String get aiAssistantMyShipmentsTooltip => 'My Shipments (Lifecycle Navigator)';
+  @override String get aiAssistantClearChatTooltip => 'Clear Chat';
+  @override String get aiAssistantApiKeySettingsTooltip => 'API Key Settings';
+  @override String get aiAssistantExpandTooltip => 'Expand Chat Window';
+  @override String get aiAssistantRestoreTooltip => 'Restore Size';
+  @override String get aiAssistantCopyTranscriptTooltip => 'Copy Entire Chat Transcript';
+  @override String get aiAssistantTranscriptCopied => 'Entire chat transcript copied to clipboard successfully';
+  @override String get aiAssistantNoMessagesToCopy => 'No messages in chat to copy';
+  @override String get aiAssistantInputHint => 'Ask about imports, customs, freight, tasks...';
+  @override String get aiAssistantSendTooltip => 'Send';
+  @override String get aiAssistantPasteTooltip => 'Paste from clipboard';
+  @override String get aiAssistantCopyMessageSuccess => 'Copied successfully';
+  @override String get aiAssistantUserMessageCopied => 'Your message copied successfully';
+  @override String get aiAssistantAssistantMessageCopied => 'Assistant response copied successfully';
+  @override String get aiAssistantCopyNotificationTooltip => 'Copy notification';
+  @override String get aiAssistantNotificationCopied => 'Notification copied successfully';
+  @override String get aiAssistantRetry => 'Retry';
+  @override String get aiAssistantQuickSuggestionsTitle => 'Categorized Quick Suggestions';
+  @override String get aiAssistantActivateTitle => 'Activate AI Assistant';
+  @override String get aiAssistantActivateDesc => 'Enter your Gemini API Key to start chatting with the smart import assistant.';
+  @override String get aiAssistantEnterApiKey => 'Enter API Key';
+  @override String get aiAssistantGetApiKeyLabel => 'Get API Key from Google AI Studio (Click to open)';
+  @override String get aiAssistantApiKeyDialogTitle => 'Gemini API Key';
+  @override String get aiAssistantApiKeyFieldLabel => 'API Key';
+  @override String get aiAssistantApiKeyActiveStatus => 'Active and configured API key';
+  @override String get aiAssistantDisableKey => 'Disable Key';
+  @override String get aiAssistantSaveAndActivate => 'Save & Activate';
+  @override String get aiAssistantClearContextTooltip => 'Clear active shipment context';
+  @override String get aiAssistantViewDataShortcut => 'View Data';
+  @override String get aiAssistantUpdateDataShortcut => 'Update Data';
+  @override String get aiAssistantAskAboutStepShortcut => 'Ask about Step';
+  @override String get aiAssistantCopiedUrlSuccess => 'Copied link to clipboard and opened browser';
+  @override String get aiAssistantOpenLink => 'Open Link';
+  @override String get aiAssistantCancel => 'Cancel';
+  @override String get aiLifecycleTitle => 'Lifecycle:';
+  @override String get aiLifecycleCloseTooltip => 'Close Navigator';
+  @override String get aiLifecycleCopySummaryTooltip => 'Copy lifecycle summary';
+  @override String get aiLifecycleSummaryCopied => 'Lifecycle summary copied to clipboard';
+  @override String get aiLifecycleNoShipments => 'No shipments registered yet';
+  @override String get aiLifecycleStartNewShipment => 'Start New Shipment';
+  @override String get aiLifecycleAllCompleted => 'All shipment stages successfully completed (100%).';
+  @override String aiLifecycleCompletionRate(String icon, int percent, int completed, int total) =>
+      'Completion Rate: $icon $percent% ($completed of $total steps)';
+  @override String get aiLifecycleStatusOverdue => 'Overdue';
+  @override String get aiLifecycleStatusCompleted => 'Completed';
+  @override String get aiLifecycleStatusActive => 'Active';
+  @override String get aiLifecycleStatusUpcoming => 'Upcoming';
+  @override String get aiLifecycleHideStages => 'Hide other stages';
+  @override String aiLifecycleShowAllStages(int count) => 'Show all stages (+$count)';
+  @override String aiLifecycleActionsFor(String stepName) => 'Actions for: $stepName';
+  @override String get aiLifecycleActionView => 'View Data';
+  @override String get aiLifecycleActionUpdate => 'Update';
+  @override String get aiLifecycleActionAsk => 'Ask';
+  @override String get aiLifecycleActionSkip => 'Skip';
+  @override String get aiLifecycleCopyFileCodeTooltip => 'Copy file code';
+  @override String get aiLifecycleFileCodeCopied => 'File code copied to clipboard';
+
+  // ── INT-DATA-015: Free Freight & Demurrage Connector ────────────────
+  @override String get freightDataConnectorDialogTitle => 'Free Freight & Demurrage External Data Connector';
+  @override String get freightDataConnectorDialogSubtitle => 'External SFX Freight Index, Shipping Line Demurrage Rules, and Egyptian Port Storage Decrees';
+  @override String get freightDataTabOverview => 'Overview & Quota Monitor';
+  @override String get freightDataTabSimulator => 'Dual Demurrage Simulator';
+  @override String get freightDataTabPortTariffs => 'Egyptian Port Storage Tariffs';
+  @override String get freightDataShaqFreightSection => 'Shaq-Freight Weekly Index (SFX)';
+  @override String get freightDataShaqFreightDesc => '100% Free Python library aggregating weekly container freight spot rates across global and Mediterranean trade lanes.';
+  @override String get freightDataShippingRatesSection => 'ShippingRates.org Demurrage Rules Connector';
+  @override String get freightDataShippingRatesDesc => 'Aggregates free time slabs and detention demurrage tiers for major carriers under quota guard protection.';
+  @override String get freightDataPortDecreesSection => 'Egyptian Port Authorities Storage Tariffs Registry';
+  @override String get freightDataPortDecreesDesc => 'Historical and active ministerial decrees governing container yard storage in Egyptian pounds.';
+  @override String get freightDataStatusActive => 'Active & Connected';
+  @override String get freightDataMonthlyQuota => 'Monthly API Quota';
+  @override String get freightDataQuotaUsed => 'Calls Used';
+  @override String get freightDataQuotaRemaining => 'Calls Remaining';
+  @override String get freightDataSyncSfxNow => 'Sync SFX Index Now';
+  @override String get freightDataSyncSfxSuccess => 'Freight index snapshots updated successfully';
+  @override String get freightDataRefreshStatus => 'Refresh Connector Status';
+  @override String get freightDataTrackedRoutesCount => 'Tracked Trade Routes';
+  @override String get freightDataTrackedLinesCount => 'Tracked Shipping Lines';
+  @override String get freightDataActiveDecreesCount => 'Registered Storage Decrees';
+  @override String get freightDataLastSyncDate => 'Last Sync Date';
+  @override String get freightDataNeverSynced => 'Never Synced';
+  @override String get freightDataSimShippingLine => 'Shipping Line';
+  @override String get freightDataSimPortAuthority => 'Port Authority';
+  @override String get freightDataSimContainerType => 'Container Type';
+  @override String get freightDataSimDischargeDate => 'Discharge Date';
+  @override String get freightDataSimClearanceDate => 'Calculation / Clearance Date';
+  @override String get freightDataSimDaysInPort => 'Total Days in Port';
+  @override String get freightDataSimFxRate => 'Exchange Rate (USD to EGP)';
+  @override String get freightDataSimCalculateBtn => 'Calculate Dual Demurrage Instantly';
+  @override String get freightDataCarrierDetentionTitle => 'Carrier Detention (USD)';
+  @override String get freightDataPortStorageTitle => 'Port Yard Storage (EGP)';
+  @override String get freightDataAppliedDecree => 'Applied Decree Version';
+  @override String get freightDataFreeDaysLabel => 'Free Days Allowance';
+  @override String get freightDataChargeableDaysLabel => 'Chargeable Incurred Days';
+  @override String get freightDataConsolidatedSummary => 'Consolidated Dual Financial Summary';
+  @override String get freightDataTotalDetentionUsd => 'Total Detention (USD)';
+  @override String get freightDataTotalStorageEgp => 'Total Port Storage (EGP)';
+  @override String get freightDataConsolidatedEgp => 'Total Equivalent (EGP)';
+  @override String get freightDataConsolidatedUsd => 'Total Equivalent (USD)';
+  @override String get freightDataCopySimulationDossier => 'Copy Full Calculation Dossier';
+  @override String get freightDataSimulationDossierCopied => 'Dual demurrage dossier copied to clipboard';
+  @override String get freightDataAddTariffDecreeBtn => 'Add New Port Tariff Decree';
+  @override String get freightDataTariffVersionCol => 'Decree / Version Code';
+  @override String get freightDataEffectiveFromCol => 'Effective From';
+  @override String get freightDataEffectiveToCol => 'Effective To';
+  @override String get freightDataActiveOngoing => 'Active (Current)';
+  @override String get freightDataSourceDocCol => 'Official Source Document';
+  @override String get freightDataRateSlabsSummary => 'Rate Slabs Breakdown';
+  @override String get freightDataCopySlabRateTooltip => 'Copy Rate Value';
+  @override String get freightDataLaunchConnectorTooltip => 'Free Freight & Demurrage External Data Connector';
+  @override String get freightDataQuotaGuardAlert => 'Quota Guard: Maximum 10 monthly calls to preserve API buffer';
+  @override String get freightDataDayUnit => 'Days';
+  @override String get freightDataPerDayUnit => 'Day';
+  @override String get freightDataCopyStatusSummary => 'Copy Full Status Summary';
+  @override String get freightDataTotalLabel => 'Total';
+  @override String get freightDataNoDecreesFound => 'No registered tariffs found';
+
+  // ── AI Quotation & Completeness Validation Layer (AI-EXTRACT-VALIDATE-001) ──
+  @override String get quotationValidationBannerSafeTitle => 'Reliable & Complete Extraction';
+  @override String get quotationValidationBannerWarningTitle => 'Notice: Likely Unextracted Items';
+  @override String get quotationValidationBannerCriticalTitle => 'Critical Warning: Quotation Completeness Gap';
+  @override String quotationValidationExpectedCount(dynamic count) => 'Expected Items: $count';
+  @override String quotationValidationExtractedCount(dynamic count) => 'Extracted Items: $count';
+  @override String quotationValidationGapPercentage(dynamic percent) => 'Extraction Gap: $percent%';
+  @override String get quotationValidationMultiValueBadge => 'Multi-Value Split';
+  @override String get quotationValidationMultiValueTooltip => 'Extracted from multi-value cell, verify splitting accuracy';
+  @override String get quotationValidationRangeBadge => 'Price Range';
+  @override String quotationValidationRangeTooltip(dynamic min, dynamic max) => 'Estimated price range: from $min to $max EGP';
+  @override String get quotationValidationOutsideTableBadge => 'Outside Table';
+  @override String get quotationValidationOutsideTableTooltip => 'Conditional item extracted from text conditions outside table';
+  @override String get quotationValidationConfirmTitle => 'Confirm Quote Adoption Despite Extraction Gap';
+  @override String quotationValidationConfirmMessage(dynamic expected, dynamic extracted, dynamic gap) => 'Detected $expected price patterns but only $extracted items were extracted (gap: $gap%). Do you want to proceed and adopt current items under your responsibility?';
+  @override String get quotationValidationProceedBtn => 'Proceed Under My Responsibility';
+  @override String get quotationValidationReviewBtn => 'Return to Review';
+  @override String get quotationValidationCopyReportBtn => 'Copy Extraction Audit Report';
+  @override String get quotationValidationReportCopiedToast => 'Extraction audit report copied to clipboard successfully';
+
+  // ── Clearance Expense Types Catalog Exports ──
+  @override String get expenseCatalogExportPdfBtn => 'Export PDF Report';
+  @override String get expenseCatalogExportExcelBtn => 'Export Excel';
+  @override String get expenseCatalogExportTsvBtn => 'Export TSV Table';
+  @override String get expenseCatalogCopyDossierBtn => 'Copy Catalog Dossier';
+  @override String get expenseCatalogDossierCopiedToast => 'Expense catalog dossier copied to clipboard successfully';
+  @override String get expenseCatalogPdfReportTitle => 'Master Clearance Expense Types Catalog';
+  @override String get expenseCatalogPdfReportSubtitle => 'Official Directory of Expense Codes, Categories and Calculation Units';
+  @override String expenseCatalogTotalCountLabel(dynamic count) => 'Total Expense Types: $count';
+  @override String expenseCatalogActiveCountLabel(dynamic count) => 'Active Expenses: $count';
+  @override String get editExpenseTypeDialogTitle => 'Edit Expense Type';
+  @override String get confirmDeleteExpenseTypeTitle => 'Confirm Delete Expense';
+  @override String confirmDeleteExpenseTypeMsg(dynamic name, dynamic code) => 'Are you sure you want to delete and deactivate expense item ($name) with code ($code)?';
+  @override String get expenseTypeUpdatedToast => 'Expense type updated successfully';
+  @override String get expenseTypeDeletedToast => 'Expense type deleted successfully';
+  @override String get copyExpenseRowSummaryTooltip => 'Copy expense row summary';
+  @override String get editExpenseTooltip => 'Edit expense type';
+  @override String get deleteExpenseTooltip => 'Delete expense type';
+
+  // ── Universal Clone Engine (UX-CLONE-011) ──
+  @override String get cloneRowTooltip => 'Clone Row (Ctrl+D)';
+  @override String cloneEntityDialogTitle(dynamic entityType) => 'Clone $entityType — Review & Confirm Data';
+  @override String get cloneEntityDialogSubtitle => 'Review copied and mandatorily reset fields prior to creating new record';
+  @override String cloneSourceReferenceLabel(dynamic code) => 'Source Entity: $code';
+  @override String get cloneNewCodeLabel => 'Target New Reference Code:';
+  @override String get cloneNewCodeRequiredError => 'Please enter a unique reference code for the cloned entity';
+  @override String get cloneCopiedFieldsHeader => 'Automatically Copied Data (Direct Duplicate)';
+  @override String get cloneResetFieldsHeader => 'Mandatorily Reset Fields (Never Copied)';
+  @override String get cloneFieldStatusDraftBadge => 'Status: Automatically resets to Draft';
+  @override String get cloneFieldCustomsClearedReset => 'Customs Released Status: Reset to False';
+  @override String get cloneFieldFinancialReset => 'Payment & Form 4 numbers: Cleared/Reset';
+  @override String get cloneCopyInvoicesCheckbox => 'Copy invoice line items and packing list items';
+  @override String get cloneCopyAttachmentsCheckbox => 'Copy uploaded attachments & documents (unchecked by default)';
+  @override String get cloneConfirmAndCreateBtn => 'Confirm Clone & Create Record';
+  @override String clonedFromBadge(dynamic code) => 'Cloned from: $code';
+  @override String clonedSuccessfullyToast(dynamic code) => 'Entity cloned successfully with new code ($code)';
+  @override String get clonePriceListDialogTitle => 'Clone Broker Price List';
+  @override String get cloneImportFileDialogTitle => 'Clone Import File';
+  @override String get cloneConsultationDialogTitle => 'Clone Customs Consultation Study';
+  @override String get clonePriceListActionTooltip => 'Clone Entire Price List';
+  @override String get cloneRowActionTooltip => 'Clone Current Row';
+
+  // ── KB-GUIDE-012 Smart Shipment Experience Guide & Reference Card ───────────
+  @override String get experienceGuideTitle => 'Smart Shipment Experience Guide';
+  @override String get smartReferenceCardTitle => 'Shipment Smart Reference Card';
+  @override String get addGuideEntryBtn => 'Add Experience Guide Note';
+  @override String get manageGuideEntriesBtn => 'Manage Experience Guide';
+  @override String get guideCriticalAlertTitle => 'Critical Experience Alert';
+  @override String get guideWarningAlertTitle => 'Procedural Warning Alert';
+  @override String get guideMandatoryPortAlert => 'Mandatory Destination Port:';
+  @override String get guideRequiredDocsAlert => 'Mandatory Prerequisite Documents:';
+  @override String get guideAutoApplyPortBtn => 'Auto-Apply Mandatory Port';
+  @override String get guideAddSuggestedNoteBtn => 'Insert Guidance into File Notes';
+  @override String get guideAppliedPortSuccess => 'Mandatory destination port applied successfully';
+  @override String get guideNoteInsertedSuccess => 'Experience guidance inserted into notes successfully';
+  @override String get refCardProductSection => 'Product & Quantity Summary';
+  @override String get refCardRouteSection => 'Route & Carrier Summary';
+  @override String get refCardDatesSection => 'Critical Dates & Free Time';
+  @override String get refCardDocsSection => 'Customs Documents Readiness';
+  @override String get refCardCostSection => 'Estimated vs Actual Cost Comparison';
+  @override String get refCardMatchedGuideSection => 'Matched Experience Guidelines';
+  @override String get refCardHsCodeLabel => 'Customs Tariff HS Code:';
+  @override String get refCardCategoryLabel => 'Product Category:';
+  @override String get refCardTotalCbmLabel => 'Total Volume (CBM):';
+  @override String get refCardGrossWeightLabel => 'Gross Weight (KG):';
+  @override String get refCardPackagesCountLabel => 'Total Packages:';
+  @override String get refCardPolLabel => 'Port of Loading:';
+  @override String get refCardPodLabel => 'Port of Discharge:';
+  @override String get refCardCarrierLabel => 'Carrier & Shipping Line:';
+  @override String get refCardFreeDaysLabel => 'Demurrage Free Days:';
+  @override String get refCardEstCostLabel => 'Estimated Cost:';
+  @override String get refCardActualCostLabel => 'Actual Invoiced Cost:';
+  @override String get refCardVarianceLabel => 'Cost Variance:';
+  @override String get refCardDocsCompleteBadge => 'Documents Complete';
+  @override String get refCardDocsPendingBadge => 'Documents Pending';
+  @override String get refCardCooAttachedBadge => 'Certificate of Origin Attached';
+  @override String get refCardCooMissingBadge => 'Certificate of Origin Missing (Mandatory)';
+  @override String get guideEntryTitleLabel => 'Guidance Title';
+  @override String get guideEntryContentLabel => 'Experience Details & Requirements';
+  @override String get guideEntryTypeLabel => 'Guidance Type';
+  @override String get guideSeverityLabel => 'Severity Level';
+  @override String get guideScopesHeader => 'Application Scopes';
+  @override String get guideAddScopeBtn => 'Add Matching Scope';
+  @override String get guideEntrySavedSuccess => 'Experience guideline saved successfully';
+  @override String get guideEntryDeleteConfirm => 'Are you sure you want to delete this guideline?';
+  @override String get copyReferenceCardTooltip => 'Copy Reference Card Data to Clipboard';
+  @override String get referenceCardCopiedSuccess => 'Reference card data copied successfully';
+  @override String get guideHsCode => 'Customs HS Code';
+  @override String get guideMatchButton => 'Check Experience Guidelines';
+  @override String get guideProductCategory => 'Product Category';
+  @override String get guideMatchResultLabel => 'Matched Experience Guidelines';
+
+  // ── KB-INQ-013 Smart Shipment Inquiry, History & Cloning Screen ────────────
+  @override String get inqScreenTitle => 'Shipment History & Smart Inquiry';
+  @override String get inqFilterPanelTitle => 'Filters & Advanced Search Panel';
+  @override String get inqSupplier => 'Foreign Supplier';
+  @override String get inqAllSuppliers => 'All Foreign Suppliers';
+  @override String get inqImporter => 'Importing Company';
+  @override String get inqAllImporters => 'All Importing Companies';
+  @override String get inqHsCodeOrProduct => 'HS Code / Item Code / Description';
+  @override String get inqHsCodeHint => 'Search by HS Code, item name, or SKU';
+  @override String get inqIncoterm => 'Delivery Term (Incoterm)';
+  @override String get inqAllIncoterms => 'All Incoterms';
+  @override String get inqPortOfLoading => 'Port of Loading (POL)';
+  @override String get inqPortOfDischarge => 'Port of Discharge (POD)';
+  @override String get inqShippingMode => 'Shipping Mode & Container';
+  @override String get inqAllShippingModes => 'All Shipping Modes';
+  @override String get inqCarrier => 'Carrier / Forwarder';
+  @override String get inqDateRange => 'Date Range';
+  @override String get inqAllDates => 'All Dates';
+  @override String get inqSearchBtn => 'Search';
+  @override String get inqResetBtn => 'Reset';
+  @override String get inqAdvancedFilters => 'Advanced Logistics Filters';
+  @override String get inqHideAdvancedFilters => 'Hide Advanced Filters';
+  @override String get inqExportPrintBtn => 'Export / Print Report';
+  @override String get inqExportExcelBtn => 'Export to Excel';
+  @override String get inqExportPdfBtn => 'Print Official PDF';
+  @override String get inqSaveFilterPreset => 'Save Filter Preset';
+  @override String get inqPresetSaved => 'Filter preset saved successfully';
+  @override String get inqColShipmentName => 'Shipment Name';
+  @override String get inqColSupplier => 'Foreign Supplier';
+  @override String get inqColImporter => 'Importing Company';
+  @override String get inqColItemAndHs => 'Item & HS Code';
+  @override String get inqColRoute => 'Shipping Route';
+  @override String get inqColShippingMode => 'Shipping Mode & Container';
+  @override String get inqColIncoterm => 'Incoterm';
+  @override String get inqColFreightCost => 'Freight Cost';
+  @override String get inqColActions => 'Actions';
+  @override String get inqActionClone => 'Smart Clone';
+  @override String get inqActionDetails => 'View Details';
+  @override String get inqTotalMatchingShipments => 'Total Matching Shipments';
+  @override String get inqAverageFreightCost => 'Average Freight Cost';
+  @override String get inqTotalIncurredCost => 'Total Recorded Cost';
+  @override String get inqCloneDialogTitle => 'Smart Shipment Cloning';
+  @override String get inqCloneSuccessHeader => 'Shipment data cloned as template. Please review new dates and prices before saving.';
+  @override String get inqCloneCopiedDataTitle => 'Automatically Copied Data';
+  @override String get inqCloneClearedDataTitle => 'Fields Requiring New Input';
+  @override String get inqCloneLastRecordedCost => 'Last Recorded Cost';
+  @override String get inqCloneNewShipmentName => 'New Shipment Name';
+  @override String get inqCloneNewFileCode => 'New Import File Code';
+  @override String get inqCloneNewInvoiceNumber => 'PI / Commercial Invoice Number';
+  @override String get inqCloneNewFreightCost => 'New Freight Cost';
+  @override String get inqCloneConfirmBtn => 'Confirm & Clone Shipment';
+  @override String get inqCloneOpenFormBtn => 'Open Form for Full Editing';
+  @override String get inqReportTitle => 'Shipment Historical Movement & Cost Ledger';
+  @override String get inqReportGeneratedAt => 'Report Generated At';
+  @override String get inqReportGeneratedBy => 'User';
 }
 
 

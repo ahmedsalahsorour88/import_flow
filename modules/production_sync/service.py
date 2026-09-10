@@ -714,7 +714,7 @@ class ProductionSyncService:
                 pass
 
         return SystemVersionInfoSchema(
-            system_name="ImportFlow ERP - Sorour Logistics",
+            system_name="Sorour Logistics ERP",
             version=version_str,
             build_number=build_num,
             release_date=rel_date or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -751,7 +751,7 @@ class ProductionSyncService:
             req = urllib.request.Request(
                 remote_url,
                 headers={
-                    "User-Agent": "ImportFlow-Update-Engine",
+                    "User-Agent": "SorourLogistics-Update-Engine",
                     "Cache-Control": "no-cache, no-store, must-revalidate",
                     "Pragma": "no-cache",
                 },
@@ -834,7 +834,7 @@ class ProductionSyncService:
             req = urllib.request.Request(
                 remote_url,
                 headers={
-                    "User-Agent": "ImportFlow-AutoUpdater",
+                    "User-Agent": "SorourLogistics-AutoUpdater",
                     "Cache-Control": "no-cache, no-store, must-revalidate",
                     "Pragma": "no-cache",
                 },

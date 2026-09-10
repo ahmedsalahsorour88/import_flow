@@ -5,8 +5,10 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/extraction_progress_dialog.dart';
@@ -16,6 +18,7 @@ import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/freight_quotation_model.dart';
 import '../providers/freight_quotations_provider.dart';
+import '../services/freight_quotations_export_service.dart';
 import '../widgets/freight_quotations_extractor_dialog.dart';
 import '../../../core/providers/navigation_provider.dart';
 import '../widgets/rfq_benchmark_dialog.dart';
@@ -275,7 +278,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                   children: [
                     TextField(
                       decoration: InputDecoration(
-                        hintText: isArabic ? 'البحث برقم طلب RFQ أو العنوان أو الميناء...' : 'Search RFQ Code, Title, or Port...',
+                        hintText: isArabic ? 'البحث برقم الطلب أو العنوان أو الميناء...' : 'Search RFQ Code, Title, or Port...',
                         prefixIcon: const Icon(Icons.search),
                         border: const OutlineInputBorder(),
                         isDense: true,
@@ -303,7 +306,18 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                   ),
                                   title: Row(
                                     children: [
-                                      Text(rfq.rfqCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                      InkWell(
+                                        borderRadius: BorderRadius.circular(4),
+                                        onTap: () => CopyHelper.copy(context, rfq.rfqCode),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(rfq.rfqCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                            const SizedBox(width: 4),
+                                            const Icon(Icons.copy_rounded, size: 12, color: AppTheme.cobalt),
+                                          ],
+                                        ),
+                                      ),
                                       const SizedBox(width: 8),
                                       _buildStatusBadge(rfq.status),
                                       const Spacer(),
@@ -316,7 +330,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                     children: [
                                       IconButton(
                                         icon: Icon(Icons.military_tech_outlined, color: Colors.amber.shade800, size: 20),
-                                        tooltip: isArabic ? 'المفاضلة التنافسية (Benchmarking)' : 'Benchmarking',
+                                        tooltip: isArabic ? 'المفاضلة التنافسية وعروض الأسعار' : 'Benchmarking',
                                         onPressed: () => showRFQBenchmarkDialog(
                                           context,
                                           ref,
@@ -411,7 +425,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
 
     if (carriersList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ يرجى إضافة ناقلين بحريين (Shipping Lines) في دليل الشركاء أولاً'), backgroundColor: Colors.orange),
+        const SnackBar(content: Text('⚠️ يرجى إضافة ناقلين بحريين وخطوط ملاحية في دليل الشركاء أولاً'), backgroundColor: Colors.orange),
       );
       return;
     }
@@ -463,7 +477,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                   const Icon(Icons.directions_boat, color: AppTheme.cobalt),
                   const SizedBox(width: 8),
                   Expanded(child: Text(
-                    prefillCarrierName != null ? 'مراجعة وتأكيد عرض السعر المستخرج' : 'إضافة عرض سعر ناقل / شركة شحن (Add Freight Quote)',
+                    prefillCarrierName != null ? 'مراجعة وتأكيد عرض السعر المستخرج' : 'إضافة عرض سعر ناقل أو شركة شحن',
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   )),
                 ],
@@ -496,7 +510,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                         ),
                       SearchableDropdownField<int?>(
                         value: selectedProviderId,
-                        labelText: 'شركة الشحن / الخط الملاحي *',
+                        labelText: 'شركة الشحن أو الخط الملاحي *',
                         searchHintText: 'ابحث عن الشركة...',
                         items: carriersList.map((c) => SearchableDropdownItem<int?>(value: c.providerId, label: c.partnerName)).toList(),
                         onChanged: (val) {
@@ -515,14 +529,14 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                           Expanded(
                             child: TextField(
                               controller: vesselController,
-                              decoration: const InputDecoration(labelText: 'اسم السفينة (Vessel Name)', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(labelText: 'اسم السفينة الناقلة', border: OutlineInputBorder()),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: TextField(
                               controller: voyageController,
-                              decoration: const InputDecoration(labelText: 'رقم الرحلة (Voyage No)', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(labelText: 'رقم الرحلة البحرية', border: OutlineInputBorder()),
                             ),
                           ),
                         ],
@@ -534,7 +548,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                             child: TextField(
                               controller: oceanCostController,
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: 'نولون البحر (Ocean Freight USD) *', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(labelText: 'نولون الشحن البحري بالدولار *', border: OutlineInputBorder()),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -542,7 +556,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                             child: TextField(
                               controller: localCostController,
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: 'المصاريف المحلية (USD)', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(labelText: 'المصاريف والرسوم المحلية بالدولار', border: OutlineInputBorder()),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -550,7 +564,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                             child: TextField(
                               controller: inlandCostController,
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: 'النقل الداخلي (USD)', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(labelText: 'النقل الداخلي والتعتيق بالدولار', border: OutlineInputBorder()),
                             ),
                           ),
                         ],
@@ -565,7 +579,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                 if (d != null) setDialogState(() => sailingDate = d);
                               },
                               child: InputDecorator(
-                                decoration: const InputDecoration(labelText: 'تاريخ الإبحار (Sailing Date)', border: OutlineInputBorder()),
+                                decoration: const InputDecoration(labelText: 'تاريخ الإبحار الفعلي', border: OutlineInputBorder()),
                                 child: Text(sailingDate.toString().substring(0, 10)),
                               ),
                             ),
@@ -578,7 +592,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                 if (d != null) setDialogState(() => arrivalDate = d);
                               },
                               child: InputDecorator(
-                                decoration: const InputDecoration(labelText: 'تاريخ الوصول (ETA Arrival)', border: OutlineInputBorder()),
+                                decoration: const InputDecoration(labelText: 'تاريخ الوصول المتوقع للميناء', border: OutlineInputBorder()),
                                 child: Text(arrivalDate.toString().substring(0, 10)),
                               ),
                             ),
@@ -592,7 +606,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                             child: TextField(
                               controller: freeDaysController,
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: 'أيام السماح بالجمارك (Free Days)', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(labelText: 'فترة السماح بالجمارك بالأيام', border: OutlineInputBorder()),
                             ),
                           ),
                         ],
@@ -600,7 +614,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                       const SizedBox(height: 12),
                       TextField(
                         controller: remarksController,
-                        decoration: const InputDecoration(labelText: 'ملاحظات العرض', border: OutlineInputBorder()),
+                        decoration: const InputDecoration(labelText: 'ملاحظات وشروط العرض', border: OutlineInputBorder()),
                       ),
                     ],
                   ),
@@ -1680,6 +1694,7 @@ Best regards,
     final int fastestTransit = _quotations.isNotEmpty ? _quotations.map((q) => q.transitDays).reduce((a, b) => a < b ? a : b) : 0;
 
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l10n = context.l10n;
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -1728,17 +1743,18 @@ Best regards,
           const SizedBox(width: 12),
         ],
       ),
-      body: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Live Metrics Header Bar
-                  Row(
-                    children: [
-                      _buildMetricBadge('أقل سعر شحن متوفر', '\$$lowestCost', Colors.green),
+      body: SelectionArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Live Metrics Header Bar
+                Row(
+                  children: [
+                    _buildMetricBadge('أقل سعر شحن متوفر', '\$$lowestCost', Colors.green),
                       const SizedBox(width: 12),
                       _buildMetricBadge('أسرع زمن ترانزيت', '$fastestTransit أيام', Colors.blue),
                       const SizedBox(width: 12),
@@ -1923,12 +1939,12 @@ Best regards,
                                       const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 22),
                                       const SizedBox(width: 10),
                                       const Text(
-                                        '🚚 نوع التحميل والتخزين (Cargo Stacking): ',
+                                        '🚚 نوع التحميل والتخزين: ',
                                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                       ),
                                       const SizedBox(width: 8),
                                       ChoiceChip(
-                                        label: const Text('📦 قابل للرص (Stackable)'),
+                                        label: const Text('📦 بضائع قابلة للرص'),
                                         selected: _isStackable,
                                         selectedColor: AppTheme.cobalt,
                                         labelStyle: TextStyle(color: _isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
@@ -1936,7 +1952,7 @@ Best regards,
                                       ),
                                       const SizedBox(width: 8),
                                       ChoiceChip(
-                                        label: const Text('🚫 غير قابل للرص (Non-Stackable)'),
+                                        label: const Text('🚫 بضائع غير قابلة للرص'),
                                         selected: !_isStackable,
                                         selectedColor: Colors.orange.shade800,
                                         labelStyle: TextStyle(color: !_isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
@@ -1970,7 +1986,7 @@ Best regards,
                                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                         ),
                                         icon: const Icon(Icons.table_chart, size: 14, color: Colors.white),
-                                        label: const Text('مقارنة الحالتين (Matrix)', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                                        label: const Text('مقارنة الحالتين', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
                                         onPressed: () => _showContainerComparisonDialog(context, dualRec, curCbm, curWeight),
                                       ),
                                     ],
@@ -2061,9 +2077,74 @@ Best regards,
                                 isArabic ? 'عروض أسعار الخطوط الملاحية والشركات المنافسة' : 'Shipping Lines & Carriers Quotations',
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                               ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
+                                  if (_quotations.isNotEmpty) ...[
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppTheme.cobalt,
+                                        side: const BorderSide(color: AppTheme.cobalt),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      ),
+                                      icon: const Icon(Icons.table_chart_outlined, size: 14),
+                                      label: Text(l10n.freightQuotationsExportTsvBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      onPressed: () => FreightQuotationsExportService.exportToTsv(
+                                        context: context,
+                                        quotations: _quotations,
+                                        importFileCode: _matchedExistingRFQ?.rfqCode,
+                                      ),
+                                    ),
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppTheme.emerald,
+                                        side: const BorderSide(color: AppTheme.emerald),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      ),
+                                      icon: const Icon(Icons.file_download_outlined, size: 14),
+                                      label: Text(l10n.freightQuotationsExportExcelBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      onPressed: () => FreightQuotationsExportService.exportToExcel(
+                                        context: context,
+                                        quotations: _quotations,
+                                        importFileCode: _matchedExistingRFQ?.rfqCode,
+                                      ),
+                                    ),
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.deepPurple,
+                                        side: const BorderSide(color: Colors.deepPurple),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      ),
+                                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 14),
+                                      label: Text(l10n.freightQuotationsPrintPdfBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      onPressed: () => FreightQuotationsExportService.printOrSavePdf(
+                                        context: context,
+                                        quotations: _quotations,
+                                        importFileCode: _matchedExistingRFQ?.rfqCode,
+                                        supplierName: _titleController.text,
+                                      ),
+                                    ),
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.charcoal,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      ),
+                                      icon: const Icon(Icons.copy_all_outlined, size: 14),
+                                      label: Text(l10n.freightQuotationsCopyDossierBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      onPressed: () {
+                                        final text = FreightQuotationsExportService.buildDossierText(
+                                          context: context,
+                                          quotations: _quotations,
+                                          importFileCode: _matchedExistingRFQ?.rfqCode,
+                                          supplierName: _titleController.text,
+                                        );
+                                        CopyHelper.copy(context, text, customMessage: l10n.freightQuotationsCopyDossierSuccess);
+                                      },
+                                    ),
+                                  ],
                                   OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: AppTheme.cobalt,
@@ -2072,9 +2153,9 @@ Best regards,
                                     ),
                                     onPressed: _showFreightExtractorDialog,
                                     icon: const Icon(Icons.auto_awesome, size: 18),
-                                    label: Text(isArabic ? '🤖 استخراج عروض الأسعار (نصوص & OCR)' : '🤖 Extract Freight Quotes (AI & OCR)'),
+                                    label: Text(isArabic ? 'استخراج عروض الأسعار الذكي' : 'Extract Freight Quotes (AI & OCR)'),
                                   ),
-                                  const SizedBox(width: 10),
+                                  const SizedBox(width: 4),
                                   ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                                     onPressed: _addQuotationDialog,
@@ -2103,7 +2184,18 @@ Best regards,
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(q.providerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                          InkWell(
+                                            borderRadius: BorderRadius.circular(4),
+                                            onTap: () => CopyHelper.copy(context, q.providerName),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Flexible(child: Text(q.providerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                                                const SizedBox(width: 4),
+                                                const Icon(Icons.copy_rounded, size: 12, color: AppTheme.cobalt),
+                                              ],
+                                            ),
+                                          ),
                                           if (q.vesselName != null) Text('السفينة: ${q.vesselName} | الرحلة: ${q.voyageNumber ?? "-"}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                         ],
                                       ),
@@ -2116,7 +2208,18 @@ Best regards,
                                     const SizedBox(width: 8),
                                     Expanded(
                                       flex: 2,
-                                      child: Text('الإجمالي: \$${q.totalCost}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green)),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(4),
+                                        onTap: () => CopyHelper.copy(context, '${q.totalCost}'),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text('الإجمالي: \$${q.totalCost}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green)),
+                                            const SizedBox(width: 4),
+                                            const Icon(Icons.copy_rounded, size: 12, color: Colors.green),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
@@ -2140,8 +2243,9 @@ Best regards,
               ),
             ),
           ),
-        );
-      }
+        ),
+      );
+    }
 
   Widget _buildMetricBadge(String title, String value, Color color) {
     return Container(

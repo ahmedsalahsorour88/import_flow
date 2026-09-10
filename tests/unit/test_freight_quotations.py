@@ -165,3 +165,48 @@ class TestFreightQuotationsBackend:
 
         restored = FreightQuotationService.restore_rfq(db_session, created.rfq_id)
         assert restored.is_active is True
+
+    def test_evaluate_and_rank_rfq_quotes_breakdown(self, db_session):
+        carriers = db_session.query(ExternalServiceProvider).all()
+        crd = date(2026, 9, 10)
+
+        rfq_in = FreightRFQRequestCreate(
+            title="مقارنة وتقييم عروض شحن",
+            shipping_method="Ocean FCL",
+            crd_date=crd,
+            pol_name="Ningbo",
+            pod_name="Alexandria",
+            quotations=[
+                FreightQuotationItemCreate(
+                    provider_id=carriers[0].provider_id,
+                    provider_name=carriers[0].partner_name,
+                    ocean_freight_cost=2500.0,
+                    free_days_at_pod=21,
+                    sailing_date=crd + timedelta(days=2),
+                    estimated_arrival_date=crd + timedelta(days=25),
+                ),
+                FreightQuotationItemCreate(
+                    provider_id=carriers[1].provider_id,
+                    provider_name=carriers[1].partner_name,
+                    ocean_freight_cost=3000.0,
+                    free_days_at_pod=14,
+                    sailing_date=crd + timedelta(days=2),
+                    estimated_arrival_date=crd + timedelta(days=28),
+                ),
+            ],
+        )
+
+        rfq = FreightQuotationService.create_rfq(db_session, rfq_in)
+        benchmark = FreightQuotationService.evaluate_and_rank_rfq_quotes(db_session, rfq.rfq_id)
+        assert benchmark.rfq_id == rfq.rfq_id
+        assert len(benchmark.all_ranked_quotes) == 2
+        
+        winner = benchmark.all_ranked_quotes[0]
+        assert winner.rank == 1
+        assert winner.cost_score == 50.0  # lowest cost gets full 50 points
+        assert winner.free_days_score > 0.0
+        assert winner.transit_score > 0.0
+        assert winner.reliability_score > 0.0
+        assert winner.composite_score == round(
+            winner.cost_score + winner.free_days_score + winner.transit_score + winner.reliability_score, 1
+        )

@@ -134,6 +134,56 @@ void main() {
       expect(en.compReportTableColDamaged, equals('Damaged'));
     });
 
+    test('Screen 47 export buttons and dossier copy getters are localized', () {
+      expect(ar.compReportExportTsvBtn, equals('تصدير نصي مفصول'));
+      expect(en.compReportExportTsvBtn, equals('Export TSV'));
+
+      expect(ar.compReportExportExcelBtn, equals('تصدير إكسيل'));
+      expect(en.compReportExportExcelBtn, equals('Export Excel'));
+
+      expect(ar.compReportPrintPdfBtn, equals('طباعة وحفظ المستند'));
+      expect(en.compReportPrintPdfBtn, equals('Print / Save PDF'));
+
+      expect(ar.compReportCopyDossierBtn, equals('نسخ الملف الشامل'));
+      expect(en.compReportCopyDossierBtn, equals('Copy Full Dossier'));
+
+      expect(ar.compReportCopyDossierSuccess, contains('تم نسخ الملف'));
+      expect(en.compReportCopyDossierSuccess, contains('copied to clipboard'));
+
+      expect(ar.compReportExportTsvDialogTitle, isNotEmpty);
+      expect(en.compReportExportTsvDialogTitle, isNotEmpty);
+
+      expect(ar.compReportExportExcelDialogTitle, isNotEmpty);
+      expect(en.compReportExportExcelDialogTitle, isNotEmpty);
+
+      expect(ar.compReportPrintPdfDialogTitle, isNotEmpty);
+      expect(en.compReportPrintPdfDialogTitle, isNotEmpty);
+
+      expect(ar.compReportDossierHeader, isNotEmpty);
+      expect(en.compReportDossierHeader, isNotEmpty);
+
+      expect(ar.compReportPhaseLabel(5), equals('المرحلة 5'));
+      expect(en.compReportPhaseLabel(5), equals('Phase 5'));
+
+      expect(ar.compReportCopyValueTooltip('الكود'), contains('الكود'));
+      expect(en.compReportCopyValueTooltip('Code'), contains('Code'));
+
+      expect(ar.compReportCurrencyUsd, equals('دولار أمريكي'));
+      expect(en.compReportCurrencyUsd, equals('USD'));
+
+      expect(ar.compReportTsvColSection, equals('القسم'));
+      expect(en.compReportTsvColSection, equals('Section'));
+
+      expect(ar.compReportTsvColField, equals('البيان'));
+      expect(en.compReportTsvColField, equals('Field'));
+
+      expect(ar.compReportTsvColValue, equals('القيمة'));
+      expect(en.compReportTsvColValue, equals('Value'));
+
+      expect(ar.compReportTsvColDetails, equals('التفاصيل والملاحظات'));
+      expect(en.compReportTsvColDetails, equals('Details / Notes'));
+    });
+
     test('No Arabic translation strings contain bilingual slash stacking or unexpected Latin prefixes', () {
       final arabicStrings = [
         ar.compReportScreenTitle,
@@ -163,10 +213,150 @@ void main() {
         ar.compReportNoTimelineLogs,
         ar.compReportNoClearanceData,
         ar.compReportNoWarehouseData,
+        ar.compReportExportTsvBtn,
+        ar.compReportExportExcelBtn,
+        ar.compReportPrintPdfBtn,
+        ar.compReportCopyDossierBtn,
+        ar.compReportCopyDossierSuccess,
+        ar.compReportExportTsvDialogTitle,
+        ar.compReportExportExcelDialogTitle,
+        ar.compReportPrintPdfDialogTitle,
+        ar.compReportDossierHeader,
+        ar.compReportCurrencyUsd,
+        ar.compReportTsvColSection,
+        ar.compReportTsvColField,
+        ar.compReportTsvColValue,
+        ar.compReportTsvColDetails,
       ];
 
       for (final str in arabicStrings) {
         expect(str.contains(' / '), isFalse, reason: 'String "$str" contains bilingual stacking separator');
+      }
+    });
+
+    test('Zero Latin characters in all Arabic translations for Screen 47', () {
+      final latinPattern = RegExp(r'[a-zA-Z]');
+      final arabicComprehensiveReportStrings = [
+        ar.compReportScreenTitle,
+        ar.compReportAddUpdateBtn,
+        ar.compReportSelectFileLabel,
+        ar.compReportEmptyStatePrompt,
+        ar.compReportPercentCompleted('50'),
+        ar.compReportCompletedPhases,
+        ar.compReportRemainingPhases,
+        ar.compReportPipelineTitle,
+        ar.compReportStoppedAtPhase('المرحلة 3'),
+        ar.compReportSecBasicInfo,
+        ar.compReportColFileCode,
+        ar.compReportColCustomsFileNo,
+        ar.compReportColImportCompany,
+        ar.compReportColSupplier,
+        ar.compReportColBroker,
+        ar.compReportColPoNumber,
+        ar.compReportColPiNumber,
+        ar.compReportColShipmentMode,
+        ar.compReportColIncoterm,
+        ar.compReportColCategory,
+        ar.compReportColScenario,
+        ar.compReportColRequiredEta,
+        ar.compReportColOwner,
+        ar.compReportColCreatedAt,
+        ar.compReportColUpdatedAt,
+        ar.compReportSecDocs,
+        ar.compReportAcidNumber,
+        ar.compReportBankForm4,
+        ar.compReportSwiftNumber,
+        ar.compReportForm46Number,
+        ar.compReportSecInvoices(2),
+        ar.compReportNoInvoices,
+        ar.compReportSecPackingLists(3),
+        ar.compReportNoPackingLists,
+        ar.compReportTotalPackages,
+        ar.compReportTotalWeight,
+        ar.compReportTotalCbm,
+        ar.compReportPackagesUnit('10'),
+        ar.compReportPiecesUnit('50'),
+        ar.compReportSecStatus,
+        ar.compReportPriorityPrefix('عالية'),
+        ar.compReportStatusLabel,
+        ar.compReportCurrentStageLabel,
+        ar.compReportCurrentModuleLabel,
+        ar.compReportNextActionLabel,
+        ar.compReportTotalProgressLabel,
+        ar.compReportSecFinancial,
+        ar.compReportTotalInvoicesVal,
+        ar.compReportEstimatedCostVal,
+        ar.compReportEstimatedVariance,
+        ar.compReportSecNotes,
+        ar.compReportNoNotes,
+        ar.compReportSecTimeline(4),
+        ar.compReportNoTimelineLogs,
+        ar.compReportByPrefix('أحمد'),
+        ar.compReportAlertPriorityPrefix('عالية'),
+        ar.compReportSecClearance,
+        ar.compReportNoClearanceData,
+        ar.compReportDeclarationChip('123'),
+        ar.compReportReleasePermitChip('456'),
+        ar.compReportDutyImport,
+        ar.compReportDutyVat,
+        ar.compReportDutySchedule,
+        ar.compReportDutyInspection,
+        ar.compReportDutyTotal,
+        ar.compReportPaymentDate('2026-09-09'),
+        ar.compReportReleaseDate('2026-09-09'),
+        ar.compReportSecWarehouse,
+        ar.compReportNoWarehouseData,
+        ar.compReportGrnChip('789'),
+        ar.compReportArrivalDatetime('2026-09-09'),
+        ar.compReportInspectorPrefix('محمد'),
+        ar.compReportQtyInvoiced,
+        ar.compReportQtyAccepted,
+        ar.compReportQtyShortage,
+        ar.compReportQtyDamaged,
+        ar.compReportTableColCode,
+        ar.compReportTableColItem,
+        ar.compReportTableColInvoiced,
+        ar.compReportTableColAccepted,
+        ar.compReportTableColShortage,
+        ar.compReportTableColDamaged,
+        ar.compReportPhase1Name,
+        ar.compReportPhase2Name,
+        ar.compReportPhase3Name,
+        ar.compReportPhase4Name,
+        ar.compReportPhase5Name,
+        ar.compReportPhase6Name,
+        ar.compReportPhase7Name,
+        ar.compReportPhase8Name,
+        ar.compReportPhase9Name,
+        ar.compReportPhase10Name,
+        ar.compReportCategoryCostAdjustment,
+        ar.compReportCategoryFutureAlert,
+        ar.compReportCategoryDailyCheckIn,
+        ar.compReportCategoryGeneralUpdate,
+        ar.compReportExportTsvBtn,
+        ar.compReportExportExcelBtn,
+        ar.compReportPrintPdfBtn,
+        ar.compReportCopyDossierBtn,
+        ar.compReportCopyDossierSuccess,
+        ar.compReportExportTsvDialogTitle,
+        ar.compReportExportExcelDialogTitle,
+        ar.compReportPrintPdfDialogTitle,
+        ar.compReportDossierHeader,
+        ar.compReportPhaseLabel(1),
+        ar.compReportCopyValueTooltip('الكود'),
+        ar.compReportCurrencyUsd,
+        ar.compReportTsvColSection,
+        ar.compReportTsvColField,
+        ar.compReportTsvColValue,
+        ar.compReportTsvColDetails,
+      ];
+
+      for (final str in arabicComprehensiveReportStrings) {
+        expect(
+          latinPattern.hasMatch(str),
+          isFalse,
+          reason: 'Arabic string "$str" contains Latin characters: ${latinPattern.allMatches(str).map((m) => m.group(0)).toList()}',
+        );
       }
     });
   });

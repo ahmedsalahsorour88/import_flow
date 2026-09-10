@@ -3,7 +3,7 @@ Repository Layer for Import Files Master & Tracking Module
 """
 
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
@@ -19,16 +19,23 @@ def generate_import_file_code(db: Session) -> str:
     return f"{prefix}{count + 1:04d}"
 
 
-def get_all_import_files(
-    db: Session,
+def _apply_import_file_filters(
+    query,
     include_inactive: bool = False,
     search: Optional[str] = None,
     company_id: Optional[int] = None,
     supplier_id: Optional[int] = None,
     status: Optional[str] = None,
     owner: Optional[str] = None,
-) -> List[ImportFile]:
-    query = db.query(ImportFile)
+    hs_code: Optional[str] = None,
+    incoterm_code: Optional[str] = None,
+    port_of_loading: Optional[str] = None,
+    port_of_discharge: Optional[str] = None,
+    shipment_mode: Optional[str] = None,
+    carrier: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+):
     if not include_inactive:
         query = query.filter(ImportFile.is_active == True)
 
@@ -41,6 +48,39 @@ def get_all_import_files(
     if owner and owner != "All":
         query = query.filter(ImportFile.owner == owner)
 
+    if hs_code and hs_code.strip():
+        term = f"%{hs_code.strip()}%"
+        query = query.filter(ImportFile.hs_code.ilike(term))
+    if incoterm_code and incoterm_code.strip() and incoterm_code != "All":
+        query = query.filter(ImportFile.incoterm_code.ilike(incoterm_code.strip()))
+    if port_of_loading and port_of_loading.strip():
+        term = f"%{port_of_loading.strip()}%"
+        query = query.filter(ImportFile.port_of_loading.ilike(term))
+    if port_of_discharge and port_of_discharge.strip():
+        term = f"%{port_of_discharge.strip()}%"
+        query = query.filter(ImportFile.port_of_discharge.ilike(term))
+    if shipment_mode and shipment_mode.strip() and shipment_mode != "All":
+        term = f"%{shipment_mode.strip()}%"
+        query = query.filter(ImportFile.shipment_mode.ilike(term))
+    if carrier and carrier.strip():
+        term = f"%{carrier.strip()}%"
+        query = query.filter(ImportFile.selected_scenario.ilike(term))
+
+    if date_from:
+        query = query.filter(
+            or_(
+                ImportFile.required_eta >= date_from,
+                ImportFile.file_opening_date >= date_from,
+            )
+        )
+    if date_to:
+        query = query.filter(
+            or_(
+                ImportFile.required_eta <= date_to,
+                ImportFile.file_opening_date <= date_to,
+            )
+        )
+
     if search and search.strip():
         term = f"%{search.strip()}%"
         query = query.filter(
@@ -52,9 +92,53 @@ def get_all_import_files(
                 ImportFile.po_number.ilike(term),
                 ImportFile.pi_number.ilike(term),
                 ImportFile.owner.ilike(term),
+                ImportFile.hs_code.ilike(term),
+                ImportFile.product_category.ilike(term),
+                ImportFile.port_of_loading.ilike(term),
+                ImportFile.port_of_discharge.ilike(term),
+                ImportFile.selected_scenario.ilike(term),
+                ImportFile.notes.ilike(term),
             )
         )
 
+    return query
+
+
+def get_all_import_files(
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    company_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    owner: Optional[str] = None,
+    hs_code: Optional[str] = None,
+    incoterm_code: Optional[str] = None,
+    port_of_loading: Optional[str] = None,
+    port_of_discharge: Optional[str] = None,
+    shipment_mode: Optional[str] = None,
+    carrier: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+) -> List[ImportFile]:
+    query = db.query(ImportFile)
+    query = _apply_import_file_filters(
+        query,
+        include_inactive=include_inactive,
+        search=search,
+        company_id=company_id,
+        supplier_id=supplier_id,
+        status=status,
+        owner=owner,
+        hs_code=hs_code,
+        incoterm_code=incoterm_code,
+        port_of_loading=port_of_loading,
+        port_of_discharge=port_of_discharge,
+        shipment_mode=shipment_mode,
+        carrier=carrier,
+        date_from=date_from,
+        date_to=date_to,
+    )
     return query.order_by(ImportFile.import_file_id.desc()).all()
 
 
@@ -66,34 +150,33 @@ def count_import_files(
     supplier_id: Optional[int] = None,
     status: Optional[str] = None,
     owner: Optional[str] = None,
+    hs_code: Optional[str] = None,
+    incoterm_code: Optional[str] = None,
+    port_of_loading: Optional[str] = None,
+    port_of_discharge: Optional[str] = None,
+    shipment_mode: Optional[str] = None,
+    carrier: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
 ) -> int:
     query = db.query(ImportFile)
-    if not include_inactive:
-        query = query.filter(ImportFile.is_active == True)
-
-    if company_id:
-        query = query.filter(ImportFile.company_id == company_id)
-    if supplier_id:
-        query = query.filter(ImportFile.supplier_id == supplier_id)
-    if status and status != "All":
-        query = query.filter(ImportFile.status == status)
-    if owner and owner != "All":
-        query = query.filter(ImportFile.owner == owner)
-
-    if search and search.strip():
-        term = f"%{search.strip()}%"
-        query = query.filter(
-            or_(
-                ImportFile.import_file_code.ilike(term),
-                ImportFile.custom_file_number.ilike(term),
-                ImportFile.company_name.ilike(term),
-                ImportFile.supplier_name.ilike(term),
-                ImportFile.po_number.ilike(term),
-                ImportFile.pi_number.ilike(term),
-                ImportFile.owner.ilike(term),
-            )
-        )
-
+    query = _apply_import_file_filters(
+        query,
+        include_inactive=include_inactive,
+        search=search,
+        company_id=company_id,
+        supplier_id=supplier_id,
+        status=status,
+        owner=owner,
+        hs_code=hs_code,
+        incoterm_code=incoterm_code,
+        port_of_loading=port_of_loading,
+        port_of_discharge=port_of_discharge,
+        shipment_mode=shipment_mode,
+        carrier=carrier,
+        date_from=date_from,
+        date_to=date_to,
+    )
     return query.count()
 
 
@@ -105,39 +188,53 @@ def get_paginated_import_files(
     supplier_id: Optional[int] = None,
     status: Optional[str] = None,
     owner: Optional[str] = None,
+    hs_code: Optional[str] = None,
+    incoterm_code: Optional[str] = None,
+    port_of_loading: Optional[str] = None,
+    port_of_discharge: Optional[str] = None,
+    shipment_mode: Optional[str] = None,
+    carrier: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
     page: int = 1,
     page_size: int = 50,
 ) -> dict:
     total = count_import_files(
-        db, include_inactive, search, company_id, supplier_id, status, owner
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        company_id=company_id,
+        supplier_id=supplier_id,
+        status=status,
+        owner=owner,
+        hs_code=hs_code,
+        incoterm_code=incoterm_code,
+        port_of_loading=port_of_loading,
+        port_of_discharge=port_of_discharge,
+        shipment_mode=shipment_mode,
+        carrier=carrier,
+        date_from=date_from,
+        date_to=date_to,
     )
 
     query = db.query(ImportFile)
-    if not include_inactive:
-        query = query.filter(ImportFile.is_active == True)
-
-    if company_id:
-        query = query.filter(ImportFile.company_id == company_id)
-    if supplier_id:
-        query = query.filter(ImportFile.supplier_id == supplier_id)
-    if status and status != "All":
-        query = query.filter(ImportFile.status == status)
-    if owner and owner != "All":
-        query = query.filter(ImportFile.owner == owner)
-
-    if search and search.strip():
-        term = f"%{search.strip()}%"
-        query = query.filter(
-            or_(
-                ImportFile.import_file_code.ilike(term),
-                ImportFile.custom_file_number.ilike(term),
-                ImportFile.company_name.ilike(term),
-                ImportFile.supplier_name.ilike(term),
-                ImportFile.po_number.ilike(term),
-                ImportFile.pi_number.ilike(term),
-                ImportFile.owner.ilike(term),
-            )
-        )
+    query = _apply_import_file_filters(
+        query,
+        include_inactive=include_inactive,
+        search=search,
+        company_id=company_id,
+        supplier_id=supplier_id,
+        status=status,
+        owner=owner,
+        hs_code=hs_code,
+        incoterm_code=incoterm_code,
+        port_of_loading=port_of_loading,
+        port_of_discharge=port_of_discharge,
+        shipment_mode=shipment_mode,
+        carrier=carrier,
+        date_from=date_from,
+        date_to=date_to,
+    )
 
     items = query.order_by(ImportFile.import_file_id.desc()).offset((page - 1) * page_size).limit(page_size).all()
     

@@ -15,7 +15,7 @@ export 'widgets/enterprise_table_header_toolbar.dart';
 export 'widgets/enterprise_table_pagination_bar.dart';
 export 'widgets/enterprise_table_shimmer_skeleton.dart';
 
-/// The standard, high-performance, unified Enterprise Data Table for ImportFlow ERP.
+/// The standard, high-performance, unified Enterprise Data Table for Sorour Logistics ERP.
 ///
 /// Features:
 /// - Generic data typing `<T>`

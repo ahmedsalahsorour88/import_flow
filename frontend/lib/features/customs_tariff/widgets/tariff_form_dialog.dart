@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
 
   void showTariffDialog(BuildContext context, WidgetRef ref,
       {CustomsTariffModel? tariff, int initialModeIndex = 0}) {
+    final l10n = context.l10n;
     final hsCtrl = TextEditingController(text: tariff?.hsCode ?? '');
     final descCtrl = TextEditingController(text: tariff?.hsDescription ?? '');
     final catCtrl = TextEditingController(text: tariff?.customsCategory ?? '');
@@ -256,8 +259,8 @@ import '../providers/customs_tariff_provider.dart';
               Expanded(
                 child: Text(
                   tariff == null
-                      ? 'إضافة بند جمركي واشتراطات (Add HS Code)'
-                      : 'تعديل بند جمركي - ${tariff.hsCode}',
+                      ? l10n.tariffDialogTitleAdd
+                      : l10n.tariffDialogTitleEdit(tariff.hsCode),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -265,95 +268,96 @@ import '../providers/customs_tariff_provider.dart';
               ),
             ],
           ),
-          content: SizedBox(
-            width: 720,
-            height: 580,
-            child: Column(
-              children: [
-                // Top Segmented Mode Selector
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => setDialogState(() => activeModeIndex = 0),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: activeModeIndex == 0 ? Colors.white : Colors.transparent,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: activeModeIndex == 0
-                                  ? [const BoxShadow(color: Colors.black12, blurRadius: 4)]
-                                  : null,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.content_paste_go,
-                                    size: 16,
-                                    color: activeModeIndex == 0 ? AppTheme.cobalt : Colors.grey.shade700),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    '📄 الإدخال بالنص الكامل (Smart Text Input)',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: activeModeIndex == 0 ? FontWeight.bold : FontWeight.normal,
-                                      color: activeModeIndex == 0 ? AppTheme.cobalt : Colors.grey.shade800,
+          content: SelectionArea(
+            child: SizedBox(
+              width: 720,
+              height: 580,
+              child: Column(
+                children: [
+                  // Top Segmented Mode Selector
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setDialogState(() => activeModeIndex = 0),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: activeModeIndex == 0 ? Colors.white : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                                boxShadow: activeModeIndex == 0
+                                    ? [const BoxShadow(color: Colors.black12, blurRadius: 4)]
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.content_paste_go,
+                                      size: 16,
+                                      color: activeModeIndex == 0 ? AppTheme.cobalt : Colors.grey.shade700),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      l10n.tariffModeSmartText,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: activeModeIndex == 0 ? FontWeight.bold : FontWeight.normal,
+                                        color: activeModeIndex == 0 ? AppTheme.cobalt : Colors.grey.shade800,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => setDialogState(() => activeModeIndex = 1),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: activeModeIndex == 1 ? Colors.white : Colors.transparent,
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: activeModeIndex == 1
-                                  ? [const BoxShadow(color: Colors.black12, blurRadius: 4)]
-                                  : null,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.tune,
-                                    size: 16,
-                                    color: activeModeIndex == 1 ? AppTheme.cobalt : Colors.grey.shade700),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    '📝 الإدخال اليدوي المفصل (Manual Form)',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: activeModeIndex == 1 ? FontWeight.bold : FontWeight.normal,
-                                      color: activeModeIndex == 1 ? AppTheme.cobalt : Colors.grey.shade800,
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setDialogState(() => activeModeIndex = 1),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: activeModeIndex == 1 ? Colors.white : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                                boxShadow: activeModeIndex == 1
+                                    ? [const BoxShadow(color: Colors.black12, blurRadius: 4)]
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.tune,
+                                      size: 16,
+                                      color: activeModeIndex == 1 ? AppTheme.cobalt : Colors.grey.shade700),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      l10n.tariffModeManualForm,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: activeModeIndex == 1 ? FontWeight.bold : FontWeight.normal,
+                                        color: activeModeIndex == 1 ? AppTheme.cobalt : Colors.grey.shade800,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
                 const SizedBox(height: 12),
 
                 // Content View
@@ -369,12 +373,12 @@ import '../providers/customs_tariff_provider.dart';
                                 scrollDirection: Axis.horizontal,
                                 child: Row(
                                   children: [
-                                    const Text('أمثلة تجريبية سريعة:',
-                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                                    Text(l10n.quickExamplesLabel,
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
                                     const SizedBox(width: 8),
                                     ActionChip(
                                       avatar: const Icon(Icons.ac_unit, size: 14, color: AppTheme.cobalt),
-                                      label: const Text('مكيفات (8415820010)', style: TextStyle(fontSize: 11)),
+                                      label: Text(l10n.exampleAirConditioners, style: const TextStyle(fontSize: 11)),
                                       onPressed: () {
                                         rawTextCtrl.text = '''رقم البند :
 8415820010
@@ -402,7 +406,7 @@ import '../providers/customs_tariff_provider.dart';
                                     const SizedBox(width: 6),
                                     ActionChip(
                                       avatar: const Icon(Icons.category_outlined, size: 14, color: AppTheme.orange),
-                                      label: const Text('لدائن وبناء (3925900090)', style: TextStyle(fontSize: 11)),
+                                      label: Text(l10n.examplePlasticsBuilding, style: const TextStyle(fontSize: 11)),
                                       onPressed: () {
                                         rawTextCtrl.text = '''رقم البند :
 3925900090
@@ -428,7 +432,7 @@ import '../providers/customs_tariff_provider.dart';
                                     const SizedBox(width: 6),
                                     TextButton.icon(
                                       icon: const Icon(Icons.clear_all, size: 16, color: Colors.grey),
-                                      label: const Text('مسح النص', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      label: Text(l10n.clearTextBtn, style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                       onPressed: () {
                                         rawTextCtrl.clear();
                                         doLocalParse('', setDialogState);
@@ -443,14 +447,24 @@ import '../providers/customs_tariff_provider.dart';
                                 controller: rawTextCtrl,
                                 maxLines: 8,
                                 decoration: InputDecoration(
-                                  labelText: 'الصق نص البند الجمركي والضرائب والاشتراطات بالكامل هنا (Paste Nafeza Tariff Block) *',
-                                  hintText: 'رقم البند :\n8415820010\nنص البند :\nآلات وأجهزة تكييف أخر متضمنة وحدة تبريد...\nالضرائب :\nضريبة الوارد :\n60.000 %\nضريبة الجدول :\n8.000 %\nضريبة قيمه مضافه :\n14.000 %\nالمستندات والأعمال :\nر6722 - اتفاقية صربيا تخفيض 10%\nق4518 - لايصرح باستيراد صنف...',
+                                  labelText: l10n.pasteTariffBlockLabel,
+                                  hintText: l10n.pasteTariffBlockHint,
                                   border: const OutlineInputBorder(),
                                   alignLabelWithHint: true,
-                                  suffixIcon: IconButton(
-                                    icon: const Icon(Icons.auto_fix_high, color: AppTheme.cobalt),
-                                    tooltip: 'تحليل النص فورياً (Parse Now)',
-                                    onPressed: () => doLocalParse(rawTextCtrl.text, setDialogState),
+                                  suffixIcon: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.copy_rounded, size: 18, color: AppTheme.cobalt),
+                                        tooltip: l10n.copyTooltip,
+                                        onPressed: () => CopyHelper.copy(context, rawTextCtrl.text),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.auto_fix_high, color: AppTheme.cobalt),
+                                        tooltip: l10n.parseNowTooltip,
+                                        onPressed: () => doLocalParse(rawTextCtrl.text, setDialogState),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 onChanged: (val) => doLocalParse(val, setDialogState),
@@ -479,14 +493,14 @@ import '../providers/customs_tariff_provider.dart';
                                           const Icon(Icons.check_circle, color: AppTheme.emerald, size: 18),
                                           const SizedBox(width: 6),
                                           Text(
-                                            'معاينة البيانات المستخرجة آلياً (HS: ${parsedTariffData!['hs_code']})',
+                                            l10n.parsedPreviewHeader(parsedTariffData!['hs_code']),
                                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.emerald),
                                           ),
                                           const Spacer(),
                                           TextButton.icon(
                                             onPressed: () => setDialogState(() => activeModeIndex = 1),
                                             icon: const Icon(Icons.edit, size: 14),
-                                            label: const Text('تعديل الحقول يدوياً', style: TextStyle(fontSize: 11)),
+                                            label: Text(l10n.editFieldsManuallyBtn, style: const TextStyle(fontSize: 11)),
                                           ),
                                         ],
                                       ),
@@ -582,8 +596,8 @@ import '../providers/customs_tariff_provider.dart';
                                             const SizedBox(width: 8),
                                             Text(
                                               hasPrev
-                                                  ? '⚖️ تحليل الاختلافات وسريان التاريخ (Tariff History & Diff)'
-                                                  : '✨ نسخة بند جديدة (New HS Code Entry)',
+                                                  ? l10n.diffHistoryTitle
+                                                  : l10n.newHsVersionTitle,
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 13,
@@ -627,9 +641,9 @@ import '../providers/customs_tariff_provider.dart';
                                           ),
                                         if (diffItems.isNotEmpty) ...[
                                           const SizedBox(height: 8),
-                                          const Text(
-                                            'تفاصيل الفروقات المرصودة:',
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                          Text(
+                                            l10n.diffDetailsHeader,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                                           ),
                                           const SizedBox(height: 6),
                                           ...diffItems.map((item) {
@@ -709,20 +723,30 @@ import '../providers/customs_tariff_provider.dart';
                                       child: TextFormField(
                                         controller: hsCtrl,
                                         enabled: tariff == null,
-                                        decoration: const InputDecoration(
-                                          labelText: 'رقم البند (HS Code) *',
-                                          hintText: 'مثال: 8415820010 أو 8471.30.00',
+                                        decoration: InputDecoration(
+                                          labelText: l10n.hsCodeLabelReq,
+                                          hintText: l10n.hsCodeHint,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16),
+                                            tooltip: l10n.copyTooltip,
+                                            onPressed: () => CopyHelper.copy(context, hsCtrl.text),
+                                          ),
                                         ),
-                                        validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب إدخال رقم البند' : null,
+                                        validator: (v) => (v == null || v.trim().isEmpty) ? l10n.hsCodeRequiredError : null,
                                       ),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: TextFormField(
                                         controller: catCtrl,
-                                        decoration: const InputDecoration(
-                                          labelText: 'التصنيف الجمركي (Category)',
-                                          hintText: 'مثال: أجهزة تكييف / إلكترونيات',
+                                        decoration: InputDecoration(
+                                          labelText: l10n.customsCategoryLabel,
+                                          hintText: l10n.customsCategoryHint,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16),
+                                            tooltip: l10n.copyTooltip,
+                                            onPressed: () => CopyHelper.copy(context, catCtrl.text),
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -731,17 +755,22 @@ import '../providers/customs_tariff_provider.dart';
                                 const SizedBox(height: 12),
                                 TextFormField(
                                   controller: descCtrl,
-                                  decoration: const InputDecoration(
-                                    labelText: 'نص / وصف البند الجمركي (HS Description) *',
+                                  decoration: InputDecoration(
+                                    labelText: l10n.hsDescriptionLabelReq,
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 16),
+                                      tooltip: l10n.copyTooltip,
+                                      onPressed: () => CopyHelper.copy(context, descCtrl.text),
+                                    ),
                                   ),
                                   maxLines: 2,
-                                  validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب إدخال نص البند' : null,
+                                  validator: (v) => (v == null || v.trim().isEmpty) ? l10n.hsDescriptionRequiredError : null,
                                 ),
                                 const SizedBox(height: 16),
-                                const Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Text('نسب الضرائب والرسوم (%) :',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                                Align(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: Text(l10n.taxRatesBreakdownSection,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
                                 ),
                                 const SizedBox(height: 8),
                                 Row(
@@ -750,8 +779,15 @@ import '../providers/customs_tariff_provider.dart';
                                       child: TextFormField(
                                         controller: dutyCtrl,
                                         keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(labelText: 'ضريبة الوارد % *'),
-                                        validator: (v) => (v == null || double.tryParse(v) == null) ? 'غير صحيح' : null,
+                                        decoration: InputDecoration(
+                                          labelText: l10n.dutyRateInputLabel,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16),
+                                            tooltip: l10n.copyTooltip,
+                                            onPressed: () => CopyHelper.copy(context, dutyCtrl.text),
+                                          ),
+                                        ),
+                                        validator: (v) => (v == null || double.tryParse(v) == null) ? l10n.invalidNumberError : null,
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -759,8 +795,15 @@ import '../providers/customs_tariff_provider.dart';
                                       child: TextFormField(
                                         controller: vatCtrl,
                                         keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(labelText: 'ضريبة القيمة المضافة % *'),
-                                        validator: (v) => (v == null || double.tryParse(v) == null) ? 'غير صحيح' : null,
+                                        decoration: InputDecoration(
+                                          labelText: l10n.vatRateInputLabel,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16),
+                                            tooltip: l10n.copyTooltip,
+                                            onPressed: () => CopyHelper.copy(context, vatCtrl.text),
+                                          ),
+                                        ),
+                                        validator: (v) => (v == null || double.tryParse(v) == null) ? l10n.invalidNumberError : null,
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -768,7 +811,14 @@ import '../providers/customs_tariff_provider.dart';
                                       child: TextFormField(
                                         controller: schedCtrl,
                                         keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(labelText: 'ضريبة الجدول %'),
+                                        decoration: InputDecoration(
+                                          labelText: l10n.scheduleTaxInputLabel,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16),
+                                            tooltip: l10n.copyTooltip,
+                                            onPressed: () => CopyHelper.copy(context, schedCtrl.text),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -780,7 +830,14 @@ import '../providers/customs_tariff_provider.dart';
                                       child: TextFormField(
                                         controller: devCtrl,
                                         keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(labelText: 'رسم التنمية %'),
+                                        decoration: InputDecoration(
+                                          labelText: l10n.devFeeInputLabel,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16),
+                                            tooltip: l10n.copyTooltip,
+                                            onPressed: () => CopyHelper.copy(context, devCtrl.text),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -788,16 +845,23 @@ import '../providers/customs_tariff_provider.dart';
                                       child: TextFormField(
                                         controller: importFeeCtrl,
                                         keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(labelText: 'رسم الوارد %'),
+                                        decoration: InputDecoration(
+                                          labelText: l10n.importFeeInputLabel,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.copy_rounded, size: 16),
+                                            tooltip: l10n.copyTooltip,
+                                            onPressed: () => CopyHelper.copy(context, importFeeCtrl.text),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 16),
-                                const Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Text('اشتراطات المستندات والإفراج الرقابي :',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                                Align(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: Text(l10n.docsAndClearanceSection,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
                                 ),
                                 Row(
                                   children: [
@@ -806,45 +870,60 @@ import '../providers/customs_tariff_provider.dart';
                                       activeColor: AppTheme.cobalt,
                                       onChanged: (val) => setDialogState(() => requiresAcid = val ?? true),
                                     ),
-                                    const Text('يتطلب ACID', style: TextStyle(fontSize: 12)),
+                                    Text(l10n.requiresAcidCheckbox, style: const TextStyle(fontSize: 12)),
                                     const SizedBox(width: 12),
                                     Checkbox(
                                       value: requiresCoo,
                                       activeColor: AppTheme.cobalt,
                                       onChanged: (val) => setDialogState(() => requiresCoo = val ?? false),
                                     ),
-                                    const Text('يتطلب شهادة منشأ (COO)', style: TextStyle(fontSize: 12)),
+                                    Text(l10n.requiresCooCheckbox, style: const TextStyle(fontSize: 12)),
                                     const SizedBox(width: 12),
                                     Checkbox(
                                       value: requiresInspection,
                                       activeColor: AppTheme.cobalt,
                                       onChanged: (val) => setDialogState(() => requiresInspection = val ?? false),
                                     ),
-                                    const Text('يتطلب فحص مطابقة', style: TextStyle(fontSize: 12)),
+                                    Text(l10n.requiresInspectionCheckbox, style: const TextStyle(fontSize: 12)),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
                                 TextFormField(
                                   controller: authCtrl,
-                                  decoration: const InputDecoration(
-                                    labelText: 'الجهة الرقابية المختصة',
-                                    hintText: 'مثال: الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)',
+                                  decoration: InputDecoration(
+                                    labelText: l10n.govAuthorityLabel,
+                                    hintText: l10n.govAuthorityHint,
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 16),
+                                      tooltip: l10n.copyTooltip,
+                                      onPressed: () => CopyHelper.copy(context, authCtrl.text),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 TextFormField(
                                   controller: priorApprovalCtrl,
-                                  decoration: const InputDecoration(
-                                    labelText: 'المستندات، الأعمال، والاشتراطات الرقابية المسبقة',
-                                    hintText: 'مثال: لا يصرح باستيراد الصنف إلا بموافقة مختومة بخاتم شعار الجمهورية أو تسجيل المصانع 43',
+                                  decoration: InputDecoration(
+                                    labelText: l10n.priorApprovalsLabel,
+                                    hintText: l10n.priorApprovalsHint,
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 16),
+                                      tooltip: l10n.copyTooltip,
+                                      onPressed: () => CopyHelper.copy(context, priorApprovalCtrl.text),
+                                    ),
                                   ),
                                   maxLines: 2,
                                 ),
                                 const SizedBox(height: 8),
                                 TextFormField(
                                   controller: notesCtrl,
-                                  decoration: const InputDecoration(
-                                    labelText: 'ملاحظات إضافية / قيود الجمرك',
+                                  decoration: InputDecoration(
+                                    labelText: l10n.tariffNotesLabel,
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 16),
+                                      tooltip: l10n.copyTooltip,
+                                      onPressed: () => CopyHelper.copy(context, notesCtrl.text),
+                                    ),
                                   ),
                                   maxLines: 2,
                                 ),
@@ -856,8 +935,9 @@ import '../providers/customs_tariff_provider.dart';
               ],
             ),
           ),
+        ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.cobalt,
@@ -872,10 +952,10 @@ import '../providers/customs_tariff_provider.dart';
                   : const Icon(Icons.save, color: Colors.white, size: 18),
               label: Text(
                 isLoading
-                    ? 'جاري الحفظ...'
+                    ? l10n.savingProgress
                     : (activeModeIndex == 0
-                        ? 'إضافة وحفظ البند والاتفاقيات بالكامل'
-                        : (tariff == null ? 'إضافة البند' : 'حفظ التعديلات')),
+                        ? l10n.saveAllTariffAndAgreementsBtn
+                        : (tariff == null ? l10n.addTariffBtnShort : l10n.saveTariffChangesBtn)),
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
@@ -892,7 +972,7 @@ import '../providers/customs_tariff_provider.dart';
                           if (rawTextCtrl.text.trim().isEmpty) {
                             setDialogState(() {
                               isLoading = false;
-                              parseError = 'يرجى لصق نص البند الجمركي أولاً';
+                              parseError = l10n.pasteTextFirstError;
                             });
                             return;
                           }
@@ -905,7 +985,7 @@ import '../providers/customs_tariff_provider.dart';
                           if (parsedTariffData == null || (parsedTariffData!['hs_code'] as String).isEmpty) {
                             setDialogState(() {
                               isLoading = false;
-                              parseError = 'تعذر استخراج رقم البند من النص المدخل';
+                              parseError = l10n.cannotExtractHsCodeError;
                             });
                             return;
                           }
@@ -979,13 +1059,13 @@ import '../providers/customs_tariff_provider.dart';
                           showDialog(
                             context: context,
                             builder: (errCtx) => AlertDialog(
-                              title: const Row(
+                              title: Row(
                                 children: [
-                                  Icon(Icons.error_outline, color: AppTheme.crimson),
-                                  SizedBox(width: 8),
+                                  const Icon(Icons.error_outline, color: AppTheme.crimson),
+                                  const SizedBox(width: 8),
                                   Text(
-                                    'تفاصيل أسباب تعذر الحفظ',
-                                    style: TextStyle(
+                                    l10n.saveFailureTitle,
+                                    style: const TextStyle(
                                         color: AppTheme.crimson,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 15),
@@ -999,9 +1079,9 @@ import '../providers/customs_tariff_provider.dart';
                                     mainAxisSize: MainAxisSize.min,
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
-                                        'حدثت الأخطاء التالية أثناء معالجة وحفظ البيانات:',
-                                        style: TextStyle(
+                                      Text(
+                                        l10n.saveFailureIntro,
+                                        style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 13,
                                             color: AppTheme.charcoal),
@@ -1016,7 +1096,7 @@ import '../providers/customs_tariff_provider.dart';
                                           border: Border.all(color: Colors.red.shade200),
                                         ),
                                         child: SelectableText(
-                                          error ?? 'حدث خطأ غير محدد أثناء الحفظ',
+                                          error ?? 'Error',
                                           style: TextStyle(
                                               fontSize: 12,
                                               height: 1.5,
@@ -1033,8 +1113,8 @@ import '../providers/customs_tariff_provider.dart';
                                   style: ElevatedButton.styleFrom(
                                       backgroundColor: AppTheme.cobalt),
                                   onPressed: () => Navigator.pop(errCtx),
-                                  child: const Text('حسناً / تعديل المدخلات',
-                                      style: TextStyle(color: Colors.white)),
+                                  child: Text(l10n.adjustInputsBtn,
+                                      style: const TextStyle(color: Colors.white)),
                                 ),
                               ],
                             ),
@@ -1043,8 +1123,8 @@ import '../providers/customs_tariff_provider.dart';
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(tariff == null
-                                  ? '✅ تمت إضافة البند الجمركي وكافة اشتراطاته والاتفاقيات بنجاح!'
-                                  : '✅ تم تحديث البند الجمركي بنجاح!'),
+                                  ? l10n.tariffAddedSuccess
+                                  : l10n.tariffUpdatedSuccess),
                               backgroundColor: AppTheme.emerald,
                             ),
                           );

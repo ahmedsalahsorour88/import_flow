@@ -7,8 +7,12 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 
+from fastapi import HTTPException, status
+
 import modules.lifecycle_board.repository as repo
 import modules.lifecycle_board.validators as validators
+from modules.lifecycle_board.model import StepConfig, StepConfigAuditLog, PendingReferenceRecord
+from modules.audit_logs.model import AuditLog
 from modules.lifecycle_board.schemas import (
     StageActivityResponse,
     StepAdvancePayload,
@@ -18,6 +22,12 @@ from modules.lifecycle_board.schemas import (
     ShipmentStageCard,
     LiveLogisticsTrackingItem,
     LiveLogisticsSummaryResponse,
+    StepConfigResponse,
+    StepConfigUpdateRequest,
+    StepConfigAuditLogResponse,
+    RegisterPendingReferenceRequest,
+    RegisterPendingReferenceResponse,
+    SkipStepPayload,
 )
 from modules.import_files.model import ImportFile
 
@@ -673,8 +683,285 @@ def set_multi_active_stages_service(db: Session, payload: MultiStageSetPayload) 
     }
 
 
-def skip_step_service(db: Session, payload: "SkipStepPayload") -> Dict[str, Any]:
+# ─── Configurable Step Risk & Settings Service (Addendum: Section 10) ───
+
+DEFAULT_REASON_CATEGORIES = [
+    "Client Agreement / العميل يتولى الإجراء حسب الاتفاقية",
+    "Not Applicable to Mode / لا تنطبق على نمط الشحن",
+    "Regulatory Exemption / إعفاء رسمي أو رقابي",
+    "Other / أخرى",
+]
+
+
+def _ensure_step_configs(db: Session):
+    existing = {cfg.step_code: cfg for cfg in repo.get_all_step_configs(db)}
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    added = False
+    for p in PHASES_DEFINITION:
+        for code, names in p["step_names"].items():
+            if code not in existing:
+                cfg = StepConfig(
+                    step_code=code,
+                    step_name_en=names[0],
+                    step_name_ar=names[1],
+                    phase_id=p["phase_id"],
+                    skip_policy="blocked", # Safest default (Section 10.2)
+                    reason_required=True,
+                    reason_categories=DEFAULT_REASON_CATEGORIES,
+                    approver_roles=["Manager"], # Manager fallback (Section 10.7 & 10.8)
+                    supports_pending_reference=False,
+                    last_modified_by="SYSTEM",
+                    last_modified_at=now_str,
+                )
+                db.add(cfg)
+                added = True
+    if added:
+        db.commit()
+
+
+def get_all_step_configs_service(db: Session) -> List[StepConfigResponse]:
+    _ensure_step_configs(db)
+    configs = repo.get_all_step_configs(db)
+    return [StepConfigResponse.model_validate(c) for c in configs]
+
+
+def get_step_config_service(db: Session, step_code: str) -> StepConfigResponse:
+    validators.validate_step_code(step_code)
+    cfg = repo.get_step_config(db, step_code)
+    if not cfg:
+        # Default state = safest option (Section 10.2)
+        en_name, ar_name = STEP_NAME_MAP.get(step_code, (step_code, step_code))
+        phase_id = STEP_TO_PHASE_MAP.get(step_code, 1)
+        return StepConfigResponse(
+            id=0,
+            step_code=step_code,
+            step_name_ar=ar_name,
+            step_name_en=en_name,
+            phase_id=phase_id,
+            skip_policy="blocked",
+            reason_required=True,
+            reason_categories=DEFAULT_REASON_CATEGORIES,
+            approver_roles=["Manager"],
+            supports_pending_reference=False,
+            last_modified_by="DEFAULT",
+            last_modified_at=None,
+        )
+    return StepConfigResponse.model_validate(cfg)
+
+
+def update_step_config_service(
+    db: Session,
+    step_code: str,
+    payload: StepConfigUpdateRequest,
+    current_user_role: Optional[str] = None,
+    current_username: Optional[str] = None,
+) -> StepConfigResponse:
+    # 1. Manager Role Authorization (Section 10.7)
+    role_normalized = (current_user_role or "").strip().upper()
+    if role_normalized not in ["MANAGER", "GENERAL_MANAGER", "ADMIN"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="فقط دور المدير (Manager) مخول بالاطلاع على وتعديل سياسات وقواعد تصنيف المراحل (Section 10.7)."
+        )
+
+    # 2. Mandatory Justification (Section 10.3 & 10.7)
+    if not payload.justification or len(payload.justification.strip()) < 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="يجب تقديم سبب تبريري إلزامي لتعديل تصنيف المرحلة (لا يقل عن 5 أحرف)."
+        )
+
+    validators.validate_step_code(step_code)
+    _ensure_step_configs(db)
+    cfg = repo.get_step_config(db, step_code)
+    if not cfg:
+        en_name, ar_name = STEP_NAME_MAP.get(step_code, (step_code, step_code))
+        phase_id = STEP_TO_PHASE_MAP.get(step_code, 1)
+        cfg = StepConfig(
+            step_code=step_code,
+            step_name_en=en_name,
+            step_name_ar=ar_name,
+            phase_id=phase_id,
+            skip_policy="blocked",
+            reason_required=True,
+            reason_categories=DEFAULT_REASON_CATEGORIES,
+            approver_roles=["Manager"],
+            supports_pending_reference=False,
+        )
+        db.add(cfg)
+        db.commit()
+        db.refresh(cfg)
+
+    # Store old values for audit trail
+    old_policy = cfg.skip_policy
+    old_roles = list(cfg.approver_roles or [])
+    old_pending = cfg.supports_pending_reference
+
+    # Apply modifications
+    if payload.skip_policy is not None:
+        cfg.skip_policy = payload.skip_policy
+    if payload.reason_categories is not None:
+        cfg.reason_categories = payload.reason_categories
+    if payload.approver_roles is not None:
+        cfg.approver_roles = payload.approver_roles
+    if payload.supports_pending_reference is not None:
+        cfg.supports_pending_reference = payload.supports_pending_reference
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    username = current_username or "Manager"
+    cfg.last_modified_by = username
+    cfg.last_modified_at = now_str
+    db.commit()
+    db.refresh(cfg)
+
+    # Log rule change in audit trail (Section 10.3)
+    audit_entry = StepConfigAuditLog(
+        step_code=step_code,
+        action="UPDATE_POLICY",
+        changed_by=username,
+        changed_at=now_str,
+        old_policy=old_policy,
+        new_policy=cfg.skip_policy,
+        old_approver_roles=old_roles,
+        new_approver_roles=cfg.approver_roles,
+        old_supports_pending_reference=old_pending,
+        new_supports_pending_reference=cfg.supports_pending_reference,
+        justification=payload.justification.strip(),
+    )
+    repo.save_step_config_audit_log(db, audit_entry)
+
+    return StepConfigResponse.model_validate(cfg)
+
+
+def get_step_config_audit_logs_service(db: Session, step_code: Optional[str] = None) -> List[StepConfigAuditLogResponse]:
+    logs = repo.get_step_config_audit_logs(db, step_code=step_code)
+    return [StepConfigAuditLogResponse.model_validate(l) for l in logs]
+
+
+def register_pending_reference_service(
+    db: Session,
+    payload: RegisterPendingReferenceRequest,
+    current_username: Optional[str] = None,
+) -> RegisterPendingReferenceResponse:
+    validators.validate_step_code(payload.step_code)
+
+    # 1. Live Step Config Eligibility Check (Section 10.4)
+    cfg = repo.get_step_config(db, payload.step_code)
+    supports_pending = cfg.supports_pending_reference if cfg else False
+
+    if not supports_pending:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"الخطوة '{payload.step_code}' غير مؤهلة لتسجيل مرجع معلق (Pending Reference) وفق سياسة النظام المعتمدة. يجب تفعيل 'supports_pending_reference' في إعدادات الخطوة أولاً."
+        )
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    username = current_username or "System"
+
+    # 2. Record in PendingReferenceRecord table
+    pending_rec = PendingReferenceRecord(
+        import_file_code=payload.import_file_code,
+        step_code=payload.step_code,
+        reference_number=payload.reference_number.strip(),
+        reason_text=payload.reason_text.strip(),
+        expected_completion_date=payload.expected_completion_date,
+        registered_by=username,
+        registered_at=now_str,
+        status="Pending Documentation",
+    )
+    repo.save_pending_reference(db, pending_rec)
+
+    # 3. Update ShipmentStageActivity with distinct 6th status
+    # Note: completed_at remains None! Step is NOT closed or bypassed.
+    action_data_json = json.dumps({
+        "reference_number": payload.reference_number.strip(),
+        "reason_text": payload.reason_text.strip(),
+        "expected_completion_date": payload.expected_completion_date,
+        "registered_by": username,
+        "registered_at": now_str,
+        "type": "PENDING_REFERENCE",
+    }, ensure_ascii=False)
+
+    repo.save_or_update_activity(
+        db,
+        import_file_code=payload.import_file_code,
+        step_code=payload.step_code,
+        status="Reference recorded – pending full documentation",
+        assigned_user=username,
+        action_data=action_data_json,
+        notes=f"مرجع معلق: {payload.reference_number} — {payload.reason_text}",
+    )
+
+    # 4. Central Audit Log
+    try:
+        file_rec = db.query(ImportFile).filter(ImportFile.import_file_code == payload.import_file_code).first()
+        audit_log = AuditLog(
+            entity_type="LifecycleStep",
+            entity_id=file_rec.import_file_id if file_rec else 0,
+            entity_code=payload.import_file_code,
+            action="REGISTER_PENDING_REFERENCE",
+            changes_summary=f"Registered pending reference '{payload.reference_number}' for step {payload.step_code}. Step remains incomplete pending docs.",
+            old_values=json.dumps({"step_code": payload.step_code, "status": "In-Progress"}),
+            new_values=json.dumps({
+                "step_code": payload.step_code,
+                "status": "Reference recorded – pending full documentation",
+                "reference_number": payload.reference_number,
+                "expected_completion_date": payload.expected_completion_date,
+            }),
+            performed_by=username,
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception:
+        pass
+
+    return RegisterPendingReferenceResponse(
+        message=f"تم تسجيل المرجع المعلق '{payload.reference_number}' للمرحلة {payload.step_code} بنجاح. تظل المرحلة غير مكتملة امتثالياً حتى استيفاء المستندات.",
+        import_file_code=payload.import_file_code,
+        step_code=payload.step_code,
+        reference_number=payload.reference_number,
+        reason_text=payload.reason_text,
+        expected_completion_date=payload.expected_completion_date,
+        status="Reference recorded – pending full documentation",
+        registered_at=now_str,
+    )
+
+
+def skip_step_service(
+    db: Session,
+    payload: SkipStepPayload,
+    current_user_role: Optional[str] = None,
+    current_username: Optional[str] = None,
+) -> Dict[str, Any]:
     validators.validate_step_code(payload.current_step_code)
+
+    # Mandatory Reason Check (Section 9.3 & 10.1)
+    if not payload.skip_reason or len(payload.skip_reason.strip()) < 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="سبب التخطي إلزامي ويجب ألا يقل عن 5 أحرف لتبرير الإجراء تشغيلياً."
+        )
+
+    # Enforce Configurable Skip Policy (Section 10.1, 10.2, 10.5)
+    cfg = repo.get_step_config(db, payload.current_step_code)
+    skip_policy = cfg.skip_policy if cfg else "blocked" # Safest default: blocked
+
+    if skip_policy == "blocked":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"الخطوة '{payload.current_step_code}' محظورة من التخطي حسب سياسة النظام المعتمدة (Policy: blocked). يتطلب التخطي تعديل سياسة المرحلة من قبل المدير أولاً."
+        )
+
+    # Role validation if caller role provided
+    if current_user_role:
+        user_role_norm = current_user_role.strip().upper()
+        allowed_roles = [r.strip().upper() for r in (cfg.approver_roles if cfg else ["Manager"])]
+        is_authorized = user_role_norm in allowed_roles or user_role_norm in ["ADMIN", "MANAGER", "GENERAL_MANAGER"]
+        if not is_authorized:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"دورك '{current_user_role}' غير مخول باعتماد تخطي هذه الخطوة. الأدوار المعتمدة: {cfg.approver_roles if cfg else ['Manager']}."
+            )
 
     # Auto-infer next step from sequence if not explicitly provided
     if not payload.next_step_codes:
@@ -727,11 +1014,29 @@ def skip_step_service(db: Session, payload: "SkipStepPayload") -> Dict[str, Any]
         skip_reason=payload.skip_reason,
     )
 
+    # Write permanent central audit log entry
+    try:
+        audit_log = AuditLog(
+            entity_type="LifecycleStep",
+            entity_id=file_rec.import_file_id if file_rec else 0,
+            entity_code=payload.import_file_code,
+            action="SKIP_STAGE",
+            changes_summary=f"Skipped {payload.current_step_code} -> Activated {payload.next_step_codes}. Reason: {payload.skip_reason}",
+            old_values=json.dumps({"step_code": payload.current_step_code, "status": "In-Progress"}),
+            new_values=json.dumps({"step_code": payload.current_step_code, "status": "Skipped", "reason": payload.skip_reason, "policy": skip_policy}),
+            performed_by=current_username or "System",
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception:
+        pass
+
     return {
         "message": f"تم تخطي الخطوة {payload.current_step_code} وتفعيل الخطوات اللاحقة بنجاح.",
         "skipped_step": payload.current_step_code,
         "activated_steps": payload.next_step_codes,
         "skip_reason": payload.skip_reason,
+        "skip_policy": skip_policy,
     }
 
 

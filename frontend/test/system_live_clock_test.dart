@@ -69,8 +69,17 @@ void main() {
       expect(WorldTimezoneHelper.getCountryName('egypt', isArabic: true), equals('مصر'));
       expect(WorldTimezoneHelper.getCountryName('egypt', isArabic: false), equals('Egypt'));
 
-      expect(WorldTimezoneHelper.getCountryName('france_italy', isArabic: true), equals('فرنسا وإيطاليا'));
-      expect(WorldTimezoneHelper.getCountryName('france_italy', isArabic: false), equals('France & Italy'));
+      expect(WorldTimezoneHelper.getCountryName('france_italy_spain', isArabic: true), equals('فرنسا وإيطاليا وإسبانيا'));
+      expect(WorldTimezoneHelper.getCountryName('france_italy_spain', isArabic: false), equals('France, Italy & Spain'));
+
+      expect(WorldTimezoneHelper.getCountryName('france_italy', isArabic: true), equals('فرنسا وإيطاليا وإسبانيا'));
+      expect(WorldTimezoneHelper.getCountryName('france_italy', isArabic: false), equals('France, Italy & Spain'));
+
+      expect(WorldTimezoneHelper.getCountryName('spain', isArabic: true), equals('إسبانيا'));
+      expect(WorldTimezoneHelper.getCountryName('spain', isArabic: false), equals('Spain'));
+
+      expect(WorldTimezoneHelper.getCountryName('france', isArabic: true), equals('فرنسا'));
+      expect(WorldTimezoneHelper.getCountryName('italy', isArabic: true), equals('إيطاليا'));
 
       expect(WorldTimezoneHelper.getCountryName('uk', isArabic: true), equals('إنجلترا'));
       expect(WorldTimezoneHelper.getCountryName('uk', isArabic: false), equals('UK'));
@@ -126,11 +135,15 @@ void main() {
       expect(egypt.hour, equals(15));
       expect(egypt.minute, equals(0));
 
-      // 2. France & Italy (UTC+2 summer)
+      // 2. France, Italy & Spain (UTC+2 summer)
       final france = WorldTimezoneHelper.getFranceTime(refUtc);
       final italy = WorldTimezoneHelper.getItalyTime(refUtc);
+      final spain = WorldTimezoneHelper.getSpainTime(refUtc);
+      final franceItalySpain = WorldTimezoneHelper.getFranceItalySpainTime(refUtc);
       expect(france.hour, equals(14));
       expect(italy.hour, equals(14));
+      expect(spain.hour, equals(14));
+      expect(franceItalySpain.hour, equals(14));
 
       // 3. England / UK (UTC+1 summer)
       final uk = WorldTimezoneHelper.getUkTime(refUtc);
@@ -155,6 +168,17 @@ void main() {
       // 8. United States (UTC-4 EDT summer)
       final us = WorldTimezoneHelper.getUsEasternTime(refUtc);
       expect(us.hour, equals(8));
+    });
+
+    test('Spain time: matches France and Italy in both Summer (UTC+2) and Winter (UTC+1)', () {
+      final summerDate = DateTime.utc(2026, 9, 10, 12, 0, 0);
+      final winterDate = DateTime.utc(2026, 1, 15, 12, 0, 0);
+
+      expect(WorldTimezoneHelper.getSpainTime(summerDate).hour, equals(14));
+      expect(WorldTimezoneHelper.getSpainTime(winterDate).hour, equals(13));
+      expect(WorldTimezoneHelper.getSpainTime(summerDate), equals(WorldTimezoneHelper.getFranceTime(summerDate)));
+      expect(WorldTimezoneHelper.getSpainTime(winterDate), equals(WorldTimezoneHelper.getItalyTime(winterDate)));
+      expect(WorldTimezoneHelper.getFranceItalySpainTime(summerDate), equals(WorldTimezoneHelper.getSpainTime(summerDate)));
     });
 
     test('Turkey time: UTC+3 year-round (no DST changes)', () {
@@ -212,7 +236,7 @@ void main() {
       expect(find.byIcon(Icons.calendar_month_rounded), findsOneWidget);
     });
 
-    testWidgets('SystemWorldClocksBar renders combined France/Italy, UAE, USA, and other countries', (tester) async {
+    testWidgets('SystemWorldClocksBar renders combined France/Italy/Spain, UAE, USA, and other countries', (tester) async {
       final refUtc = DateTime.utc(2026, 9, 10, 12, 0, 0);
 
       await tester.pumpWidget(
@@ -228,7 +252,7 @@ void main() {
 
       // Verify country names in Arabic
       expect(find.text('مصر'), findsOneWidget);
-      expect(find.text('فرنسا وإيطاليا'), findsOneWidget); // Combined
+      expect(find.text('فرنسا وإيطاليا وإسبانيا'), findsOneWidget); // Combined
       expect(find.text('إنجلترا'), findsOneWidget);
       expect(find.text('تركيا'), findsOneWidget);         // Turkey
       expect(find.text('ليتوانيا'), findsOneWidget);
@@ -238,7 +262,7 @@ void main() {
 
       // Verify country flags
       expect(find.text('🇪🇬'), findsOneWidget);
-      expect(find.text('🇫🇷 🇮🇹'), findsOneWidget); // Combined flags
+      expect(find.text('🇫🇷 🇮🇹 🇪🇸'), findsOneWidget); // Combined flags
       expect(find.text('🇬🇧'), findsOneWidget);
       expect(find.text('🇹🇷'), findsOneWidget);
       expect(find.text('🇱🇹'), findsOneWidget);
@@ -248,7 +272,7 @@ void main() {
 
       // Verify 24-hour time values (compact HH:mm format without seconds)
       expect(find.text('15:00'), findsNWidgets(3)); // Egypt, Turkey & Lithuania
-      expect(find.text('14:00'), findsOneWidget);   // France & Italy combined
+      expect(find.text('14:00'), findsOneWidget);   // France, Italy & Spain combined
       expect(find.text('13:00'), findsOneWidget);   // UK
       expect(find.text('20:00'), findsOneWidget);   // China
       expect(find.text('16:00'), findsOneWidget);   // UAE
@@ -291,7 +315,7 @@ void main() {
 
       // Verify English country names
       expect(find.text('Egypt'), findsOneWidget);
-      expect(find.text('France & Italy'), findsOneWidget);
+      expect(find.text('France, Italy & Spain'), findsOneWidget);
       expect(find.text('UK'), findsOneWidget);
       expect(find.text('Turkey'), findsOneWidget);
       expect(find.text('Lithuania'), findsOneWidget);
@@ -301,7 +325,7 @@ void main() {
 
       // Verify flags are still present
       expect(find.text('🇪🇬'), findsOneWidget);
-      expect(find.text('🇫🇷 🇮🇹'), findsOneWidget);
+      expect(find.text('🇫🇷 🇮🇹 🇪🇸'), findsOneWidget);
       expect(find.text('🇬🇧'), findsOneWidget);
       expect(find.text('🇹🇷'), findsOneWidget);
       expect(find.text('🇱🇹'), findsOneWidget);
@@ -343,7 +367,7 @@ void main() {
       );
 
       expect(find.text('مصر'), findsOneWidget);
-      expect(find.text('فرنسا وإيطاليا'), findsOneWidget);
+      expect(find.text('فرنسا وإيطاليا وإسبانيا'), findsOneWidget);
       expect(find.text('تركيا'), findsOneWidget);
       expect(find.text('الصين'), findsOneWidget);
     });
@@ -363,7 +387,7 @@ void main() {
 
       expect(find.byType(SystemWorldClocksHeader), findsOneWidget);
       expect(find.text('Egypt'), findsOneWidget);
-      expect(find.text('France & Italy'), findsOneWidget);
+      expect(find.text('France, Italy & Spain'), findsOneWidget);
       expect(find.text('Turkey'), findsOneWidget);
       expect(find.text('USA'), findsOneWidget);
     });

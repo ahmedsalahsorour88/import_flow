@@ -9,9 +9,11 @@ int getIsoWeekNumber(DateTime date) => WorldTimezoneHelper.getIsoWeekNumber(date
 /// and working hours across the company's major supply & shipping jurisdictions.
 class WorldTimezoneHelper {
   static const String egyptFlag = '🇪🇬';
+  static const String franceItalySpainFlag = '🇫🇷 🇮🇹 🇪🇸';
   static const String franceItalyFlag = '🇫🇷 🇮🇹';
   static const String franceFlag = '🇫🇷';
   static const String italyFlag = '🇮🇹';
+  static const String spainFlag = '🇪🇸';
   static const String ukFlag = '🇬🇧';
   static const String turkeyFlag = '🇹🇷';
   static const String lithuaniaFlag = '🇱🇹';
@@ -20,9 +22,11 @@ class WorldTimezoneHelper {
   static const String usFlag = '🇺🇸';
 
   static const String egyptName = 'مصر';
+  static const String franceItalySpainName = 'فرنسا وإيطاليا وإسبانيا';
   static const String franceItalyName = 'فرنسا وإيطاليا';
   static const String franceName = 'فرنسا';
   static const String italyName = 'إيطاليا';
+  static const String spainName = 'إسبانيا';
   static const String ukName = 'إنجلترا';
   static const String turkeyName = 'تركيا';
   static const String lithuaniaName = 'ليتوانيا';
@@ -105,7 +109,7 @@ class WorldTimezoneHelper {
     return utc.add(Duration(hours: offsetHours));
   }
 
-  /// 2. France & Italy (Paris & Rome): UTC+2 summer, UTC+1 winter (Central European Time)
+  /// 2. France, Italy & Spain (Paris, Rome & Madrid): UTC+2 summer, UTC+1 winter (Central European Time)
   static DateTime getFranceTime([DateTime? baseUtc]) {
     final utc = (baseUtc ?? DateTime.now()).toUtc();
     final offsetHours = isEuUkSummerTime(utc) ? 2 : 1;
@@ -113,6 +117,8 @@ class WorldTimezoneHelper {
   }
 
   static DateTime getItalyTime([DateTime? baseUtc]) => getFranceTime(baseUtc);
+  static DateTime getSpainTime([DateTime? baseUtc]) => getFranceTime(baseUtc);
+  static DateTime getFranceItalySpainTime([DateTime? baseUtc]) => getFranceTime(baseUtc);
 
   /// 3. England / UK (London): UTC+1 summer, UTC+0 winter
   static DateTime getUkTime([DateTime? baseUtc]) {
@@ -212,8 +218,16 @@ class WorldTimezoneHelper {
     switch (countryKey) {
       case 'egypt':
         return isArabic ? egyptName : 'Egypt';
+      case 'france_italy_spain':
+        return isArabic ? franceItalySpainName : 'France, Italy & Spain';
+      case 'spain':
+        return isArabic ? spainName : 'Spain';
+      case 'france':
+        return isArabic ? franceName : 'France';
+      case 'italy':
+        return isArabic ? italyName : 'Italy';
       case 'france_italy':
-        return isArabic ? franceItalyName : 'France & Italy';
+        return isArabic ? franceItalySpainName : 'France, Italy & Spain';
       case 'uk':
         return isArabic ? ukName : 'UK';
       case 'turkey':
@@ -519,12 +533,12 @@ class SystemWorldClocksBar extends StatelessWidget {
         ? 'توقيت القاهرة (مقر الشركة) — $egyptTz'
         : 'Cairo Time (Headquarters) — $egyptTz';
 
-    // 2. France & Italy (Paris & Rome) - Combined into one clock
-    final franceItalyTime = WorldTimezoneHelper.getFranceTime(currentTimeUtc);
-    final franceItalyTz = WorldTimezoneHelper.isEuUkSummerTime(currentTimeUtc) ? 'UTC+2' : 'UTC+1';
-    final franceItalyTooltip = isAr
-        ? 'توقيت باريس وروما (فرنسا وإيطاليا) — $franceItalyTz'
-        : 'Paris & Rome Time (France & Italy) — $franceItalyTz';
+    // 2. France, Italy & Spain (Paris, Rome & Madrid) - Combined into one clock
+    final franceItalySpainTime = WorldTimezoneHelper.getFranceTime(currentTimeUtc);
+    final franceItalySpainTz = WorldTimezoneHelper.isEuUkSummerTime(currentTimeUtc) ? 'UTC+2' : 'UTC+1';
+    final franceItalySpainTooltip = isAr
+        ? 'توقيت باريس وروما ومدريد (فرنسا وإيطاليا وإسبانيا) — $franceItalySpainTz'
+        : 'Paris, Rome & Madrid Time (France, Italy & Spain) — $franceItalySpainTz';
 
     // 3. England / UK (London)
     final ukTime = WorldTimezoneHelper.getUkTime(currentTimeUtc);
@@ -580,11 +594,11 @@ class SystemWorldClocksBar extends StatelessWidget {
         isArabic: isAr,
       ),
       WorldClockChip(
-        flag: WorldTimezoneHelper.franceItalyFlag,
-        countryName: WorldTimezoneHelper.getCountryName('france_italy', isArabic: isAr),
-        time24h: WorldTimezoneHelper.formatTime24h(franceItalyTime, showSeconds: showSeconds),
-        isBusinessHours: WorldTimezoneHelper.isBusinessHours(franceItalyTime),
-        tooltip: franceItalyTooltip,
+        flag: WorldTimezoneHelper.franceItalySpainFlag,
+        countryName: WorldTimezoneHelper.getCountryName('france_italy_spain', isArabic: isAr),
+        time24h: WorldTimezoneHelper.formatTime24h(franceItalySpainTime, showSeconds: showSeconds),
+        isBusinessHours: WorldTimezoneHelper.isBusinessHours(franceItalySpainTime),
+        tooltip: franceItalySpainTooltip,
         isDark: isDark,
         isArabic: isAr,
       ),

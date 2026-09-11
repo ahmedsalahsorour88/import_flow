@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
@@ -211,12 +212,22 @@ class _ShipmentInquiryFilterPanelState
                     fillColor: Colors.white.withOpacity(0.08),
                     prefixIcon: const Icon(Icons.manage_search_outlined, color: Colors.white60, size: 18),
                     suffixIcon: _hsCodeController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, color: Colors.white54, size: 16),
-                            onPressed: () {
-                              _hsCodeController.clear();
-                              _triggerSearch();
-                            },
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.copy_rounded, color: Colors.white70, size: 16),
+                                tooltip: l.inqCopyCodeTooltip,
+                                onPressed: () => CopyHelper.copy(context, _hsCodeController.text),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.clear, color: Colors.white54, size: 16),
+                                onPressed: () {
+                                  _hsCodeController.clear();
+                                  _triggerSearch();
+                                },
+                              ),
+                            ],
                           )
                         : null,
                     border: OutlineInputBorder(
@@ -294,16 +305,16 @@ class _ShipmentInquiryFilterPanelState
                   flex: 2,
                   child: SearchableDropdownField<String?>(
                     value: filters.incotermCode,
-                    items: const [
-                      SearchableDropdownItem(value: null, label: 'جميع الشروط'),
-                      SearchableDropdownItem(value: 'EXW', label: 'EXW - تسليم المصنع'),
-                      SearchableDropdownItem(value: 'FOB', label: 'FOB - على ظهر السفينة'),
-                      SearchableDropdownItem(value: 'CFR', label: 'CFR - النولون مدفوع'),
-                      SearchableDropdownItem(value: 'CIF', label: 'CIF - نولون وتأمين'),
-                      SearchableDropdownItem(value: 'CIP', label: 'CIP - نولون وتأمين'),
-                      SearchableDropdownItem(value: 'DPU', label: 'DPU - مكان التسليم مفرغ'),
-                      SearchableDropdownItem(value: 'DAP', label: 'DAP - التسليم بالمكان'),
-                      SearchableDropdownItem(value: 'DDP', label: 'DDP - خالصة الرسوم'),
+                    items: [
+                      SearchableDropdownItem(value: null, label: l.inqAllIncoterms),
+                      SearchableDropdownItem(value: 'EXW', label: l.inqIncotermExw),
+                      SearchableDropdownItem(value: 'FOB', label: l.inqIncotermFob),
+                      SearchableDropdownItem(value: 'CFR', label: l.inqIncotermCfr),
+                      SearchableDropdownItem(value: 'CIF', label: l.inqIncotermCif),
+                      SearchableDropdownItem(value: 'CIP', label: l.inqIncotermCip),
+                      SearchableDropdownItem(value: 'DPU', label: l.inqIncotermDpu),
+                      SearchableDropdownItem(value: 'DAP', label: l.inqIncotermDap),
+                      SearchableDropdownItem(value: 'DDP', label: l.inqIncotermDdp),
                     ],
                     labelText: l.inqIncoterm,
                     decoration: InputDecoration(
@@ -337,6 +348,13 @@ class _ShipmentInquiryFilterPanelState
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      suffixIcon: _polController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.copy_rounded, color: Colors.white70, size: 14),
+                              tooltip: l.inqCopyCodeTooltip,
+                              onPressed: () => CopyHelper.copy(context, _polController.text),
+                            )
+                          : null,
                     ),
                     onSubmitted: (_) => _triggerSearch(),
                   ),
@@ -356,6 +374,13 @@ class _ShipmentInquiryFilterPanelState
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      suffixIcon: _podController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.copy_rounded, color: Colors.white70, size: 14),
+                              tooltip: l.inqCopyCodeTooltip,
+                              onPressed: () => CopyHelper.copy(context, _podController.text),
+                            )
+                          : null,
                     ),
                     onSubmitted: (_) => _triggerSearch(),
                   ),
@@ -367,12 +392,12 @@ class _ShipmentInquiryFilterPanelState
                   flex: 2,
                   child: SearchableDropdownField<String?>(
                     value: filters.shipmentMode,
-                    items: const [
-                      SearchableDropdownItem(value: null, label: 'جميع الأساليب'),
-                      SearchableDropdownItem(value: 'Sea FCL', label: 'بحري - FCL كلي'),
-                      SearchableDropdownItem(value: 'Sea LCL', label: 'بحري - LCL جزئي'),
-                      SearchableDropdownItem(value: 'Air', label: 'جوي - Air Cargo'),
-                      SearchableDropdownItem(value: 'Land', label: 'بري - Land Transport'),
+                    items: [
+                      SearchableDropdownItem(value: null, label: l.inqAllModes),
+                      SearchableDropdownItem(value: 'Sea FCL', label: l.inqModeSeaFcl),
+                      SearchableDropdownItem(value: 'Sea LCL', label: l.inqModeSeaLcl),
+                      SearchableDropdownItem(value: 'Air', label: l.inqModeAir),
+                      SearchableDropdownItem(value: 'Land', label: l.inqModeLand),
                     ],
                     labelText: l.inqShippingMode,
                     decoration: InputDecoration(
@@ -406,6 +431,13 @@ class _ShipmentInquiryFilterPanelState
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      suffixIcon: _carrierController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.copy_rounded, color: Colors.white70, size: 14),
+                              tooltip: l.inqCopyCodeTooltip,
+                              onPressed: () => CopyHelper.copy(context, _carrierController.text),
+                            )
+                          : null,
                     ),
                     onSubmitted: (_) => _triggerSearch(),
                   ),
@@ -430,8 +462,11 @@ class _ShipmentInquiryFilterPanelState
                   icon: const Icon(Icons.bookmark_add_outlined, color: Colors.amberAccent, size: 20),
                   tooltip: l.inqSaveFilterPreset,
                   onPressed: () {
+                    final searchVal = _hsCodeController.text.isNotEmpty
+                        ? _hsCodeController.text
+                        : l.inqFilterPanelTitle;
                     ref.read(shipmentInquiryStateProvider.notifier).saveCurrentPreset(
-                          'بحث: ${_hsCodeController.text.isNotEmpty ? _hsCodeController.text : "مخصص"}',
+                          '${l.inqSearchPrefix}$searchVal',
                         );
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(

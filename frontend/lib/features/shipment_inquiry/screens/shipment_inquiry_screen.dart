@@ -55,8 +55,8 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
   String _buildFilterSummary(AppLocalizations l) {
     final filters = ref.read(shipmentInquiryStateProvider).filters;
     final parts = <String>[];
-    if (filters.supplierId != null) parts.add('${l.inqSupplier}: ID ${filters.supplierId}');
-    if (filters.companyId != null) parts.add('${l.inqImporter}: ID ${filters.companyId}');
+    if (filters.supplierId != null) parts.add('${l.inqSupplier}: ${filters.supplierId}');
+    if (filters.companyId != null) parts.add('${l.inqImporter}: ${filters.companyId}');
     if (filters.hsCodeOrProduct.isNotEmpty) parts.add('${l.inqHsCodeOrProduct}: ${filters.hsCodeOrProduct}');
     if (filters.incotermCode != null && filters.incotermCode != 'All') {
       parts.add('${l.inqIncoterm}: ${filters.incotermCode}');
@@ -73,16 +73,16 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
     if (filters.carrier != null && filters.carrier!.isNotEmpty) {
       parts.add('${l.inqCarrier}: ${filters.carrier}');
     }
-    if (filters.search.isNotEmpty) parts.add('بحث: ${filters.search}');
+    if (filters.search.isNotEmpty) parts.add('${l.inqSearchPrefix}: ${filters.search}');
 
-    return parts.isEmpty ? 'جميع الشحنات المسجلة' : parts.join(' | ');
+    return parts.isEmpty ? l.inqAllRegisteredShipments : parts.join(' | ');
   }
 
   void _handlePrintPdf() {
     final shipments = ref.read(filteredShipmentsProvider);
     final user = ref.read(authProvider).user;
-    final username = user?.fullName ?? user?.username ?? 'مدير العمليات';
     final l = context.l10n;
+    final username = user?.fullName ?? user?.username ?? l.inqOperatorManagerDefault;
 
     ShipmentInquiryExportService.printPdf(
       context: context,
@@ -158,9 +158,9 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                             color: AppTheme.charcoal,
                           ),
                         ),
-                        const Text(
-                          'استعلام تفصيلي شامل، سجل أسعار النولون التاريخية، والاستنساخ الذكي للشحنات المتكررة',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        Text(
+                          l.inqSubtitle,
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       ],
                     ),
@@ -168,7 +168,7 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                   // Auto-refresh action button
                   IconButton(
                     icon: const Icon(Icons.refresh_rounded, color: AppTheme.cobalt),
-                    tooltip: 'تحديث البيانات حياً من السيرفر',
+                    tooltip: l.inqLiveRefreshTooltip,
                     onPressed: () {
                       ref.read(importFilesProvider.notifier).fetchImportFiles();
                     },
@@ -183,7 +183,7 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
               child: importFilesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (err, _) => Center(
-                  child: Text('خطأ في تحميل الشحنات: $err', style: const TextStyle(color: AppTheme.crimson)),
+                  child: Text('${l.inqLoadError}: $err', style: const TextStyle(color: AppTheme.crimson)),
                 ),
                 data: (_) {
                   return ListView(
@@ -228,14 +228,14 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                 const SizedBox(width: 16),
                                 _buildKpiBadge(
                                   label: l.inqAverageFreightCost,
-                                  value: '${avgFreight.toStringAsFixed(0)} \$',
+                                  value: '${avgFreight.toStringAsFixed(0)} ${l.inqCurrencyUsd}',
                                   color: Colors.teal.shade700,
                                   icon: Icons.show_chart_rounded,
                                 ),
                                 const SizedBox(width: 16),
                                 _buildKpiBadge(
                                   label: l.inqTotalIncurredCost,
-                                  value: '${totalFreight.toStringAsFixed(0)} \$',
+                                  value: '${totalFreight.toStringAsFixed(0)} ${l.inqCurrencyUsd}',
                                   color: AppTheme.orange,
                                   icon: Icons.account_balance_wallet_outlined,
                                 ),
@@ -265,7 +265,7 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                 const SizedBox(width: 8),
                                 OutlinedButton.icon(
                                   icon: const Icon(Icons.file_present_outlined, size: 16, color: AppTheme.cobalt),
-                                  label: const Text('TSV', style: TextStyle(fontSize: 12)),
+                                  label: Text(l.inqExportTsvBtn, style: const TextStyle(fontSize: 12)),
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                   ),
@@ -274,7 +274,7 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                 const SizedBox(width: 8),
                                 IconButton(
                                   icon: const Icon(Icons.copy_all_outlined, size: 18, color: AppTheme.charcoal),
-                                  tooltip: 'نسخ ملخص الحافظة النصي بالكامل',
+                                  tooltip: l.inqCopyDossierTooltip,
                                   onPressed: _handleCopyDossier,
                                 ),
                               ],
@@ -289,9 +289,9 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                         padding: const EdgeInsets.only(bottom: 8, right: 4),
                         child: Row(
                           children: [
-                            const Text(
-                              '1. جدول النتائج الرئيسي بعد التعديل',
-                              style: TextStyle(
+                            Text(
+                              l.inqResultsTableTitle,
+                              style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.charcoal,
@@ -299,7 +299,7 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                             ),
                             const Spacer(),
                             Text(
-                              'عرض $totalCount شحنة مطابقة',
+                              l.inqShowingMatchingCount(totalCount),
                               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                             ),
                           ],
@@ -322,9 +322,9 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                     children: [
                                       Icon(Icons.search_off_rounded, size: 48, color: Colors.grey.shade400),
                                       const SizedBox(height: 12),
-                                      const Text(
-                                        'لا توجد شحنات مطابقة لمعايير البحث الحالية',
-                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+                                      Text(
+                                        l.inqEmptyShipmentsTitle,
+                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
                                       ),
                                     ],
                                   ),
@@ -371,160 +371,229 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                       ),
                                     ),
                                   ],
-                                  rows: shipments.map((file) {
-                                    final row = ShipmentInquiryReportRow.fromImportFile(file);
+                                   rows: shipments.map((file) {
+                                     final row = ShipmentInquiryReportRow.fromImportFile(file, l);
+                                     final rowTsvSummary = '${row.shipmentName}\t${file.importFileCode}\t${row.supplierName}\t${row.companyName}\t${row.itemAndHs}\t${row.route}\t${row.shippingMode}\t${row.incoterm}\t${row.freightCost.toStringAsFixed(0)} ${row.currency}';
 
-                                    return DataRow(
-                                      onSelectChanged: (_) => _openDetails(file),
-                                      cells: [
-                                        // 1. Shipment Name
-                                        DataCell(
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                row.shipmentName,
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              const SizedBox(height: 2),
-                                              CopyableText(
-                                                file.importFileCode,
-                                                style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                                     return DataRow(
+                                       onSelectChanged: (_) => _openDetails(file),
+                                       cells: [
+                                         // 1. Shipment Name & File Code
+                                         DataCell(
+                                           CopyableTableCell(
+                                             value: '${row.shipmentName} (${file.importFileCode})',
+                                             rowSummary: rowTsvSummary,
+                                             child: Column(
+                                               crossAxisAlignment: CrossAxisAlignment.start,
+                                               mainAxisAlignment: MainAxisAlignment.center,
+                                               children: [
+                                                 Text(
+                                                   row.shipmentName,
+                                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                                                   maxLines: 1,
+                                                   overflow: TextOverflow.ellipsis,
+                                                 ),
+                                                 const SizedBox(height: 2),
+                                                 Row(
+                                                   mainAxisSize: MainAxisSize.min,
+                                                   children: [
+                                                     Text(
+                                                       file.importFileCode,
+                                                       style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
+                                                     ),
+                                                     const SizedBox(width: 4),
+                                                     InkWell(
+                                                       onTap: () => CopyHelper.copy(
+                                                         context,
+                                                         file.importFileCode,
+                                                         customMessage: l.inqCopiedCodeSuccess,
+                                                       ),
+                                                       child: Tooltip(
+                                                         message: l.inqCopyCodeTooltip,
+                                                         child: Icon(
+                                                           Icons.copy_rounded,
+                                                           size: 11,
+                                                           color: Colors.grey.shade500,
+                                                         ),
+                                                       ),
+                                                     ),
+                                                   ],
+                                                 ),
+                                               ],
+                                             ),
+                                           ),
+                                         ),
 
-                                        // 2. Foreign Supplier
-                                        DataCell(
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(Icons.business_outlined, size: 15, color: AppTheme.cobalt),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                row.supplierName,
-                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                                         // 2. Foreign Supplier
+                                         DataCell(
+                                           CopyableTableCell(
+                                             value: row.supplierName,
+                                             rowSummary: rowTsvSummary,
+                                             child: Row(
+                                               mainAxisSize: MainAxisSize.min,
+                                               children: [
+                                                 const Icon(Icons.business_outlined, size: 15, color: AppTheme.cobalt),
+                                                 const SizedBox(width: 6),
+                                                 Flexible(
+                                                   child: Text(
+                                                     row.supplierName,
+                                                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                                     overflow: TextOverflow.ellipsis,
+                                                   ),
+                                                 ),
+                                               ],
+                                             ),
+                                           ),
+                                         ),
 
-                                        // 3. Importing Company
-                                        DataCell(
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: Colors.blueGrey.withOpacity(0.08),
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              row.companyName,
-                                              style: const TextStyle(
-                                                fontSize: 11.5,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppTheme.charcoal,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
+                                         // 3. Importing Company
+                                         DataCell(
+                                           CopyableTableCell(
+                                             value: row.companyName,
+                                             rowSummary: rowTsvSummary,
+                                             child: Container(
+                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                               decoration: BoxDecoration(
+                                                 color: Colors.blueGrey.withOpacity(0.08),
+                                                 borderRadius: BorderRadius.circular(4),
+                                               ),
+                                               child: Text(
+                                                 row.companyName,
+                                                 style: const TextStyle(
+                                                   fontSize: 11.5,
+                                                   fontWeight: FontWeight.bold,
+                                                   color: AppTheme.charcoal,
+                                                 ),
+                                               ),
+                                             ),
+                                           ),
+                                         ),
 
-                                        // 4. Item & HS Code
-                                        DataCell(
-                                          Text(
-                                            row.itemAndHs,
-                                            style: const TextStyle(fontSize: 12),
-                                          ),
-                                        ),
+                                         // 4. Item & HS Code
+                                         DataCell(
+                                           CopyableTableCell(
+                                             value: row.itemAndHs,
+                                             rowSummary: rowTsvSummary,
+                                             child: Text(
+                                               row.itemAndHs,
+                                               style: const TextStyle(fontSize: 12),
+                                             ),
+                                           ),
+                                         ),
 
-                                        // 5. Route (POL -> POD)
-                                        DataCell(
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(Icons.alt_route_rounded, size: 15, color: Colors.teal),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                row.route,
-                                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                                         // 5. Route (POL -> POD)
+                                         DataCell(
+                                           CopyableTableCell(
+                                             value: row.route,
+                                             rowSummary: rowTsvSummary,
+                                             child: Row(
+                                               mainAxisSize: MainAxisSize.min,
+                                               children: [
+                                                 const Icon(Icons.alt_route_rounded, size: 15, color: Colors.teal),
+                                                 const SizedBox(width: 6),
+                                                 Text(
+                                                   row.route,
+                                                   style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+                                                 ),
+                                               ],
+                                             ),
+                                           ),
+                                         ),
 
-                                        // 6. Shipping Mode & Container
-                                        DataCell(
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(Icons.directions_boat_outlined, size: 15, color: AppTheme.cobalt),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                row.shippingMode,
-                                                style: const TextStyle(fontSize: 12),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                                         // 6. Shipping Mode & Container
+                                         DataCell(
+                                           CopyableTableCell(
+                                             value: row.shippingMode,
+                                             rowSummary: rowTsvSummary,
+                                             child: Row(
+                                               mainAxisSize: MainAxisSize.min,
+                                               children: [
+                                                 const Icon(Icons.directions_boat_outlined, size: 15, color: AppTheme.cobalt),
+                                                 const SizedBox(width: 6),
+                                                 Text(
+                                                   row.shippingMode,
+                                                   style: const TextStyle(fontSize: 12),
+                                                 ),
+                                               ],
+                                             ),
+                                           ),
+                                         ),
 
-                                        // 7. Incoterm
-                                        DataCell(
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(
-                                              color: _getIncotermColor(row.incoterm).withOpacity(0.12),
-                                              borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(color: _getIncotermColor(row.incoterm).withOpacity(0.4)),
-                                            ),
-                                            child: Text(
-                                              row.incoterm,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: _getIncotermColor(row.incoterm),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
+                                         // 7. Incoterm
+                                         DataCell(
+                                           CopyableTableCell(
+                                             value: row.incoterm,
+                                             rowSummary: rowTsvSummary,
+                                             child: Container(
+                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                               decoration: BoxDecoration(
+                                                 color: _getIncotermColor(row.incoterm).withOpacity(0.12),
+                                                 borderRadius: BorderRadius.circular(4),
+                                                 border: Border.all(color: _getIncotermColor(row.incoterm).withOpacity(0.4)),
+                                               ),
+                                               child: Text(
+                                                 row.incoterm,
+                                                 style: TextStyle(
+                                                   fontSize: 11,
+                                                   fontWeight: FontWeight.bold,
+                                                   color: _getIncotermColor(row.incoterm),
+                                                 ),
+                                               ),
+                                             ),
+                                           ),
+                                         ),
 
-                                        // 8. Freight Cost
-                                        DataCell(
-                                          Text(
-                                            '${row.freightCost.toStringAsFixed(0)} ${row.currency}',
-                                            style: const TextStyle(
-                                              fontSize: 12.5,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.charcoal,
-                                            ),
-                                          ),
-                                        ),
+                                         // 8. Freight Cost
+                                         DataCell(
+                                           CopyableTableCell(
+                                             value: '${row.freightCost.toStringAsFixed(0)} ${row.currency}',
+                                             rowSummary: rowTsvSummary,
+                                             child: Text(
+                                               '${row.freightCost.toStringAsFixed(0)} ${row.currency}',
+                                               style: const TextStyle(
+                                                 fontSize: 12.5,
+                                                 fontWeight: FontWeight.bold,
+                                                 color: AppTheme.charcoal,
+                                               ),
+                                             ),
+                                           ),
+                                         ),
 
-                                        // 9. Actions (Smart Clone + View Details)
-                                        DataCell(
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              // Smart Clone Button
-                                              IconButton(
-                                                icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 18),
-                                                tooltip: l.inqActionClone,
-                                                onPressed: () => _openClone(file),
-                                              ),
-                                              // Details Button
-                                              IconButton(
-                                                icon: const Icon(Icons.visibility_outlined, color: AppTheme.charcoal, size: 18),
-                                                tooltip: l.inqActionDetails,
-                                                onPressed: () => _openDetails(file),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  }).toList(),
+                                         // 9. Actions (Quick Copy Row + Smart Clone + View Details)
+                                         DataCell(
+                                           Row(
+                                             mainAxisSize: MainAxisSize.min,
+                                             children: [
+                                               // Quick Row Copy Button
+                                               IconButton(
+                                                 icon: const Icon(Icons.copy_rounded, color: AppTheme.emerald, size: 18),
+                                                 tooltip: l.inqCopyRowTooltip,
+                                                 onPressed: () {
+                                                   CopyHelper.copy(
+                                                     context,
+                                                     rowTsvSummary,
+                                                     customMessage: l.inqCopiedRowSuccess,
+                                                   );
+                                                 },
+                                               ),
+                                               // Smart Clone Button
+                                               IconButton(
+                                                 icon: const Icon(Icons.content_copy_rounded, color: AppTheme.cobalt, size: 18),
+                                                 tooltip: l.inqActionClone,
+                                                 onPressed: () => _openClone(file),
+                                               ),
+                                               // Details Button
+                                               IconButton(
+                                                 icon: const Icon(Icons.visibility_outlined, color: AppTheme.charcoal, size: 18),
+                                                 tooltip: l.inqActionDetails,
+                                                 onPressed: () => _openDetails(file),
+                                               ),
+                                             ],
+                                           ),
+                                         ),
+                                       ],
+                                     );
+                                   }).toList(),
                                 ),
                               ),
                       ),

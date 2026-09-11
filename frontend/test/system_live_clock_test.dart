@@ -84,6 +84,9 @@ void main() {
       expect(WorldTimezoneHelper.getCountryName('uk', isArabic: true), equals('إنجلترا'));
       expect(WorldTimezoneHelper.getCountryName('uk', isArabic: false), equals('UK'));
 
+      expect(WorldTimezoneHelper.getCountryName('turkey_lithuania', isArabic: true), equals('تركيا وليتوانيا'));
+      expect(WorldTimezoneHelper.getCountryName('turkey_lithuania', isArabic: false), equals('Turkey & Lithuania'));
+
       expect(WorldTimezoneHelper.getCountryName('turkey', isArabic: true), equals('تركيا'));
       expect(WorldTimezoneHelper.getCountryName('turkey', isArabic: false), equals('Turkey'));
 
@@ -149,13 +152,13 @@ void main() {
       final uk = WorldTimezoneHelper.getUkTime(refUtc);
       expect(uk.hour, equals(13));
 
-      // 4. Turkey (UTC+3 fixed year-round)
+      // 4. Turkey (UTC+3 fixed year-round) & Lithuania (UTC+3 summer) - Combined
       final turkey = WorldTimezoneHelper.getTurkeyTime(refUtc);
-      expect(turkey.hour, equals(15));
-
-      // 5. Lithuania (UTC+3 summer)
       final lithuania = WorldTimezoneHelper.getLithuaniaTime(refUtc);
+      final turkeyLithuania = WorldTimezoneHelper.getTurkeyLithuaniaTime(refUtc);
+      expect(turkey.hour, equals(15));
       expect(lithuania.hour, equals(15));
+      expect(turkeyLithuania.hour, equals(15));
 
       // 6. China (UTC+8 fixed)
       final china = WorldTimezoneHelper.getChinaTime(refUtc);
@@ -254,24 +257,22 @@ void main() {
       expect(find.text('مصر'), findsOneWidget);
       expect(find.text('فرنسا وإيطاليا وإسبانيا'), findsOneWidget); // Combined
       expect(find.text('إنجلترا'), findsOneWidget);
-      expect(find.text('تركيا'), findsOneWidget);         // Turkey
-      expect(find.text('ليتوانيا'), findsOneWidget);
+      expect(find.text('تركيا وليتوانيا'), findsOneWidget);         // Turkey & Lithuania merged
       expect(find.text('الصين'), findsOneWidget);
       expect(find.text('الإمارات'), findsOneWidget);      // UAE
       expect(find.text('أمريكا'), findsOneWidget);        // USA
 
       // Verify country flags
       expect(find.text('🇪🇬'), findsOneWidget);
-      expect(find.text('🇫🇷 🇮🇹 🇪🇸'), findsOneWidget); // Combined flags
+      expect(find.text('🇪🇺'), findsOneWidget); // Compact European flag
       expect(find.text('🇬🇧'), findsOneWidget);
-      expect(find.text('🇹🇷'), findsOneWidget);
-      expect(find.text('🇱🇹'), findsOneWidget);
+      expect(find.text('🇹🇷 🇱🇹'), findsOneWidget); // Merged Turkey & Lithuania flags
       expect(find.text('🇨🇳'), findsOneWidget);
       expect(find.text('🇦🇪'), findsOneWidget);
       expect(find.text('🇺🇸'), findsOneWidget);
 
       // Verify 24-hour time values (compact HH:mm format without seconds)
-      expect(find.text('15:00'), findsNWidgets(3)); // Egypt, Turkey & Lithuania
+      expect(find.text('15:00'), findsNWidgets(2)); // Egypt and Turkey & Lithuania
       expect(find.text('14:00'), findsOneWidget);   // France, Italy & Spain combined
       expect(find.text('13:00'), findsOneWidget);   // UK
       expect(find.text('20:00'), findsOneWidget);   // China
@@ -317,18 +318,16 @@ void main() {
       expect(find.text('Egypt'), findsOneWidget);
       expect(find.text('France, Italy & Spain'), findsOneWidget);
       expect(find.text('UK'), findsOneWidget);
-      expect(find.text('Turkey'), findsOneWidget);
-      expect(find.text('Lithuania'), findsOneWidget);
+      expect(find.text('Turkey & Lithuania'), findsOneWidget);
       expect(find.text('China'), findsOneWidget);
       expect(find.text('UAE'), findsOneWidget);
       expect(find.text('USA'), findsOneWidget);
 
       // Verify flags are still present
       expect(find.text('🇪🇬'), findsOneWidget);
-      expect(find.text('🇫🇷 🇮🇹 🇪🇸'), findsOneWidget);
+      expect(find.text('🇪🇺'), findsOneWidget);
       expect(find.text('🇬🇧'), findsOneWidget);
-      expect(find.text('🇹🇷'), findsOneWidget);
-      expect(find.text('🇱🇹'), findsOneWidget);
+      expect(find.text('🇹🇷 🇱🇹'), findsOneWidget);
       expect(find.text('🇨🇳'), findsOneWidget);
       expect(find.text('🇦🇪'), findsOneWidget);
       expect(find.text('🇺🇸'), findsOneWidget);
@@ -368,7 +367,7 @@ void main() {
 
       expect(find.text('مصر'), findsOneWidget);
       expect(find.text('فرنسا وإيطاليا وإسبانيا'), findsOneWidget);
-      expect(find.text('تركيا'), findsOneWidget);
+      expect(find.text('تركيا وليتوانيا'), findsOneWidget);
       expect(find.text('الصين'), findsOneWidget);
     });
 
@@ -388,7 +387,7 @@ void main() {
       expect(find.byType(SystemWorldClocksHeader), findsOneWidget);
       expect(find.text('Egypt'), findsOneWidget);
       expect(find.text('France, Italy & Spain'), findsOneWidget);
-      expect(find.text('Turkey'), findsOneWidget);
+      expect(find.text('Turkey & Lithuania'), findsOneWidget);
       expect(find.text('USA'), findsOneWidget);
     });
 

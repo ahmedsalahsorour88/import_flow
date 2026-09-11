@@ -259,7 +259,7 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'Sorour Logistics ERP (v1.0.158)',
+            title: 'Sorour Logistics ERP (v1.0.159)',
             theme: AppTheme.lightTheme,
             scrollBehavior: AppCustomScrollBehavior(),
             locale: locale,

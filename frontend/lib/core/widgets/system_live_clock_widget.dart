@@ -9,12 +9,13 @@ int getIsoWeekNumber(DateTime date) => WorldTimezoneHelper.getIsoWeekNumber(date
 /// and working hours across the company's major supply & shipping jurisdictions.
 class WorldTimezoneHelper {
   static const String egyptFlag = '🇪🇬';
-  static const String franceItalySpainFlag = '🇫🇷 🇮🇹 🇪🇸';
-  static const String franceItalyFlag = '🇫🇷 🇮🇹';
+  static const String franceItalySpainFlag = '🇪🇺';
+  static const String franceItalyFlag = '🇪🇺';
   static const String franceFlag = '🇫🇷';
   static const String italyFlag = '🇮🇹';
   static const String spainFlag = '🇪🇸';
   static const String ukFlag = '🇬🇧';
+  static const String turkeyLithuaniaFlag = '🇹🇷 🇱🇹';
   static const String turkeyFlag = '🇹🇷';
   static const String lithuaniaFlag = '🇱🇹';
   static const String chinaFlag = '🇨🇳';
@@ -28,6 +29,7 @@ class WorldTimezoneHelper {
   static const String italyName = 'إيطاليا';
   static const String spainName = 'إسبانيا';
   static const String ukName = 'إنجلترا';
+  static const String turkeyLithuaniaName = 'تركيا وليتوانيا';
   static const String turkeyName = 'تركيا';
   static const String lithuaniaName = 'ليتوانيا';
   static const String chinaName = 'الصين';
@@ -140,6 +142,10 @@ class WorldTimezoneHelper {
     return utc.add(Duration(hours: offsetHours));
   }
 
+  /// Combined Turkey & Lithuania (Istanbul & Vilnius):
+  /// In summer, both share UTC+3. In winter, Turkey is UTC+3 and Lithuania is UTC+2.
+  static DateTime getTurkeyLithuaniaTime([DateTime? baseUtc]) => getTurkeyTime(baseUtc);
+
   /// 5. China (Beijing / Shanghai): UTC+8 fixed year-round
   static DateTime getChinaTime([DateTime? baseUtc]) {
     final utc = (baseUtc ?? DateTime.now()).toUtc();
@@ -230,6 +236,8 @@ class WorldTimezoneHelper {
         return isArabic ? franceItalySpainName : 'France, Italy & Spain';
       case 'uk':
         return isArabic ? ukName : 'UK';
+      case 'turkey_lithuania':
+        return isArabic ? turkeyLithuaniaName : 'Turkey & Lithuania';
       case 'turkey':
         return isArabic ? turkeyName : 'Turkey';
       case 'lithuania':
@@ -460,7 +468,7 @@ class WorldClockChip extends StatelessWidget {
                 color: isPrimary
                     ? const Color(0xFF90CAF9)
                     : (isDark ? const Color(0xFFCBD5E1) : Colors.grey.shade800),
-                fontSize: 10.5,
+                fontSize: countryName.length > 16 ? 9.8 : 10.5,
                 fontWeight: isPrimary ? FontWeight.bold : FontWeight.w600,
               ),
             ),
@@ -547,35 +555,29 @@ class SystemWorldClocksBar extends StatelessWidget {
         ? 'توقيت لندن (إنجلترا / المملكة المتحدة) — $ukTz'
         : 'London Time (United Kingdom) — $ukTz';
 
-    // 4. Turkey (Istanbul / Ankara)
-    final turkeyTime = WorldTimezoneHelper.getTurkeyTime(currentTimeUtc);
-    const turkeyTz = 'UTC+3';
-    final turkeyTooltip = isAr
-        ? 'توقيت إسطنبول وأنقرة (تركيا) — $turkeyTz'
-        : 'Istanbul & Ankara Time (Turkey) — $turkeyTz';
+    // 4. Turkey & Lithuania (Istanbul & Vilnius) - Combined into one clock
+    final turkeyLithuaniaTime = WorldTimezoneHelper.getTurkeyLithuaniaTime(currentTimeUtc);
+    final isSummerTz = WorldTimezoneHelper.isEuUkSummerTime(currentTimeUtc);
+    final turkeyLithuaniaTz = isSummerTz ? 'UTC+3' : 'TR: UTC+3 │ LT: UTC+2';
+    final turkeyLithuaniaTooltip = isAr
+        ? 'توقيت إسطنبول وفيلنيوس (تركيا وليتوانيا) — $turkeyLithuaniaTz'
+        : 'Istanbul & Vilnius Time (Turkey & Lithuania) — $turkeyLithuaniaTz';
 
-    // 5. Lithuania (Vilnius)
-    final lithuaniaTime = WorldTimezoneHelper.getLithuaniaTime(currentTimeUtc);
-    final lithuaniaTz = WorldTimezoneHelper.isEuUkSummerTime(currentTimeUtc) ? 'UTC+3' : 'UTC+2';
-    final lithuaniaTooltip = isAr
-        ? 'توقيت فيلنيوس (ليتوانيا / دول البلطيق) — $lithuaniaTz'
-        : 'Vilnius Time (Lithuania / Baltic) — $lithuaniaTz';
-
-    // 6. China (Beijing / Shanghai)
+    // 5. China (Beijing / Shanghai)
     final chinaTime = WorldTimezoneHelper.getChinaTime(currentTimeUtc);
     const chinaTz = 'UTC+8';
     final chinaTooltip = isAr
         ? 'توقيت بكين وشنغهاي (الصين) — $chinaTz'
         : 'Beijing & Shanghai Time (China) — $chinaTz';
 
-    // 7. United Arab Emirates (Dubai / Abu Dhabi)
+    // 6. United Arab Emirates (Dubai / Abu Dhabi)
     final uaeTime = WorldTimezoneHelper.getUaeTime(currentTimeUtc);
     const uaeTz = 'UTC+4';
     final uaeTooltip = isAr
         ? 'توقيت دبي وأبوظبي (الإمارات العربية المتحدة) — $uaeTz'
         : 'Dubai & Abu Dhabi Time (UAE) — $uaeTz';
 
-    // 8. United States (New York / Eastern Time)
+    // 7. United States (New York / Eastern Time)
     final usTime = WorldTimezoneHelper.getUsEasternTime(currentTimeUtc);
     final usTz = WorldTimezoneHelper.isUsSummerTime(currentTimeUtc) ? 'UTC-4' : 'UTC-5';
     final usTooltip = isAr
@@ -612,20 +614,11 @@ class SystemWorldClocksBar extends StatelessWidget {
         isArabic: isAr,
       ),
       WorldClockChip(
-        flag: WorldTimezoneHelper.turkeyFlag,
-        countryName: WorldTimezoneHelper.getCountryName('turkey', isArabic: isAr),
-        time24h: WorldTimezoneHelper.formatTime24h(turkeyTime, showSeconds: showSeconds),
-        isBusinessHours: WorldTimezoneHelper.isBusinessHours(turkeyTime),
-        tooltip: turkeyTooltip,
-        isDark: isDark,
-        isArabic: isAr,
-      ),
-      WorldClockChip(
-        flag: WorldTimezoneHelper.lithuaniaFlag,
-        countryName: WorldTimezoneHelper.getCountryName('lithuania', isArabic: isAr),
-        time24h: WorldTimezoneHelper.formatTime24h(lithuaniaTime, showSeconds: showSeconds),
-        isBusinessHours: WorldTimezoneHelper.isBusinessHours(lithuaniaTime),
-        tooltip: lithuaniaTooltip,
+        flag: WorldTimezoneHelper.turkeyLithuaniaFlag,
+        countryName: WorldTimezoneHelper.getCountryName('turkey_lithuania', isArabic: isAr),
+        time24h: WorldTimezoneHelper.formatTime24h(turkeyLithuaniaTime, showSeconds: showSeconds),
+        isBusinessHours: WorldTimezoneHelper.isBusinessHours(turkeyLithuaniaTime),
+        tooltip: turkeyLithuaniaTooltip,
         isDark: isDark,
         isArabic: isAr,
       ),

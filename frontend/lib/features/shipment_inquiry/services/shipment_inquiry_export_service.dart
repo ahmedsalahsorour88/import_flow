@@ -37,16 +37,18 @@ class ShipmentInquiryReportRow {
     required this.fileDate,
   });
 
-  static ShipmentInquiryReportRow fromImportFile(ImportFileModel file) {
+  static ShipmentInquiryReportRow fromImportFile(ImportFileModel file, [AppLocalizations? l]) {
     final hs = file.hsCode?.trim() ?? '';
     final prod = file.productCategory?.trim() ?? '';
     final itemHs = (hs.isNotEmpty && prod.isNotEmpty)
         ? '$prod ($hs)'
-        : (hs.isNotEmpty ? hs : (prod.isNotEmpty ? prod : 'عام'));
+        : (hs.isNotEmpty ? hs : (prod.isNotEmpty ? prod : '-'));
 
-    final pol = file.portOfLoading?.trim() ?? 'غير محدد';
-    final pod = file.portOfDischarge?.trim() ?? 'الإسكندرية';
-    final routeStr = '$pol → $pod';
+    final pol = file.portOfLoading?.trim() ?? '';
+    final pod = file.portOfDischarge?.trim() ?? '';
+    final polText = pol.isNotEmpty ? pol : '-';
+    final podText = pod.isNotEmpty ? pod : '-';
+    final routeStr = (pol.isNotEmpty || pod.isNotEmpty) ? '$polText → $podText' : '-';
 
     final name = file.notes != null && file.notes!.isNotEmpty
         ? (file.notes!.split('\n').first)
@@ -101,7 +103,7 @@ class ShipmentInquiryExportService {
     // Header
     buffer.writeln([
       _clean(l.inqColShipmentName),
-      'كود الملف',
+      _clean(l.inqTsvHeaderFileCode),
       _clean(l.inqColSupplier),
       _clean(l.inqColImporter),
       _clean(l.inqColItemAndHs),
@@ -109,8 +111,8 @@ class ShipmentInquiryExportService {
       _clean(l.inqColShippingMode),
       _clean(l.inqColIncoterm),
       _clean(l.inqColFreightCost),
-      'العملة',
-      'التاريخ',
+      _clean(l.inqTsvHeaderCurrency),
+      _clean(l.inqTsvHeaderDate),
     ].join('\t'));
 
     // Rows
@@ -136,7 +138,7 @@ class ShipmentInquiryExportService {
       context: context,
       bytes: bytes,
       defaultFileName: 'shipment_history_inquiry_${DateTime.now().millisecondsSinceEpoch}.tsv',
-      dialogTitle: 'تصدير جدول استعلام الشحنات (TSV)',
+      dialogTitle: l.inqExportTsvDialogTitle,
       allowedExtensions: ['tsv', 'txt'],
     );
   }
@@ -162,7 +164,7 @@ class ShipmentInquiryExportService {
     // Header
     buffer.writeln([
       escapeCsv(l.inqColShipmentName),
-      escapeCsv('كود الملف'),
+      escapeCsv(l.inqTsvHeaderFileCode),
       escapeCsv(l.inqColSupplier),
       escapeCsv(l.inqColImporter),
       escapeCsv(l.inqColItemAndHs),
@@ -170,8 +172,8 @@ class ShipmentInquiryExportService {
       escapeCsv(l.inqColShippingMode),
       escapeCsv(l.inqColIncoterm),
       escapeCsv(l.inqColFreightCost),
-      escapeCsv('العملة'),
-      escapeCsv('التاريخ'),
+      escapeCsv(l.inqTsvHeaderCurrency),
+      escapeCsv(l.inqTsvHeaderDate),
     ].join(','));
 
     // Rows
@@ -197,7 +199,7 @@ class ShipmentInquiryExportService {
       context: context,
       bytes: bytes,
       defaultFileName: 'shipment_history_inquiry_${DateTime.now().millisecondsSinceEpoch}.csv',
-      dialogTitle: 'تصدير بيانات الاستعلام إلى إكسيل (CSV)',
+      dialogTitle: l.inqExportExcelDialogTitle,
       allowedExtensions: ['csv'],
     );
   }
@@ -210,6 +212,7 @@ class ShipmentInquiryExportService {
     required String username,
   }) async {
     final l = context.l10n;
+    final isRtl = Localizations.localeOf(context).languageCode == 'ar';
     final doc = pw.Document();
 
     final cairoRegular = await PdfGoogleFonts.cairoRegular();
@@ -228,7 +231,7 @@ class ShipmentInquiryExportService {
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
         theme: pw.ThemeData.withFont(base: cairoRegular, bold: cairoBold),
-        textDirection: pw.TextDirection.rtl,
+        textDirection: isRtl ? pw.TextDirection.rtl : pw.TextDirection.ltr,
         margin: const pw.EdgeInsets.all(24),
         header: (pw.Context ctx) {
           return pw.Column(
@@ -238,7 +241,7 @@ class ShipmentInquiryExportService {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    crossAxisAlignment: isRtl ? pw.CrossAxisAlignment.start : pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text(
                         l.inqReportTitle,
@@ -250,7 +253,7 @@ class ShipmentInquiryExportService {
                       ),
                       pw.SizedBox(height: 2),
                       pw.Text(
-                        'منظومة إدارة الاستيراد واللوجستيات المتقدمة — شركة سرور للوجستيات',
+                        l.inqPdfSystemBranding,
                         style: pw.TextStyle(
                           font: cairoRegular,
                           fontSize: 8.5,
@@ -267,7 +270,7 @@ class ShipmentInquiryExportService {
                       border: pw.Border.all(color: PdfColors.grey300),
                     ),
                     child: pw.Text(
-                      'سجل تاريخي رسمي',
+                      l.inqPdfOfficialBadge,
                       style: pw.TextStyle(font: cairoBold, fontSize: 9, color: PdfColors.blue900),
                     ),
                   ),
@@ -284,7 +287,7 @@ class ShipmentInquiryExportService {
                   border: pw.Border.all(color: PdfColors.blue200),
                 ),
                 child: pw.Text(
-                  'معايير البحث المستخدمة: $filterSummary',
+                  '${l.inqPdfFilterCriteria}$filterSummary',
                   style: pw.TextStyle(font: cairoRegular, fontSize: 8.5, color: PdfColors.blue900),
                 ),
               ),
@@ -306,7 +309,7 @@ class ShipmentInquiryExportService {
                     style: pw.TextStyle(font: cairoRegular, fontSize: 7.5, color: PdfColors.grey600),
                   ),
                   pw.Text(
-                    'صفحة ${ctx.pageNumber} من ${ctx.pagesCount}',
+                    l.inqPdfPageOf(ctx.pageNumber, ctx.pagesCount),
                     style: pw.TextStyle(font: cairoRegular, fontSize: 7.5, color: PdfColors.grey600),
                   ),
                 ],
@@ -339,7 +342,7 @@ class ShipmentInquiryExportService {
                     children: [
                       pw.Text(l.inqAverageFreightCost, style: pw.TextStyle(font: cairoRegular, fontSize: 8)),
                       pw.Text(
-                        '${avgFreight.toStringAsFixed(0)} \$',
+                        '${avgFreight.toStringAsFixed(0)} ${l.inqCurrencyUsd}',
                         style: pw.TextStyle(font: cairoBold, fontSize: 12, color: PdfColors.teal800),
                       ),
                     ],
@@ -349,7 +352,7 @@ class ShipmentInquiryExportService {
                     children: [
                       pw.Text(l.inqTotalIncurredCost, style: pw.TextStyle(font: cairoRegular, fontSize: 8)),
                       pw.Text(
-                        '${totalCost.toStringAsFixed(0)} \$',
+                        '${totalCost.toStringAsFixed(0)} ${l.inqCurrencyUsd}',
                         style: pw.TextStyle(font: cairoBold, fontSize: 12, color: PdfColors.deepOrange800),
                       ),
                     ],
@@ -387,7 +390,7 @@ class ShipmentInquiryExportService {
               headerHeight: 22,
               cellStyle: pw.TextStyle(font: cairoRegular, fontSize: 7.5),
               cellPadding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-              cellAlignment: pw.Alignment.centerRight,
+              cellAlignment: isRtl ? pw.Alignment.centerRight : pw.Alignment.centerLeft,
               rowDecoration: const pw.BoxDecoration(
                 border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey200, width: 0.5)),
               ),
@@ -421,17 +424,19 @@ class ShipmentInquiryExportService {
     final buffer = StringBuffer();
     buffer.writeln('📋 ${l.inqReportTitle}');
     buffer.writeln('═══════════════════════════════════════════════');
-    buffer.writeln('🔍 معايير البحث: $filterSummary');
-    buffer.writeln('📊 $totalCount شحنة مطابقة | إجمالي التكلفة: ${totalCost.toStringAsFixed(0)} \$ | متوسط النولون: ${avgFreight.toStringAsFixed(0)} \$');
+    buffer.writeln('🔍 ${l.inqDossierCriteria}$filterSummary');
+    buffer.writeln(
+      '📊 ${l.inqDossierKpiSummary(totalCount, "${totalCost.toStringAsFixed(0)} ${l.inqCurrencyUsd}", "${avgFreight.toStringAsFixed(0)} ${l.inqCurrencyUsd}")}',
+    );
     buffer.writeln('───────────────────────────────────────────────');
 
     for (int i = 0; i < files.length; i++) {
       final r = ShipmentInquiryReportRow.fromImportFile(files[i]);
       buffer.writeln('[${i + 1}] ${r.shipmentName} (${r.importFileCode})');
-      buffer.writeln('    - المورد: ${r.supplierName} | المستورد: ${r.companyName}');
-      buffer.writeln('    - الصنف وبند التعريفة: ${r.itemAndHs}');
-      buffer.writeln('    - المسار: ${r.route} | أسلوب الشحن: ${r.shippingMode}');
-      buffer.writeln('    - شرط التسليم: ${r.incoterm} | النولون: ${r.freightCost.toStringAsFixed(0)} ${r.currency}');
+      buffer.writeln('    - ${l.inqDossierRowSupplier}: ${r.supplierName} | ${l.inqDossierRowImporter}: ${r.companyName}');
+      buffer.writeln('    - ${l.inqDossierRowItemAndHs}: ${r.itemAndHs}');
+      buffer.writeln('    - ${l.inqDossierRowRoute}: ${r.route} | ${l.inqDossierRowShippingMode}: ${r.shippingMode}');
+      buffer.writeln('    - ${l.inqDossierRowIncoterm}: ${r.incoterm} | ${l.inqDossierRowFreight}: ${r.freightCost.toStringAsFixed(0)} ${r.currency}');
       buffer.writeln('');
     }
 

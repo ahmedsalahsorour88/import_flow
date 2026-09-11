@@ -255,7 +255,11 @@ class LiveLogisticsTrackingItemModel {
       docReadinessPercent: (json['doc_readiness_percent'] as num?)?.toDouble() ?? 0.0,
       verifiedDocumentsCount: json['verified_documents_count'] ?? 0,
       totalRequiredDocuments: json['total_required_documents'] ?? 7,
-      missingDocuments: List<String>.from(json['missing_documents'] ?? []),
+      missingDocuments: json['missing_documents'] is List
+          ? (json['missing_documents'] as List).map((e) => e.toString()).toList()
+          : (json['missing_documents'] is String && (json['missing_documents'] as String).trim().isNotEmpty
+              ? [json['missing_documents'].toString().trim()]
+              : []),
       operationalHealthScore: json['operational_health_score'] ?? 'Optimal',
       currentStepCode: json['current_step_code'] ?? 'STEP_01',
       currentStepNameAr: json['current_step_name_ar'] ?? '',
@@ -296,6 +300,18 @@ class LiveLogisticsSummaryModel {
               ?.map((e) => LiveLogisticsTrackingItemModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+    );
+  }
+
+  factory LiveLogisticsSummaryModel.empty() {
+    return LiveLogisticsSummaryModel(
+      totalActiveShipments: 0,
+      inTransitCount: 0,
+      inPortCount: 0,
+      highRiskDemurrageCount: 0,
+      underSampleTestingCount: 0,
+      incompleteDocumentsCount: 0,
+      items: [],
     );
   }
 }

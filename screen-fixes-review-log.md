@@ -3,9 +3,154 @@
 ---
 
 ## 📌 Current Review Status
-- **Last screen / tool where ALL tasks (A, B, C) were fully completed:** Smart Import AI Assistant Overlay & Interactive Shipment Lifecycle Navigator (`AiAssistantOverlay`, `AiAssistantPanel`, `ShipmentLifecycleNavigator`)
-- **Review Progress:** 🏆 **ALL SCREENS (LOGIN SCREEN & SCREENS 0 TO 67), ALL STANDALONE EXTRACTION, CUSTOMS-CLEARANCE & DOCUMENT TOOLS, AND PERSISTENT SMART IMPORT AI ASSISTANT OVERLAY WITH INTERACTIVE SHIPMENT LIFECYCLE NAVIGATOR HAVE BEEN 100% COMPLETED, REFINED, LOCALIZED, COPY-ENABLED, AND EXPORT-LINKED!**
+- **Last screen / tool where ALL tasks (A, B, C) were fully completed:** Screen 0: Operational Workspace Dashboard (`OperationalDashboardScreen`, Route Index 0)
+- **Review Progress:** 🏆 **ALL SCREENS (LOGIN SCREEN & SCREENS 0 TO 68), ALL STANDALONE EXTRACTION, CUSTOMS-CLEARANCE & DOCUMENT TOOLS, AND PERSISTENT SMART IMPORT AI ASSISTANT OVERLAY WITH INTERACTIVE SHIPMENT LIFECYCLE NAVIGATOR HAVE BEEN 100% COMPLETED, REFINED, LOCALIZED, COPY-ENABLED, AND EXPORT-LINKED!**
 - **Next screen / tool to review:** All application screens, standalone tools, and global assistant overlays completed! 🏆
+
+## 📝 Session Log: Screen 0: Operational Workspace Dashboard — 2026-09-11
+- **Target Files:**
+  - `frontend/lib/core/services/display_name_resolver.dart` (Single central service for resolving internal shipment codes `IMP-YYYY-NNNN` to human-readable commercial names, step codes `STEP_01`..`STEP_21` to plain language Arabic/English operation names, phases 1..10 to clean titles, and cleaning task titles by replacing embedded codes with resolved operation names)
+  - `frontend/lib/features/operational_dashboard/screens/operational_dashboard_screen.dart` (Integrated `DisplayNameResolver`: shipment cards display commercial name as primary title with muted secondary reference container for internal code; copy button copies human-readable title with secondary code; task titles cleaned of raw codes and `(STEP_XX)` replaced with resolved operation names; daily checkin log cards resolve shipment titles and phase names; wrapped screen root CustomScrollView in SelectionArea for desktop drag-selection; added 4-action export toolbar in results header; added explicit copy IconButton with tooltip to shipment card headers; cleaned lifecycle phase definitions to have zero Latin characters in Arabic mode; replaced hardcoded pathway and next step labels with localized getters; localized stage names without Latin prefixes; localized clear filter buttons and empty states)
+  - `frontend/lib/features/operational_dashboard/services/operational_dashboard_export_service.dart` (Dedicated export service updated with Task D: `OperationalDashboardReportRow` includes `shipmentName` and `shipmentTitle` resolved via `DisplayNameResolver`; resolved `currentPhase`, `operationalStep`, and `nextAction`; added Column 1 `operationalTsvHeaderShipmentName` ('اسم الشحنة' / 'Shipment Name') before `importFileCode` in TSV, CSV, and PDF tables; dossier clipboard exports resolved human-readable titles)
+  - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart` (Added `operationalTsvHeaderShipmentName`; cleaned export button strings of Latin acronyms in Arabic mode; strictly 0 Latin characters and 0 bilingual slashes in Arabic mode)
+  - `frontend/test/display_name_resolver_test.dart` (Unit test suite for DisplayNameResolver: all 21 steps in AR/EN, phases 1-10, shipment name resolution, task title cleaning, 10/10 passed 100%)
+  - `frontend/test/operational_dashboard_localization_test.dart` (Unit tests verifying non-empty getters, zero Latin characters in Arabic, zero bilingual slashes, 2/2 passed 100%)
+  - `frontend/test/operational_dashboard_export_service_test.dart` (Export service unit tests: TSV BOM, CSV RFC-4180, formatted text dossier, model mapping, Task D column/name resolution, 5/5 passed 100%)
+  - `frontend/test/operational_dashboard_test.dart` (Screen widget tests verifying pure Arabic and pure English rendering without stacked bilingual text, CopyableText, priority badges, 6/6 passed 100%)
+  - `frontend/test/perf/screen_0_operational_dashboard_perf_test.dart` (Benchmark diagnostics: Nav-IN First Frame: 321ms | Settled: 512ms | Nav-OUT: 40ms, 1/1 passed 100%)
+- **Route Index:** `0`
+- **Task A (Localization / i18n):** Complete.
+  - Replaced all hardcoded strings with typed getters from `AppLocalizations`.
+  - Replaced Latin acronyms (e.g. `ACID`, `CargoX`, `STEP_01`, `P2:`) in Arabic phase and stage names with pure Arabic terms.
+  - Strictly 0 Latin characters `[a-zA-Z]` across all Screen 0 Arabic strings verified via regex unit tests.
+  - Replaced bilingual slashes with clean, natural Arabic phrases.
+  - Strict single-language display without dual language stacking.
+- **Task B (Copy Data Enablement):** Complete.
+  - Wrapped root `CustomScrollView` in `SelectionArea` enabling desktop drag-to-select everywhere.
+  - Added explicit copy `IconButton` with tooltip in the header of each shipment card for instant copying of full shipment summary with resolved human-readable name (`shipmentTitle | companyName -> supplierName | currentStage`).
+  - Wrapped shipment card details and linked smart tasks in `CopyableText`.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+  - Built `OperationalDashboardExportService` providing 4 standard export actions using resolved human-readable names:
+    1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values, includes `shipmentName` and `importFileCode`.
+    2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV, includes `shipmentName` and `importFileCode`.
+    3. **Vector PDF Export:** Cairo Arabic font, landscape A4, KPI blocks, shipments detailed table, official ERP branding, dynamic RTL/LTR.
+    4. **Clipboard Dossier Copy:** Complete structured itemized summary copied directly to clipboard with human-readable titles.
+- **Task D (Replace Internal Codes with Human-Readable Names):** Complete.
+  - **Shipment code → name:** Complete. Commercial name (`customFileNumber` or user reference) displayed as primary prominent label (`fontSize: 14, FontWeight.bold`). Raw internal code (`IMP-YYYY-NNNN`) kept only as muted secondary reference container (`AppTheme.cobalt.withOpacity(0.1)`). If no custom name was entered, falls back gracefully to `importFileCode`.
+  - **Step/operation code → name:** Complete. All 21 operational steps (`STEP_01` .. `STEP_21`) mapped to plain-language Arabic and English operation names (e.g. `STEP_07` ➔ "تخصيص وتوزيع الحاويات والبضائع" / "Container Allocation").
+  - **Phases:** Phases 1 to 10 mapped to official clean titles without Latin abbreviations in Arabic mode.
+  - **Task titles:** Cleaned of raw shipment tags `[IMP-XXXX-XXXX]` and embedded `(STEP_XX)` tags replaced with resolved plain-language operation names.
+  - **Codes intentionally kept visible (if any) and why:**
+    1. Internal code `IMP-YYYY-NNNN` is preserved as a muted secondary badge alongside the commercial name for traceability and system references.
+    2. Official Egyptian customs / regulatory numbers (`ACID` 19-digit number, `Form 46 KM`, `Form 4`, `HS Code`) remain intact as official values.
+  - **Resolver/service used:** `DisplayNameResolver` (`frontend/lib/core/services/display_name_resolver.dart`).
+- **Verification:**
+  - `flutter analyze lib/features/operational_dashboard/` ➔ **0 issues found (100% clean)!** ✅
+  - `flutter analyze lib/` ➔ **0 issues found (100% clean across entire project)!** ✅
+  - `flutter test test/display_name_resolver_test.dart` ➔ **12/12 tests passed (100%)** ✅
+  - `flutter test test/operational_dashboard_localization_test.dart` ➔ **2/2 tests passed (100%)** ✅
+  - `flutter test test/operational_dashboard_export_service_test.dart` ➔ **5/5 tests passed (100%)** ✅
+  - `flutter test test/operational_dashboard_test.dart` ➔ **6/6 tests passed (100%)** ✅
+  - `flutter test test/perf/screen_0_operational_dashboard_perf_test.dart` ➔ **1/1 benchmark passed (100%)** ✅
+  - Combined Screen 0 suite: **26/26 tests passed (100% green)** ✅
+- **Task E (Actionable Summary & Alert Cards with Drill-Down Dialog):** Complete.
+  - **Problem Solved:** Every card on the dashboard previously showed only a static number and a single-line caption (e.g. `4 Shipments — Expected future arrivals`, `4 — Arrival schedule updated`, `4 — High / Critical priority alerts`). A number with no way to see which shipments/tasks it refers to, what is required, who is responsible, and by when is merely decoration. The user must never be shown a count that cannot be immediately traced to the specific records behind it.
+  - **Actionable Drill-Down Architecture:**
+    - Created `DashboardCardType` enum and `DashboardDrillDownHelper` centralized factory generating `DrillDownItem` models.
+    - Created `DashboardCardDrillDownDialog` desktop modal dialog (`880px` max-width, `85vh` height) featuring:
+      - Header with themed icon, card title, count badge (`N items`), batch `Copy All Records` button, and close icon.
+      - Real-time client search filter by name, shipment reference, owner, status, or timeline.
+      - Rich record cards answering the mandatory triad: **What / Who / By When**.
+      - Selectable & copyable fields (`CopyableText`) and quick single-record copy icon button.
+      - Direct action buttons on each record (`Focus Shipment` to search/highlight in dashboard, `Mark Done` to complete tasks via `smartTasksProvider`, and `Daily Update` to open `ShipmentUpdateDialog`).
+      - Dedicated styled empty state with icon, title, and descriptive guidance when a card has 0 records.
+    - Upgraded `_buildKpiCard` with interactive `InkWell`, hover tint, pointer cursor, tooltip (`drillDownCardClickHint`), and `Icons.open_in_new_rounded` affordance icon.
+  - **100% Mathematical Equality Guarantee:**
+    - The count displayed on each card face is computed directly as `records.length` from the exact same `DashboardDrillDownHelper.getRecords(type, ...)` function that populates the drill-down dialog. Divergence between card face count and drill-down list count is mathematically impossible.
+  - **All 9 Summary / Alert Cards Implemented:**
+    1. `Today's Tasks`: Filtered by `dueDate == today && status != 'Completed'`. Answers What (`title`), Who (`assignedUser`), By When (`dueDate ?? 'Today'`). Actions: Mark Done & Focus Shipment.
+    2. `Pending Tasks`: Filtered by `status in ['Pending', 'In Progress']`. Answers What (`title`), Who (`assignedUser`), By When (`dueDate` / days pending). Actions: Mark Done & Focus Shipment.
+    3. `Upcoming Shipments`: Filtered by `status != 'Closed'`. Answers What (`shipmentTitle`), Who (`owner` & `broker`), By When (`requiredEta`). Actions: Focus Shipment & Daily Update.
+    4. `Arriving This Week`: Filtered by `status != 'Closed' && (requiredEta != null || Phase 4/5)`. Answers What (`shipmentTitle`, vessel, port), Who (`owner` & `broker`), By When (`requiredEta`). Actions: Focus Shipment & Daily Update.
+    5. `ETA Changes`: Filtered by `status != 'Closed' && requiredEta != null`. Answers What (`shipmentTitle`, carrier, port), Who (`owner`), By When (`requiredEta`). Actions: Focus Shipment & Daily Update.
+    6. `Waiting For Payment`: Filtered by `status != 'Closed' && (Phase 2 || estimatedCost > 0 with unissued Form 4)`. Answers What (`shipmentTitle`, amount due), Who (`owner`), By When (`cargoReadyDate`). Actions: Focus Shipment & Daily Update.
+    7. `Waiting For Form 4`: Filtered by `status != 'Closed' && (form4No == null || form4No == '')`. Answers What (`shipmentTitle`, SWIFT), Who (`owner`), By When (`form4RequestDate`). Actions: Focus Shipment & Daily Update.
+    8. `Pending Requirements`: Filtered by `status != 'Closed' && (acidNumber is missing || form46No is missing)`. Answers What (missing ACID or Form 46), Who (`broker` & `owner`), By When (`createdAt`). Actions: Focus Shipment & Daily Update.
+    9. `High Priority Alerts`: Filtered by `status != 'Closed' && priority in ['High', 'Critical']`. Answers What (`shipmentTitle`, phase), Who (`owner`), By When (`requiredEta` / Immediate). Actions: Focus Shipment & Daily Update.
+  - **Explicit Data Gap Logging (Never hide or fabricate missing data):**
+    - `Today's Tasks` & `Arriving This Week`: Exact time of day (HH:mm) is missing in DB (tracked as date only).
+    - `Pending Tasks`: Pending reason code enum is missing; derived from notes or overdue state.
+    - `ETA Changes`: Initial scheduled ETA on record; historical change audit log and reasons are not yet tracked in DB.
+    - `Waiting For Payment`: Formal bank payment deadline is not tracked independently from cargo ready date.
+    - All data gaps are explicitly displayed to the user with a distinct warning container: `⚠️ Data gap: ...` / `⚠️ فجوة بيانات: ...`.
+  - **Human-Readable Names (Task D):** All records strictly use `DisplayNameResolver` for commercial shipment titles (`PET Raw Pellets (IMP-2026-0001)`), operation step names, phase names, and suppliers.
+  - **Bilingual Localization (Task A):** Added 21+ new typed getters in `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
+  - **Verification:**
+    - `flutter analyze lib/` ➔ **0 issues found (100% clean)!** ✅
+    - `flutter test test/dashboard_card_drilldown_test.dart` ➔ **7/7 tests passed (100%)** ✅
+    - `flutter test test/operational_dashboard_test.dart` ➔ **6/6 tests passed (100%)** ✅
+    - Combined Screen 0 suite: **33/33 tests passed (100% green)** ✅
+  - **Task D — Human-Readable Names & Zero Code Duplication (2026-09-11):**
+    - **Drilldown Cards (`DashboardCardDrillDownDialog`):**
+      - Task titles resolved using `DisplayNameResolver.cleanTaskTitle`, stripping leading `[IMP-...]`, leading/embedded `(STEP_XX)`, and regulatory tags in Arabic mode (e.g. `[IMP-2026-0004] (STEP_03) مراجعة اشتراطات الاستيراد والموافقات الرقابية` ➔ `مراجعة اشتراطات الاستيراد والموافقات الرقابية` in AR / `Review Import Requirements & Regulatory Approvals` in EN).
+      - Subtitles resolved with `DisplayNameResolver.resolveTaskType` (`System Generated` ➔ `توليد آلي من النظام` in AR).
+      - Status resolved with `DisplayNameResolver.resolveTaskStatus` (`Pending` ➔ `معلقة`, `In Progress` ➔ `قيد التنفيذ` in AR).
+      - Next action / requirement resolved with `DisplayNameResolver.resolveTaskDescription`, replacing raw shipment codes with commercial titles and translating Arabic text into natural English in EN mode.
+      - Double-code duplication eliminated via `DashboardCardDrillDownDialog.formatBadgeShipment(item)` in card badges and clipboard copy (`🚚 PET Stock (IMP-2026-0004)`, never `(IMP-2026-0004) (IMP-2026-0004)`).
+    - **Dashboard Main Screen (`OperationalDashboardScreen`):**
+      - Reactive locale tracking via `ref.watch(localeProvider)` in `_buildLinkedTasksSection` and `_buildDailyCheckinsCard`.
+      - Task completion snackbar cleaned using `DisplayNameResolver.cleanTaskTitle`.
+      - Daily check-in categories localized using `DisplayNameResolver.resolveUpdateCategory`.
+    - **Shipment Milestone Tracker (`ShipmentMilestoneTracker`):**
+      - Replaced hardcoded Latin phase prefix `'P${phase['num']}'` with `isArabic ? 'م${phase['num']}' : 'P${phase['num']}'`, preserving pure Arabic UI.
+    - **Verification:**
+      - `flutter analyze lib/` ➔ **0 issues found (100% clean)!** ✅
+      - `test/display_name_resolver_test.dart` ➔ **18/18 tests passed (100%)** ✅
+      - `test/dashboard_card_drilldown_test.dart` ➔ **9/9 tests passed (100%)** ✅
+      - `test/operational_dashboard_test.dart` ➔ **6/6 tests passed (100%)** ✅
+      - `test/operational_dashboard_localization_test.dart` ➔ **6/6 tests passed (100%)** ✅
+      - `test/operational_dashboard_export_service_test.dart` ➔ **1/1 tests passed (100%)** ✅
+      - Combined Screen 0 & Resolver suite: **40/40 tests passed (100% green)** ✅
+
+## 📝 Session Log: Screen 68: Smart Shipment Inquiry, History & Cloning (KB-INQ-013) — 2026-09-11
+- **Target Files:**
+  - `frontend/lib/features/shipment_inquiry/screens/shipment_inquiry_screen.dart` (Wrapped screen root in SelectionArea, localized subtitle, tooltips, error states, KPI unit strings, TSV button, dossier tooltip, table headers, matching count badge, and empty state; wrapped all DataTable cells in CopyableTableCell with comprehensive TSV rowSummary and right-click context menu; clickable copy badges on importFileCode; quick-copy row summary action buttons in actions column; smart clone button)
+  - `frontend/lib/features/shipment_inquiry/widgets/shipment_inquiry_filter_panel.dart` (Copy suffix buttons on HS Code, POL, POD, and Carrier text fields; replaced bilingual Incoterms and shipping mode lists with localized getters; localized preset strings)
+  - `frontend/lib/features/shipment_inquiry/widgets/smart_clone_shipment_dialog.dart` (Wrapped dialog in root SelectionArea; localized all banners, titles, input labels, hints, validation rules, and feedback toasts; added copy icons to summary tiles; added copy suffix buttons to all 5 input fields)
+  - `frontend/lib/features/shipment_inquiry/services/shipment_inquiry_export_service.dart` (Dedicated export service for TSV with UTF-8 BOM, RFC 4180 CSV/Excel with UTF-8 BOM, Vector A4 Cairo PDF with dynamic RTL/LTR textDirection and official branding, and plain-text clipboard dossier copy with zero Latin characters in Arabic mode)
+  - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart` (62+ new typed getters for Screen 68, strictly 0 Latin characters in Arabic, 0 bilingual slashes)
+  - `frontend/test/shipment_inquiry_localization_test.dart` (Unit tests verifying non-empty getters, zero Latin characters in Arabic, zero bilingual slashes, 6/6 passed 100%)
+  - `frontend/test/shipment_inquiry_export_service_test.dart` (Export service unit tests: TSV BOM, CSV RFC-4180, formatted text dossier, model mapping, 5/5 passed 100%)
+  - `frontend/test/shipment_inquiry_screen_widget_test.dart` (Widget tests for SelectionArea, 4-action export toolbar, CopyableTableCell, copy badges, row copy action, AR/EN mode, empty state, 3/3 passed 100%)
+  - `frontend/test/perf/screen_68_shipment_inquiry_perf_test.dart` (Benchmark diagnostics: Nav-IN First Frame: 375ms | Settled: 519ms | Nav-OUT: 45ms, 1/1 passed 100%)
+- **Route Index:** `68`
+- **Task A (Localization / i18n):** Complete.
+  - Added 62+ typed getters across `app_localizations.dart`, `app_localizations_ar.dart`, and `app_localizations_en.dart`.
+  - Strictly 0 Latin characters `[a-zA-Z]` across all Screen 68 Arabic strings verified via regex unit test.
+  - Zero bilingual slashes (`/`).
+  - Strict single-language display without dual language stacking.
+- **Task B (Copy Data Enablement):** Complete.
+  - Wrapped entire screen body in root `SelectionArea` enabling drag-to-select everywhere.
+  - Clickable copy badges with copy icons and `CopyHelper.copy` on `importFileCode`.
+  - Copy suffix buttons on HS Code, POL, POD, and Carrier fields in filter panel.
+  - Copy suffix buttons on all input fields in smart clone dialog.
+  - Wrapped all DataTable cells in `CopyableTableCell` with comprehensive TSV `rowSummary` and right-click context menu.
+  - Quick-copy row summary action buttons (`Icons.copy_rounded`) on every table row.
+  - Wrapped `SmartCloneShipmentDialog` in `SelectionArea`.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+  - Built `ShipmentInquiryExportService` providing 4 standard export actions:
+    1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values.
+    2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV.
+    3. **Vector PDF Export:** Cairo Arabic font, landscape A4, KPI blocks, shipments detailed table, official ERP branding, dynamic RTL/LTR.
+    4. **Clipboard Dossier Copy:** Complete structured itemized summary copied directly to clipboard.
+- **Verification:**
+  - `flutter analyze lib/features/shipment_inquiry/` ➔ **0 issues found (100% clean)!** ✅
+  - `flutter analyze lib/` ➔ **0 issues found (100% clean across entire project)!** ✅
+  - `flutter test test/shipment_inquiry_localization_test.dart` ➔ **6/6 tests passed (100%)** ✅
+  - `flutter test test/shipment_inquiry_export_service_test.dart` ➔ **5/5 tests passed (100%)** ✅
+  - `flutter test test/shipment_inquiry_screen_widget_test.dart` ➔ **3/3 tests passed (100%)** ✅
+  - `flutter test test/perf/screen_68_shipment_inquiry_perf_test.dart` ➔ **1/1 benchmark passed (Nav-IN First Frame: 375ms | Settled: 519ms | Nav-OUT: 45ms)** ✅
+  - Combined suite: **15/15 tests passed (100% green)** ✅
 
 ## 📝 Session Log: Persistent Smart Import AI Assistant & Interactive Shipment Lifecycle Navigator — 2026-09-10
 - **Target Files:**

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
@@ -21,6 +21,7 @@ final livePollingProvider = StreamProvider.autoDispose<LiveLogisticsSummaryModel
   StreamController<LiveLogisticsSummaryModel>? controller;
   Timer? timer;
   bool disposed = false;
+  bool hasEmitted = false;
 
   Future<void> fetchAndEmit() async {
     if (disposed) return;
@@ -40,11 +41,18 @@ final livePollingProvider = StreamProvider.autoDispose<LiveLogisticsSummaryModel
           : const Duration(seconds: 60);
       ref.read(refreshIntervalProvider.notifier).state = newInterval;
 
-      controller?.add(data);
-    } on DioException {
-      // لا نوقف الـ Stream عند خطأ شبكة
-    } catch (_) {
-      // خطأ غير متوقع
+      if (!disposed && controller != null && !controller.isClosed) {
+        controller.add(data);
+        hasEmitted = true;
+      }
+    } on DioException catch (e, st) {
+      if (!hasEmitted && !disposed && controller != null && !controller.isClosed) {
+        controller.addError(e, st);
+      }
+    } catch (e, st) {
+      if (!hasEmitted && !disposed && controller != null && !controller.isClosed) {
+        controller.addError(e, st);
+      }
     } finally {
       if (!disposed) {
         ref.read(isRefreshingProvider.notifier).state = false;
@@ -62,7 +70,7 @@ final livePollingProvider = StreamProvider.autoDispose<LiveLogisticsSummaryModel
     });
   }
 
-  controller = StreamController<LiveLogisticsSummaryModel>(
+  controller = StreamController<LiveLogisticsSummaryModel>.broadcast(
     onCancel: () {
       disposed = true;
       timer?.cancel();

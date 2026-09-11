@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_provider.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/providers/navigation_provider.dart';
 import '../../../core/performance/dispose_tracker.dart';
 import '../../../core/theme/app_theme.dart';
@@ -21,6 +22,8 @@ import '../../shipment_updates/widgets/shipment_update_dialog.dart';
 import '../../smart_tasks/models/smart_task_model.dart';
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../providers/operational_dashboard_provider.dart';
+import '../services/operational_dashboard_export_service.dart';
+import '../widgets/dashboard_card_drilldown_dialog.dart';
 
 class OperationalDashboardScreen extends ConsumerStatefulWidget {
   const OperationalDashboardScreen({super.key});
@@ -39,19 +42,19 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       'name_en': 'Phase 1: Planning & Studies',
       'color': Color(0xFF2980B9),
       'steps': [
-        {'code': 'STEP_01', 'name_ar': '1. دراسات النولون', 'name_en': '1. Freight Studies'},
-        {'code': 'STEP_02', 'name_ar': '2. الدراسات الجمركية', 'name_en': '2. Customs Studies'},
-        {'code': 'STEP_03', 'name_ar': '3. اشتراطات الاستيراد', 'name_en': '3. Import Requirements'},
+        {'code': 'STEP_01', 'name_ar': 'دراسات ومفاضلة النولون', 'name_en': 'Freight Studies'},
+        {'code': 'STEP_02', 'name_ar': 'الدراسات والاستشارات الجمركية', 'name_en': 'Customs Studies'},
+        {'code': 'STEP_03', 'name_ar': 'اشتراطات ومتطلبات الاستيراد', 'name_en': 'Import Requirements'},
       ],
     },
     {
       'phase_id': 2,
-      'name_ar': 'المرحلة 2: الاعتمادات والـ ACID',
+      'name_ar': 'المرحلة 2: الاعتمادات ونافذة التسجيل المسبق',
       'name_en': 'Phase 2: Approvals & ACID',
       'color': Color(0xFF27AE60),
       'steps': [
-        {'code': 'STEP_04', 'name_ar': '4. اعتماد الميزانية', 'name_en': '4. Budget Approval'},
-        {'code': 'STEP_05', 'name_ar': '5. إصدار ACID نافذة', 'name_en': '5. Nafeza ACID Issue'},
+        {'code': 'STEP_04', 'name_ar': 'اعتماد الميزانية وصرف الدفعة', 'name_en': 'Budget Approval'},
+        {'code': 'STEP_05', 'name_ar': 'إصدار رقم التسجيل المسبق نافذة', 'name_en': 'Nafeza ACID Issue'},
       ],
     },
     {
@@ -60,21 +63,21 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       'name_en': 'Phase 3: Booking & Docs',
       'color': Color(0xFFE67E22),
       'steps': [
-        {'code': 'STEP_06', 'name_ar': '6. تأكيد الحجز الملاحي', 'name_en': '6. Booking Confirmation'},
-        {'code': 'STEP_07', 'name_ar': '7. تخصيص الحاويات', 'name_en': '7. Container Alloc.'},
-        {'code': 'STEP_08', 'name_ar': '8. مراجعة المسودات', 'name_en': '8. Draft Review'},
-        {'code': 'STEP_09', 'name_ar': '9. الاعتماد النهائي', 'name_en': '9. Final Approval'},
+        {'code': 'STEP_06', 'name_ar': 'تأكيد الحجز الملاحي', 'name_en': 'Booking Confirmation'},
+        {'code': 'STEP_07', 'name_ar': 'تخصيص وتوزيع الحاويات والبضائع', 'name_en': 'Container Allocation'},
+        {'code': 'STEP_08', 'name_ar': 'مراجعة مسودات المستندات', 'name_en': 'Draft Review'},
+        {'code': 'STEP_09', 'name_ar': 'الاعتماد النهائي للمستندات', 'name_en': 'Final Approval'},
       ],
     },
     {
       'phase_id': 4,
-      'name_ar': 'المرحلة 4: شحن CargoX والبنك',
+      'name_ar': 'المرحلة 4: التوثيق الإلكتروني والنموذج البنكي',
       'name_en': 'Phase 4: CargoX & Banking',
       'color': Color(0xFF8E44AD),
       'steps': [
-        {'code': 'STEP_10', 'name_ar': '10. رفع CargoX', 'name_en': '10. CargoX Upload'},
-        {'code': 'STEP_11', 'name_ar': '11. أصول المستندات', 'name_en': '11. Original Docs'},
-        {'code': 'STEP_12', 'name_ar': '12. نموذج 4 البنكي', 'name_en': '12. Bank Form 4'},
+        {'code': 'STEP_10', 'name_ar': 'رفع التوثيق الإلكتروني للشاحن', 'name_en': 'CargoX Upload'},
+        {'code': 'STEP_11', 'name_ar': 'استلام وتدقيق أصول المستندات', 'name_en': 'Original Docs'},
+        {'code': 'STEP_12', 'name_ar': 'استخراج نموذج 4 البنكي', 'name_en': 'Bank Form 4'},
       ],
     },
     {
@@ -83,12 +86,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       'name_en': 'Phase 5: Clearance & Release',
       'color': Color(0xFFC0392B),
       'steps': [
-        {'code': 'STEP_13', 'name_ar': '13. إقرار 46 ك.م', 'name_en': '13. Form 46 KM'},
-        {'code': 'STEP_14', 'name_ar': '14. الكشف والتثمين', 'name_en': '14. Inspection & Val.'},
-        {'code': 'STEP_15', 'name_ar': '15. سحب العينات', 'name_en': '15. Sample Drawing'},
-        {'code': 'STEP_16', 'name_ar': '16. محضر المعاينة', 'name_en': '16. Inspection Report'},
-        {'code': 'STEP_17', 'name_ar': '17. سداد الرسوم', 'name_en': '17. Duty Payment'},
-        {'code': 'STEP_18', 'name_ar': '18. الأرضيات والحراسات', 'name_en': '18. Demurrage & Guard'},
+        {'code': 'STEP_13', 'name_ar': 'قيد إقرار 46 ك.م جمركي', 'name_en': 'Form 46 KM'},
+        {'code': 'STEP_14', 'name_ar': 'الكشف والمعاينة والتثمين', 'name_en': 'Inspection & Valuation'},
+        {'code': 'STEP_15', 'name_ar': 'سحب العينات للجهات الرقابية', 'name_en': 'Sample Drawing'},
+        {'code': 'STEP_16', 'name_ar': 'تحرير محضر المعاينة الجمركية', 'name_en': 'Inspection Report'},
+        {'code': 'STEP_17', 'name_ar': 'سداد الضرائب والرسوم الجمركية', 'name_en': 'Duty Payment'},
+        {'code': 'STEP_18', 'name_ar': 'تسوية الأرضيات والحراسات', 'name_en': 'Demurrage & Guard'},
       ],
     },
     {
@@ -97,9 +100,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       'name_en': 'Phase 6: Storage & Settlement',
       'color': Color(0xFF16A085),
       'steps': [
-        {'code': 'STEP_19', 'name_ar': '19. إذن إضافة المخازن', 'name_en': '19. Warehouse GRN'},
-        {'code': 'STEP_20', 'name_ar': '20. تسوية التكلفة Landed', 'name_en': '20. Landed Cost Settlement'},
-        {'code': 'STEP_21', 'name_ar': '21. إغلاق وأرشفة الملف', 'name_en': '21. File Archive & Close'},
+        {'code': 'STEP_19', 'name_ar': 'إذن إضافة المخازن', 'name_en': 'Warehouse GRN'},
+        {'code': 'STEP_20', 'name_ar': 'تسوية تكلفة الاستيراد الشاملة', 'name_en': 'Landed Cost Settlement'},
+        {'code': 'STEP_21', 'name_ar': 'إغلاق وأرشفة الملف نهائياً', 'name_en': 'File Archive & Close'},
       ],
     },
   ];
@@ -183,93 +186,95 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
           const SizedBox(width: 10),
         ],
       ),
-      body: CustomScrollView(
-        cacheExtent: 600,
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 0. Executive KPI Summary Cards & Risk Alerts
-                  dashboardState.data.when(
-                    loading: () => const SizedBox(height: 90, child: Center(child: CircularProgressIndicator())),
-                    error: (_, __) => const SizedBox(),
-                    data: (data) => Column(
-                      children: [
-                        _buildKpiCardsBar(data),
-                        const SizedBox(height: 16),
-                        _buildStreamlitLauncherBanner(),
-                        const SizedBox(height: 16),
-                        _buildQuickActionsBar(),
-                        const SizedBox(height: 16),
-                        _buildRiskAlertsBanner(data.shipments),
-                        const SizedBox(height: 16),
-                        _buildDailyCheckinsCard(),
-                        const SizedBox(height: 16),
-                      ],
+      body: SelectionArea(
+        child: CustomScrollView(
+          cacheExtent: 600,
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 0. Executive KPI Summary Cards & Risk Alerts
+                    dashboardState.data.when(
+                      loading: () => const SizedBox(height: 90, child: Center(child: CircularProgressIndicator())),
+                      error: (_, __) => const SizedBox(),
+                      data: (data) => Column(
+                        children: [
+                          _buildKpiCardsBar(data),
+                          const SizedBox(height: 16),
+                          _buildStreamlitLauncherBanner(),
+                          const SizedBox(height: 16),
+                          _buildQuickActionsBar(),
+                          const SizedBox(height: 16),
+                          _buildRiskAlertsBanner(data.shipments),
+                          const SizedBox(height: 16),
+                          _buildDailyCheckinsCard(data.shipments),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
+
+                    // 1. Shipment Lifecycle Operations Board Summary (6 Phases / 21 Steps)
+                    _buildLifecycleOperationsBoardSummary(context, ref, boardAsync, dashboardState, notifier),
+                    const SizedBox(height: 16),
+
+                    // 2. Control Bar (Priority Button Group, Customs Broker Dropdown & Debounced Search)
+                    _buildControlBar(l, dashboardState, notifier),
+                    const SizedBox(height: 16),
+
+                    // 3. Results Header & Count
+                    _buildResultsHeader(l, dashboardState),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            ),
+
+            // 4. Virtualized Shipment Cards List / Loading / Error / Empty States
+            dashboardState.data.when(
+              loading: () => const SliverToBoxAdapter(
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              ),
+              error: (err, _) => SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _buildErrorCard(l, notifier),
+                ),
+              ),
+              data: (dashboardData) {
+                final shipments = dashboardData.shipments;
+                if (shipments.isEmpty) {
+                  return SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                      child: _buildEmptyStateCard(l, notifier),
+                    ),
+                  );
+                }
+                return SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, idx) {
+                        final s = shipments[idx];
+                        final fileTasks = openTasksByFileId[s.importFileId] ?? const [];
+                        return _buildShipmentCard(s, isArabic, fileTasks, l);
+                      },
+                      childCount: shipments.length,
                     ),
                   ),
-
-                  // 1. Shipment Lifecycle Operations Board Summary (6 Phases / 21 Steps)
-                  _buildLifecycleOperationsBoardSummary(context, ref, boardAsync, dashboardState, notifier),
-                  const SizedBox(height: 16),
-
-                  // 2. Control Bar (Priority Button Group, Customs Broker Dropdown & Debounced Search)
-                  _buildControlBar(l, dashboardState, notifier),
-                  const SizedBox(height: 16),
-
-                  // 3. Results Header & Count
-                  _buildResultsHeader(l, dashboardState),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
-          ),
-
-          // 4. Virtualized Shipment Cards List / Loading / Error / Empty States
-          dashboardState.data.when(
-            loading: () => const SliverToBoxAdapter(
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.all(40),
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-            ),
-            error: (err, _) => SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildErrorCard(l, notifier),
-              ),
-            ),
-            data: (dashboardData) {
-              final shipments = dashboardData.shipments;
-              if (shipments.isEmpty) {
-                return SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                    child: _buildEmptyStateCard(l, notifier),
-                  ),
                 );
-              }
-              return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, idx) {
-                      final s = shipments[idx];
-                      final fileTasks = openTasksByFileId[s.importFileId] ?? const [];
-                      return _buildShipmentCard(s, isArabic, fileTasks, l);
-                    },
-                    childCount: shipments.length,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -375,18 +380,121 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     return dashboardState.data.maybeWhen(
       data: (dashboardData) {
         final count = dashboardData.shipmentCount;
+        final shipments = dashboardData.shipments;
         final dt = DateTime.tryParse(dashboardData.lastUpdatedAt) ?? DateTime.now();
         final lastUpdated = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+        final List<String> activeFilters = [];
+        if (dashboardState.selectedPriority != 'All') {
+          activeFilters.add('${l.priority} ${_getPriorityLabel(dashboardState.selectedPriority, l)}');
+        }
+        if (dashboardState.selectedBrokerName != null && dashboardState.selectedBrokerName != 'All') {
+          activeFilters.add('${l.customsBrokerLabel} ${dashboardState.selectedBrokerName}');
+        }
+        if (dashboardState.searchQuery.isNotEmpty) {
+          activeFilters.add('${l.quickSearchLabel} "${dashboardState.searchQuery}"');
+        }
+        if (dashboardState.selectedPhase != null) {
+          activeFilters.add('${l.currentPhase}: ${dashboardState.selectedPhase}');
+        }
+        final filterSummary = activeFilters.join(' | ');
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CopyableText(
-              '${l.matchingShipments}: $count ${l.shipmentCountUnit}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                CopyableText(
+                  '${l.matchingShipments}: $count ${l.shipmentCountUnit}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                ),
+                Text(
+                  '${l.lastUpdated}: $lastUpdated',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                ),
+              ],
             ),
-            Text(
-              '${l.lastUpdated}: $lastUpdated',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            const SizedBox(height: 8),
+            // 4 Linked Output Actions (TSV, Excel, PDF, Dossier)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: AppTheme.cobalt,
+                    side: BorderSide(color: AppTheme.cobalt.withOpacity(0.4)),
+                  ),
+                  icon: const Icon(Icons.table_view_outlined, size: 16, color: AppTheme.cobalt),
+                  label: Text(l.operationalExportTsvBtn, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  onPressed: shipments.isEmpty
+                      ? null
+                      : () async {
+                          await OperationalDashboardExportService.exportTsv(
+                            context: context,
+                            shipments: shipments,
+                            filterSummary: filterSummary,
+                          );
+                        },
+                ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: AppTheme.emerald,
+                    side: BorderSide(color: AppTheme.emerald.withOpacity(0.4)),
+                  ),
+                  icon: const Icon(Icons.file_present_outlined, size: 16, color: AppTheme.emerald),
+                  label: Text(l.operationalExportExcelBtn, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  onPressed: shipments.isEmpty
+                      ? null
+                      : () async {
+                          await OperationalDashboardExportService.exportCsv(
+                            context: context,
+                            shipments: shipments,
+                            filterSummary: filterSummary,
+                          );
+                        },
+                ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: Colors.purple.shade700,
+                    side: BorderSide(color: Colors.purple.shade300),
+                  ),
+                  icon: Icon(Icons.print_outlined, size: 16, color: Colors.purple.shade700),
+                  label: Text(l.operationalExportPdfBtn, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  onPressed: shipments.isEmpty
+                      ? null
+                      : () async {
+                          await OperationalDashboardExportService.printPdf(
+                            context: context,
+                            shipments: shipments,
+                            filterSummary: filterSummary,
+                            username: 'Sorour Admin',
+                          );
+                        },
+                ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: AppTheme.charcoal,
+                    side: BorderSide(color: Colors.grey.shade400),
+                  ),
+                  icon: const Icon(Icons.copy_all_outlined, size: 16, color: AppTheme.charcoal),
+                  label: Text(l.operationalCopyDossierBtn, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  onPressed: shipments.isEmpty
+                      ? null
+                      : () {
+                          OperationalDashboardExportService.copyDossier(
+                            context: context,
+                            shipments: shipments,
+                            filterSummary: filterSummary,
+                          );
+                        },
+                ),
+              ],
             ),
           ],
         );
@@ -470,7 +578,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
           children: [
             Row(
               children: [
-                CopyableText(s.displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                CopyableText(DisplayNameResolver.resolveShipmentName(s, isArabic: isArabic), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
                 if (s.customFileNumber != null && s.customFileNumber!.trim().isNotEmpty && s.customFileNumber!.trim() != s.importFileCode) ...[
                   const SizedBox(width: 8),
                   Container(
@@ -485,6 +593,16 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 CopyableText('→ ${s.supplierName}', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
                 const Spacer(),
                 _buildPriorityBadge(s.priority, l),
+                const SizedBox(width: 6),
+                IconButton(
+                  icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                  tooltip: l.copyTooltip,
+                  onPressed: () {
+                    final shipmentTitle = DisplayNameResolver.resolveShipmentTitle(s, isArabic: isArabic, includeCodeSecondary: true);
+                    final text = '$shipmentTitle | ${s.companyName} → ${s.supplierName} | ${_formatStageName(s.currentModule, isArabic)}';
+                    CopyHelper.copy(context, text);
+                  },
+                ),
               ],
             ),
             const Divider(height: 20),
@@ -547,8 +665,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         const SizedBox(width: 4),
                         CopyableText(
                           s.currentModule.contains('STEP_02') || s.currentModule.contains('Customs') || s.currentModule.contains('جمرك')
-                              ? (isArabic ? 'المسار السابق: دراسات النولون (STEP_01)' : 'Prev: Freight Studies (STEP_01)')
-                              : (isArabic ? 'المسار السابق: تخطيط الملف' : 'Prev: File Planning'),
+                              ? l.pathwayPrevFreightStudies
+                              : l.pathwayPrevFilePlanning,
                           style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
                         ),
                       ],
@@ -572,7 +690,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         const Icon(Icons.bolt, size: 13, color: AppTheme.cobalt),
                         const SizedBox(width: 4),
                         CopyableText(
-                          '${isArabic ? "المسار الحالي" : "Current"}: ${_formatStageName(s.currentModule, isArabic)}',
+                          '${l.pathwayCurrent}: ${_formatStageName(s.currentModule, isArabic)}',
                           style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                         ),
                       ],
@@ -598,7 +716,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                           const SizedBox(width: 4),
                           Expanded(
                             child: CopyableText(
-                              '${isArabic ? "المسار التالي المطلوب" : "Next Step"}: ${s.nextAction.isNotEmpty ? (isArabic ? _formatStageName(s.nextAction, true) : s.nextAction) : (isArabic ? "مراجعة اشتراطات الاستيراد (STEP_03)" : "Import Regulatory Requirements (STEP_03)")}',
+                              '${l.pathwayNext}: ${s.nextAction.isNotEmpty ? _formatActionName(s.nextAction, s.currentModule, isArabic) : l.pathwayNextImportReqs}',
                               style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -659,7 +777,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   onPressed: () => ShipmentUpdateDialog.show(
                     context,
                     initialFileId: s.importFileId,
-                    initialFileCode: s.customFileNumber ?? s.importFileCode,
+                    initialFileCode: DisplayNameResolver.resolveShipmentTitle(s, isArabic: isArabic),
                     initialTargetPhase: s.currentModule,
                   ),
                 ),
@@ -694,8 +812,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         context: context,
                         builder: (c) => CloseShipmentDialog(
                           importFileId: s.importFileId,
-                          importFileCode: s.primaryNameWithCode,
-                          currentPhaseName: s.currentModule,
+                          importFileCode: DisplayNameResolver.resolveShipmentTitle(s, isArabic: isArabic),
+                          currentPhaseName: DisplayNameResolver.resolvePhaseName(s.currentModule, isArabic: isArabic),
                         ),
                       );
                       if (closed == true) {
@@ -714,78 +832,86 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   Widget _buildNextStepCard(ImportFileModel s, bool isArabic, AppLocalizations l) {
     if (s.status == 'Closed') return const SizedBox.shrink();
 
-
-    String nextStepTitle = isArabic ? 'متابعة الإجراءات التشغيلية' : 'Follow up operational procedures';
-    String nextStepDesc = isArabic ? 'استكمال متطلبات المرحلة الحالية' : 'Complete requirements for the current phase';
-    String responsible = isArabic ? 'فريق الاستيراد' : 'Import Team';
+    String nextStepTitle = l.nextStepDefaultTitle;
+    String nextStepDesc = l.nextStepDefaultDesc;
+    String responsible = l.responsibleImportTeam;
     int targetNavIndex = 1;
     IconData actionIcon = Icons.arrow_forward;
 
     final mod = s.currentModule.toString();
-    if (mod.contains('STEP_02') || mod.contains('الدراسات والاستشارات الجمركية') || mod.contains('Customs Studies') || mod.contains('BP-002')) {
-      nextStepTitle = isArabic ? 'المسار التالي: استيفاء اشتراطات ومتطلبات الاستيراد (STEP_03)' : 'Next Step: Import Regulatory Requirements (STEP_03)';
-      nextStepDesc = isArabic ? 'مراجعة بنود التعريفة والموافقات المسبقة من الجهات الرقابية وهيئات الفحص والتسجيل' : 'Review regulatory requirements and prior approvals for shipment HS codes';
-      responsible = isArabic ? 'أخصائي الاستيراد والتخليص الجمركي' : 'Import Specialist';
+    final stg = s.currentStage.toString();
+    if (mod.contains('STEP_07') || mod.contains('تخصيص') || mod.contains('Container Allocation')) {
+      nextStepTitle = isArabic ? 'تدقيق أوزان VGM واعتماد مسودات مستندات الشحن' : 'VGM Verification & Shipping Draft Approval';
+      nextStepDesc = isArabic
+          ? 'استكمال أوزان الحاويات VGM ومراجعة بوالص الشحن وفواتير المورد للتجهيز لمنظومة CargoX'
+          : 'Complete VGM container weights and review B/L drafts for CargoX processing';
+      responsible = isArabic ? 'مسؤول الشحن والتوثيق الملاحي' : 'Shipping & Documentation Specialist';
+      targetNavIndex = 25;
+      actionIcon = Icons.rule_folder_outlined;
+    } else if (mod.contains('STEP_02') || mod.contains('الدراسات والاستشارات الجمركية') || mod.contains('Customs Studies') || mod.contains('BP-002')) {
+      nextStepTitle = l.nextStepImportReqsTitle;
+      nextStepDesc = l.nextStepImportReqsDesc;
+      responsible = l.responsibleImportSpecialist;
       targetNavIndex = 23;
       actionIcon = Icons.fact_check_outlined;
     } else if (mod.contains('STEP_01') || mod.contains('دراسات ومفاضلة نولون') || mod.contains('Freight Studies')) {
-      nextStepTitle = isArabic ? 'المسار التالي: إعداد الاستشارة والدراسة الجمركية (STEP_02)' : 'Next Step: Customs Consultation & Tariff (STEP_02)';
-      nextStepDesc = isArabic ? 'مراجعة بنود التعريفة الجمركية واحتساب الضرائب والرسوم المقدرة وتكليف المخلص' : 'Review HS codes, calculate estimated taxes and assign customs broker';
-      responsible = isArabic ? 'المستخلص الجمركي' : 'Customs Broker';
+      nextStepTitle = l.nextStepCustomsConsultTitle;
+      nextStepDesc = l.nextStepCustomsConsultDesc;
+      responsible = l.responsibleCustomsBroker;
       targetNavIndex = 23;
       actionIcon = Icons.calculate_outlined;
-    } else if (mod.contains('Phase 1') || mod.contains('BP-001') || mod.contains('BP-007')) {
-      nextStepTitle = isArabic ? 'P2: الاعتماد المالي وصرف الدفعة' : 'P2: Financial Approval & Payment';
-      nextStepDesc = isArabic ? 'مراجعة الميزانية وإصدار طلب الصرف والتحويل البنكي للمورد' : 'Review budget, issue payment request and bank transfer to supplier';
-      responsible = isArabic ? 'الإدارة المالية' : 'Finance Department';
+    } else if (mod.contains('Phase 1') || stg.contains('Phase 1') || mod.contains('BP-001') || mod.contains('BP-007')) {
+      nextStepTitle = l.nextStepFinanceApprovalTitle;
+      nextStepDesc = l.nextStepFinanceApprovalDesc;
+      responsible = l.responsibleFinanceDept;
       targetNavIndex = 8;
       actionIcon = Icons.monetization_on_outlined;
-    } else if (mod.contains('Phase 2') || mod.contains('BP-012')) {
-      nextStepTitle = isArabic ? 'P3: استخراج رقم ACID وتوثيق مستندات CargoX' : 'P3: Nafeza ACID & CargoX Docs';
-      nextStepDesc = isArabic ? 'تسجيل الشحنة على نافذة واستخراج الـ ACID المكون من 19 رقماً' : 'Register shipment on Nafeza and obtain 19-digit ACID number';
-      responsible = isArabic ? 'أخصائي نافذة' : 'Nafeza Specialist';
+    } else if (mod.contains('Phase 2') || stg.contains('Phase 2') || mod.contains('BP-012')) {
+      nextStepTitle = l.nextStepNafezaAcidTitle;
+      nextStepDesc = l.nextStepNafezaAcidDesc;
+      responsible = l.responsibleNafezaSpecialist;
       targetNavIndex = 11;
       actionIcon = Icons.description_outlined;
-    } else if (mod.contains('Phase 3') || mod.contains('BP-015') || mod.contains('BP-019')) {
-      nextStepTitle = isArabic ? 'P4: حجز الشحن وتأكيد رص الحاويات B/L' : 'P4: Freight Booking & Container Alloc.';
-      nextStepDesc = isArabic ? 'تأكيد حجز الباخرة مع الخط الملاحي وإصدار مسودة البوليصة وتأكيد الشحن' : 'Confirm vessel booking with carrier, issue draft B/L and confirm shipment';
-      responsible = isArabic ? 'شركة الشحن' : 'Freight Forwarder';
+    } else if (mod.contains('Phase 3') || stg.contains('Phase 3') || mod.contains('BP-015') || mod.contains('BP-019')) {
+      nextStepTitle = l.nextStepFreightBookingTitle;
+      nextStepDesc = l.nextStepFreightBookingDesc;
+      responsible = l.responsibleFreightForwarder;
       targetNavIndex = 25;
       actionIcon = Icons.directions_boat_outlined;
-    } else if (mod.contains('Phase 4')) {
-      nextStepTitle = isArabic ? 'P5: تتبع الإبحار وتوثيق CargoX ومراقبة الوصول' : 'P5: Transit Tracking & CargoX';
-      nextStepDesc = isArabic ? 'متابعة إبحار السفينة وتاريخ الـ ETA المتوقع واستلام مستندات الشاحن' : 'Monitor vessel transit, tracking ETA and receiving shipper documents';
-      responsible = isArabic ? 'وكيل الشحن' : 'Shipping Carrier';
+    } else if (mod.contains('Phase 4') || stg.contains('Phase 4')) {
+      nextStepTitle = l.nextStepTransitTrackingTitle;
+      nextStepDesc = l.nextStepTransitTrackingDesc;
+      responsible = l.responsibleShippingCarrier;
       targetNavIndex = 26;
       actionIcon = Icons.sailing_outlined;
     } else if (mod.contains('Phase 5')) {
-      nextStepTitle = isArabic ? 'P6: وصول التنويه Arrival Notice وقيد إقرار 46 جمارك' : 'P6: Arrival Notice & Declaration 46';
-      nextStepDesc = isArabic ? 'استلام إخطار الوصول وتكليف المخلص الجمركي بفتح ملف الكشف الجمركي' : 'Receive arrival notice and assign broker for customs inspection file';
-      responsible = isArabic ? 'المستخلص الجمركي' : 'Customs Broker';
+      nextStepTitle = l.nextStepArrivalNoticeTitle;
+      nextStepDesc = l.nextStepArrivalNoticeDesc;
+      responsible = l.responsibleCustomsBroker;
       targetNavIndex = 23;
       actionIcon = Icons.receipt_long_outlined;
     } else if (mod.contains('Phase 6')) {
-      nextStepTitle = isArabic ? 'P7: استكمال الكشف وسداد الرسوم وإصدار إذن الإفراج' : 'P7: Inspection & Duty Payment';
-      nextStepDesc = isArabic ? 'متابعة المعاينة الجمركية وسحب العينات وسداد الضرائب والرسوم' : 'Follow up customs inspection, sampling and duty/tax payment';
-      responsible = isArabic ? 'المستخلص الجمركي' : 'Customs Broker';
+      nextStepTitle = l.nextStepDutyPaymentTitle;
+      nextStepDesc = l.nextStepDutyPaymentDesc;
+      responsible = l.responsibleCustomsBroker;
       targetNavIndex = 27;
       actionIcon = Icons.verified_user_outlined;
     } else if (mod.contains('Phase 7')) {
-      nextStepTitle = isArabic ? 'P8: النقل الداخلي واستلام المخازن وتوليد إذن GRN' : 'P8: Inland Transport & GRN';
-      nextStepDesc = isArabic ? 'تنسيق سيارات النقل واستلام البضاعة في المخازن وفحص الكميات والجودة' : 'Coordinate inland transport, receive goods in warehouse and verify quantities';
-      responsible = isArabic ? 'أمين المخزن' : 'Warehouse Custodian';
+      nextStepTitle = l.nextStepInlandTransportTitle;
+      nextStepDesc = l.nextStepInlandTransportDesc;
+      responsible = l.responsibleWarehouseCustodian;
       targetNavIndex = 28;
       actionIcon = Icons.warehouse_outlined;
     } else if (mod.contains('Phase 8')) {
-      nextStepTitle = isArabic ? 'P9: تسوية تكلفة الوصول الشاملة Landed Cost' : 'P9: Landed Cost Settlement';
-      nextStepDesc = isArabic ? 'تجميع كافة الفواتير ومصاريف النولون والجمارك واحتساب التكلفة الفعلية' : 'Aggregate all invoices, freight and customs fees to calculate true landed cost';
-      responsible = isArabic ? 'الحسابات والمراجعة المالية' : 'Finance & Auditing';
+      nextStepTitle = l.nextStepLandedCostTitle;
+      nextStepDesc = l.nextStepLandedCostDesc;
+      responsible = l.responsibleFinanceAuditing;
       targetNavIndex = 29;
       actionIcon = Icons.calculate_outlined;
     } else if (mod.contains('Phase 9')) {
-      nextStepTitle = isArabic ? 'P10: مراجعة شروط الأرشفة وإغلاق الملف التاريخي' : 'P10: File Archive & Final Closure';
-      nextStepDesc = isArabic ? 'التحقق من اكتمال كافة الفواتير والمستندات وإغلاق الملف نهائياً' : 'Verify completion of all documents and invoices, and permanently archive file';
-      responsible = isArabic ? 'مدير الاستيراد' : 'Import Manager';
+      nextStepTitle = l.nextStepClosureTitle;
+      nextStepDesc = l.nextStepClosureDesc;
+      responsible = l.responsibleImportManager;
       targetNavIndex = 30;
       actionIcon = Icons.archive_outlined;
     }
@@ -851,6 +977,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
 
   Widget _buildLinkedTasksSection(ImportFileModel s, List<SmartTaskModel> linkedTasks, AppLocalizations l) {
     if (linkedTasks.isEmpty) return const SizedBox.shrink();
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
 
     return Container(
       margin: const EdgeInsets.only(top: 10),
@@ -893,7 +1020,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('${l.taskCompletedSuccessfully}: ${t.title}'),
+                              content: Text('${l.taskCompletedSuccessfully}: ${DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isArabic)}'),
                               backgroundColor: AppTheme.emerald,
                               duration: const Duration(seconds: 2),
                             ),
@@ -904,7 +1031,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   ),
                   Expanded(
                     child: CopyableText(
-                      t.title,
+                      DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isArabic),
                       style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
                     ),
                   ),
@@ -932,72 +1059,356 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
 
   Widget _buildKpiCardsBar(dynamic data) {
     final l = context.l10n;
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
     final tasksState = ref.watch(smartTasksProvider);
-    final m = tasksState.metrics;
+    final shipments = (data.shipments as List<dynamic>).cast<ImportFileModel>();
+    final tasks = tasksState.tasks;
 
-    final todaysTasksCount = m?.todaysTasks ?? 0;
-    final pendingTasksCount = m?.pendingTasks ?? 0;
-    final upcomingShipmentsCount = data.shipments.where((s) => s.status != 'Closed').length;
-    final arrivingThisWeekCount = data.shipments.where((s) => s.requiredEta != null || s.currentModule.toString().contains('Phase 5')).length;
-    final etaChangesCount = data.shipments.where((s) => s.requiredEta != null).length;
-    final waitingForPaymentCount = data.shipments.where((s) => s.currentModule.toString().contains('Phase 2')).length;
-    final waitingForForm4Count = data.shipments.where((s) => s.form4No == null || s.form4No.toString().isEmpty).length;
-    final pendingRequirementsCount = data.shipments.where((s) => s.acidNumber == null || s.form46No == null).length;
-    final highPriorityAlertsCount = data.shipments.where((s) => s.priority == 'High' || s.priority == 'Critical').length;
+    void onFocusShipment(String shipmentCode) {
+      _searchController.text = shipmentCode;
+      ref.read(operationalDashboardProvider.notifier).setSearchQuery(shipmentCode);
+    }
+
+    void onCompleteTask(int taskId) async {
+      await ref.read(smartTasksProvider.notifier).updateTask(taskId, {'status': 'Completed'});
+      ref.read(operationalDashboardProvider.notifier).fetchDashboard();
+    }
+
+    void onDailyUpdate(ImportFileModel shipment) {
+      ShipmentUpdateDialog.show(
+        context,
+        initialFileId: shipment.importFileId,
+        initialFileCode: DisplayNameResolver.resolveShipmentTitle(shipment, isArabic: isArabic),
+        initialTargetPhase: shipment.currentModule,
+      );
+    }
+
+    final todaysTasksRecords = DashboardDrillDownHelper.getRecords(
+      type: DashboardCardType.todaysTasks,
+      shipments: shipments,
+      tasks: tasks,
+      isArabic: isArabic,
+      l: l,
+      onFocusShipment: onFocusShipment,
+      onCompleteTask: onCompleteTask,
+      onDailyUpdate: onDailyUpdate,
+    );
+
+    final pendingTasksRecords = DashboardDrillDownHelper.getRecords(
+      type: DashboardCardType.pendingTasks,
+      shipments: shipments,
+      tasks: tasks,
+      isArabic: isArabic,
+      l: l,
+      onFocusShipment: onFocusShipment,
+      onCompleteTask: onCompleteTask,
+      onDailyUpdate: onDailyUpdate,
+    );
+
+    final upcomingShipmentsRecords = DashboardDrillDownHelper.getRecords(
+      type: DashboardCardType.upcomingShipments,
+      shipments: shipments,
+      tasks: tasks,
+      isArabic: isArabic,
+      l: l,
+      onFocusShipment: onFocusShipment,
+      onCompleteTask: onCompleteTask,
+      onDailyUpdate: onDailyUpdate,
+    );
+
+    final arrivingThisWeekRecords = DashboardDrillDownHelper.getRecords(
+      type: DashboardCardType.arrivingThisWeek,
+      shipments: shipments,
+      tasks: tasks,
+      isArabic: isArabic,
+      l: l,
+      onFocusShipment: onFocusShipment,
+      onCompleteTask: onCompleteTask,
+      onDailyUpdate: onDailyUpdate,
+    );
+
+    final etaChangesRecords = DashboardDrillDownHelper.getRecords(
+      type: DashboardCardType.etaChanges,
+      shipments: shipments,
+      tasks: tasks,
+      isArabic: isArabic,
+      l: l,
+      onFocusShipment: onFocusShipment,
+      onCompleteTask: onCompleteTask,
+      onDailyUpdate: onDailyUpdate,
+    );
+
+    final waitingForPaymentRecords = DashboardDrillDownHelper.getRecords(
+      type: DashboardCardType.waitingForPayment,
+      shipments: shipments,
+      tasks: tasks,
+      isArabic: isArabic,
+      l: l,
+      onFocusShipment: onFocusShipment,
+      onCompleteTask: onCompleteTask,
+      onDailyUpdate: onDailyUpdate,
+    );
+
+    final waitingForForm4Records = DashboardDrillDownHelper.getRecords(
+      type: DashboardCardType.waitingForForm4,
+      shipments: shipments,
+      tasks: tasks,
+      isArabic: isArabic,
+      l: l,
+      onFocusShipment: onFocusShipment,
+      onCompleteTask: onCompleteTask,
+      onDailyUpdate: onDailyUpdate,
+    );
+
+    final pendingRequirementsRecords = DashboardDrillDownHelper.getRecords(
+      type: DashboardCardType.pendingRequirements,
+      shipments: shipments,
+      tasks: tasks,
+      isArabic: isArabic,
+      l: l,
+      onFocusShipment: onFocusShipment,
+      onCompleteTask: onCompleteTask,
+      onDailyUpdate: onDailyUpdate,
+    );
+
+    final highPriorityAlertsRecords = DashboardDrillDownHelper.getRecords(
+      type: DashboardCardType.highPriorityAlerts,
+      shipments: shipments,
+      tasks: tasks,
+      isArabic: isArabic,
+      l: l,
+      onFocusShipment: onFocusShipment,
+      onCompleteTask: onCompleteTask,
+      onDailyUpdate: onDailyUpdate,
+    );
 
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
-        _buildKpiCard(l.kpiTodaysTasks, '$todaysTasksCount ${l.tasksCountUnit}', l.kpiTodaysTasksSub, Icons.today, AppTheme.cobalt),
-        _buildKpiCard(l.kpiPendingTasks, '$pendingTasksCount ${l.tasksCountUnit}', l.kpiPendingTasksSub, Icons.pending_actions, AppTheme.orange),
-        _buildKpiCard(l.kpiUpcomingShipments, '$upcomingShipmentsCount ${l.shipmentCountUnit}', l.kpiUpcomingShipmentsSub, Icons.near_me, AppTheme.emerald),
-        _buildKpiCard(l.kpiArrivingThisWeek, '$arrivingThisWeekCount ${l.shipmentCountUnit}', l.kpiArrivingThisWeekSub, Icons.directions_boat, AppTheme.cobalt),
-        _buildKpiCard(l.kpiEtaChanges, '$etaChangesCount', l.kpiEtaChangesSub, Icons.edit_calendar, Colors.purple),
-        _buildKpiCard(l.kpiWaitingPayment, '$waitingForPaymentCount', l.kpiWaitingPaymentSub, Icons.monetization_on, AppTheme.crimson),
-        _buildKpiCard(l.kpiWaitingForm4, '$waitingForForm4Count ${l.shipmentCountUnit}', l.kpiWaitingForm4Sub, Icons.account_balance, AppTheme.orange),
-        _buildKpiCard(l.kpiPendingRequirements, '$pendingRequirementsCount ${l.shipmentCountUnit}', l.kpiPendingRequirementsSub, Icons.rule, AppTheme.crimson),
-        _buildKpiCard(l.kpiHighPriorityAlerts, '$highPriorityAlertsCount', l.kpiHighPriorityAlertsSub, Icons.warning_amber, Colors.red.shade900),
+        _buildKpiCard(
+          title: l.kpiTodaysTasks,
+          mainValue: '${todaysTasksRecords.length} ${l.tasksCountUnit}',
+          subtitle: l.kpiTodaysTasksSub,
+          icon: Icons.today,
+          color: AppTheme.cobalt,
+          records: todaysTasksRecords,
+          clickHint: l.drillDownCardClickHint,
+          onTap: () => DashboardCardDrillDownDialog.show(
+            context: context,
+            title: l.kpiTodaysTasks,
+            icon: Icons.today,
+            themeColor: AppTheme.cobalt,
+            records: todaysTasksRecords,
+            isArabic: isArabic,
+          ),
+        ),
+        _buildKpiCard(
+          title: l.kpiPendingTasks,
+          mainValue: '${pendingTasksRecords.length} ${l.tasksCountUnit}',
+          subtitle: l.kpiPendingTasksSub,
+          icon: Icons.pending_actions,
+          color: AppTheme.orange,
+          records: pendingTasksRecords,
+          clickHint: l.drillDownCardClickHint,
+          onTap: () => DashboardCardDrillDownDialog.show(
+            context: context,
+            title: l.kpiPendingTasks,
+            icon: Icons.pending_actions,
+            themeColor: AppTheme.orange,
+            records: pendingTasksRecords,
+            isArabic: isArabic,
+          ),
+        ),
+        _buildKpiCard(
+          title: l.kpiUpcomingShipments,
+          mainValue: '${upcomingShipmentsRecords.length} ${l.shipmentCountUnit}',
+          subtitle: l.kpiUpcomingShipmentsSub,
+          icon: Icons.near_me,
+          color: AppTheme.emerald,
+          records: upcomingShipmentsRecords,
+          clickHint: l.drillDownCardClickHint,
+          onTap: () => DashboardCardDrillDownDialog.show(
+            context: context,
+            title: l.kpiUpcomingShipments,
+            icon: Icons.near_me,
+            themeColor: AppTheme.emerald,
+            records: upcomingShipmentsRecords,
+            isArabic: isArabic,
+          ),
+        ),
+        _buildKpiCard(
+          title: l.kpiArrivingThisWeek,
+          mainValue: '${arrivingThisWeekRecords.length} ${l.shipmentCountUnit}',
+          subtitle: l.kpiArrivingThisWeekSub,
+          icon: Icons.directions_boat,
+          color: AppTheme.cobalt,
+          records: arrivingThisWeekRecords,
+          clickHint: l.drillDownCardClickHint,
+          onTap: () => DashboardCardDrillDownDialog.show(
+            context: context,
+            title: l.kpiArrivingThisWeek,
+            icon: Icons.directions_boat,
+            themeColor: AppTheme.cobalt,
+            records: arrivingThisWeekRecords,
+            isArabic: isArabic,
+          ),
+        ),
+        _buildKpiCard(
+          title: l.kpiEtaChanges,
+          mainValue: '${etaChangesRecords.length}',
+          subtitle: l.kpiEtaChangesSub,
+          icon: Icons.edit_calendar,
+          color: Colors.purple,
+          records: etaChangesRecords,
+          clickHint: l.drillDownCardClickHint,
+          onTap: () => DashboardCardDrillDownDialog.show(
+            context: context,
+            title: l.kpiEtaChanges,
+            icon: Icons.edit_calendar,
+            themeColor: Colors.purple,
+            records: etaChangesRecords,
+            isArabic: isArabic,
+          ),
+        ),
+        _buildKpiCard(
+          title: l.kpiWaitingPayment,
+          mainValue: '${waitingForPaymentRecords.length}',
+          subtitle: l.kpiWaitingPaymentSub,
+          icon: Icons.monetization_on,
+          color: AppTheme.crimson,
+          records: waitingForPaymentRecords,
+          clickHint: l.drillDownCardClickHint,
+          onTap: () => DashboardCardDrillDownDialog.show(
+            context: context,
+            title: l.kpiWaitingPayment,
+            icon: Icons.monetization_on,
+            themeColor: AppTheme.crimson,
+            records: waitingForPaymentRecords,
+            isArabic: isArabic,
+          ),
+        ),
+        _buildKpiCard(
+          title: l.kpiWaitingForm4,
+          mainValue: '${waitingForForm4Records.length} ${l.shipmentCountUnit}',
+          subtitle: l.kpiWaitingForm4Sub,
+          icon: Icons.account_balance,
+          color: AppTheme.orange,
+          records: waitingForForm4Records,
+          clickHint: l.drillDownCardClickHint,
+          onTap: () => DashboardCardDrillDownDialog.show(
+            context: context,
+            title: l.kpiWaitingForm4,
+            icon: Icons.account_balance,
+            themeColor: AppTheme.orange,
+            records: waitingForForm4Records,
+            isArabic: isArabic,
+          ),
+        ),
+        _buildKpiCard(
+          title: l.kpiPendingRequirements,
+          mainValue: '${pendingRequirementsRecords.length} ${l.shipmentCountUnit}',
+          subtitle: l.kpiPendingRequirementsSub,
+          icon: Icons.rule,
+          color: AppTheme.crimson,
+          records: pendingRequirementsRecords,
+          clickHint: l.drillDownCardClickHint,
+          onTap: () => DashboardCardDrillDownDialog.show(
+            context: context,
+            title: l.kpiPendingRequirements,
+            icon: Icons.rule,
+            themeColor: AppTheme.crimson,
+            records: pendingRequirementsRecords,
+            isArabic: isArabic,
+          ),
+        ),
+        _buildKpiCard(
+          title: l.kpiHighPriorityAlerts,
+          mainValue: '${highPriorityAlertsRecords.length}',
+          subtitle: l.kpiHighPriorityAlertsSub,
+          icon: Icons.warning_amber,
+          color: Colors.red.shade900,
+          records: highPriorityAlertsRecords,
+          clickHint: l.drillDownCardClickHint,
+          onTap: () => DashboardCardDrillDownDialog.show(
+            context: context,
+            title: l.kpiHighPriorityAlerts,
+            icon: Icons.warning_amber,
+            themeColor: Colors.red.shade900,
+            records: highPriorityAlertsRecords,
+            isArabic: isArabic,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildKpiCard(String title, String mainValue, String subtitle, IconData icon, Color color) {
+  Widget _buildKpiCard({
+    required String title,
+    required String mainValue,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required List<DrillDownItem> records,
+    required VoidCallback onTap,
+    required String clickHint,
+  }) {
     return SizedBox(
       width: 220,
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Tooltip(
+        message: clickHint,
+        child: Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            hoverColor: color.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                        child: Icon(icon, color: color, size: 18),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
-                    child: Icon(icon, color: color, size: 18),
+
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CopyableText(
+                          mainValue,
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+                          showIcon: false,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.open_in_new_rounded, size: 14, color: Colors.grey.shade400),
+                    ],
                   ),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
                 ],
               ),
-
-              const SizedBox(height: 8),
-              CopyableText(mainValue, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color), showIcon: false),
-              const SizedBox(height: 4),
-              Text(subtitle, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
-            ],
+            ),
           ),
         ),
       ),
@@ -1052,7 +1463,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               runSpacing: 8,
               children: [
                 ...regTasks.take(3).map((t) {
-                  final title = _cleanTaskTitle(t.title);
+                  final title = _cleanTaskTitle(t.title, isArabic);
                   return GestureDetector(
                     onDoubleTap: () => CopyHelper.copy(context, title),
                     onSecondaryTap: () => CopyHelper.copy(context, title),
@@ -1091,79 +1502,43 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     );
   }
 
-  String _cleanTaskTitle(String title) {
-    var cleaned = title.trim();
-    // Fix double parens like ((... or ))...
-    cleaned = cleaned.replaceAll('((', '(').replaceAll('))', ')');
-    // Fix specific repeated phrases if any exist in legacy records
-    if (cleaned.contains('شهادة المنشأ') && (cleaned.contains('Certificate of Origin') || cleaned.contains('COO'))) {
-      cleaned = cleaned.replaceAll(
-        RegExp(r'استيفاء شهادة المنشأ[\s\S]*?وتوثيقها رسمياً'),
-        'استيفاء وتوثيق شهادة المنشأ المعتمدة (COO) رسمياً',
-      );
-    }
-    if (cleaned.contains('إصدار شهادة الفحص المسبق') && (cleaned.contains('GOEIC') || cleaned.contains('الصادرات والواردات'))) {
-      cleaned = cleaned.replaceAll(
-        RegExp(r'إصدار شهادة الفحص المسبق قبل الشحن[\s\S]*?\)\)?'),
-        'إصدار شهادة الفحص المسبق قبل الشحن (GOEIC - هيئة الرقابة على الصادرات والواردات)',
-      );
-    }
-    return cleaned;
+  String _cleanTaskTitle(String title, bool isArabic) {
+    return DisplayNameResolver.cleanTaskTitle(title, isArabic: isArabic);
   }
 
   String _formatStageName(String? stage, bool isArabic) {
     if (stage == null || stage.trim().isEmpty) return '';
     final s = stage.trim();
 
-    // Check for standard phase number
-    final match = RegExp(r'(?:phase|المرحلة)\s*(\d+)', caseSensitive: false).firstMatch(s);
-    int? phaseNum;
-    if (match != null) {
-      phaseNum = int.tryParse(match.group(1)!);
-    } else {
-      final lower = s.toLowerCase();
-      if (lower.contains('planning') || lower.contains('تخطيط')) {
-        phaseNum = 1;
-      } else if (lower.contains('acid') || lower.contains('اعتماد')) {
-        phaseNum = 2;
-      } else if (lower.contains('booking') || lower.contains('حجز')) {
-        phaseNum = 3;
-      } else if (lower.contains('cargox') || lower.contains('bank')) {
-        phaseNum = 4;
-      } else if (lower.contains('clearance') || lower.contains('تخليص')) {
-        phaseNum = 5;
-      } else if (lower.contains('warehouse') || lower.contains('مخازن') || lower.contains('settlement')) {
-        phaseNum = 6;
-      } else if (lower.contains('transport') || lower.contains('نقل')) {
-        phaseNum = 7;
-      } else if (lower.contains('grn') || lower.contains('استلام')) {
-        phaseNum = 8;
-      } else if (lower.contains('landed') || lower.contains('تسوية')) {
-        phaseNum = 9;
-      } else if (lower.contains('closure') || lower.contains('إغلاق') || lower.contains('closed')) {
-        phaseNum = 10;
-      }
+    if (s.toUpperCase().startsWith('STEP_') || s.toLowerCase().startsWith('step')) {
+      return DisplayNameResolver.resolveStepName(s, isArabic: isArabic);
+    }
+    if (s.toLowerCase().contains('phase') || s.contains('المرحلة') || s.toUpperCase().startsWith('P')) {
+      return DisplayNameResolver.resolvePhaseName(s, isArabic: isArabic);
     }
 
-    if (phaseNum != null) {
-      const phaseMap = {
-        1: {'ar': 'المرحلة الأولى: التخطيط والدراسات المسبقة', 'en': 'Phase 1: Import Planning & Feasibility'},
-        2: {'ar': 'المرحلة الثانية: الاعتمادات وطلب ACID', 'en': 'Phase 2: Approvals & ACID Request'},
-        3: {'ar': 'المرحلة الثالثة: الحجز وتدقيق المستندات', 'en': 'Phase 3: Booking & Documents Review'},
-        4: {'ar': 'المرحلة الرابعة: شحن CargoX والنموذج البنكي', 'en': 'Phase 4: CargoX & Bank Form 4'},
-        5: {'ar': 'المرحلة الخامسة: التخليص الجمركي والإفراج', 'en': 'Phase 5: Customs Clearance & Release'},
-        6: {'ar': 'المرحلة السادسة: المخازن والتسوية النهائية', 'en': 'Phase 6: Warehouse & Final Settlement'},
-        7: {'ar': 'المرحلة السابعة: النقل الداخلي والتفريغ', 'en': 'Phase 7: Inland Transport & Delivery'},
-        8: {'ar': 'المرحلة الثامنة: الاستلام والفحص المخزني', 'en': 'Phase 8: Warehouse Receiving & Inspection'},
-        9: {'ar': 'المرحلة التاسعة: التسوية المالية وتكلفة الاستيراد', 'en': 'Phase 9: Financial Settlement & Landed Cost'},
-        10: {'ar': 'المرحلة العاشرة: إغلاق وأرشفة الملف', 'en': 'Phase 10: Import File Closure & Archival'},
-      };
-      if (phaseMap.containsKey(phaseNum)) {
-        return isArabic ? phaseMap[phaseNum]!['ar']! : phaseMap[phaseNum]!['en']!;
-      }
-    }
+    final step = DisplayNameResolver.resolveStepName(s, isArabic: isArabic);
+    if (step != s && step != '-') return step;
+
+    final phase = DisplayNameResolver.resolvePhaseName(s, isArabic: isArabic);
+    if (phase != s && phase != '-') return phase;
 
     return s;
+  }
+
+  String _formatActionName(String nextAction, String currentModule, bool isArabic) {
+    final action = DisplayNameResolver.resolveActionTitle(nextAction, isArabic: isArabic);
+    final current = _formatStageName(currentModule, isArabic);
+    if (action.trim().toLowerCase() == current.trim().toLowerCase()) {
+      if (currentModule.contains('STEP_07') || currentModule.contains('Container') || currentModule.contains('تخصيص')) {
+        return isArabic ? 'مراجعة واعتماد مسودات مستندات الشحن' : 'Review & Approve Shipping Drafts';
+      }
+      if (currentModule.contains('STEP_01') || currentModule.contains('Freight') || currentModule.contains('نولون')) {
+        return isArabic ? 'الدراسات والاستشارات الجمركية' : 'Customs Studies';
+      }
+      return isArabic ? 'متابعة الخطوة التشغيلية التالية' : 'Next Operational Step';
+    }
+    return action;
   }
 
   Widget _buildPriorityBadge(String priority, AppLocalizations l) {
@@ -1187,8 +1562,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     );
   }
 
-  Widget _buildDailyCheckinsCard() {
+  Widget _buildDailyCheckinsCard(List<ImportFileModel> shipments) {
     final l = context.l10n;
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
     final updatesState = ref.watch(shipmentUpdatesProvider);
     final logs = updatesState.logs;
 
@@ -1231,13 +1607,25 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       children: [
                         Row(
                           children: [
-                            CopyableText(log.importFileCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
-                            const Spacer(),
+                            Expanded(
+                              child: CopyableText(
+                                DisplayNameResolver.resolveShipmentTitleByCode(
+                                  log.importFileCode,
+                                  shipments: shipments,
+                                  isArabic: isArabic,
+                                ),
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
                             Text(log.logDate, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                           ],
                         ),
                         const SizedBox(height: 4),
-                        CopyableText('${log.targetPhase} — ${log.updateCategory}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal)),
+                        CopyableText(
+                          '${DisplayNameResolver.resolvePhaseName(log.targetPhase, isArabic: isArabic)} — ${DisplayNameResolver.resolveUpdateCategory(log.updateCategory, isArabic: isArabic)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+                        ),
                         const SizedBox(height: 4),
                         CopyableText(log.note, style: const TextStyle(fontSize: 11, color: Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
                       ],
@@ -1511,6 +1899,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     OperationalDashboardNotifier notifier,
   ) {
     final l = context.l10n;
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
 
     return Card(
       elevation: 2.5,
@@ -1553,7 +1942,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     child: OutlinedButton.icon(
                       onPressed: () => notifier.togglePhase(dashboardState.selectedPhase!),
                       icon: const Icon(Icons.clear, size: 14, color: AppTheme.crimson),
-                      label: Text('${l.clearFilter} (${dashboardState.selectedPhase})', style: const TextStyle(color: AppTheme.crimson, fontSize: 11.5)),
+                      label: Text('${l.clearFilter} (${_formatStageName(dashboardState.selectedPhase, isArabic)})', style: const TextStyle(color: AppTheme.crimson, fontSize: 11.5)),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: AppTheme.crimson),
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

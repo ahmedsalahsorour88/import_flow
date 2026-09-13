@@ -77,8 +77,10 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SelectionArea(
       child: Dialog(
+        backgroundColor: isDark ? AppTheme.darkSurface : null,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Container(
         width: 860,
@@ -101,13 +103,13 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                       ),
                     ),
                   )
-                : _buildContent(),
+                : _buildContent(isDark),
         ),
       ),
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(bool isDark) {
     final orderedQty = (_balanceData?['total_ordered_quantity'] as num?)?.toDouble() ?? 0.0;
     final shippedQty = (_balanceData?['total_shipped_quantity'] as num?)?.toDouble() ?? 0.0;
     final remainingQty = (_balanceData?['total_remaining_quantity'] as num?)?.toDouble() ?? 0.0;
@@ -141,15 +143,15 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'ميزان أمر الشراء والشحنات الجزئية (PO Balance & Partial Shipments Ledger)',
-                      style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                      style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 2,
                     ),
                     Text(
                       'أمر الشراء: ${widget.poCode}  •  نسبة استيفاء التوريد: ${fulfillment.toStringAsFixed(1)}%',
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
@@ -165,9 +167,9 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,7 +181,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                       isFullyShipped ? '✅ تم استيفاء شحن كامل أمر الشراء (100%)' : '⏳ جاري استكمال شحن الدفعات الجزئية',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: isFullyShipped ? AppTheme.emerald : AppTheme.charcoal,
+                        color: isFullyShipped ? AppTheme.emerald : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                         fontSize: 13.5,
                       ),
                     ),
@@ -195,7 +197,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                   child: LinearProgressIndicator(
                     value: (fulfillment / 100).clamp(0.0, 1.0),
                     minHeight: 10,
-                    backgroundColor: Colors.grey.shade300,
+                    backgroundColor: isDark ? AppTheme.darkSurface : Colors.grey.shade300,
                     valueColor: AlwaysStoppedAnimation<Color>(isFullyShipped ? AppTheme.emerald : AppTheme.cobalt),
                   ),
                 ),
@@ -212,8 +214,9 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                   title: 'إجمالي الكميات المطلوبة',
                   qtyText: '$orderedQty وحدة',
                   usdText: '\$${orderedUsd.toStringAsFixed(2)}',
-                  color: AppTheme.charcoal,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                   icon: Icons.inventory_2_outlined,
+                  isDark: isDark,
                 ),
               ),
               const SizedBox(width: 12),
@@ -224,6 +227,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                   usdText: '\$${shippedUsd.toStringAsFixed(2)}',
                   color: AppTheme.emerald,
                   icon: Icons.local_shipping_outlined,
+                  isDark: isDark,
                 ),
               ),
               const SizedBox(width: 12),
@@ -234,6 +238,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                   usdText: '\$${remainingUsd.toStringAsFixed(2)}',
                   color: remainingQty > 0 ? AppTheme.orange : AppTheme.emerald,
                   icon: Icons.hourglass_bottom_outlined,
+                  isDark: isDark,
                 ),
               ),
             ],
@@ -241,21 +246,21 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
           const SizedBox(height: 20),
 
           // Items Table
-          const Text('📋 تفصيل ميزان بنود أمر الشراء (Line Items Balance):',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+          Text('📋 تفصيل ميزان بنود أمر الشراء (Line Items Balance):',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
           const SizedBox(height: 8),
           Table(
-            border: TableBorder.all(color: Colors.grey.shade300),
+            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
             children: [
               TableRow(
-                decoration: BoxDecoration(color: Colors.grey.shade100),
-                children: const [
-                  Padding(padding: EdgeInsets.all(8), child: Text('كود البند', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8), child: Text('الوصف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8), child: Text('الكمية المطلوبة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8), child: Text('المشحون', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8), child: Text('المتبقي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8), child: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+                children: [
+                  Padding(padding: const EdgeInsets.all(8), child: Text('كود البند', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text('الوصف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text('الكمية المطلوبة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text('المشحون', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text('المتبقي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
                 ],
               ),
               ...items.map((it) {
@@ -263,9 +268,9 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                 final isDone = it['is_fully_shipped'] == true;
                 return TableRow(
                   children: [
-                    Padding(padding: const EdgeInsets.all(8), child: Text(it['item_code'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    Padding(padding: const EdgeInsets.all(8), child: Text(it['description'] ?? '', style: const TextStyle(fontSize: 12))),
-                    Padding(padding: const EdgeInsets.all(8), child: Text('${it['ordered_quantity'] ?? 0}', style: const TextStyle(fontSize: 12))),
+                    Padding(padding: const EdgeInsets.all(8), child: Text(it['item_code'] ?? '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
+                    Padding(padding: const EdgeInsets.all(8), child: Text(it['description'] ?? '', style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
+                    Padding(padding: const EdgeInsets.all(8), child: Text('${it['ordered_quantity'] ?? 0}', style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
                     Padding(padding: const EdgeInsets.all(8), child: Text('${it['shipped_quantity'] ?? 0}', style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold, fontSize: 12))),
                     Padding(padding: const EdgeInsets.all(8), child: Text('$rem', style: TextStyle(color: rem > 0 ? AppTheme.orange : AppTheme.emerald, fontWeight: FontWeight.bold, fontSize: 12))),
                     Padding(
@@ -302,13 +307,14 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
     required String usdText,
     required Color color,
     required IconData icon,
+    bool isDark = false,
   }) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardBackground : Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,7 +326,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700, fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -330,7 +336,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
           const SizedBox(height: 10),
           Text(qtyText, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
-          Text('القيمة: $usdText', style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+          Text('القيمة: $usdText', style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600, fontWeight: FontWeight.w500)),
         ],
       ),
     );

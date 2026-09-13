@@ -64,6 +64,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final state = ref.watch(purchaseOrdersProvider);
     final projectsList = ref.watch(projectsProvider).valueOrNull ?? [];
 
@@ -73,15 +74,17 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     final totalGrossSum = state.purchaseOrders.fold<double>(0.0, (sum, p) => sum + p.totalGrossWeightKg);
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(
         children: [
           // Header Banner
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppTheme.charcoal, AppTheme.cobalt],
+                colors: isDark
+                    ? [const Color(0xFF141A22), const Color(0xFF1E293B)]
+                    : [AppTheme.charcoal, AppTheme.cobalt],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
@@ -293,9 +296,15 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
   }
 
   Widget _buildSummaryMetric(String title, String value, IconData icon, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
       child: Card(
+        color: isDark ? AppTheme.darkCardBackground : Colors.white,
         elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
@@ -308,12 +317,12 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(color: Colors.grey.shade600, fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text(title, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600, fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
                   CopyableText(
                     value,
                     showIcon: false,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                   ),
                 ],
               ),
@@ -341,6 +350,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
   Widget _buildPOTable(BuildContext context, List<PurchaseOrderModel> orders) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     final Map<int, ImportFileModel> filesById = {};
@@ -359,7 +369,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: DataTable(
-              headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
+              headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal),
               headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
               dataRowMaxHeight: 52,
               columns: [
@@ -703,15 +713,20 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       builder: (dialogCtx) {
         final l = dialogCtx.l10n;
         final isArabic = Localizations.localeOf(dialogCtx).languageCode == 'ar';
+        final isDark = Theme.of(dialogCtx).brightness == Brightness.dark;
         return SelectionArea(
           child: DefaultTabController(
             length: 2,
             child: AlertDialog(
+            backgroundColor: isDark ? AppTheme.darkSurface : null,
             title: Row(
               children: [
                 const Icon(Icons.inventory_2, color: AppTheme.cobalt),
                 const SizedBox(width: 8),
-                Text('${l.purchaseOrdersTitle}: ${po.displayName} (${po.poNumber})'),
+                Text(
+                  '${l.purchaseOrdersTitle}: ${po.displayName} (${po.poNumber})',
+                  style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
               ],
             ),
             content: SizedBox(
@@ -720,7 +735,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               child: Column(
                 children: [
                   Container(
-                    color: Colors.grey.shade100,
+                    color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade100,
                     child: TabBar(
                       labelColor: AppTheme.cobalt,
                       unselectedLabelColor: Colors.grey,
@@ -783,34 +798,37 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                     spacing: 20,
                                     runSpacing: 10,
                                     children: [
-                                      _buildDetailItem(l.projectsAndCostCenters, po.projectName ?? '-'),
-                                      _buildDetailItem(l.importingCompany, po.companyName ?? '-'),
-                                      _buildDetailItem(l.foreignSupplier, po.supplierName ?? '-'),
-                                      _buildDetailItem(l.countryOfOriginCol, po.countryOfOrigin ?? '-'),
-                                      _buildDetailItem(l.incotermsRules, po.incotermCode ?? '-'),
-                                      _buildDetailItem(l.currency, '${po.currencyCode ?? "USD"} (${l.exchangeRateLabel}: ${po.exchangeRate})'),
-                                      _buildDetailItem(l.paymentTermsLabel, po.paymentTerms ?? '-'),
-                                      _buildDetailItem(l.totalFobMetric, '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}'),
+                                      _buildDetailItem(l.projectsAndCostCenters, po.projectName ?? '-', isDark: isDark),
+                                      _buildDetailItem(l.importingCompany, po.companyName ?? '-', isDark: isDark),
+                                      _buildDetailItem(l.foreignSupplier, po.supplierName ?? '-', isDark: isDark),
+                                      _buildDetailItem(l.countryOfOriginCol, po.countryOfOrigin ?? '-', isDark: isDark),
+                                      _buildDetailItem(l.incotermsRules, po.incotermCode ?? '-', isDark: isDark),
+                                      _buildDetailItem(l.currency, '${po.currencyCode ?? "USD"} (${l.exchangeRateLabel}: ${po.exchangeRate})', isDark: isDark),
+                                      _buildDetailItem(l.paymentTermsLabel, po.paymentTerms ?? '-', isDark: isDark),
+                                      _buildDetailItem(l.totalFobMetric, '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', isDark: isDark),
                                       _buildDetailItem(
                                         l.totalCargoCbmMetric,
                                         '${effectivePackingListCbm.toStringAsFixed(3)} m³${totalPalletCount > 0 ? " ($totalPalletCount)" : ""}',
+                                        isDark: isDark,
                                       ),
                                       _buildDetailItem(
                                         l.grossWeightMetric,
                                         '${effectivePackingListGrossWeight.toStringAsFixed(1)} kg',
+                                        isDark: isDark,
                                       ),
                                       _buildDetailItem(
                                         l.netWeightMetric,
                                         '${effectivePackingListNetWeight.toStringAsFixed(1)} kg',
+                                        isDark: isDark,
                                       ),
                                     ],
                                   ),
 
                                 const SizedBox(height: 16),
-                                Text(l.poLineItemsBreakdown, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                Text(l.poLineItemsBreakdown, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                                 const SizedBox(height: 6),
                                 Table(
-                                  border: TableBorder.all(color: Colors.grey.shade300),
+                                  border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                                   columnWidths: const {
                                     0: FlexColumnWidth(1.0),
                                     1: FlexColumnWidth(1.8),
@@ -822,7 +840,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                   },
                                   children: [
                                     TableRow(
-                                      decoration: const BoxDecoration(color: AppTheme.cloudWhite),
+                                      decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
                                       children: [
                                         Padding(padding: const EdgeInsets.all(6), child: Text(l.itemCode, style: const TextStyle(fontWeight: FontWeight.bold))),
                                         Padding(padding: const EdgeInsets.all(6), child: Text(l.mainDescription, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -859,7 +877,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                               padding: const EdgeInsets.all(6),
                                               child: Text(
                                                 item.mainDescription?.isNotEmpty == true ? item.mainDescription! : '-',
-                                                style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                                style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                               ),
                                             ),
                                             Padding(
@@ -945,9 +963,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                   padding: const EdgeInsets.all(10),
                                   margin: const EdgeInsets.only(bottom: 12),
                                   decoration: BoxDecoration(
-                                    color: Colors.amber.shade50,
+                                    color: isDark ? const Color(0xFF382C10) : Colors.amber.shade50,
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: Colors.amber.shade400),
+                                    border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade400),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -960,7 +978,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                             isArabic
                                                 ? 'حالة مطابقة الفاتورة والباكينج: يوجد اختلافات في الكميات أو البنود الجمركية'
                                                 : 'Invoice & Packing Reconciliation: Discrepancies found in quantities or HS codes',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.brown),
+                                            style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.amber.shade200 : Colors.brown),
                                           ),
                                         ],
                                       ),
@@ -968,14 +986,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       ...(isArabic ? reconciliation.discrepancySummaryList : (reconciliation.discrepancySummaryListEn.isNotEmpty ? reconciliation.discrepancySummaryListEn : reconciliation.discrepancySummaryList)).map(
                                         (d) => Padding(
                                           padding: const EdgeInsets.only(top: 2, left: 24),
-                                          child: Text('• $d', style: const TextStyle(fontSize: 11, color: Colors.brown)),
+                                          child: Text('• $d', style: TextStyle(fontSize: 11, color: isDark ? Colors.amber.shade100 : Colors.brown)),
                                         ),
                                       ),
                                       if (po.notes != null && po.notes!.contains('[مبررات اختلاف الفاتورة والباكينج]')) ...[
                                         const Divider(height: 14),
                                         Text(
                                           '${isArabic ? "المبرر المعتمد:" : "Approved Justification:"} ${po.notes!.split('[مبررات اختلاف الفاتورة والباكينج]:').last.trim()}',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                         ),
                                       ],
                                     ],
@@ -987,9 +1005,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                   padding: const EdgeInsets.all(10),
                                   margin: const EdgeInsets.only(bottom: 12),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.shade50,
+                                    color: isDark ? const Color(0xFF14301D) : Colors.green.shade50,
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: Colors.green.shade300),
+                                    border: Border.all(color: isDark ? Colors.green.shade700 : Colors.green.shade300),
                                   ),
                                   child: Row(
                                     children: [
@@ -999,7 +1017,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                         isArabic
                                             ? 'مطابقة تامة: جميع بنود الفاتورة المبدئية متطابقة بالكامل مع بيان التعبئة في الأكواد الجمركية والكميات.'
                                             : 'Perfect Match: All proforma invoice line items match packing list in HS codes and quantities.',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12),
+                                        style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.greenAccent : Colors.green, fontSize: 12),
                                       ),
                                     ],
                                   ),
@@ -1012,7 +1030,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(10),
                                 margin: const EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.red.shade300)),
+                                decoration: BoxDecoration(color: isDark ? const Color(0xFF381414) : Colors.red.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: isDark ? Colors.red.shade700 : Colors.red.shade300)),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -1022,11 +1040,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                         const SizedBox(width: 6),
                                         Text(
                                           isArabic ? 'أخطاء مطابقة قائمة التعبئة' : 'Packing List Validation Errors',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                                          style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.redAccent : Colors.red),
                                         ),
                                       ],
                                     ),
-                                    ...validationErrors.map((e) => Padding(padding: const EdgeInsets.only(top: 4, left: 24), child: Text('• $e', style: const TextStyle(fontSize: 12, color: Colors.red)))),
+                                    ...validationErrors.map((e) => Padding(padding: const EdgeInsets.only(top: 4, left: 24), child: Text('• $e', style: TextStyle(fontSize: 12, color: isDark ? Colors.red.shade200 : Colors.red)))),
                                   ],
                                 ),
                               )
@@ -1035,7 +1053,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(10),
                                 margin: const EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.green.shade300)),
+                                decoration: BoxDecoration(color: isDark ? const Color(0xFF14301D) : Colors.green.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: isDark ? Colors.green.shade700 : Colors.green.shade300)),
                                 child: Row(
                                   children: [
                                     const Icon(Icons.check_circle_outline, color: Colors.green, size: 18),
@@ -1044,7 +1062,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       isArabic
                                           ? 'تم التحقق من قائمة التعبئة بنجاح — كافة الأوزان والكميات مطابقة'
                                           : 'Packing List Validation Passed — All weights and quantities verified.',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.greenAccent : Colors.green),
                                     ),
                                   ],
                                 ),
@@ -1055,10 +1073,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(8),
                                 margin: const EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.amber.shade300)),
+                                decoration: BoxDecoration(color: isDark ? const Color(0xFF382C10) : Colors.amber.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade300)),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: validationWarnings.map((w) => Text('⚠️ $w', style: const TextStyle(fontSize: 11, color: Colors.brown))).toList(),
+                                  children: validationWarnings.map((w) => Text('⚠️ $w', style: TextStyle(fontSize: 11, color: isDark ? Colors.amber.shade200 : Colors.brown))).toList(),
                                 ),
                               ),
 
@@ -1067,9 +1085,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 padding: const EdgeInsets.all(12),
                                 margin: const EdgeInsets.only(bottom: 14),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF8FAFC),
+                                  color: isDark ? AppTheme.darkCardBackground : const Color(0xFFF8FAFC),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+                                  border: Border.all(color: isDark ? AppTheme.darkBorder : const Color(0xFFCBD5E1), width: 1.2),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1080,7 +1098,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                         const SizedBox(width: 8),
                                         Text(
                                           l.masterPalletPlanTitle,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                         ),
                                         const Spacer(),
                                         Container(
@@ -1126,18 +1144,18 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                     ),
                                     const SizedBox(height: 10),
                                     Table(
-                                      border: TableBorder.all(color: Colors.grey.shade300),
+                                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                                       children: [
                                         TableRow(
-                                          decoration: const BoxDecoration(color: AppTheme.cloudWhite),
+                                          decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
                                           children: [
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletCountCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletDimensionsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletTotalWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletVolumeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletStackingInstructionsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletTypeCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletCountCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletDimensionsCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletTotalWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletVolumeCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.palletStackingInstructionsCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                           ],
                                         ),
                                         ...po.palletPlanItems.map((pal) {
@@ -1146,16 +1164,16 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                           return TableRow(
                                             children: [
                                               Padding(padding: const EdgeInsets.all(6), child: Text(pal.palletType, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                              Padding(padding: const EdgeInsets.all(6), child: Text('${pal.palletCount}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                              Padding(padding: const EdgeInsets.all(6), child: Text('${pal.lengthCm.toStringAsFixed(0)} × ${pal.widthCm.toStringAsFixed(0)} × ${pal.heightCm.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 11))),
-                                              Padding(padding: const EdgeInsets.all(6), child: Text('${pal.grossWeightPerPalletKg.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11))),
-                                              Padding(padding: const EdgeInsets.all(6), child: Text('${palTotalWt.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text('${pal.palletCount}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text('${pal.lengthCm.toStringAsFixed(0)} × ${pal.widthCm.toStringAsFixed(0)} × ${pal.heightCm.toStringAsFixed(0)} cm', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text('${pal.grossWeightPerPalletKg.toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text('${palTotalWt.toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                                               Padding(padding: const EdgeInsets.all(6), child: Text('${palCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange))),
                                               Padding(
                                                 padding: const EdgeInsets.all(6),
                                                 child: Text(
                                                   pal.isStackable ? l.stackableOption : l.nonStackableOption,
-                                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: pal.isStackable ? Colors.green.shade800 : Colors.orange.shade900),
+                                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: pal.isStackable ? (isDark ? Colors.greenAccent : Colors.green.shade800) : Colors.orange.shade700),
                                                 ),
                                               ),
                                             ],
@@ -1168,17 +1186,17 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                               ),
                             ],
 
-                            Text(l.poPackingListTabCount(po.packingListItems.length), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                            Text(l.poPackingListTabCount(po.packingListItems.length), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                             const SizedBox(height: 6),
 
                             if (po.packingListItems.isEmpty)
                               Padding(
                                 padding: const EdgeInsets.all(16),
-                                child: Text(l.noPackingEntriesYetDesc, style: const TextStyle(color: Colors.grey)),
+                                child: Text(l.noPackingEntriesYetDesc, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
                               )
                             else
                               Table(
-                                border: TableBorder.all(color: Colors.grey.shade300),
+                                border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                                 columnWidths: const {
                                   0: FlexColumnWidth(1.6),
                                   1: FlexColumnWidth(1.1),
@@ -1193,25 +1211,25 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 },
                                 children: [
                                   TableRow(
-                                    decoration: const BoxDecoration(color: AppTheme.cloudWhite),
+                                    decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
                                     children: [
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.itemCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.mainDescription, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPcsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPkgCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.packageTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.dimensionsCmCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.netWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.grossWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmVolumeMetric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.hsCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.itemCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.mainDescription, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPcsCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPkgCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.packageTypeCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.dimensionsCmCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.netWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.grossWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmVolumeMetric, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                     ],
                                   ),
                                   ...po.packingListItems.map(
                                     (p) {
                                       final isMismatched = reconciliation.items.any((r) => r.hsCode == p.hsCode && !r.isMatched);
                                       return TableRow(
-                                        decoration: isMismatched ? BoxDecoration(color: Colors.red.shade50.withOpacity(0.35)) : null,
+                                        decoration: isMismatched ? BoxDecoration(color: isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50.withOpacity(0.35)) : null,
                                         children: [
                                           Padding(
                                             padding: const EdgeInsets.all(6),
@@ -1219,7 +1237,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                 ? Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                                     decoration: BoxDecoration(
-                                                      color: Colors.red.shade50,
+                                                      color: isDark ? const Color(0xFF3B151E) : Colors.red.shade50,
                                                       borderRadius: BorderRadius.circular(4),
                                                       border: Border.all(color: Colors.red.shade400, width: 1.1),
                                                     ),
@@ -1230,21 +1248,21 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                         const Icon(Icons.warning_amber_rounded, size: 11, color: Colors.red),
                                                         Text(
                                                           p.hsCode.isNotEmpty ? p.hsCode : 'None',
-                                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red.shade900),
+                                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? Colors.redAccent : Colors.red.shade900),
                                                         ),
                                                       ],
                                                     ),
                                                   )
                                                 : Text(p.hsCode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                           ),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.itemCode, style: const TextStyle(fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.mainDescription ?? p.description ?? '-', style: const TextStyle(fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPcs}', style: const TextStyle(fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPkg}', style: const TextStyle(fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.packageType, style: const TextStyle(fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.lengthCm > 0 ? '${p.lengthCm}x${p.widthCm}x${p.heightCm}' : 'N/A', style: const TextStyle(fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(((p.netWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.netWeightUnitKg) : p.totalNetWeightKg).toStringAsFixed(1), style: const TextStyle(fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text(((p.grossWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.grossWeightUnitKg) : p.totalGrossWeightKg).toStringAsFixed(1), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.itemCode, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.mainDescription ?? p.description ?? '-', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPcs}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPkg}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.packageType, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.lengthCm > 0 ? '${p.lengthCm}x${p.widthCm}x${p.heightCm}' : 'N/A', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(((p.netWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.netWeightUnitKg) : p.totalNetWeightKg).toStringAsFixed(1), style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(((p.grossWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.grossWeightUnitKg) : p.totalGrossWeightKg).toStringAsFixed(1), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                                           Padding(padding: const EdgeInsets.all(6), child: Text('${(p.calculatedCbm > 0 ? p.calculatedCbm : p.totalCbm).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
                                         ],
                                       );
@@ -1254,20 +1272,20 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                               ),
 
                             const SizedBox(height: 20),
-                            Text('📊 ${l.summaryByHsCodeReport}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                            Text('📊 ${l.summaryByHsCodeReport}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                             const SizedBox(height: 6),
                             Table(
-                              border: TableBorder.all(color: Colors.grey.shade300),
+                              border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                               children: [
                                 TableRow(
-                                  decoration: const BoxDecoration(color: AppTheme.cloudWhite),
+                                  decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
                                   children: [
-                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPcsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPkgCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.totalNetWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.totalGrossWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.totalCargoCbmMetric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.hsCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPcsCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyPkgCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.totalNetWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.totalGrossWeightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                    Padding(padding: const EdgeInsets.all(6), child: Text(l.totalCargoCbmMetric, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                                   ],
                                 ),
                                 ...hsSummaryMap.values.map(
@@ -1275,7 +1293,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                     final summaryHs = '${summary['hs_code']}';
                                     final isMismatched = reconciliation.items.any((r) => r.hsCode == summaryHs && !r.isMatched);
                                     return TableRow(
-                                      decoration: isMismatched ? BoxDecoration(color: Colors.red.shade50.withOpacity(0.35)) : null,
+                                      decoration: isMismatched ? BoxDecoration(color: isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50.withOpacity(0.35)) : null,
                                       children: [
                                         Padding(
                                           padding: const EdgeInsets.all(6),
@@ -1287,16 +1305,16 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                     const SizedBox(width: 3),
                                                     Text(
                                                       summaryHs,
-                                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red.shade900),
+                                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.redAccent : Colors.red.shade900),
                                                     ),
                                                   ],
                                                 )
                                               : Text(summaryHs, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                         ),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pcs']}', style: const TextStyle(fontSize: 11))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pkg']}', style: const TextStyle(fontSize: 11))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_net'] as double).toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_gross'] as double).toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pcs']}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pkg']}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_net'] as double).toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_gross'] as double).toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
                                         Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_cbm'] as double).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
                                       ],
                                     );
@@ -1426,16 +1444,16 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     );
   }
 
-  Widget _buildDetailItem(String label, String value) {
+  Widget _buildDetailItem(String label, String value, {bool isDark = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
         CopyableText(
           value,
           showIcon: false,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
         ),
       ],
     );
@@ -1534,6 +1552,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       context: context,
       builder: (dialogCtx) {
         final l = dialogCtx.l10n;
+        final isDark = Theme.of(dialogCtx).brightness == Brightness.dark;
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final plan = ContainerRequirementEngine.planShipment(
@@ -1555,6 +1574,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                 : containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
 
             return Dialog(
+              backgroundColor: isDark ? AppTheme.darkSurface : null,
               insetPadding: const EdgeInsets.all(16),
               child: Container(
                 width: 1180,
@@ -1580,11 +1600,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                             children: [
                               Text(
                                 l.containerLoadPlanTitle(po.displayName, po.poNumber),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                               ),
                               Text(
                                 l.containerLoadPlanMetrics(totalPlanVolume.toStringAsFixed(3), totalPlanWeight.toStringAsFixed(1), fleetSummary),
-                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                                style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                               ),
                             ],
                           ),
@@ -1616,9 +1636,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                             width: 540,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: isDark ? AppTheme.darkCardBackground : Colors.white,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade300),
+                              border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1627,7 +1647,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                   children: [
                                     Text(l.containerIndexTitle(idx + 1, cResult.spec.name), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
                                     const Spacer(),
-                                    Text(l.packagesOrPalletsCount(cResult.placedItems.length), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                                    Text(l.packagesOrPalletsCount(cResult.placedItems.length), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null)),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
@@ -1640,21 +1660,21 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                      ),
                                    ),
                                  ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
+                               ],
+                             ),
+                           );
+                         },
+                       ),
+                     ),
+                   ],
+                 ),
+               ),
+             );
+           },
+         );
+       },
+     );
+   }
 
   void _showPODialog(BuildContext context, PurchaseOrderModel? po, {Map<String, dynamic>? initialExtractedFields}) {
     showDialog(

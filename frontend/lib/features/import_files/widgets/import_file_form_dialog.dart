@@ -429,8 +429,10 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     final currencies = ref.watch(currenciesProvider).valueOrNull ?? [];
     final locations = ref.watch(transportLocationsProvider).asData?.value ?? [];
     final projects = (ref.watch(projectsProvider).valueOrNull ?? []).where((p) => _selectedCompanyId == null || p.companyId == _selectedCompanyId).toList();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return AlertDialog(
+      backgroundColor: isDark ? AppTheme.darkSurface : null,
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -691,7 +693,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                 // Multi Invoices & Packing Lists Bar
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.blue.shade200)),
+                  decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : Colors.blue.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.blue.shade200)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -848,9 +850,9 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEEF2FF),
+                    color: isDark ? AppTheme.darkCardBackground : const Color(0xFFEEF2FF),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFA5B4FC)),
+                    border: Border.all(color: isDark ? const Color(0xFF4F46E5).withOpacity(0.4) : const Color(0xFFA5B4FC)),
                   ),
                   child: Row(
                     children: [
@@ -889,9 +891,9 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
+                    color: isDark ? AppTheme.darkCardBackground : const Color(0xFFF0FDF4),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF86EFAC)),
+                    border: Border.all(color: isDark ? AppTheme.emerald.withOpacity(0.4) : const Color(0xFF86EFAC)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -902,7 +904,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                           const SizedBox(width: 8),
                           Text(
                             l.logisticsAndPortsDetails,
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF166534), fontSize: 13),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.emerald : const Color(0xFF166534), fontSize: 13),
                           ),
                         ],
                       ),
@@ -968,7 +970,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                                   labelText: l.cargoReadyDateLabel,
                                   border: const OutlineInputBorder(),
                                   filled: true,
-                                  fillColor: Colors.white,
+                                  fillColor: isDark ? AppTheme.darkInputBackground : Colors.white,
                                 ),
                                 child: Text(_cargoReadyDate.toString().substring(0, 10)),
                               ),
@@ -988,7 +990,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                                 labelText: l.targetFreeDaysLabel,
                                 border: const OutlineInputBorder(),
                                 filled: true,
-                                fillColor: Colors.white,
+                                fillColor: isDark ? AppTheme.darkInputBackground : Colors.white,
                               ),
                             ),
                           ),
@@ -1015,7 +1017,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                                 labelText: l.pickupAddressLabel,
                                 border: const OutlineInputBorder(),
                                 filled: true,
-                                fillColor: Colors.white,
+                                fillColor: isDark ? AppTheme.darkInputBackground : Colors.white,
                               ),
                             ),
                           ),
@@ -1028,7 +1030,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                           labelText: l.shippingInstructionsLabel,
                           border: const OutlineInputBorder(),
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: isDark ? AppTheme.darkInputBackground : Colors.white,
                         ),
                       ),
                     ],
@@ -1040,9 +1042,9 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
+                    color: isDark ? AppTheme.darkCardBackground : Colors.amber.shade50,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber.shade300),
+                    border: Border.all(color: isDark ? Colors.amber.withOpacity(0.4) : Colors.amber.shade300),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1209,7 +1211,10 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
       ),
       actions: [
         OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal, side: BorderSide(color: Colors.grey.shade400)),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+          ),
           onPressed: () {
             ref.read(importFilesProvider.notifier).fetchImportFiles();
             ref.read(importCompaniesProvider.notifier).fetchCompanies();
@@ -1221,7 +1226,10 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         ),
         const SizedBox(width: 6),
         OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(foregroundColor: Colors.grey.shade800, side: BorderSide(color: Colors.grey.shade400)),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800,
+            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
+          ),
           onPressed: () {
             setState(() {
               _selectedCompanyId = null;
@@ -1239,7 +1247,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         const SizedBox(width: 6),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFEFF6FF),
+            backgroundColor: isDark ? AppTheme.cobalt.withOpacity(0.15) : const Color(0xFFEFF6FF),
             foregroundColor: AppTheme.cobalt,
             elevation: 0,
             side: const BorderSide(color: AppTheme.cobalt),

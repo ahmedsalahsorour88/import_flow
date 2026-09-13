@@ -92,11 +92,12 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
+        backgroundColor: isDark ? const Color(0xFF141A22) : AppTheme.charcoal,
         elevation: 2,
         title: Row(
           children: [
@@ -277,6 +278,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
       data: (boardData) {
         final allShipments = boardData.allShipments;
         final isAr = Directionality.of(context) == TextDirection.rtl;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         final allImportFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
         final filteredShipments = allShipments.where((s) {
@@ -304,7 +306,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
           children: [
             // UPPER 1/3: Compact 6 Phase Overview Cards
             Container(
-              color: Colors.white,
+              color: isDark ? AppTheme.darkCardBackground : Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,7 +322,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                             const SizedBox(width: 6),
                             Text(
                               l10n.majorPhasesHeader,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                             ),
                           ],
                         ),
@@ -393,12 +395,12 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                 padding: const EdgeInsets.all(12),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? AppTheme.darkCardBackground : Colors.white,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
+                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -452,6 +454,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
       ),
       data: (radarData) {
         final isAr = Directionality.of(context) == TextDirection.rtl;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         final allImportFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
         final filteredItems = radarData.items.where((item) {
@@ -495,7 +498,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
             // UPPER: 5 Strategic KPI Summary Cards with Horizontal Scrollbar
             Container(
-              color: Colors.white,
+              color: isDark ? AppTheme.darkCardBackground : Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: SingleChildScrollView(
                 controller: _kpiScrollController,
@@ -577,10 +580,10 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                     )
                                   : null,
                               filled: true,
-                              fillColor: Colors.white,
+                              fillColor: isDark ? AppTheme.darkInputBackground : Colors.white,
                               contentPadding: EdgeInsets.zero,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
                             ),
                           );
                         },
@@ -603,15 +606,15 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       height: 36,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? AppTheme.darkInputBackground : Colors.white,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: _selectedSampleFilter,
-                          style: const TextStyle(fontSize: 11, color: AppTheme.charcoal, fontWeight: FontWeight.w600),
-                          icon: const Icon(Icons.arrow_drop_down, size: 18),
+                          style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal, fontWeight: FontWeight.w600),
+                          icon: Icon(Icons.arrow_drop_down, size: 18, color: isDark ? AppTheme.darkTextPrimary : null),
                           onChanged: (val) {
                             if (val != null) setState(() => _selectedSampleFilter = val);
                           },
@@ -704,12 +707,12 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                 padding: const EdgeInsets.all(12),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? AppTheme.darkCardBackground : Colors.white,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
+                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -777,20 +780,22 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   }
 
   Widget _buildRiskFilterChip(String value, String label, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSelected = _selectedRiskFilter == value;
     return FilterChip(
       selected: isSelected,
       label: Text(label, style: TextStyle(fontSize: 10.5, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : color)),
       selectedColor: color,
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
       checkmarkColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: isSelected ? color : color.withOpacity(0.3))),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: isSelected ? color : (isDark ? AppTheme.darkBorder : color.withOpacity(0.3)))),
       visualDensity: VisualDensity.compact,
       onSelected: (_) => setState(() => _selectedRiskFilter = value),
     );
   }
 
   Widget _buildRadarDataTable(List<LiveLogisticsTrackingItemModel> items, AppLocalizations l10n, List<ImportFileModel> allImportFiles) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return LayoutBuilder(
       builder: (context, constraints) {
         return Scrollbar(
@@ -808,17 +813,17 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     headingRowHeight: 38,
                     dataRowMinHeight: 48,
                     dataRowMaxHeight: 56,
-                    headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.04)),
+                    headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04)),
                     columnSpacing: 16,
                     horizontalMargin: 12,
                     columns: [
-                      DataColumn(label: Text(l10n.operationalTsvHeaderShipmentName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colVesselAndBl, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colEtaCountdown, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colDemurrageRisk, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colSampleTesting, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colDocReadiness, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colQuickActions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.operationalTsvHeaderShipmentName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colVesselAndBl, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colEtaCountdown, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colDemurrageRisk, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colSampleTesting, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colDocReadiness, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colQuickActions, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                     ],
                     rows: items.map((item) {
                       Color riskColor = AppTheme.emerald;
@@ -877,7 +882,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                 children: [
                                   Text(
                                     shipmentName,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -889,7 +894,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.charcoal,
+                                            color: isDark ? AppTheme.darkBorder : AppTheme.charcoal,
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: Row(
@@ -918,7 +923,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     '${item.companyName} → ${item.supplierName}',
-                                    style: const TextStyle(fontSize: 9.5, color: AppTheme.charcoal, fontWeight: FontWeight.w500),
+                                    style: TextStyle(fontSize: 9.5, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal, fontWeight: FontWeight.w500),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -942,7 +947,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                       const SizedBox(width: 4),
                                       Text(
                                         '${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"})',
-                                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                       ),
                                     ],
                                   ),
@@ -1217,6 +1222,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
   Widget _buildPhaseTopCard(PhaseSummaryModel phase, double width) {
     final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final headerColor = _parseColor(phase.colorHex);
     final isPhaseSelected = _selectedPhaseId == phase.phaseId && _selectedStepCode == null;
 
@@ -1224,7 +1230,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
       width: width,
       margin: const EdgeInsets.only(right: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardBackground : Colors.white,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: isPhaseSelected ? headerColor : headerColor.withOpacity(0.35),
@@ -1232,7 +1238,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
             blurRadius: 3,
             offset: const Offset(0, 1),
           ),
@@ -1309,14 +1315,14 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       color: isStepSelected
                           ? headerColor.withOpacity(0.18)
                           : count > 0
-                              ? Colors.grey.shade50
+                              ? (isDark ? AppTheme.darkSurface : Colors.grey.shade50)
                               : Colors.transparent,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
                         color: isStepSelected
                             ? headerColor
                             : count > 0
-                                ? Colors.grey.shade300
+                                ? (isDark ? AppTheme.darkBorder : Colors.grey.shade300)
                                 : Colors.transparent,
                         width: isStepSelected ? 1.5 : 1,
                       ),
@@ -1337,7 +1343,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                             style: TextStyle(
                               fontSize: 9.5,
                               fontWeight: isStepSelected || count > 0 ? FontWeight.bold : FontWeight.w500,
-                              color: isStepSelected ? headerColor : AppTheme.charcoal,
+                              color: isStepSelected ? headerColor : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -1346,7 +1352,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                           decoration: BoxDecoration(
-                            color: count > 0 ? headerColor.withOpacity(0.2) : Colors.grey.shade200,
+                            color: count > 0 ? headerColor.withOpacity(0.2) : (isDark ? AppTheme.darkSurface : Colors.grey.shade200),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -1392,12 +1398,14 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
       badgeColor = _parseColor(p.colorHex);
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
         borderRadius: const BorderRadius.only(topLeft: Radius.circular(7), topRight: Radius.circular(7)),
-        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+        border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -1418,12 +1426,12 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
-                color: Colors.grey.shade200,
+                color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 l10n.shipmentsCountFormatted(filteredCount),
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
               ),
             ),
             const SizedBox(width: 12),
@@ -1438,11 +1446,12 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                         allImportFiles: allImportFiles,
                         filterTitle: selectedTitle,
                       ),
-              icon: const Icon(Icons.table_chart_outlined, size: 14),
-              label: Text(l10n.lifecycleExportTsvBtn, style: const TextStyle(fontSize: 11)),
+              icon: Icon(Icons.table_chart_outlined, size: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+              label: Text(l10n.lifecycleExportTsvBtn, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
               style: OutlinedButton.styleFrom(
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
               ),
             ),
             const SizedBox(width: 4),
@@ -1460,6 +1469,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
               style: OutlinedButton.styleFrom(
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
               ),
             ),
             const SizedBox(width: 4),
@@ -1478,6 +1488,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
               style: OutlinedButton.styleFrom(
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
               ),
             ),
             const SizedBox(width: 4),
@@ -1499,6 +1510,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
               style: OutlinedButton.styleFrom(
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
               ),
             ),
             const SizedBox(width: 16),
@@ -1511,13 +1523,14 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                   return TextField(
                     controller: _searchController,
                     onChanged: (val) => setState(() => _searchQuery = val),
+                    style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                     decoration: InputDecoration(
                       hintText: l10n.searchLifecycleTableHint,
-                      hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                      hintStyle: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
                       prefixIcon: const Icon(Icons.search, size: 14, color: AppTheme.cobalt),
                       suffixIcon: val.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear, size: 12),
+                              icon: Icon(Icons.clear, size: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() => _searchQuery = '');
@@ -1525,10 +1538,10 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                             )
                           : null,
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: isDark ? AppTheme.darkInputBackground : Colors.white,
                       contentPadding: EdgeInsets.zero,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
                     ),
                   );
                 },
@@ -1544,6 +1557,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
   Widget _buildShipmentsTable(List<ShipmentStageCardModel> shipments, List<PhaseSummaryModel> phases, List<ImportFileModel> allImportFiles) {
     final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1562,21 +1576,21 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     headingRowHeight: 34,
                     dataRowMinHeight: 44,
                     dataRowMaxHeight: 52,
-                    headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.04)),
+                    headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04)),
                     columnSpacing: 14,
                     horizontalMargin: 10,
                     columns: [
-                      DataColumn(label: Text(l10n.operationalTsvHeaderShipmentName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colPreviousStep, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colCurrentStep, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colNextStep, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colImportCompany, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colForeignSupplier, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colPurchaseOrder, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colModeAndIncoterm, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colEstimatedValue, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colNotesAndActivities, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colActionsAndAdvance, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.operationalTsvHeaderShipmentName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colPreviousStep, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colCurrentStep, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colNextStep, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colImportCompany, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colForeignSupplier, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colPurchaseOrder, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colModeAndIncoterm, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colEstimatedValue, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colNotesAndActivities, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.colActionsAndAdvance, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                     ],
                     rows: shipments.map((s) {
                       final phaseStr = _stepPhases[s.stepCode] ?? '1';
@@ -1606,7 +1620,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                 children: [
                                   Text(
                                     shipmentName,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -1620,7 +1634,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.charcoal,
+                                            color: isDark ? AppTheme.darkBorder : AppTheme.charcoal,
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: Row(
@@ -1662,7 +1676,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                               rowSummary: rowSummary,
                               child: Text(
                                 cleanPrevStep,
-                                style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                                style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1717,21 +1731,21 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                             CopyableTableCell(
                               value: s.companyName,
                               rowSummary: rowSummary,
-                              child: Text(s.companyName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5)),
+                              child: Text(s.companyName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : null)),
                             ),
                           ),
                           DataCell(
                             CopyableTableCell(
                               value: s.supplierName,
                               rowSummary: rowSummary,
-                              child: Text(s.supplierName, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade800)),
+                              child: Text(s.supplierName, style: TextStyle(fontSize: 10.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800)),
                             ),
                           ),
                           DataCell(
                             CopyableTableCell(
                               value: s.poNumber ?? l10n.notSpecifiedOption,
                               rowSummary: rowSummary,
-                              child: Text(s.poNumber ?? l10n.notSpecifiedOption, style: const TextStyle(fontSize: 10.5)),
+                              child: Text(s.poNumber ?? l10n.notSpecifiedOption, style: TextStyle(fontSize: 10.5, color: isDark ? AppTheme.darkTextPrimary : null)),
                             ),
                           ),
                           DataCell(
@@ -1741,12 +1755,12 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade200,
+                                  color: isDark ? AppTheme.darkSurface : Colors.grey.shade200,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   '${s.shipmentMode} | ${s.incotermCode}',
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade800),
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800),
                                 ),
                               ),
                             ),
@@ -1769,7 +1783,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                 constraints: const BoxConstraints(maxWidth: 200),
                                 child: Text(
                                   s.notes ?? l10n.notesUnderFollowupFallback,
-                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+                                  style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),

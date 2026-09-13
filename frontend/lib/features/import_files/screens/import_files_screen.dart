@@ -418,7 +418,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
         builder: (dialogCtx) {
           return StatefulBuilder(
             builder: (ctx, setPromptState) {
+              final isDarkPrompt = Theme.of(ctx).brightness == Brightness.dark;
               return AlertDialog(
+                backgroundColor: isDarkPrompt ? AppTheme.darkSurface : null,
                 title: Row(
                   children: [
                     const Icon(Icons.summarize, color: AppTheme.cobalt, size: 26),
@@ -432,7 +434,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                   children: [
                     Text(
                       '📌 ${l.selectShipmentForReport}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDarkPrompt ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                     ),
                     const SizedBox(height: 12),
                     SearchableDropdownField<int?>(
@@ -492,6 +494,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
         builder: (dialogCtx) {
           return StatefulBuilder(
             builder: (ctx, setDialogState) {
+              final isDarkDialog = Theme.of(ctx).brightness == Brightness.dark;
               final displayFiles = selectedFileId == null
                   ? report.files
                   : report.files.where((f) => f.importFileId == selectedFileId).toList();
@@ -502,7 +505,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
               final totalCost = displayFiles.fold(0.0, (sum, f) => sum + f.estimatedCost);
 
               return Dialog(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                backgroundColor: isDarkDialog ? AppTheme.darkCardBackground : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: isDarkDialog ? AppTheme.darkBorder : Colors.transparent),
+                ),
                 child: Container(
                   width: MediaQuery.of(context).size.width * 0.95,
                   height: MediaQuery.of(context).size.height * 0.90,
@@ -521,7 +528,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                               children: [
                                 Text(
                                   l.masterImportReportTitle,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDarkDialog ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                 ),
                                 if (selectedFileId != null && displayFiles.isNotEmpty)
                                   Text(
@@ -684,19 +691,23 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                 children: [
                                   Text(
                                     '📋 ${l.operationalTrackingMatrixSection}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: isDarkDialog ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 8),
                               Card(
-                                elevation: 2,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                elevation: isDarkDialog ? 0 : 2,
+                                color: isDarkDialog ? AppTheme.darkSurface : Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(color: isDarkDialog ? AppTheme.darkBorder : Colors.transparent),
+                                ),
                                 child: SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   child: DataTable(
-                                    headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
-                                    headingTextStyle: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                                    headingRowColor: WidgetStateProperty.all(isDarkDialog ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.06)),
+                                    headingTextStyle: TextStyle(color: isDarkDialog ? AppTheme.darkTextPrimary : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
                                     dataRowMaxHeight: 52,
                                     columns: [
                                       DataColumn(label: Text(l.responsiblePersonLabel)),
@@ -876,10 +887,10 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                               margin: const EdgeInsets.only(bottom: 20),
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: isDarkDialog ? AppTheme.darkCardBackground : Colors.white,
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+                                border: Border.all(color: isDarkDialog ? AppTheme.darkBorder : AppTheme.cobalt.withOpacity(0.3)),
+                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDarkDialog ? 0.2 : 0.03), blurRadius: 4, offset: const Offset(0, 2))],
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -887,11 +898,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                   // File Header & Summary Bar
                                   Row(
                                     children: [
-                                      Text('${l.importFileIdLabel}: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                                      Text('${l.importFileIdLabel}: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDarkDialog ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                                       CopyableText(
                                         '${DisplayNameResolver.resolveShipmentTitle(file, isArabic: Localizations.localeOf(context).languageCode == 'ar')} (${file.companyName})',
                                         showIcon: false,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDarkDialog ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                       ),
                                       const Spacer(),
                                       Container(
@@ -911,9 +922,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: Colors.blue.shade50.withOpacity(0.5),
+                                      color: isDarkDialog ? AppTheme.darkSurface : Colors.blue.shade50.withOpacity(0.5),
                                       borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.blue.shade100),
+                                      border: Border.all(color: isDarkDialog ? AppTheme.darkBorder : Colors.blue.shade100),
                                     ),
                                     child: Row(
                                       children: [
@@ -967,8 +978,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                     SingleChildScrollView(
                                       scrollDirection: Axis.horizontal,
                                       child: DataTable(
-                                        headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.08)),
-                                        headingTextStyle: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+                                        headingRowColor: WidgetStateProperty.all(isDarkDialog ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.08)),
+                                        headingTextStyle: TextStyle(color: isDarkDialog ? AppTheme.darkTextPrimary : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
                                         columns: [
                                           DataColumn(label: Text(l.purchaseOrder)),
                                           DataColumn(label: Text(l.poInvoiceLabel)),
@@ -1137,12 +1148,13 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
   }
 
   Widget _buildMetricMiniCard(String title, String value, String sub, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : color.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1151,7 +1163,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
           const SizedBox(height: 4),
           CopyableText(value, showIcon: false, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
-          Text(sub, style: const TextStyle(fontSize: 9, color: Colors.grey), overflow: TextOverflow.ellipsis),
+          Text(sub, style: TextStyle(fontSize: 9, color: isDark ? AppTheme.darkTextSecondary : Colors.grey), overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -1230,14 +1242,15 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final paginatedState = ref.watch(paginatedImportFilesProvider);
     final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
     final Map<int, List<PurchaseOrderModel>> linkedPOsCache = {};
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
+        backgroundColor: isDark ? const Color(0xFF141A22) : AppTheme.charcoal,
         title: Row(
           children: [
             const Icon(Icons.folder_special, color: AppTheme.cobalt),
@@ -1279,8 +1292,12 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
           children: [
             // Top Toolbar: Actions & Filters
             Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: isDark ? 0 : 2,
+              color: isDark ? AppTheme.darkCardBackground : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Wrap(
@@ -1357,7 +1374,12 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                               hintText: l.searchByShipmentOrCompany,
                               prefixIcon: const Icon(Icons.search),
                               isDense: true,
-                              border: const OutlineInputBorder(),
+                              filled: true,
+                              fillColor: isDark ? AppTheme.darkInputBackground : Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                              ),
                             ),
                             onChanged: (val) {
                               ref.read(paginatedImportFilesProvider.notifier).fetchPage(1, search: val, status: _selectedStatusFilter);
@@ -1408,179 +1430,184 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                   : paginatedState.items.isEmpty
                     ? Center(child: Text(l.noImportFilesFound, style: const TextStyle(fontSize: 16)))
                     : Card(
-                    elevation: 2,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
+                      elevation: isDark ? 0 : 2,
+                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+                      ),
                       child: SingleChildScrollView(
-                        child: DataTable(
-                          headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
-                          columns: [
-                            DataColumn(label: Text(l.importFileIdLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.importingCompany, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.poInvoiceLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.foreignSupplier, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.transportModeIncoterm, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.priorityType, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.targetEta, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.currentPhaseStage, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.progressPercentLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.nextActionLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.responsiblePersonLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.status, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text(l.actions, style: const TextStyle(fontWeight: FontWeight.bold))),
-                          ],
-                          rows: paginatedState.items.map((file) {
-                            final priorityText = _getPriorityLabel(file.priority, l);
-                            final statusText = _getStatusLabel(file.status, l);
+                        scrollDirection: Axis.horizontal,
+                        child: SingleChildScrollView(
+                          child: DataTable(
+                            headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.05)),
+                            columns: [
+                              DataColumn(label: Text(l.importFileIdLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(l.importingCompany, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(l.poInvoiceLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(l.foreignSupplier, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(l.transportModeIncoterm, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(l.priorityType, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(l.targetEta, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(l.currentPhaseStage, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(l.progressPercentLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(l.nextActionLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(l.responsiblePersonLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(l.status, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(l.actions, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            ],
+                            rows: paginatedState.items.map((file) {
+                              final priorityText = _getPriorityLabel(file.priority, l);
+                              final statusText = _getStatusLabel(file.status, l);
 
-                            String poDisplay;
-                            if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
-                              poDisplay = file.poNumber!.trim();
-                            } else {
-                              final linkedPOs = linkedPOsCache.putIfAbsent(file.importFileId, () => ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs));
-                              if (linkedPOs.isNotEmpty) {
-                                poDisplay = linkedPOs.map((p) => (p.poReference != null && p.poReference!.trim().isNotEmpty && p.poReference != file.customFileNumber && p.poReference != file.importFileCode) ? p.poReference! : p.poNumber).join(', ');
+                              String poDisplay;
+                              if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
+                                poDisplay = file.poNumber!.trim();
                               } else {
-                                poDisplay = '-';
+                                final linkedPOs = linkedPOsCache.putIfAbsent(file.importFileId, () => ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs));
+                                if (linkedPOs.isNotEmpty) {
+                                  poDisplay = linkedPOs.map((p) => (p.poReference != null && p.poReference!.trim().isNotEmpty && p.poReference != file.customFileNumber && p.poReference != file.importFileCode) ? p.poReference! : p.poNumber).join(', ');
+                                } else {
+                                  poDisplay = '-';
+                                }
                               }
-                            }
-                            final piDisplay = file.piNumber != null && file.piNumber!.trim().isNotEmpty ? file.piNumber!.trim() : '-';
-                            final isAr = Localizations.localeOf(context).languageCode == 'ar';
-                            final resolvedStage = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr);
-                            final resolvedAction = DisplayNameResolver.resolveActionTitle(file.nextAction, isArabic: isAr);
-                            final shipDisplayName = DisplayNameResolver.resolveShipmentName(file, isArabic: isAr);
-                            final rowSummary = '$shipDisplayName\t${file.companyName}\t${l.poNumberShortPrefix}$poDisplay, ${l.piNumberShortPrefix}$piDisplay\t${file.supplierName}\t${file.shipmentMode} (${file.incotermCode})\t$priorityText\t${file.requiredEta ?? "-"}\t$resolvedStage\t${file.progressPercent.toInt()}%\t$resolvedAction\t${file.owner}\t$statusText';
+                              final piDisplay = file.piNumber != null && file.piNumber!.trim().isNotEmpty ? file.piNumber!.trim() : '-';
+                              final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                              final resolvedStage = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr);
+                              final resolvedAction = DisplayNameResolver.resolveActionTitle(file.nextAction, isArabic: isAr);
+                              final shipDisplayName = DisplayNameResolver.resolveShipmentName(file, isArabic: isAr);
+                              final rowSummary = '$shipDisplayName\t${file.companyName}\t${l.poNumberShortPrefix}$poDisplay, ${l.piNumberShortPrefix}$piDisplay\t${file.supplierName}\t${file.shipmentMode} (${file.incotermCode})\t$priorityText\t${file.requiredEta ?? "-"}\t$resolvedStage\t${file.progressPercent.toInt()}%\t$resolvedAction\t${file.owner}\t$statusText';
 
-                            return DataRow(
-                              selected: _highlightedFileId == file.importFileId,
-                              cells: [
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: shipDisplayName,
-                                    rowSummary: rowSummary,
-                                    child: InkWell(
-                                      onTap: () => _showImportFileDetailsDialog(context, file),
+                              return DataRow(
+                                selected: _highlightedFileId == file.importFileId,
+                                cells: [
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: shipDisplayName,
+                                      rowSummary: rowSummary,
+                                      child: InkWell(
+                                        onTap: () => _showImportFileDetailsDialog(context, file),
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(shipDisplayName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline)),
+                                            if (shipDisplayName != file.importFileCode)
+                                              Text(file.importFileCode, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                                            if (file.clonedFromCode != null && file.clonedFromCode!.isNotEmpty)
+                                              Text(
+                                                l.clonedFromBadge(file.clonedFromCode!),
+                                                style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: file.companyName,
+                                      rowSummary: rowSummary,
+                                      child: Text(file.companyName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: '${l.poNumberShortPrefix}$poDisplay | ${l.piNumberShortPrefix}$piDisplay',
+                                      rowSummary: rowSummary,
                                       child: Column(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(shipDisplayName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline)),
-                                          if (shipDisplayName != file.importFileCode)
-                                            Text(file.importFileCode, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                          if (file.clonedFromCode != null && file.clonedFromCode!.isNotEmpty)
-                                            Text(
-                                              l.clonedFromBadge(file.clonedFromCode!),
-                                              style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
-                                            ),
+                                          Text('${l.poNumberShortPrefix}$poDisplay', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                          Text('${l.piNumberShortPrefix}$piDisplay', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
                                         ],
                                       ),
                                     ),
                                   ),
-                                ),
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: file.companyName,
-                                    rowSummary: rowSummary,
-                                    child: Text(file.companyName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: file.supplierName,
+                                      rowSummary: rowSummary,
+                                      child: Text(file.supplierName),
+                                    ),
                                   ),
-                                ),
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: '${l.poNumberShortPrefix}$poDisplay | ${l.piNumberShortPrefix}$piDisplay',
-                                    rowSummary: rowSummary,
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: '${file.shipmentMode} (${file.incotermCode})',
+                                      rowSummary: rowSummary,
+                                      child: Text('${file.shipmentMode} (${file.incotermCode})'),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: priorityText,
+                                      rowSummary: rowSummary,
+                                      child: Chip(
+                                        label: Text(priorityText, style: const TextStyle(fontSize: 10, color: Colors.white)),
+                                        backgroundColor: file.priority == 'High' || file.priority == 'Critical' ? Colors.red : Colors.orange,
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: file.requiredEta ?? '-',
+                                      rowSummary: rowSummary,
+                                      child: Text(file.requiredEta ?? '-'),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: resolvedStage,
+                                      rowSummary: rowSummary,
+                                      child: Text(resolvedStage, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: '${file.progressPercent.toInt()}%',
+                                      rowSummary: rowSummary,
+                                      child: SizedBox(
+                                        width: 100,
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            LinearProgressIndicator(value: file.progressPercent / 100, backgroundColor: isDark ? AppTheme.darkBorder : Colors.grey.shade200, color: AppTheme.emerald),
+                                            const SizedBox(height: 2),
+                                            Text('${file.progressPercent.toInt()}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: resolvedAction,
+                                      rowSummary: rowSummary,
+                                      child: Text(resolvedAction, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: file.owner,
+                                      rowSummary: rowSummary,
+                                      child: Text(file.owner, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    CopyableTableCell(
+                                      value: statusText,
+                                      rowSummary: rowSummary,
+                                      child: Chip(
+                                        label: Text(statusText, style: const TextStyle(fontSize: 10, color: Colors.white)),
+                                        backgroundColor: file.status == 'Open' ? Colors.green : Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text('${l.poNumberShortPrefix}$poDisplay', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                        Text('${l.piNumberShortPrefix}$piDisplay', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: file.supplierName,
-                                    rowSummary: rowSummary,
-                                    child: Text(file.supplierName),
-                                  ),
-                                ),
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: '${file.shipmentMode} (${file.incotermCode})',
-                                    rowSummary: rowSummary,
-                                    child: Text('${file.shipmentMode} (${file.incotermCode})'),
-                                  ),
-                                ),
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: priorityText,
-                                    rowSummary: rowSummary,
-                                    child: Chip(
-                                      label: Text(priorityText, style: const TextStyle(fontSize: 10, color: Colors.white)),
-                                      backgroundColor: file.priority == 'High' || file.priority == 'Critical' ? Colors.red : Colors.orange,
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: file.requiredEta ?? '-',
-                                    rowSummary: rowSummary,
-                                    child: Text(file.requiredEta ?? '-'),
-                                  ),
-                                ),
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: resolvedStage,
-                                    rowSummary: rowSummary,
-                                    child: Text(resolvedStage, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: '${file.progressPercent.toInt()}%',
-                                    rowSummary: rowSummary,
-                                    child: SizedBox(
-                                      width: 100,
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          LinearProgressIndicator(value: file.progressPercent / 100, backgroundColor: Colors.grey.shade200, color: AppTheme.emerald),
-                                          const SizedBox(height: 2),
-                                          Text('${file.progressPercent.toInt()}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: resolvedAction,
-                                    rowSummary: rowSummary,
-                                    child: Text(resolvedAction, style: const TextStyle(fontSize: 11, color: AppTheme.charcoal)),
-                                  ),
-                                ),
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: file.owner,
-                                    rowSummary: rowSummary,
-                                    child: Text(file.owner, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                DataCell(
-                                  CopyableTableCell(
-                                    value: statusText,
-                                    rowSummary: rowSummary,
-                                    child: Chip(
-                                      label: Text(statusText, style: const TextStyle(fontSize: 10, color: Colors.white)),
-                                      backgroundColor: file.status == 'Open' ? Colors.green : Colors.grey,
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
                                       if (file.status != 'Closed')
                                         IconButton(
                                           icon: const Icon(Icons.cancel_outlined, color: AppTheme.crimson, size: 18),
@@ -1729,9 +1756,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                 margin: const EdgeInsets.only(top: 12),
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,

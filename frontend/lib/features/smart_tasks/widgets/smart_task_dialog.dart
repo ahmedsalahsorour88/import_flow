@@ -134,8 +134,10 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
   Widget build(BuildContext context) {
     final importFilesState = ref.watch(importFilesProvider);
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Dialog(
+      backgroundColor: isDark ? AppTheme.darkSurface : null,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: SelectionArea(
         child: Container(
@@ -154,7 +156,7 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                     Expanded(
                       child: Text(
                         widget.taskToEdit != null ? l.smartTaskDialogEditTitle : l.smartTaskDialogNewTitle,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
                       ),

@@ -166,62 +166,66 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.fast_forward_rounded, color: AppTheme.orange),
-            const SizedBox(width: 8),
-            Text(l10n.skipStepDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ],
-        ),
-        content: SelectionArea(
-          child: SizedBox(
-            width: 450,
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.skipStepConfirmText(l10n.lifecycleStepName(widget.shipment.stepCode), widget.shipment.importFileCode),
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: reasonController,
-                    decoration: InputDecoration(
-                      labelText: l10n.skipReasonLabel,
-                      hintText: l10n.skipReasonHint,
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.copy_rounded, size: 16),
-                        tooltip: l10n.copyValue,
-                        onPressed: () => CopyHelper.copy(ctx, reasonController.text),
-                      ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkSurface : null,
+          title: Row(
+            children: [
+              const Icon(Icons.fast_forward_rounded, color: AppTheme.orange),
+              const SizedBox(width: 8),
+              Text(l10n.skipStepDialogTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+            ],
+          ),
+          content: SelectionArea(
+            child: SizedBox(
+              width: 450,
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.skipStepConfirmText(l10n.lifecycleStepName(widget.shipment.stepCode), widget.shipment.importFileCode),
+                      style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? l10n.skipReasonRequired : null,
-                    maxLines: 2,
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: reasonController,
+                      decoration: InputDecoration(
+                        labelText: l10n.skipReasonLabel,
+                        hintText: l10n.skipReasonHint,
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          tooltip: l10n.copyValue,
+                          onPressed: () => CopyHelper.copy(ctx, reasonController.text),
+                        ),
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? l10n.skipReasonRequired : null,
+                      maxLines: 2,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(ctx, true);
-              }
-            },
-            icon: const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 18),
-            label: Text(l10n.confirmSkipAndAdvanceBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(ctx, true);
+                }
+              },
+              icon: const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 18),
+              label: Text(l10n.confirmSkipAndAdvanceBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true && mounted) {
@@ -293,62 +297,66 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
 
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.pause_circle_outline_rounded, color: AppTheme.crimson),
-              const SizedBox(width: 8),
-              Text(l10n.holdDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ],
-          ),
-          content: SelectionArea(
-            child: SizedBox(
-              width: 450,
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.holdConfirmText(widget.shipment.importFileCode, l10n.lifecycleStepName(widget.shipment.stepCode)),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: reasonController,
-                      decoration: InputDecoration(
-                        labelText: l10n.holdReasonLabel,
-                        hintText: l10n.holdReasonHint,
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 16),
-                          tooltip: l10n.copyValue,
-                          onPressed: () => CopyHelper.copy(ctx, reasonController.text),
-                        ),
+        builder: (ctx) {
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          return AlertDialog(
+            backgroundColor: isDark ? AppTheme.darkSurface : null,
+            title: Row(
+              children: [
+                const Icon(Icons.pause_circle_outline_rounded, color: AppTheme.crimson),
+                const SizedBox(width: 8),
+                Text(l10n.holdDialogTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+              ],
+            ),
+            content: SelectionArea(
+              child: SizedBox(
+                width: 450,
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.holdConfirmText(widget.shipment.importFileCode, l10n.lifecycleStepName(widget.shipment.stepCode)),
+                        style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? l10n.holdReasonRequired : null,
-                      maxLines: 2,
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: reasonController,
+                        decoration: InputDecoration(
+                          labelText: l10n.holdReasonLabel,
+                          hintText: l10n.holdReasonHint,
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            tooltip: l10n.copyValue,
+                            onPressed: () => CopyHelper.copy(ctx, reasonController.text),
+                          ),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? l10n.holdReasonRequired : null,
+                        maxLines: 2,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(ctx, true);
-                }
-              },
-              icon: const Icon(Icons.pause_circle_filled_rounded, color: Colors.white, size: 18),
-              label: Text(l10n.confirmHoldBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
+                onPressed: () {
+                  if (formKey.currentState!.validate()) {
+                    Navigator.pop(ctx, true);
+                  }
+                },
+                icon: const Icon(Icons.pause_circle_filled_rounded, color: Colors.white, size: 18),
+                label: Text(l10n.confirmHoldBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
       );
 
       if (confirmed == true && mounted) {
@@ -379,10 +387,12 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOnHold = widget.shipment.status == 'On-Hold';
     final localizedStepName = l10n.lifecycleStepName(widget.shipment.stepCode);
 
     return Dialog(
+      backgroundColor: isDark ? AppTheme.darkSurface : null,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SelectionArea(
         child: Container(
@@ -414,7 +424,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                             children: [
                               Text(
                                 l10n.stepActionCardTitle(localizedStepName),
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                               ),
                               const SizedBox(width: 8),
                               Container(
@@ -432,7 +442,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                           ),
                           Text(
                             localizedStepName,
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                            style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                           ),
                         ],
                       ),
@@ -455,9 +465,9 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
+                            color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.shade300),
+                            border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                           ),
                           child: Row(
                             children: [
@@ -474,7 +484,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         // Step-Specific Parameters Form
                         Text(
                           l10n.currentStepRequirementsHeader,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                         ),
                         const SizedBox(height: 10),
 
@@ -534,7 +544,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         // Next Step Multi-Target Picker (Supports Concurrent Multi-Stage)
                         Text(
                           l10n.targetNextPhasesHeader,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                         ),
                         const SizedBox(height: 8),
 
@@ -544,12 +554,14 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                           children: _allStepCodes.map((stepCode) {
                             final isSelected = _selectedNextSteps.contains(stepCode);
                             return FilterChip(
+                              backgroundColor: isDark ? AppTheme.darkCardBackground : null,
+                              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                               label: Text(
                                 '$stepCode: ${l10n.lifecycleStepName(stepCode)}',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected ? Colors.white : AppTheme.charcoal,
+                                  color: isSelected ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                 ),
                               ),
                               selected: isSelected,
@@ -572,7 +584,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         // Notes & Live Updates
                         Text(
                           l10n.stepNotesHeader,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                         ),
                         const SizedBox(height: 6),
                         TextFormField(
@@ -658,6 +670,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
   }
 
   Widget _buildInfoCol(String label, String value, {bool isBold = false, Color? color}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
       child: InkWell(
         onTap: () => CopyHelper.copy(context, value),
@@ -667,7 +680,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+              Text(label, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
               const SizedBox(height: 2),
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -678,14 +691,14 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-                        color: color ?? AppTheme.charcoal,
+                        color: color ?? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Icon(Icons.copy_rounded, size: 11, color: Colors.grey.shade400),
+                  Icon(Icons.copy_rounded, size: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
                 ],
               ),
             ],

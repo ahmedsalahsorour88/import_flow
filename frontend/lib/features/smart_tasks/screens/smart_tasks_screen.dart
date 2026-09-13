@@ -174,6 +174,7 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
 
   List<EnterpriseColumn<SmartTaskModel>> _buildColumns(BuildContext context) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return [
       EnterpriseColumn<SmartTaskModel>(
         id: 'code',
@@ -232,9 +233,9 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
               visualDensity: VisualDensity.compact,
               label: Text(
                 typeLabel,
-                style: TextStyle(fontSize: 10, color: isSys ? Colors.purple.shade900 : Colors.blue.shade900),
+                style: TextStyle(fontSize: 10, color: isSys ? (isDark ? Colors.purple.shade200 : Colors.purple.shade900) : (isDark ? Colors.blue.shade200 : Colors.blue.shade900)),
               ),
-              backgroundColor: isSys ? Colors.purple.shade50 : Colors.blue.shade50,
+              backgroundColor: isSys ? (isDark ? Colors.purple.shade900.withOpacity(0.3) : Colors.purple.shade50) : (isDark ? Colors.blue.shade900.withOpacity(0.3) : Colors.blue.shade50),
             ),
           );
         },
@@ -266,11 +267,11 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(cleanTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                Text(cleanTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                 if (cleanDesc.isNotEmpty)
                   Text(
                     cleanDesc,
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -304,7 +305,7 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
               rowSummary: rowSummary,
               child: Text(
                 l.smartTasksGeneralBadge,
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
               ),
             );
           }
@@ -325,14 +326,14 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
                 children: [
                   Text(
                     commercialName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.charcoal),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                     decoration: BoxDecoration(
-                      color: AppTheme.charcoal.withOpacity(0.06),
+                      color: isDark ? AppTheme.darkBorder : AppTheme.charcoal.withOpacity(0.06),
                       borderRadius: BorderRadius.circular(3),
                     ),
                     child: Row(
@@ -475,7 +476,7 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
                   },
                 ),
               IconButton(
-                icon: const Icon(Icons.copy_rounded, color: AppTheme.charcoal, size: 16),
+                icon: Icon(Icons.copy_rounded, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal, size: 16),
                 tooltip: l.smartTaskCopySummaryBtn,
                 onPressed: () {
                   CopyHelper.copy(
@@ -486,7 +487,7 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.print_outlined, color: AppTheme.charcoal, size: 16),
+                icon: Icon(Icons.print_outlined, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal, size: 16),
                 tooltip: l.smartTaskPrintPdfTooltip,
                 onPressed: () => MasterDataExportService.printOrSaveSmartTaskPdf(t),
               ),
@@ -531,11 +532,12 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(smartTasksProvider);
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
+        backgroundColor: isDark ? const Color(0xFF141A22) : AppTheme.charcoal,
         title: Row(
           children: [
             const Icon(Icons.task_alt, color: AppTheme.cobalt),
@@ -561,8 +563,12 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
             children: [
               // Top Filters & Actions Card
               Card(
+                color: isDark ? AppTheme.darkCardBackground : Colors.white,
                 elevation: 1,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -585,7 +591,7 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
                             const SizedBox(width: 10),
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.charcoal,
+                                backgroundColor: isDark ? AppTheme.darkSurface : AppTheme.charcoal,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               ),
@@ -596,7 +602,8 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
                             const SizedBox(width: 10),
                             OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.charcoal,
+                                foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               ),
                               onPressed: () => _copySmartTasksTsv(state.tasks),
@@ -606,7 +613,8 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
                             const SizedBox(width: 10),
                             OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.charcoal,
+                                foregroundColor: AppTheme.emerald,
+                                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               ),
                               onPressed: () => MasterDataExportService.exportSmartTasksToExcel(context, state.tasks),
@@ -616,11 +624,12 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
                             const SizedBox(width: 10),
                             OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.charcoal,
+                                foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               ),
                               onPressed: () => MasterDataExportService.printOrSaveSmartTasksListPdf(state.tasks),
-                              icon: const Icon(Icons.print, size: 16, color: AppTheme.charcoal),
+                              icon: Icon(Icons.print, size: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                               label: Text(l.smartTasksExportPdfBtn),
                             ),
                           ],
@@ -717,8 +726,12 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
               // Unified Enterprise Data Table
               Expanded(
                 child: Card(
+                  color: isDark ? AppTheme.darkCardBackground : Colors.white,
                   elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+                  ),
                   child: state.error != null
                       ? Center(
                           child: Text(

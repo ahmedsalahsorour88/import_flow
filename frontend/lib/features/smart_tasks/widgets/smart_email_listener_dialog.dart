@@ -211,6 +211,7 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
   }
 
   Widget _buildResultRow(String label, String? value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final display = value?.trim().isNotEmpty == true ? value! : '-';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -220,7 +221,7 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
             width: 170,
             child: Text(
               label,
-              style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+              style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
             ),
           ),
           Expanded(
@@ -231,7 +232,7 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
           ),
           if (display != '-')
             IconButton(
-              icon: const Icon(Icons.copy, size: 16, color: Colors.grey),
+              icon: Icon(Icons.copy, size: 16, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
               tooltip: label,
               onPressed: () => CopyHelper.copy(context, display, customMessage: label),
             ),
@@ -243,8 +244,10 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Dialog(
+      backgroundColor: isDark ? AppTheme.darkSurface : null,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         width: 860,
@@ -270,16 +273,16 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
                     children: [
                       Text(
                         l.smartEmailListenerDialogTitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.charcoal,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         l.smartEmailListenerBtnTooltip,
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
                       ),
                     ],
                   ),
@@ -436,8 +439,12 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
 
                         if (_parseResult != null) ...[
                           Card(
+                            color: isDark ? AppTheme.darkCardBackground : Colors.white,
                             elevation: 1,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+                            ),
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Column(
@@ -449,7 +456,7 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
                                       const SizedBox(width: 8),
                                       Text(
                                         l.smartEmailListenerParsedCardTitle,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                       ),
                                       const Spacer(),
                                       if (_parseResult!['is_matched_file'] == true)
@@ -562,11 +569,11 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
                                         ),
                                         title: Text(
                                           '${l.smartEmailListenerBlNumberLabel}: $bl | $vessel',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                         ),
                                         subtitle: Text(
                                           '${l.smartEmailListenerEtaLabel}: $eta | ${item['sender_email'] ?? ''}',
-                                          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                          style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                                         ),
                                         trailing: Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -576,7 +583,7 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
                                               decoration: BoxDecoration(
                                                 color: status.toString().contains('Matched') || status.toString().contains('Task')
                                                     ? AppTheme.emerald.withOpacity(0.15)
-                                                    : Colors.grey.shade200,
+                                                    : (isDark ? AppTheme.darkBorder : Colors.grey.shade200),
                                                 borderRadius: BorderRadius.circular(6),
                                               ),
                                               child: Text(
@@ -586,13 +593,13 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
                                                   fontWeight: FontWeight.bold,
                                                   color: status.toString().contains('Matched') || status.toString().contains('Task')
                                                       ? AppTheme.emerald
-                                                      : Colors.grey.shade800,
+                                                      : (isDark ? AppTheme.darkTextPrimary : Colors.grey.shade800),
                                                 ),
                                               ),
                                             ),
                                             const SizedBox(width: 8),
                                             IconButton(
-                                              icon: const Icon(Icons.copy, size: 16, color: Colors.grey),
+                                              icon: Icon(Icons.copy, size: 16, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
                                               tooltip: bl,
                                               onPressed: () => CopyHelper.copy(context, bl.toString()),
                                             ),

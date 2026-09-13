@@ -172,9 +172,11 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
   Widget build(BuildContext context) {
     final l = context.l10n;
     final report = widget.report;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SelectionArea(
       child: AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkSurface : null,
         titlePadding: EdgeInsets.zero,
       title: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -209,13 +211,13 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: isDark ? const Color(0xFF1E293B) : Colors.blue.shade50,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.blue.shade200),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.blue.shade200),
                       ),
                       child: Column(
                         children: [
-                          Text('${l.poLineItemsTab} (${l.quantityMetric})', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                          Text('${l.poLineItemsTab} (${l.quantityMetric})', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
                           Text('${report.totalInvoiceQty.toStringAsFixed(1)} PCS', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                         ],
@@ -227,13 +229,13 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
+                        color: isDark ? const Color(0xFF332211) : Colors.orange.shade50,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.orange.shade200),
+                        border: Border.all(color: isDark ? Colors.orange.shade800 : Colors.orange.shade200),
                       ),
                       child: Column(
                         children: [
-                          Text('${l.reviewPackingListTab} (${l.quantityMetric})', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                          Text('${l.reviewPackingListTab} (${l.quantityMetric})', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
                           Text('${report.totalPackingQty.toStringAsFixed(1)} PCS', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
                         ],
@@ -245,20 +247,26 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: report.totalDifference != 0 ? Colors.red.shade50 : Colors.green.shade50,
+                        color: isDark
+                            ? (report.totalDifference != 0 ? const Color(0xFF3B151E) : const Color(0xFF14301D))
+                            : (report.totalDifference != 0 ? Colors.red.shade50 : Colors.green.shade50),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: report.totalDifference != 0 ? Colors.red.shade300 : Colors.green.shade300),
+                        border: Border.all(
+                          color: isDark
+                              ? (report.totalDifference != 0 ? Colors.red.shade800 : Colors.green.shade800)
+                              : (report.totalDifference != 0 ? Colors.red.shade300 : Colors.green.shade300),
+                        ),
                       ),
                       child: Column(
                         children: [
-                          Text(l.poRecDiff, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                          Text(l.poRecDiff, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
                           Text(
                             '${report.totalDifference > 0 ? "+" : ""}${report.totalDifference.toStringAsFixed(1)} PCS',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: report.totalDifference != 0 ? Colors.red.shade700 : Colors.green.shade700,
+                              color: report.totalDifference != 0 ? (isDark ? Colors.redAccent : Colors.red.shade700) : (isDark ? Colors.greenAccent : Colors.green.shade700),
                             ),
                           ),
                         ],
@@ -271,12 +279,12 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
 
               Text(
                 l.summaryByHsCodeReport,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
               ),
               const SizedBox(height: 8),
 
               Table(
-                border: TableBorder.all(color: Colors.grey.shade300),
+                border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                 columnWidths: const {
                   0: FlexColumnWidth(2.5),
                   1: FlexColumnWidth(1.2),
@@ -286,31 +294,31 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                 },
                 children: [
                   TableRow(
-                    decoration: const BoxDecoration(color: AppTheme.cloudWhite),
+                    decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : AppTheme.cloudWhite),
                     children: [
-                      Padding(padding: const EdgeInsets.all(8), child: Text(l.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                      Padding(padding: const EdgeInsets.all(8), child: Text(l.poLineItemsTab, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                      Padding(padding: const EdgeInsets.all(8), child: Text(l.reviewPackingListTab, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                      Padding(padding: const EdgeInsets.all(8), child: Text(l.poRecDiff, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                      Padding(padding: const EdgeInsets.all(8), child: Text(l.status, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.hsCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.poLineItemsTab, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.reviewPackingListTab, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.poRecDiff, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.status, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                     ],
                   ),
                   ...report.items.map((item) {
-                    Color rowBg = Colors.white;
+                    Color rowBg = isDark ? AppTheme.darkCardBackground : Colors.white;
                     Color statusColor = Colors.green;
                     String statusText = l.poRecOk;
 
                     if (item.isMissingInPacking) {
-                      rowBg = Colors.red.shade50.withOpacity(0.5);
-                      statusColor = Colors.red.shade700;
+                      rowBg = isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50.withOpacity(0.5);
+                      statusColor = isDark ? Colors.redAccent : Colors.red.shade700;
                       statusText = l.poRecMissingInPacking;
                     } else if (item.isMissingInInvoice) {
-                      rowBg = Colors.amber.shade50.withOpacity(0.5);
-                      statusColor = Colors.amber.shade900;
+                      rowBg = isDark ? Colors.amber.shade900.withOpacity(0.3) : Colors.amber.shade50.withOpacity(0.5);
+                      statusColor = isDark ? Colors.amberAccent : Colors.amber.shade900;
                       statusText = l.poRecMissingInInvoice;
                     } else if (!item.isMatched) {
-                      rowBg = Colors.orange.shade50.withOpacity(0.5);
-                      statusColor = Colors.deepOrange;
+                      rowBg = isDark ? Colors.orange.shade900.withOpacity(0.3) : Colors.orange.shade50.withOpacity(0.5);
+                      statusColor = isDark ? Colors.orangeAccent : Colors.deepOrange;
                       statusText = l.poRecQtyDiff;
                     }
 
@@ -323,16 +331,16 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                           padding: const EdgeInsets.all(8),
                           child: Text(
                             displayHs,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                           ),
                         ),
                         Padding(
                           padding: const EdgeInsets.all(8),
-                          child: Text('${item.invoiceQty}', style: const TextStyle(fontSize: 12)),
+                          child: Text('${item.invoiceQty}', style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null)),
                         ),
                         Padding(
                           padding: const EdgeInsets.all(8),
-                          child: Text('${item.packingQty}', style: const TextStyle(fontSize: 12)),
+                          child: Text('${item.packingQty}', style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null)),
                         ),
                         Padding(
                           padding: const EdgeInsets.all(8),
@@ -341,7 +349,7 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: item.difference != 0 ? Colors.red.shade700 : Colors.green,
+                              color: item.difference != 0 ? (isDark ? Colors.redAccent : Colors.red.shade700) : (isDark ? Colors.greenAccent : Colors.green),
                             ),
                           ),
                         ),
@@ -408,7 +416,7 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
         OutlinedButton.icon(
           icon: const Icon(Icons.arrow_back, size: 16),
           label: Text(l.backToEdit),
-          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal),
+          style: OutlinedButton.styleFrom(foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
           onPressed: () => Navigator.pop(context, null),
         ),
         ElevatedButton.icon(

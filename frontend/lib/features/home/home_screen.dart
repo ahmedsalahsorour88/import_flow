@@ -748,7 +748,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final versionText = versionAsync.when(
                   data: (info) => 'v${info.version} (Build ${info.buildNumber})',
                   loading: () => 'v... (Loading)',
-                  error: (_, __) => 'v1.0.160 (Build 161)',
+                  error: (_, __) => 'v1.0.161 (Build 162)',
                 );
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

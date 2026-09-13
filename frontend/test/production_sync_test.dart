@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/production_sync/models/production_sync_model.dart';
 import 'package:frontend/features/production_sync/providers/production_sync_provider.dart';
 import 'package:frontend/features/production_sync/screens/production_sync_screen.dart';
@@ -319,6 +320,47 @@ void main() {
 
       await tester.pump();
       expect(find.byType(ProductionSyncScreen), findsOneWidget);
+    });
+
+    testWidgets('ProductionSyncScreen renders localized English banner without raw Arabic backend string', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            productionSyncNotifierProvider.overrideWith((ref) => FakeProductionSyncNotifier()),
+            systemVersionInfoProvider.overrideWith((ref) async => const SystemVersionInfoModel(
+                  systemName: 'ImportFlow ERP - Test',
+                  version: '1.0.73',
+                  buildNumber: 74,
+                  isStandalone: true,
+                  environment: 'standalone',
+                  databasePath: 'test.db',
+                )),
+            backupsListProvider.overrideWith((ref) async => []),
+            updateCheckStateProvider.overrideWith((ref) => const AsyncValue.data(
+                  RemoteUpdateCheckResultModel(
+                    hasUpdate: false,
+                    currentVersion: '1.0.73',
+                    latestVersion: '1.0.73',
+                    message: 'النظام محدث لأحدث إصدار رسمي.',
+                  ),
+                )),
+          ],
+          child: AppLocalizationsProvider(
+            locale: const Locale('en'),
+            child: MaterialApp(
+              locale: const Locale('en'),
+              home: ProductionSyncScreen(
+                service: FakeLocalProcessSyncService(),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      // Should show English message from AppLocalizationsEn, NOT the raw Arabic from backend
+      expect(find.text('System is up to date and running the latest version.'), findsOneWidget);
+      expect(find.text('النظام محدث لأحدث إصدار رسمي.'), findsNothing);
     });
   });
 }

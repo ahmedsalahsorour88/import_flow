@@ -59,6 +59,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
       builder: (context) {
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
+            final isDark = AppTheme.isDark(context);
             // Compute plan dynamically based on the selected mode
             final plan = ContainerRequirementEngine.planShipment(
               baseCargoItems,
@@ -92,20 +93,20 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                   Expanded(
                     child: Text(
                       l.visualLoadPlannerTitle,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: isDark ? Colors.blue.shade900.withOpacity(0.3) : AppTheme.cobalt.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.cobalt),
+                      border: Border.all(color: isDark ? Colors.blue.shade700 : AppTheme.cobalt),
                     ),
                     child: Text(
                       '$fleetSummaryText (${plan.length})',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
                     ),
                   ),
                 ],
@@ -119,16 +120,16 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: isDark ? AppTheme.darkSurface : Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             '🔄 ${l.cargoStackingScenariosTitle}:',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                           ),
                           Row(
                             children: [
@@ -136,8 +137,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 label: Text('📦 1. ${l.allStackableChip}'),
                                 selected: activeStackingMode == true,
                                 selectedColor: AppTheme.emerald,
+                                backgroundColor: isDark ? AppTheme.darkCardBackground : null,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == true ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == true ? Colors.white : (isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -150,8 +152,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 label: Text('🚫 2. ${l.allNonStackableChip}'),
                                 selected: activeStackingMode == false,
                                 selectedColor: Colors.orange.shade800,
+                                backgroundColor: isDark ? AppTheme.darkCardBackground : null,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == false ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == false ? Colors.white : (isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -164,8 +167,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 label: Text('🔀 3. ${l.mixedStackingChip}'),
                                 selected: activeStackingMode == null,
                                 selectedColor: AppTheme.cobalt,
+                                backgroundColor: isDark ? AppTheme.darkCardBackground : null,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == null ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == null ? Colors.white : (isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -184,27 +188,27 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppTheme.charcoal.withOpacity(0.04),
+                        color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
                             children: [
-                              _buildFileMetricPill('📦', '$totalPkgs', AppTheme.cobalt),
+                              _buildFileMetricPill('📦', '$totalPkgs', AppTheme.cobalt, isDark: isDark),
                               const SizedBox(width: 8),
-                              _buildFileMetricPill('⚖️', '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
+                              _buildFileMetricPill('⚖️', '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal, isDark: isDark),
                               const SizedBox(width: 8),
-                              _buildFileMetricPill('📐', '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
+                              _buildFileMetricPill('📐', '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900, isDark: isDark),
                             ],
                           ),
                           Row(
                             children: [
-                              _buildFileMetricPill('✅ ${l.allStackableChip}', '$stackableInActive', Colors.green.shade800),
+                              _buildFileMetricPill('✅ ${l.allStackableChip}', '$stackableInActive', Colors.green.shade800, isDark: isDark),
                               const SizedBox(width: 8),
-                              _buildFileMetricPill('🚫 ${l.allNonStackableChip}', '$nonStackableInActive', Colors.red.shade800),
+                              _buildFileMetricPill('🚫 ${l.allNonStackableChip}', '$nonStackableInActive', Colors.red.shade800, isDark: isDark),
                             ],
                           ),
                         ],
@@ -214,7 +218,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
 
                     // 3. Table summary of container loads
                     Table(
-                      border: TableBorder.all(color: Colors.grey.shade300),
+                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                       columnWidths: const {
                         0: FlexColumnWidth(1.2),
                         1: FlexColumnWidth(1.8),
@@ -224,13 +228,13 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                       },
                       children: [
                         TableRow(
-                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                          decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.08)),
                           children: [
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerSpecType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.packingListItemsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.totalGrossWeightFromPl, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.spaceUtilizationPercent, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.currentPhaseStage, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerSpecType, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.packingListItemsCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.totalGrossWeightFromPl, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.spaceUtilizationPercent, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.currentPhaseStage, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                           ],
                         ),
                         ...plan.asMap().entries.map((entry) {
@@ -259,20 +263,20 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 padding: const EdgeInsets.all(6.0),
                                 child: Text(
                                   res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11),
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: res.containerCode == 'FAILED' ? (isDark ? Colors.red.shade300 : Colors.red) : (isDark ? Colors.lightBlueAccent : AppTheme.cobalt), fontSize: 11),
                                 ),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text(placedIds.isEmpty ? '-' : placedIds, style: const TextStyle(fontSize: 11)),
+                                child: Text(placedIds.isEmpty ? '-' : placedIds, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11)),
+                                child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange)),
+                                child: Text('${spaceUtil.toStringAsFixed(1)}%', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.orange.shade300 : Colors.orange)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
@@ -282,8 +286,8 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     color: statusText.contains('فشل')
-                                        ? Colors.red.shade800
-                                        : (statusText.contains('غير قابل') ? Colors.brown.shade800 : Colors.green.shade800),
+                                        ? (isDark ? Colors.red.shade300 : Colors.red.shade800)
+                                        : (statusText.contains('غير قابل') ? (isDark ? Colors.amber.shade300 : Colors.brown.shade800) : (isDark ? Colors.green.shade300 : Colors.green.shade800)),
                                   ),
                                 ),
                               ),
@@ -315,6 +319,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                           return Card(
                             margin: const EdgeInsets.only(bottom: 16),
                             elevation: 3,
+                            color: isDark ? AppTheme.darkCardBackground : null,
                             child: Padding(
                               padding: const EdgeInsets.all(12),
                               child: Column(
@@ -325,16 +330,16 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                     children: [
                                       Text(
                                         'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
-                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
                                       ),
                                       Row(
                                         children: [
-                                          const Text('🪵 طبالي خشبية أرضية', style: TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                          Text('🪵 طبالي خشبية أرضية', style: TextStyle(fontSize: 10, color: isDark ? Colors.amber.shade200 : Colors.brown, fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 10),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
-                                            child: Text('الأبعاد الداخلية: ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 10, color: AppTheme.cobalt)),
+                                            decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                                            child: Text('الأبعاد الداخلية: ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: TextStyle(fontSize: 10, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt)),
                                           ),
                                         ],
                                       ),
@@ -395,20 +400,32 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
     );
   }
 
-  static Widget _buildFileMetricPill(String label, String value, Color color) {
+  static Widget _buildFileMetricPill(String label, String value, Color color, {bool isDark = false}) {
+    Color effectiveColor = color;
+    if (isDark) {
+      if (color == AppTheme.charcoal) {
+        effectiveColor = AppTheme.darkTextPrimary;
+      } else if (color == Colors.orange.shade900) {
+        effectiveColor = Colors.orange.shade300;
+      } else if (color == Colors.green.shade800) {
+        effectiveColor = Colors.green.shade300;
+      } else if (color == Colors.red.shade800) {
+        effectiveColor = Colors.red.shade300;
+      }
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: isDark ? effectiveColor.withOpacity(0.18) : effectiveColor.withOpacity(0.08),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: isDark ? effectiveColor.withOpacity(0.5) : effectiveColor.withOpacity(0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(fontSize: 10, color: effectiveColor, fontWeight: FontWeight.w600)),
           const SizedBox(width: 4),
-          Text(value, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+          Text(value, style: TextStyle(fontSize: 10, color: isDark ? Colors.white : effectiveColor, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -418,6 +435,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
     showDialog(
       context: context,
       builder: (context) {
+        final isDark = AppTheme.isDark(context);
         return DefaultTabController(
           length: 3,
           child: AlertDialog(
@@ -429,8 +447,16 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('تحليل خيارات الحاويات وسيناريوهات التحميل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16), overflow: TextOverflow.ellipsis),
-                      Text('إجمالي الشحنة: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                      Text(
+                        'تحليل خيارات الحاويات وسيناريوهات التحميل',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : null),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'إجمالي الشحنة: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg',
+                        style: TextStyle(fontSize: 12, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt, fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
@@ -442,7 +468,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               child: Column(
                 children: [
                   Container(
-                    color: AppTheme.charcoal,
+                    color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
                     child: const TabBar(
                       indicatorColor: AppTheme.cobalt,
                       labelColor: Colors.white,
@@ -457,9 +483,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                   Expanded(
                     child: TabBarView(
                       children: [
-                        _buildComparisonTable(dualRec.stackableResult),
-                        _buildComparisonTable(dualRec.nonStackableResult),
-                        _buildComparisonTable(dualRec.stackableResult),
+                        _buildComparisonTable(dualRec.stackableResult, isDark: isDark),
+                        _buildComparisonTable(dualRec.nonStackableResult, isDark: isDark),
+                        _buildComparisonTable(dualRec.stackableResult, isDark: isDark),
                       ],
                     ),
                   ),
@@ -475,7 +501,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
     );
   }
 
-  Widget _buildComparisonTable(ContainerRecommendationResult rec) {
+  Widget _buildComparisonTable(ContainerRecommendationResult rec, {bool isDark = false}) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -484,15 +510,29 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: rec.isStackable ? AppTheme.emerald.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+              color: rec.isStackable
+                  ? (isDark ? Colors.green.shade900.withOpacity(0.3) : AppTheme.emerald.withOpacity(0.1))
+                  : (isDark ? Colors.orange.shade900.withOpacity(0.3) : Colors.orange.withOpacity(0.1)),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade800),
+              border: Border.all(
+                color: rec.isStackable
+                    ? (isDark ? Colors.green.shade700 : AppTheme.emerald)
+                    : (isDark ? Colors.orange.shade700 : Colors.orange.shade800),
+              ),
             ),
-            child: Text('التوصية المعتمدة: ${rec.recommendationSummary}', style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade900)),
+            child: Text(
+              'التوصية المعتمدة: ${rec.recommendationSummary}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: rec.isStackable
+                    ? (isDark ? Colors.green.shade300 : AppTheme.emerald)
+                    : (isDark ? Colors.orange.shade300 : Colors.orange.shade900),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           Table(
-            border: TableBorder.all(color: Colors.grey.shade300),
+            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
             columnWidths: const {
               0: FlexColumnWidth(2.0),
               1: FlexColumnWidth(1.2),
@@ -502,7 +542,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
             },
             children: [
               TableRow(
-                decoration: const BoxDecoration(color: AppTheme.charcoal),
+                decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal),
                 children: [
                   Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.containerSpecType, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                   Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.requiredCount, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
@@ -520,7 +560,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                 final isBest = spec.code == rec.recommendedContainerCode;
 
                 return TableRow(
-                  decoration: BoxDecoration(color: isBest ? AppTheme.cobalt.withOpacity(0.08) : null),
+                  decoration: BoxDecoration(color: isBest ? (isDark ? Colors.blue.shade900.withOpacity(0.2) : AppTheme.cobalt.withOpacity(0.08)) : null),
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(8),
@@ -528,14 +568,52 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                         children: [
                           if (isBest) const Icon(Icons.star, color: Colors.amber, size: 16),
                           if (isBest) const SizedBox(width: 4),
-                          Text('${spec.code} (${spec.name})', style: TextStyle(fontWeight: isBest ? FontWeight.bold : FontWeight.normal, color: isBest ? AppTheme.cobalt : AppTheme.charcoal)),
+                          Text(
+                            '${spec.code} (${spec.name})',
+                            style: TextStyle(
+                              fontWeight: isBest ? FontWeight.bold : FontWeight.normal,
+                              color: isBest
+                                  ? (isDark ? Colors.lightBlueAccent : AppTheme.cobalt)
+                                  : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    Padding(padding: const EdgeInsets.all(8), child: Text('$reqCount', style: TextStyle(fontWeight: isBest ? FontWeight.bold : FontWeight.normal))),
-                    Padding(padding: const EdgeInsets.all(8), child: Text('${effVol.toStringAsFixed(1)} m³')),
-                    Padding(padding: const EdgeInsets.all(8), child: Text('${spaceUtil.toStringAsFixed(1)}%', style: TextStyle(color: spaceUtil > 80 ? Colors.green : Colors.black, fontWeight: FontWeight.bold))),
-                    Padding(padding: const EdgeInsets.all(8), child: Text('${payloadUtil.toStringAsFixed(1)}%', style: TextStyle(color: payloadUtil > 80 ? Colors.green : Colors.black, fontWeight: FontWeight.bold))),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        '$reqCount',
+                        style: TextStyle(fontWeight: isBest ? FontWeight.bold : FontWeight.normal, color: isDark ? AppTheme.darkTextPrimary : null),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        '${effVol.toStringAsFixed(1)} m³',
+                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        '${spaceUtil.toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          color: spaceUtil > 80 ? (isDark ? Colors.green.shade300 : Colors.green) : (isDark ? AppTheme.darkTextPrimary : Colors.black),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        '${payloadUtil.toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          color: payloadUtil > 80 ? (isDark ? Colors.green.shade300 : Colors.green) : (isDark ? AppTheme.darkTextPrimary : Colors.black),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ],
                 );
               }),
@@ -549,6 +627,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final isDark = AppTheme.isDark(context);
     final file = widget.file;
     final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
     final liveLinkedPOs = ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs);
@@ -647,16 +726,16 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.06),
+                  color: AppTheme.cobalt.withOpacity(isDark ? 0.14 : 0.06),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.cobalt.withOpacity(isDark ? 0.4 : 0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       '📊 ${l.cargoAndLinkedPosSection}:',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -668,6 +747,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                             subtitle: invoiceNumbers.isEmpty ? '-' : invoiceNumbers.join(', '),
                             icon: Icons.receipt_long,
                             color: AppTheme.cobalt,
+                            isDark: isDark,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -678,6 +758,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                             subtitle: l.cbmSumDescription,
                             icon: Icons.view_in_ar,
                             color: Colors.orange,
+                            isDark: isDark,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -688,6 +769,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                             subtitle: l.grossWeightSumDescription,
                             icon: Icons.fitness_center,
                             color: AppTheme.emerald,
+                            isDark: isDark,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -698,6 +780,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                             subtitle: '$totalPackingListsCount ${l.packingListsUnit}',
                             icon: Icons.shopping_bag,
                             color: Colors.purple,
+                            isDark: isDark,
                           ),
                         ),
                       ],
@@ -713,13 +796,17 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: file.isCustomsReleased
-                      ? Colors.green.shade50.withOpacity(0.5)
-                      : (file.acidNumber != null ? Colors.blue.shade50.withOpacity(0.5) : Colors.grey.shade50),
+                      ? (isDark ? Colors.green.shade900.withOpacity(0.25) : Colors.green.shade50.withOpacity(0.5))
+                      : (file.acidNumber != null
+                          ? (isDark ? Colors.blue.shade900.withOpacity(0.25) : Colors.blue.shade50.withOpacity(0.5))
+                          : (isDark ? AppTheme.darkSurface : Colors.grey.shade50)),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: file.isCustomsReleased
-                        ? Colors.green.shade300
-                        : (file.acidNumber != null ? Colors.blue.shade300 : Colors.grey.shade300),
+                        ? (isDark ? Colors.green.shade700 : Colors.green.shade300)
+                        : (file.acidNumber != null
+                            ? (isDark ? Colors.blue.shade700 : Colors.blue.shade300)
+                            : (isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
                   ),
                 ),
                 child: Row(
@@ -755,7 +842,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                   fontSize: 13,
                                   color: file.isCustomsReleased
                                       ? AppTheme.emerald
-                                      : (file.acidNumber != null ? AppTheme.cobalt : AppTheme.charcoal),
+                                      : (file.acidNumber != null ? (isDark ? Colors.lightBlueAccent : AppTheme.cobalt) : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                                 ),
                               ),
                               if (file.isCustomsReleased)
@@ -793,10 +880,10 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Text('ACID: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    Text('ACID: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                                     SelectableText(
                                       file.acidNumber!,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.lightBlueAccent : AppTheme.charcoal),
                                     ),
                                   ],
                                 ),
@@ -804,26 +891,26 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text('${l.date}: ', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                      Text(file.acidRequestDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                      Text('${l.date}: ', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                                      Text(file.acidRequestDate!, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : null)),
                                     ],
                                   ),
                                 if (file.acidIssueDate != null)
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text('${l.date}: ', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                      Text(file.acidIssueDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                      Text('${l.date}: ', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                                      Text(file.acidIssueDate!, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : null)),
                                     ],
                                   ),
                                 if (file.acidExpiryDate != null)
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text('${l.targetEta}: ', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text('${l.targetEta}: ', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
                                       Text(
                                         file.acidExpiryDate!,
-                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson),
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.red.shade300 : AppTheme.crimson),
                                       ),
                                     ],
                                   ),
@@ -831,18 +918,18 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: Colors.green.shade50,
+                                      color: isDark ? Colors.green.shade900.withOpacity(0.3) : Colors.green.shade50,
                                       borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: Colors.green.shade300, width: 0.5),
+                                      border: Border.all(color: isDark ? Colors.green.shade700 : Colors.green.shade300, width: 0.5),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.timer_outlined, size: 12, color: AppTheme.emerald),
+                                        Icon(Icons.timer_outlined, size: 12, color: isDark ? Colors.green.shade300 : AppTheme.emerald),
                                         const SizedBox(width: 4),
                                         Text(
                                           '${file.acidExecutionDays} d',
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.green.shade300 : AppTheme.emerald),
                                         ),
                                       ],
                                     ),
@@ -852,11 +939,11 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                           ] else ...[
                             Text(
                               l.noImportFilesFound,
-                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextMuted : Colors.grey),
                             ),
                           ],
                           if (file.form4No != null && file.form4No!.isNotEmpty) ...[
-                            const Divider(height: 16),
+                            Divider(height: 16, color: isDark ? AppTheme.darkBorder : null),
                             Wrap(
                               spacing: 16,
                               runSpacing: 6,
@@ -864,42 +951,42 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Text('Form 4: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
-                                    SelectableText(file.form4No!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                                    Text('Form 4: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                                    SelectableText(file.form4No!, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt)),
                                   ],
                                 ),
                                 if (file.form4RequestDate != null)
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text('${l.date}: ', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                      Text(file.form4RequestDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                      Text('${l.date}: ', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                                      Text(file.form4RequestDate!, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : null)),
                                     ],
                                   ),
                                 if (file.form4ReceivedDate != null)
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text('${l.date}: ', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                      Text(file.form4ReceivedDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.emerald)),
+                                      Text('${l.date}: ', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                                      Text(file.form4ReceivedDate!, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? Colors.green.shade300 : AppTheme.emerald)),
                                     ],
                                   ),
                                 if (file.form4ExecutionDays != null)
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: Colors.blue.shade50,
+                                      color: isDark ? Colors.blue.shade900.withOpacity(0.3) : Colors.blue.shade50,
                                       borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: Colors.blue.shade300, width: 0.5),
+                                      border: Border.all(color: isDark ? Colors.blue.shade700 : Colors.blue.shade300, width: 0.5),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.speed, size: 12, color: AppTheme.cobalt),
+                                        Icon(Icons.speed, size: 12, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
                                         const SizedBox(width: 4),
                                         Text(
                                           '${file.form4ExecutionDays} d',
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
                                         ),
                                       ],
                                     ),
@@ -936,7 +1023,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               // Linked Purchase Orders Table
               Text(
                 '🛒 ${l.linkedPurchaseOrdersTitle}:',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
               ),
               const SizedBox(height: 10),
               linkedPOs.isEmpty
@@ -944,11 +1031,11 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                       padding: const EdgeInsets.all(24),
                       width: double.infinity,
                       alignment: Alignment.center,
-                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-                      child: Text(l.noLinkedPosForFile),
+                      decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                      child: Text(l.noLinkedPosForFile, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : null)),
                     )
                   : Table(
-                      border: TableBorder.all(color: Colors.grey.shade300),
+                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                       columnWidths: const {
                         0: FlexColumnWidth(1.4),
                         1: FlexColumnWidth(1.2),
@@ -961,7 +1048,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                       },
                       children: [
                         TableRow(
-                          decoration: const BoxDecoration(color: AppTheme.charcoal),
+                          decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal),
                           children: [
                             Padding(padding: const EdgeInsets.all(8), child: Text(l.purchaseOrder, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                             Padding(padding: const EdgeInsets.all(8), child: Text(l.poInvoiceLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
@@ -1013,26 +1100,55 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(po.displayName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                    Text(po.displayName, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt)),
                                     if (po.displayName != po.poNumber)
-                                      Text(po.poNumber, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                      Text(po.poNumber, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextMuted : Colors.grey)),
                                   ],
                                 ),
                               ),
-                              Padding(padding: const EdgeInsets.all(8), child: Text(po.proformaInvoiceNumber ?? '-')),
-                              Padding(padding: const EdgeInsets.all(8), child: Text(po.supplierName ?? '-')),
+                              Padding(padding: const EdgeInsets.all(8), child: Text(po.proformaInvoiceNumber ?? '-', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null))),
+                              Padding(padding: const EdgeInsets.all(8), child: Text(po.supplierName ?? '-', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null))),
                               Padding(
                                 padding: const EdgeInsets.all(8),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.amber.shade200)),
-                                  child: Text(po.paymentTerms ?? '-', style: TextStyle(fontSize: 11, color: Colors.brown.shade800, fontWeight: FontWeight.bold)),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF2E2419) : Colors.amber.shade50,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade200),
+                                  ),
+                                  child: Text(
+                                    po.paymentTerms ?? '-',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark ? Colors.amber.shade200 : Colors.brown.shade800,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
                               ),
-                              Padding(padding: const EdgeInsets.all(8), child: Text('${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
-                              Padding(padding: const EdgeInsets.all(8), child: Text(plText, style: const TextStyle(fontWeight: FontWeight.w600))),
-                              Padding(padding: const EdgeInsets.all(8), child: Text('${poPlCbm.toStringAsFixed(3)} m³ / ${poPlWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                              Padding(padding: const EdgeInsets.all(8), child: Text(po.status, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt))),
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Text(
+                                  '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.green.shade300 : Colors.green),
+                                ),
+                              ),
+                              Padding(padding: const EdgeInsets.all(8), child: Text(plText, style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : null))),
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Text(
+                                  '${poPlCbm.toStringAsFixed(3)} m³ / ${poPlWeight.toStringAsFixed(0)} kg',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Text(
+                                  po.status,
+                                  style: TextStyle(fontSize: 11, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
+                                ),
+                              ),
                             ],
                           );
                         }),
@@ -1044,9 +1160,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.purple.shade50.withOpacity(0.4),
+                  color: isDark ? const Color(0xFF261D33) : Colors.purple.shade50.withOpacity(0.4),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.purple.shade200),
+                  border: Border.all(color: isDark ? Colors.purple.shade700.withOpacity(0.5) : Colors.purple.shade200),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1058,12 +1174,12 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 20),
+                              Icon(Icons.inventory_2, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt, size: 20),
                               const SizedBox(width: 8),
                               Flexible(
                                 child: Text(
                                   '🚚 ${l.cargoStackingScenariosTitle}:',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -1116,11 +1232,12 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                       title: '📦 ${l.scenarioAllStackableTitle}',
                       fleet: stackableFleet,
                       description: l.multiLayerStacking,
-                      badgeColor: AppTheme.emerald,
+                      badgeColor: isDark ? Colors.green.shade400 : AppTheme.emerald,
                       containerCount: planStackable.length,
                       spaceUtil: stackableSpaceUtil,
                       payloadUtil: stackablePayloadUtil,
                       detailsText: stackableFleet,
+                      isDark: isDark,
                     ),
                     const SizedBox(height: 8),
 
@@ -1130,11 +1247,12 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                       title: '🚫 ${l.scenarioAllNonStackableTitle}',
                       fleet: nonStackableFleet,
                       description: l.floorPlacementZ0,
-                      badgeColor: Colors.orange.shade800,
+                      badgeColor: isDark ? Colors.orange.shade300 : Colors.orange.shade800,
                       containerCount: planNonStackable.length,
                       spaceUtil: nonStackableSpaceUtil,
                       payloadUtil: nonStackablePayloadUtil,
                       detailsText: nonStackableFleet,
+                      isDark: isDark,
                     ),
                     const SizedBox(height: 8),
 
@@ -1144,12 +1262,13 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                       title: '🔀 ${l.scenarioMixedStackingTitle}',
                       fleet: mixedFleet,
                       description: l.mixedStackingCargoDesc(mixedNonStackCount, mixedStackCount),
-                      badgeColor: AppTheme.cobalt,
+                      badgeColor: isDark ? Colors.lightBlueAccent : AppTheme.cobalt,
                       containerCount: planMixed.length,
                       spaceUtil: mixedSpaceUtil,
                       payloadUtil: mixedPayloadUtil,
                       detailsText: mixedFleet,
                       isHighlighted: true,
+                      isDark: isDark,
                     ),
 
                     // SECTION: Saved Shipping Scenarios Evaluation Studies
@@ -1162,30 +1281,30 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                         return Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.blue.shade50.withOpacity(0.4),
+                            color: isDark ? const Color(0xFF1B2430) : Colors.blue.shade50.withOpacity(0.4),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.blue.shade200),
+                            border: Border.all(color: isDark ? AppTheme.cobalt.withOpacity(0.4) : Colors.blue.shade200),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
-                                  const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 20),
+                                  Icon(Icons.directions_boat, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt, size: 20),
                                   const SizedBox(width: 8),
                                   Text(
                                     '🚢 ${l.savedShippingStudiesTitle}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 10),
                               if (linkedStudies.isEmpty)
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 6),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
                                   child: Text(
                                     '-',
-                                    style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 11.5),
+                                    style: TextStyle(color: isDark ? AppTheme.darkTextMuted : Colors.grey, fontStyle: FontStyle.italic, fontSize: 11.5),
                                   ),
                                 )
                               else
@@ -1195,22 +1314,29 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                       margin: const EdgeInsets.only(bottom: 8),
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        color: Colors.white,
+                                        color: isDark ? AppTheme.darkCardBackground : Colors.white,
                                         borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: Colors.blue.shade300),
+                                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.blue.shade300),
                                       ),
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Row(
                                             children: [
-                                              Text(s.sessionCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
+                                              Text(s.sessionCode, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt, fontSize: 12)),
                                               const SizedBox(width: 10),
-                                              Expanded(child: Text(s.title ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), overflow: TextOverflow.ellipsis)),
+                                              Expanded(child: Text(s.title ?? '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null), overflow: TextOverflow.ellipsis)),
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                decoration: BoxDecoration(color: AppTheme.emerald.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
-                                                child: Text(s.recommendedScenarioProvider ?? "-", style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11)),
+                                                decoration: BoxDecoration(
+                                                  color: isDark ? Colors.green.shade900.withOpacity(0.3) : AppTheme.emerald.withOpacity(0.15),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  border: Border.all(color: isDark ? Colors.green.shade700 : AppTheme.emerald.withOpacity(0.3)),
+                                                ),
+                                                child: Text(
+                                                  s.recommendedScenarioProvider ?? "-",
+                                                  style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.green.shade300 : AppTheme.emerald, fontSize: 11),
+                                                ),
                                               ),
                                             ],
                                           ),
@@ -1220,9 +1346,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                           Container(
                                             padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
-                                              color: Colors.grey.shade50,
+                                              color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
                                               borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(color: Colors.grey.shade200),
+                                              border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
                                             ),
                                             child: Column(
                                               children: [
@@ -1232,8 +1358,8 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                                       child: Column(
                                                         crossAxisAlignment: CrossAxisAlignment.start,
                                                         children: [
-                                                          Text(l.targetEta, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                                          Text(s.avgExpectedWarehouseArrivalDate ?? '-', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                                          Text(l.targetEta, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                                                          Text(s.avgExpectedWarehouseArrivalDate ?? '-', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null)),
                                                         ],
                                                       ),
                                                     ),
@@ -1241,23 +1367,23 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                                       child: Column(
                                                         crossAxisAlignment: CrossAxisAlignment.start,
                                                         children: [
-                                                          Text(l.date, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                                          Text('${s.items.isNotEmpty ? s.items.first.readyForShippingDays : 0} d', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                                          Text(l.date, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                                                          Text('${s.items.isNotEmpty ? s.items.first.readyForShippingDays : 0} d', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null)),
                                                         ],
                                                       ),
                                                     ),
                                                   ],
                                                 ),
-                                                const Divider(height: 12),
+                                                Divider(height: 12, color: isDark ? AppTheme.darkBorder : null),
                                                 Row(
                                                   children: [
                                                     Expanded(
                                                       child: Column(
                                                         crossAxisAlignment: CrossAxisAlignment.start,
                                                         children: [
-                                                          const Text('⚡ Earliest', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                                          Text(s.earliestArrivalScenarioProvider ?? '-', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                                          Text(s.earliestArrivalDate ?? "", style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                                                          Text('⚡ Earliest', style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                                                          Text(s.earliestArrivalScenarioProvider ?? '-', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt)),
+                                                          Text(s.earliestArrivalDate ?? "", style: TextStyle(fontSize: 9, color: isDark ? AppTheme.darkTextMuted : Colors.grey)),
                                                         ],
                                                       ),
                                                     ),
@@ -1265,9 +1391,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                                       child: Column(
                                                         crossAxisAlignment: CrossAxisAlignment.start,
                                                         children: [
-                                                          const Text('🐢 Latest', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                                          Text(s.latestArrivalScenarioProvider ?? '-', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber)),
-                                                          Text(s.latestArrivalDate ?? "", style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                                                          Text('🐢 Latest', style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                                                          Text(s.latestArrivalScenarioProvider ?? '-', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.amber.shade300 : Colors.amber.shade800)),
+                                                          Text(s.latestArrivalDate ?? "", style: TextStyle(fontSize: 9, color: isDark ? AppTheme.darkTextMuted : Colors.grey)),
                                                         ],
                                                       ),
                                                     ),
@@ -1279,7 +1405,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                           const SizedBox(height: 8),
                                           Text(
                                             'CRD: ${s.cargoReadyDate} | ${s.pickUpAddress ?? "-"} | Transit: ${s.avgExpectedTransitDays} d',
-                                            style: const TextStyle(fontSize: 10.5, color: Colors.black87),
+                                            style: TextStyle(fontSize: 10.5, color: isDark ? AppTheme.darkTextSecondary : Colors.black87),
                                           ),
                                           if (s.items.isNotEmpty) ...[
                                             const SizedBox(height: 6),
@@ -1290,13 +1416,25 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                                 return Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                   decoration: BoxDecoration(
-                                                    color: opt.isRecommended ? Colors.green.shade50 : Colors.grey.shade50,
+                                                    color: opt.isRecommended
+                                                        ? (isDark ? Colors.green.shade900.withOpacity(0.3) : Colors.green.shade50)
+                                                        : (isDark ? AppTheme.darkSurface : Colors.grey.shade50),
                                                     borderRadius: BorderRadius.circular(4),
-                                                    border: Border.all(color: opt.isRecommended ? Colors.green : Colors.grey.shade300),
+                                                    border: Border.all(
+                                                      color: opt.isRecommended
+                                                          ? (isDark ? Colors.green.shade700 : Colors.green)
+                                                          : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                                    ),
                                                   ),
                                                   child: Text(
                                                     '${opt.providerName} (${opt.vesselName}) | POL: ${opt.polName ?? "-"} ➔ POD: ${opt.podName ?? "-"} | ${opt.sailingDate} ➔ ${opt.expectedWarehouseArrivalDate}',
-                                                    style: TextStyle(fontSize: 10.5, fontWeight: opt.isRecommended ? FontWeight.bold : FontWeight.normal, color: AppTheme.charcoal),
+                                                    style: TextStyle(
+                                                      fontSize: 10.5,
+                                                      fontWeight: opt.isRecommended ? FontWeight.bold : FontWeight.normal,
+                                                      color: opt.isRecommended
+                                                          ? (isDark ? Colors.green.shade300 : AppTheme.charcoal)
+                                                          : (isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
+                                                    ),
                                                   ),
                                                 );
                                               }).toList(),
@@ -1318,9 +1456,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? AppTheme.darkCardBackground : Colors.white,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                       ),
                       child: Row(
                         children: [
@@ -1329,8 +1467,10 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 ? Icons.airplanemode_active
                                 : (modeRec.isLclSuggested ? Icons.inventory : Icons.directions_boat),
                             color: modeRec.isAirSuggested
-                                ? Colors.purple
-                                : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.cobalt),
+                                ? (isDark ? Colors.purple.shade300 : Colors.purple)
+                                : (modeRec.isLclSuggested
+                                    ? (isDark ? Colors.amber.shade300 : Colors.amber.shade900)
+                                    : (isDark ? Colors.lightBlueAccent : AppTheme.cobalt)),
                             size: 24,
                           ),
                           const SizedBox(width: 10),
@@ -1344,14 +1484,20 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                     color: modeRec.isAirSuggested
-                                        ? Colors.purple.shade900
-                                        : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.charcoal),
+                                        ? (isDark ? Colors.purple.shade200 : Colors.purple.shade900)
+                                        : (modeRec.isLclSuggested
+                                            ? (isDark ? Colors.amber.shade200 : Colors.amber.shade900)
+                                            : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   '$mixedFleet (${Localizations.localeOf(context).languageCode == 'ar' ? modeRec.recommendedModeAr : modeRec.recommendedMode})',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11.5),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt,
+                                    fontSize: 11.5,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1432,15 +1578,18 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
     required double payloadUtil,
     required String detailsText,
     bool isHighlighted = false,
+    bool isDark = false,
   }) {
     final l = context.l10n;
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isHighlighted ? badgeColor.withOpacity(0.06) : Colors.white,
+        color: isHighlighted
+            ? (isDark ? badgeColor.withOpacity(0.18) : badgeColor.withOpacity(0.06))
+            : (isDark ? AppTheme.darkSurface : Colors.white),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isHighlighted ? badgeColor : Colors.grey.shade300,
+          color: isHighlighted ? badgeColor : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
           width: isHighlighted ? 1.5 : 1.0,
         ),
       ),
@@ -1461,7 +1610,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: badgeColor.withOpacity(0.12),
+                  color: isDark ? badgeColor.withOpacity(0.25) : badgeColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: badgeColor),
                 ),
@@ -1475,16 +1624,16 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           const SizedBox(height: 4),
           Text(
             description,
-            style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
+            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
           ),
           const SizedBox(height: 6),
           Wrap(
             spacing: 8,
             runSpacing: 4,
             children: [
-              _buildFileMetricPill(l.containerCountPill, l.containerCountUnit(containerCount), badgeColor),
-              _buildFileMetricPill(l.spaceAndVolumeUtilPill, '${spaceUtil.toStringAsFixed(1)}%', Colors.orange.shade900),
-              _buildFileMetricPill(l.weightUtilPill, '${payloadUtil.toStringAsFixed(1)}%', AppTheme.charcoal),
+              _buildFileMetricPill(l.containerCountPill, l.containerCountUnit(containerCount), badgeColor, isDark: isDark),
+              _buildFileMetricPill(l.spaceAndVolumeUtilPill, '${spaceUtil.toStringAsFixed(1)}%', isDark ? Colors.orange.shade300 : Colors.orange.shade900, isDark: isDark),
+              _buildFileMetricPill(l.weightUtilPill, '${payloadUtil.toStringAsFixed(1)}%', isDark ? Colors.tealAccent.shade200 : AppTheme.charcoal, isDark: isDark),
             ],
           ),
         ],
@@ -1492,10 +1641,14 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
     );
   }
 
-  Widget _buildMetricTile(String title, String value, {required String subtitle, required IconData icon, required Color color}) {
+  Widget _buildMetricTile(String title, String value, {required String subtitle, required IconData icon, required Color color, bool isDark = false}) {
     return Container(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: color.withOpacity(0.3))),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(isDark ? 0.5 : 0.3)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1503,13 +1656,19 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
             children: [
               Icon(icon, color: color, size: 18),
               const SizedBox(width: 6),
-              Expanded(child: Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal), overflow: TextOverflow.ellipsis)),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 4),
           Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey), overflow: TextOverflow.ellipsis, maxLines: 1),
+          Text(subtitle, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey), overflow: TextOverflow.ellipsis, maxLines: 1),
         ],
       ),
     );

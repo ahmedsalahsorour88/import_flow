@@ -167,7 +167,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: AppTheme.charcoal,
         title: Row(
@@ -280,6 +280,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   }
 
   Widget _buildControlBar(AppLocalizations l, OperationalDashboardState dashboardState, OperationalDashboardNotifier notifier) {
+    final isDark = AppTheme.isDark(context);
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -294,7 +295,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l.priority, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                Text(l.priority, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                 const SizedBox(height: 6),
                 ToggleButtons(
                   isSelected: _priorities.map((p) => dashboardState.selectedPriority == p).toList(),
@@ -302,6 +303,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   borderRadius: BorderRadius.circular(6),
                   selectedColor: Colors.white,
                   fillColor: AppTheme.cobalt,
+                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                  borderColor: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                  selectedBorderColor: AppTheme.cobalt,
                   constraints: const BoxConstraints(minHeight: 36, minWidth: 60),
                   children: _priorities.map((p) => Text(_getPriorityLabel(p, l), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))).toList(),
                 ),
@@ -317,7 +321,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(l.customsBrokerLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                    Text(l.customsBrokerLabel, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                     const SizedBox(height: 6),
                     SizedBox(
                       width: 240,
@@ -340,7 +344,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l.quickSearchLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                Text(l.quickSearchLabel, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                 const SizedBox(height: 6),
                 SizedBox(
                   width: 260,
@@ -377,6 +381,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   }
 
   Widget _buildResultsHeader(AppLocalizations l, OperationalDashboardState dashboardState) {
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
     return dashboardState.data.maybeWhen(
       data: (dashboardData) {
         final count = dashboardData.shipmentCount;
@@ -395,10 +400,11 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
           activeFilters.add('${l.quickSearchLabel} "${dashboardState.searchQuery}"');
         }
         if (dashboardState.selectedPhase != null) {
-          activeFilters.add('${l.currentPhase}: ${dashboardState.selectedPhase}');
+          activeFilters.add('${l.currentPhase}: ${_formatStageName(dashboardState.selectedPhase, isArabic)}');
         }
         final filterSummary = activeFilters.join(' | ');
 
+        final isDark = AppTheme.isDark(context);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -407,11 +413,11 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               children: [
                 CopyableText(
                   '${l.matchingShipments}: $count ${l.shipmentCountUnit}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                 ),
                 Text(
                   '${l.lastUpdated}: $lastUpdated',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                 ),
               ],
             ),
@@ -460,10 +466,10 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
-                    foregroundColor: Colors.purple.shade700,
-                    side: BorderSide(color: Colors.purple.shade300),
+                    foregroundColor: isDark ? Colors.purpleAccent.shade100 : Colors.purple.shade700,
+                    side: BorderSide(color: isDark ? Colors.purple.shade400 : Colors.purple.shade300),
                   ),
-                  icon: Icon(Icons.print_outlined, size: 16, color: Colors.purple.shade700),
+                  icon: Icon(Icons.print_outlined, size: 16, color: isDark ? Colors.purpleAccent.shade100 : Colors.purple.shade700),
                   label: Text(l.operationalExportPdfBtn, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                   onPressed: shipments.isEmpty
                       ? null
@@ -479,10 +485,10 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
-                    foregroundColor: AppTheme.charcoal,
-                    side: BorderSide(color: Colors.grey.shade400),
+                    foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                    side: BorderSide(color: isDark ? AppTheme.darkBorderLight : Colors.grey.shade400),
                   ),
-                  icon: const Icon(Icons.copy_all_outlined, size: 16, color: AppTheme.charcoal),
+                  icon: Icon(Icons.copy_all_outlined, size: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                   label: Text(l.operationalCopyDossierBtn, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                   onPressed: shipments.isEmpty
                       ? null
@@ -537,6 +543,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   }
 
   Widget _buildEmptyStateCard(AppLocalizations l, OperationalDashboardNotifier notifier) {
+    final isDark = AppTheme.isDark(context);
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -546,11 +553,11 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off, size: 56, color: Colors.grey.shade400),
+            Icon(Icons.search_off, size: 56, color: isDark ? AppTheme.darkTextMuted : Colors.grey.shade400),
             const SizedBox(height: 16),
-            Text(l.noMatchingShipments, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal)),
+            Text(l.noMatchingShipments, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
             const SizedBox(height: 6),
-            Text(l.noMatchingShipmentsDesc, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+            Text(l.noMatchingShipmentsDesc, style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
             const SizedBox(height: 16),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
@@ -567,6 +574,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   }
 
   Widget _buildShipmentCard(ImportFileModel s, bool isArabic, List<SmartTaskModel> linkedTasks, AppLocalizations l) {
+    final isDark = AppTheme.isDark(context);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -578,19 +586,19 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
           children: [
             Row(
               children: [
-                CopyableText(DisplayNameResolver.resolveShipmentName(s, isArabic: isArabic), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                CopyableText(DisplayNameResolver.resolveShipmentName(s, isArabic: isArabic), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                 if (s.customFileNumber != null && s.customFileNumber!.trim().isNotEmpty && s.customFileNumber!.trim() != s.importFileCode) ...[
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                    child: CopyableText(s.importFileCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt)),
+                    decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(isDark ? 0.25 : 0.1), borderRadius: BorderRadius.circular(6)),
+                    child: CopyableText(s.importFileCode, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt)),
                   ),
                 ],
                 const SizedBox(width: 10),
-                CopyableText(s.companyName, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.grey.shade800)),
+                CopyableText(s.companyName, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : Colors.grey.shade800)),
                 const SizedBox(width: 8),
-                CopyableText('→ ${s.supplierName}', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                CopyableText('→ ${s.supplierName}', style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
                 const Spacer(),
                 _buildPriorityBadge(s.priority, l),
                 const SizedBox(width: 6),
@@ -612,8 +620,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CopyableText('${l.currentPhase}: ${_formatStageName(s.currentModule, isArabic)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                      CopyableText('${l.operationalStep}: ${_formatStageName(s.currentStage, isArabic)}', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                      CopyableText('${l.currentPhase}: ${_formatStageName(s.currentModule, isArabic)}', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null)),
+                      CopyableText('${l.operationalStep}: ${_formatStageName(s.currentStage, isArabic)}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
                     ],
                   ),
                 ),
@@ -621,8 +629,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CopyableText('${l.customsBrokerLabel} ${s.brokerName ?? l.unassigned}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                      CopyableText('${l.purchaseOrder} ${s.poNumber ?? l.unassigned}', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                      CopyableText('${l.customsBrokerLabel} ${s.brokerName ?? l.unassigned}', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null)),
+                      CopyableText('${l.purchaseOrder} ${s.poNumber ?? l.unassigned}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
                     ],
                   ),
                 ),
@@ -633,7 +641,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     CopyableText('${s.progressPercent.toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 14)),
                     SizedBox(
                       width: 80,
-                      child: LinearProgressIndicator(value: s.progressPercent / 100.0, backgroundColor: Colors.grey.shade200, color: AppTheme.emerald),
+                      child: LinearProgressIndicator(value: s.progressPercent / 100.0, backgroundColor: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade200, color: AppTheme.emerald),
                     ),
                   ],
                 ),
@@ -645,9 +653,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
               ),
               child: Row(
                 children: [
@@ -655,7 +663,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
+                      color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade200,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Row(
@@ -667,7 +675,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                           s.currentModule.contains('STEP_02') || s.currentModule.contains('Customs') || s.currentModule.contains('جمرك')
                               ? l.pathwayPrevFreightStudies
                               : l.pathwayPrevFilePlanning,
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                         ),
                       ],
                     ),
@@ -680,9 +688,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: isDark ? AppTheme.cobalt.withOpacity(0.25) : AppTheme.cobalt.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: AppTheme.cobalt, width: 1.2),
+                      border: Border.all(color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt, width: 1.2),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -691,7 +699,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         const SizedBox(width: 4),
                         CopyableText(
                           '${l.pathwayCurrent}: ${_formatStageName(s.currentModule, isArabic)}',
-                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
                         ),
                       ],
                     ),
@@ -705,19 +713,19 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.amber.shade50,
+                        color: isDark ? const Color(0xFF2E2419) : Colors.amber.shade50,
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.amber.shade700.withOpacity(0.5)),
+                        border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade700.withOpacity(0.5)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.arrow_circle_left_outlined, size: 13, color: Colors.amber.shade900),
+                          Icon(Icons.arrow_circle_left_outlined, size: 13, color: isDark ? Colors.amber.shade300 : Colors.amber.shade900),
                           const SizedBox(width: 4),
                           Expanded(
                             child: CopyableText(
                               '${l.pathwayNext}: ${s.nextAction.isNotEmpty ? _formatActionName(s.nextAction, s.currentModule, isArabic) : l.pathwayNextImportReqs}',
-                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDark ? Colors.amber.shade300 : Colors.amber.shade900),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -916,13 +924,14 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       actionIcon = Icons.archive_outlined;
     }
 
+    final isDark = AppTheme.isDark(context);
     return Container(
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.cobalt.withOpacity(0.06),
+        color: isDark ? AppTheme.cobalt.withOpacity(0.15) : AppTheme.cobalt.withOpacity(0.06),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+        border: Border.all(color: isDark ? AppTheme.cobalt.withOpacity(0.4) : AppTheme.cobalt.withOpacity(0.25)),
       ),
       child: Row(
         children: [
@@ -941,22 +950,25 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               children: [
                 Row(
                   children: [
-                    Text(l.nextStepAction, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt)),
+                    Text(l.nextStepAction, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt)),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(4)),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.amber.shade900.withOpacity(0.35) : Colors.amber.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       child: CopyableText(
                         '${l.responsiblePerson}: $responsible',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.brown.shade800),
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? Colors.amber.shade200 : Colors.brown.shade800),
                         showIcon: false,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 3),
-                CopyableText(nextStepTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
-                CopyableText(nextStepDesc, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                CopyableText(nextStepTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                CopyableText(nextStepDesc, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
               ],
             ),
           ),
@@ -978,24 +990,25 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   Widget _buildLinkedTasksSection(ImportFileModel s, List<SmartTaskModel> linkedTasks, AppLocalizations l) {
     if (linkedTasks.isEmpty) return const SizedBox.shrink();
     final isArabic = ref.watch(localeProvider).languageCode == 'ar';
+    final isDark = AppTheme.isDark(context);
 
     return Container(
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.checklist_rounded, color: AppTheme.charcoal, size: 16),
+              Icon(Icons.checklist_rounded, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal, size: 16),
               const SizedBox(width: 6),
               Text('${l.openShipmentTasks} (${linkedTasks.length} ${l.tasksCountUnit}):',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.charcoal)),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
               const Spacer(),
               TextButton.icon(
                 onPressed: () => selectNavigationIndex(ref, 40),
@@ -1014,6 +1027,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     value: t.status == 'Completed',
                     visualDensity: VisualDensity.compact,
                     activeColor: AppTheme.emerald,
+                    checkColor: Colors.white,
+                    side: BorderSide(color: isDark ? AppTheme.darkBorderLight : Colors.grey.shade500),
                     onChanged: (val) async {
                       if (val == true) {
                         await ref.read(smartTasksProvider.notifier).updateTask(t.taskId, {'status': 'Completed'});
@@ -1032,20 +1047,23 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   Expanded(
                     child: CopyableText(
                       DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isArabic),
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: isDark ? AppTheme.darkTextPrimary : Colors.grey.shade900),
                     ),
                   ),
                   if (t.priority == 'Critical')
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
-                      child: Text(_getPriorityLabel(t.priority, l), style: const TextStyle(color: Colors.red, fontSize: 9.5, fontWeight: FontWeight.bold)),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.red.shade900.withOpacity(0.4) : Colors.red.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(_getPriorityLabel(t.priority, l), style: TextStyle(color: isDark ? Colors.red.shade200 : Colors.red, fontSize: 9.5, fontWeight: FontWeight.bold)),
                     ),
                   const SizedBox(width: 8),
                   if (t.dueDate != null && t.dueDate!.trim().isNotEmpty)
                     CopyableText(
                       t.dueDate!,
-                      style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                      style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextMuted : Colors.grey.shade600),
                       showIcon: false,
                     ),
                 ],
@@ -1327,14 +1345,14 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
           mainValue: '${highPriorityAlertsRecords.length}',
           subtitle: l.kpiHighPriorityAlertsSub,
           icon: Icons.warning_amber,
-          color: Colors.red.shade900,
+          color: AppTheme.isDark(context) ? Colors.red.shade400 : Colors.red.shade900,
           records: highPriorityAlertsRecords,
           clickHint: l.drillDownCardClickHint,
           onTap: () => DashboardCardDrillDownDialog.show(
             context: context,
             title: l.kpiHighPriorityAlerts,
             icon: Icons.warning_amber,
-            themeColor: Colors.red.shade900,
+            themeColor: AppTheme.isDark(context) ? Colors.red.shade400 : Colors.red.shade900,
             records: highPriorityAlertsRecords,
             isArabic: isArabic,
           ),
@@ -1353,6 +1371,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     required VoidCallback onTap,
     required String clickHint,
   }) {
+    final isDark = AppTheme.isDark(context);
     return SizedBox(
       width: 220,
       child: Tooltip(
@@ -1376,7 +1395,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       Expanded(
                         child: Text(
                           title,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1401,11 +1420,11 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Icon(Icons.open_in_new_rounded, size: 14, color: Colors.grey.shade400),
+                      Icon(Icons.open_in_new_rounded, size: 14, color: isDark ? AppTheme.darkTextMuted : Colors.grey.shade400),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                  Text(subtitle, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextMuted : Colors.grey.shade600)),
                 ],
               ),
             ),
@@ -1418,6 +1437,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   Widget _buildRiskAlertsBanner(List<dynamic> shipments) {
     final l = context.l10n;
     final isArabic = ref.watch(localeProvider).languageCode == 'ar';
+    final isDark = AppTheme.isDark(context);
     final criticals = shipments.where((s) => s.priority == 'Critical' || s.priority == 'High').toList();
     final tasksState = ref.watch(smartTasksProvider);
     final regTasks = tasksState.tasks.where((t) => (t.taskType == 'Regulatory Compliance' || (t.phaseName != null && t.phaseName!.contains('STEP_03'))) && t.status != 'Completed').toList();
@@ -1426,8 +1446,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
 
     return Card(
       elevation: 2,
-      color: Colors.amber.shade50,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.amber.shade300)),
+      color: isDark ? const Color(0xFF2E2419) : Colors.amber.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: isDark ? Colors.amber.shade700.withOpacity(0.5) : Colors.amber.shade300)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -1437,12 +1457,16 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               children: [
                 const Icon(Icons.shield_outlined, color: AppTheme.orange, size: 22),
                 const SizedBox(width: 8),
-                Text(l.riskAlertsCenter, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                Text(l.riskAlertsCenter, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                 const Spacer(),
                 if (regTasks.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.red.shade300)),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF3B1E22) : Colors.red.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isDark ? Colors.red.shade700 : Colors.red.shade300),
+                    ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -1450,7 +1474,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         const SizedBox(width: 4),
                         Text(
                           l.pendingRegRequirementsCount(regTasks.length),
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.red.shade200 : AppTheme.crimson),
                         ),
                       ],
                     ),
@@ -1471,9 +1495,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       message: l.copyTooltip,
                       child: Chip(
                         avatar: const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson, size: 14),
-                        label: Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson)),
-                        backgroundColor: Colors.red.shade50,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: Colors.red.shade200)),
+                        label: Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.red.shade200 : AppTheme.crimson)),
+                        backgroundColor: isDark ? const Color(0xFF3B1E22) : Colors.red.shade50,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: isDark ? Colors.red.shade800 : Colors.red.shade200)),
                       ),
                     ),
                   );
@@ -1487,9 +1511,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       message: l.copyTooltip,
                       child: Chip(
                         avatar: const Icon(Icons.warning, color: AppTheme.orange, size: 14),
-                        label: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                        backgroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: Colors.amber.shade200)),
+                        label: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : Colors.grey.shade900)),
+                        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: isDark ? AppTheme.darkBorderLight : Colors.amber.shade200)),
                       ),
                     ),
                   );
@@ -1542,17 +1566,18 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   }
 
   Widget _buildPriorityBadge(String priority, AppLocalizations l) {
-    Color bg = Colors.grey.shade200;
-    Color fg = Colors.grey.shade800;
+    final isDark = AppTheme.isDark(context);
+    Color bg = isDark ? AppTheme.darkSurface : Colors.grey.shade200;
+    Color fg = isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800;
     if (priority == 'High') {
-      bg = Colors.orange.shade100;
-      fg = Colors.orange.shade900;
+      bg = isDark ? Colors.orange.shade900.withOpacity(0.35) : Colors.orange.shade100;
+      fg = isDark ? Colors.orange.shade300 : Colors.orange.shade900;
     } else if (priority == 'Critical') {
-      bg = Colors.red.shade100;
-      fg = Colors.red.shade900;
+      bg = isDark ? Colors.red.shade900.withOpacity(0.35) : Colors.red.shade100;
+      fg = isDark ? Colors.red.shade300 : Colors.red.shade900;
     } else if (priority == 'Medium') {
-      bg = Colors.blue.shade100;
-      fg = Colors.blue.shade900;
+      bg = isDark ? Colors.blue.shade900.withOpacity(0.35) : Colors.blue.shade100;
+      fg = isDark ? Colors.lightBlueAccent : Colors.blue.shade900;
     }
 
     return Container(
@@ -1565,6 +1590,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   Widget _buildDailyCheckinsCard(List<ImportFileModel> shipments) {
     final l = context.l10n;
     final isArabic = ref.watch(localeProvider).languageCode == 'ar';
+    final isDark = AppTheme.isDark(context);
     final updatesState = ref.watch(shipmentUpdatesProvider);
     final logs = updatesState.logs;
 
@@ -1580,7 +1606,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               children: [
                 const Icon(Icons.published_with_changes, color: AppTheme.cobalt, size: 22),
                 const SizedBox(width: 8),
-                Text(l.dailyCheckinsLog, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                Text(l.dailyCheckinsLog, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                 const Spacer(),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
@@ -1592,7 +1618,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             ),
             const SizedBox(height: 10),
             if (logs.isEmpty)
-              Text(l.noDailyUpdates, style: const TextStyle(fontSize: 12, color: Colors.grey))
+              Text(l.noDailyUpdates, style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextMuted : Colors.grey))
             else
               Wrap(
                 spacing: 10,
@@ -1601,7 +1627,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   return Container(
                     padding: const EdgeInsets.all(10),
                     width: 260,
-                    decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: isDark ? AppTheme.darkSurface : Colors.white, border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1618,16 +1644,16 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(log.logDate, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                            Text(log.logDate, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextMuted : Colors.grey)),
                           ],
                         ),
                         const SizedBox(height: 4),
                         CopyableText(
                           '${DisplayNameResolver.resolvePhaseName(log.targetPhase, isArabic: isArabic)} — ${DisplayNameResolver.resolveUpdateCategory(log.updateCategory, isArabic: isArabic)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                         ),
                         const SizedBox(height: 4),
-                        CopyableText(log.note, style: const TextStyle(fontSize: 11, color: Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        CopyableText(log.note, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
                       ],
                     ),
                   );
@@ -1643,6 +1669,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
 
   Widget _buildQuickActionsBar() {
     final l = context.l10n;
+    final isDark = AppTheme.isDark(context);
 
     return Card(
       elevation: 2,
@@ -1656,9 +1683,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.amber.shade50,
+                color: isDark ? const Color(0xFF2E2419) : Colors.amber.shade50,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber.shade300),
+                border: Border.all(color: isDark ? Colors.amber.shade700.withOpacity(0.5) : Colors.amber.shade300),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1669,7 +1696,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       const SizedBox(width: 8),
                       Text(
                         l.aiSmartExtractorTitle,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                       ),
                     ],
                   ),
@@ -1679,7 +1706,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     runSpacing: 8,
                     children: [
                       ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
+                        style: ElevatedButton.styleFrom(backgroundColor: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal, foregroundColor: Colors.white),
                         icon: const Icon(Icons.public, size: 16),
                         label: Text(l.smartExtractSupplier),
                         onPressed: () => UniversalEntityExtractorDialog.show(context, initialTarget: EntityTarget.supplier),
@@ -1715,7 +1742,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 const SizedBox(width: 8),
                 Text(
                   l.quickShortcutsTitle,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                 ),
               ],
             ),
@@ -1727,56 +1754,65 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 _buildQuickActionButton(
                   l.createNewProject,
                   Icons.assignment_outlined,
-                  AppTheme.cobalt,
+                  isDark ? Colors.lightBlueAccent : AppTheme.cobalt,
                   () => selectNavigationIndex(ref, 31), // Projects
+                  isDark: isDark,
                 ),
                 _buildQuickActionButton(
                   l.createNewImportFile,
                   Icons.folder_special_outlined,
-                  AppTheme.emerald,
+                  isDark ? Colors.tealAccent : AppTheme.emerald,
                   () => selectNavigationIndex(ref, 1), // Import Files
+                  isDark: isDark,
                 ),
                 _buildQuickActionButton(
                   l.createNewImportCompany,
                   Icons.domain_outlined,
-                  AppTheme.orange,
+                  isDark ? Colors.amber.shade400 : AppTheme.orange,
                   () => selectNavigationIndex(ref, 32), // Import Companies
+                  isDark: isDark,
                 ),
                 _buildQuickActionButton(
                   l.createNewSupplier,
                   Icons.business_outlined,
-                  AppTheme.charcoal,
+                  isDark ? Colors.tealAccent.shade200 : AppTheme.charcoal,
                   () => selectNavigationIndex(ref, 33), // Foreign Suppliers
+                  isDark: isDark,
                 ),
                 _buildQuickActionButton(
                   l.createNewPartnerBank,
                   Icons.account_balance_outlined,
-                  AppTheme.cobalt,
+                  isDark ? Colors.lightBlueAccent : AppTheme.cobalt,
                   () => selectNavigationIndex(ref, 34), // Partners & Banks
+                  isDark: isDark,
                 ),
                 _buildQuickActionButton(
                   l.createNewCustomsTariff,
                   Icons.description_outlined,
-                  AppTheme.orange,
+                  isDark ? Colors.orange.shade300 : AppTheme.orange,
                   () => selectNavigationIndex(ref, 36), // Customs Tariff
+                  isDark: isDark,
                 ),
                 _buildQuickActionButton(
                   l.createNewLocation,
                   Icons.location_on_outlined,
-                  AppTheme.emerald,
+                  isDark ? Colors.tealAccent : AppTheme.emerald,
                   () => selectNavigationIndex(ref, 37), // Ports & Locations
+                  isDark: isDark,
                 ),
                 _buildQuickActionButton(
                   l.createNewCurrency,
                   Icons.currency_exchange_outlined,
-                  AppTheme.charcoal,
+                  isDark ? Colors.purpleAccent.shade100 : AppTheme.charcoal,
                   () => selectNavigationIndex(ref, 38), // Currencies
+                  isDark: isDark,
                 ),
                 _buildQuickActionButton(
                   l.createNewExchangeRate,
                   Icons.rate_review_outlined,
-                  AppTheme.cobalt,
+                  isDark ? Colors.lightBlueAccent : AppTheme.cobalt,
                   () => selectNavigationIndex(ref, 38), // Exchange Rates
+                  isDark: isDark,
                 ),
               ],
             ),
@@ -1786,16 +1822,16 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     );
   }
 
-  Widget _buildQuickActionButton(String label, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildQuickActionButton(String label, IconData icon, Color color, VoidCallback onTap, {bool isDark = false}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withOpacity(isDark ? 0.18 : 0.08),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withOpacity(isDark ? 0.5 : 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1900,6 +1936,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   ) {
     final l = context.l10n;
     final isArabic = ref.watch(localeProvider).languageCode == 'ar';
+    final isDark = AppTheme.isDark(context);
 
     return Card(
       elevation: 2.5,
@@ -1927,11 +1964,11 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     children: [
                       Text(
                         l.lifecycleBoardSummaryTitle,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppTheme.charcoal),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                       ),
                       Text(
                         l.lifecycleBoardSummaryDesc,
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
                       ),
                     ],
                   ),
@@ -1956,7 +1993,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   icon: const Icon(Icons.open_in_new, size: 15, color: Colors.white),
                   label: Text(l.fullOperationsBoardButton, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.charcoal,
+                    backgroundColor: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
@@ -1991,6 +2028,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   ) {
     final isArabic = ref.watch(localeProvider).languageCode == 'ar';
     final l = context.l10n;
+    final isDark = AppTheme.isDark(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -2016,15 +2054,15 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               width: cardWidth.clamp(280.0, 480.0),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isPhaseSelected ? phaseColor.withOpacity(0.08) : Colors.white,
+                color: isPhaseSelected ? phaseColor.withOpacity(isDark ? 0.18 : 0.08) : (isDark ? AppTheme.darkCardBackground : Colors.white),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: isPhaseSelected ? phaseColor : Colors.grey.shade300,
+                  color: isPhaseSelected ? phaseColor : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                   width: isPhaseSelected ? 2 : 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
+                    color: Colors.black.withOpacity(isDark ? 0.15 : 0.02),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -2060,7 +2098,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12.5,
-                                      color: isPhaseSelected ? phaseColor : AppTheme.charcoal,
+                                      color: isPhaseSelected ? phaseColor : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -2112,12 +2150,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                           decoration: BoxDecoration(
                             color: isStepSelected
                                 ? phaseColor
-                                : (count > 0 ? phaseColor.withOpacity(0.12) : Colors.grey.shade100),
+                                : (count > 0 ? phaseColor.withOpacity(isDark ? 0.22 : 0.12) : (isDark ? AppTheme.darkSurface : Colors.grey.shade100)),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
                               color: isStepSelected
                                   ? phaseColor
-                                  : (count > 0 ? phaseColor.withOpacity(0.4) : Colors.grey.shade300),
+                                  : (count > 0 ? phaseColor.withOpacity(isDark ? 0.6 : 0.4) : (isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
                             ),
                           ),
                           child: Row(
@@ -2132,7 +2170,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                                     fontWeight: isStepSelected ? FontWeight.bold : FontWeight.normal,
                                     color: isStepSelected
                                         ? Colors.white
-                                        : (count > 0 ? AppTheme.charcoal : Colors.grey.shade700),
+                                        : (count > 0 ? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal) : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
                                   ),
                                 ),
                               ),

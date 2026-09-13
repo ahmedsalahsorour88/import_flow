@@ -1,17 +1,17 @@
 {
   "major": 1,
   "minor": 0,
-  "patch": 159,
-  "version": "1.0.159",
-  "build_number": 160,
-  "updated_at": "2026-09-11 16:37:38",
+  "patch": 160,
+  "version": "1.0.160",
+  "build_number": 161,
+  "updated_at": "2026-09-13 12:22:41",
   "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.151/Sorour_Logistics_Setup_v1.0.151.exe",
   "installer_filename": "Sorour_Logistics_Setup_v1.0.151.exe",
   "installer_size_mb": 198.02,
   "release_notes": [
-    "حل المشكلة الأساسية: كل بطاقة كانت تعرض فقط رقماً مجرداً مع سطر وصفي بدون أي وسيلة لمعرفة أي شحنات/مهام تخص، وما المطلوب تحديداً، ومن المسؤول، ومتى الموعد النهائي.",
-    "التطابق الرياضي الحتمي 100%: استخراج الرقم المعروض على واجهة كل بطاقة مباشرة من records.length المولدة من نفس الدالة المركزية DashboardDrillDownHelper.getRecords(type, ...) التي تغذي نافذة التفاصيل، مما يجعل أي اختلاف بين العدد المعروض وعدد السجلات مستحيلاً رياضياً.",
-    "تغطية البطاقات الـ 9 بالكامل:",
-    "شفافية فجوات البيانات (Data Gaps Disclosure): إظهار تنبيهات واضحة صريحة بأي بيانات غير مسجلة في قاعدة البيانات (مثل عدم تسجيل وقت الاستحقاق بالساعة والدقيقة، أو عدم تتبع سجل تعديلات ETA التاريخي)، دون إخفائها أو اختلاق بيانات وهمية."
+    "World Timezone Country Logic: إضافة معامل اختياري countryKey في دالة WorldTimezoneHelper.isBusinessHours لتمييز إجازة مصر الرسمية (الجمعة والسبت) عن إجازات الدول الغربية (السبت والأحد).",
+    "Theme-Adaptive Primary Clock Chip: استخدام ألوان ناعمة متجاوبة مع Theme.of(context).brightness لمنع أي تباين شاذ أو خلفيات سوداء في الوضع النهاري.",
+    "Pure i18n Banner Protection: فحص !result.hasUpdate وإرجاع l.prodSyncSystemUpToDateMsg المترجمة فورياً بدلاً من الاعتماد على رسالة الـ Backend الثابتة.",
+    "تقديم النتائج والشرح المفصل للمستخدم."
   ]
 }

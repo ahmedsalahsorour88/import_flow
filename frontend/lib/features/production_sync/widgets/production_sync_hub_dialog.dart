@@ -192,7 +192,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
           width: 1060,
           height: 820,
           decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(

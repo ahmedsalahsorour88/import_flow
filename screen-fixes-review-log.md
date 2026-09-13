@@ -14,8 +14,50 @@
 - **Review Progress:** 🏆 **ALL SCREENS (LOGIN SCREEN & SCREENS 0 TO 68), ALL STANDALONE EXTRACTION, CUSTOMS-CLEARANCE & DOCUMENT TOOLS, AND PERSISTENT SMART IMPORT AI ASSISTANT OVERLAY WITH INTERACTIVE SHIPMENT LIFECYCLE NAVIGATOR HAVE BEEN 100% COMPLETED, REFINED, LOCALIZED, COPY-ENABLED, AND EXPORT-LINKED!**
 - **Remaining screens/modules (not yet reviewed):** None (All 69 screens 0..68 & Login are complete)
 - **Remaining standalone extraction/generation tools (not yet reviewed):** None (All 8 standalone extraction/generation tools are complete)
-- **Last screen/tool where ALL applicable tasks (localization, on-screen copy, linked outputs) were fully completed:** Screen 0: Operational Workspace Dashboard (`OperationalDashboardScreen`, Route Index 0)
+- **Last screen/tool where ALL applicable tasks (localization, on-screen copy, linked outputs) were fully completed:** Desktop High-Contrast Dark Mode Text Colors & Legibility Restoration (Screen 0 & Import Files Dialog) & Screen 59 Production Database & Release Synchronizer (`ProductionSyncScreen`, Route Index 59)
 - **Next screen/tool to review:** All application screens, standalone tools, and global assistant overlays completed! 🏆 (Standing by for any newly added screen, feature request, or custom deep-dive).
+
+---
+
+## 📝 Session Log: Desktop High-Contrast Dark Mode Text Colors & Legibility Restoration (Screen 0 & Import Files Dialog) — 2026-09-13
+- **Target Files:**
+  - `frontend/lib/features/operational_dashboard/screens/operational_dashboard_screen.dart` (Theme-adaptive scaffold, control bar, shipment card, stage pathway, next step card, linked tasks container, risk banner, priority badges, daily checkins, quick action buttons, and lifecycle phases)
+  - `frontend/lib/features/import_files/widgets/import_file_details_dialog.dart` (Theme-adaptive top metric tiles, ACID card, Form 4, linked POs table, cargo stacking scenarios container, _buildScenarioResultCard, saved shipping evaluation studies, smart recommendation banner, _buildFileMetricPill, _showVisualLoadPlanDialog, and _showContainerComparisonDialog)
+- **Route Index:** `0` & Import Files Modal Dialog
+- **Task A (Contrast & Dark Mode Legibility):** Complete.
+  - Eliminated white-on-white text disappearance by replacing fixed `Colors.white`, `Colors.grey.shade50`, and `Colors.grey.shade100` backgrounds with theme-adaptive `AppTheme.darkSurface`, `AppTheme.darkCardBackground`, and `Color(0xFF1B2430)`.
+  - Replaced unreadable `AppTheme.charcoal` text on dark surfaces with `AppTheme.darkTextPrimary` (`#ECF0F1`) and `AppTheme.darkTextSecondary` (`#94A3B8`).
+  - Adapted cargo stacking scenario cards, saved shipping evaluation studies, smart recommendation boxes, linked POs, and metric pills to ensure crisp, luminous contrast in dark mode.
+- **Task B (Copy Data Enablement):** Maintained.
+  - All copy triggers, context menus, and SelectionArea interactions remain fully operational.
+- **Task C (Linked Outputs):** Maintained.
+- **Verification:**
+  - `flutter analyze lib/` ➔ **0 issues found (100% clean)!** ✅
+  - `flutter test test/operational_dashboard_test.dart test/operational_dashboard_localization_test.dart test/system_live_clock_test.dart` ➔ **35/35 tests passed (100% green)!** ✅
+  - `py -m pytest -q` ➔ **639/639 tests passed (100% green)!** ✅
+
+---
+
+## 📝 Session Log: Screen 59: Production Database & Release Synchronizer & System Clocks Polish — 2026-09-13
+- **Target Files:**
+  - `frontend/lib/core/widgets/system_live_clock_widget.dart` (World clocks header: completely removed flags from all country chips per user request; customized Egypt business hours so Friday and Saturday are official weekend holidays while Sunday-Thursday 08:00-17:00 are working hours; fixed Egypt chip background and text colors in light theme to soft light blue/red avoiding dark black)
+  - `frontend/lib/features/production_sync/screens/production_sync_screen.dart` (Screen 59: localized update banner message with `l.prodSyncSystemUpToDateMsg` eliminating raw Arabic server message leakage in English mode; theme-adaptive scaffold; localized error handling)
+  - `frontend/lib/features/production_sync/widgets/production_sync_hub_dialog.dart` (Theme-adaptive dialog styling)
+  - `frontend/lib/features/production_sync/widgets/sync_progress_and_diff_widget.dart` (Localized default action comparison)
+  - `frontend/lib/features/operational_dashboard/screens/operational_dashboard_screen.dart` (Screen 0: localized active filter phase summary in results header)
+  - `frontend/test/system_live_clock_test.dart` (Updated 27 unit & widget tests verifying flag removal and Egypt Fri-Sat weekend logic)
+  - `frontend/test/production_sync_test.dart` (Updated 12 unit & widget tests verifying localized English update banner)
+- **Route Index:** `59` & Core Clocks
+- **Task A (Localization / i18n):** Complete.
+  - Raw backend string `النظام محدث لأحدث إصدار رسمي.` replaced with localized getter `l.prodSyncSystemUpToDateMsg`.
+  - Zero raw Arabic strings in English mode, zero Latin in Arabic mode.
+- **Task B (Copy Data Enablement):** Complete.
+  - Full desktop clipboard copy for version badge, build number, file paths, backup tags, and error logs.
+- **Task C (Linked Outputs):** Complete.
+  - Linked sync diff summaries, schema audits, and backup management.
+- **Verification:**
+  - `flutter analyze lib/` ➔ **0 issues found (100% clean)!** ✅
+  - `flutter test test/system_live_clock_test.dart test/production_sync_test.dart test/operational_dashboard_test.dart` ➔ **52/52 tests passed (100% green)!** ✅
 
 ---
 
@@ -576,6 +618,58 @@
   - `flutter test test/perf/screen_60_clearance_samples_shortage_perf_test.dart` ➔ **1/1 benchmark passed (First Frame: 40.3ms | Settled: 111.3ms | Nav-OUT: 20.3ms)** ✅
   - Combined clearance suite: **22/22 tests passed (100% green)** ✅
   - Full codebase `flutter analyze lib/` ➔ **0 issues found (100% clean)** ✅
+
+---
+
+## 📝 Session Log: Screen 59: Production Database & Release Synchronizer (Production Sync & Deployment Hub) — 2026-09-13
+- **Target Files:**
+  - `frontend/lib/features/production_sync/screens/production_sync_screen.dart` (ProductionSyncScreen with root SelectionArea, 4-action export toolbar [TSV, Excel, Vector PDF, Dossier], clickable version/build copy badge, database path copy badges, instant safety backup trigger, schema diff inspector, live terminal console, theme-adaptive Scaffold background and card colors, zero hardcoded Latin comparisons on action buttons)
+  - `frontend/lib/features/production_sync/widgets/production_sync_hub_dialog.dart` (ProductionSyncHubDialog modal dialog with SelectionArea, theme-adaptive container background, DB health cards with path copy buttons, safety backups archive, restore confirmation dialog, live execution console)
+  - `frontend/lib/features/production_sync/widgets/sync_progress_and_diff_widget.dart` (Visual progress bar, database changes summary panel, search field with copy suffix and clear buttons, diff filter chips [Modified, All, Matched], table diff TSV & CSV export actions, individual table copy badges, localized action messages without hardcoded language fallbacks)
+  - `frontend/lib/features/production_sync/widgets/sync_console_widget.dart` (Live terminal output widget with copy logs to clipboard button, clear console button, status badge, and monospace selectable log stream)
+  - `frontend/lib/features/production_sync/services/production_sync_export_service.dart` (Centralized export service: Table diff TSV with UTF-8 BOM, table diff unmerged CSV/Excel with UTF-8 BOM, backups archive TSV with UTF-8 BOM, backups archive CSV/Excel with UTF-8 BOM, Vector A4 Cairo PDF with dynamic RTL/LTR textDirection and official ERP branding, and formatted plain-text clipboard dossier copy)
+  - `frontend/lib/core/localization/app_localizations.dart`, `app_localizations_ar.dart`, `app_localizations_en.dart` (120+ Screen 59 getters covering versioning, auto-updater, DB stats, schema migrations, table diffs, safety backups, terminal logs, and export headers; strictly 0 Latin characters in Arabic mode, 0 bilingual slashes)
+  - `frontend/test/production_sync_test.dart` (Unit and screen widget mounting tests, 9/9 passed 100%)
+  - `frontend/test/production_sync_localization_test.dart` (Automated localization, non-empty, pure Arabic regex, and anti-stacking tests, 3/3 passed 100%)
+  - `frontend/test/production_sync_export_service_test.dart` (Export service unit tests: TSV BOM, CSV RFC-4180, formatted text dossier, model mapping, 5/5 passed 100%)
+  - `frontend/test/production_sync_hub_dialog_test.dart` (Modal dialog widget tests: SelectionArea, localized labels, DB cards, 1/1 passed 100%)
+  - `frontend/test/perf/screen_59_production_sync_perf_test.dart` (Performance benchmark diagnostics: Nav-IN First Frame: 111.7ms | Settled: 155.7ms | Nav-OUT: 30.3ms, 1/1 passed 100%)
+  - `frontend/test/perf/production_sync_hub_dialog_perf_test.dart` (Modal performance benchmark diagnostics: First Frame: 114ms | Settled: 167ms | Nav-OUT: 24ms, 1/1 passed 100%)
+- **Route Index:** `59`
+- **Task A (Localization / i18n):** Complete.
+  - 120+ typed getters in `AppLocalizations`, `AppLocalizationsAr`, and `AppLocalizationsEn`.
+  - Strictly 0 Latin characters `[a-zA-Z]` across all Screen 59 Arabic strings verified via automated regex testing in `production_sync_localization_test.dart`.
+  - Strictly 0 bilingual slashes (`/`).
+  - Purged hardcoded strings and ternary language checks (`isAr ? '...' : '...'`).
+  - Strict single-language display without dual language stacking.
+- **Task B (Copy Data Enablement):** Complete.
+  - Wrapped entire screen body and hub dialog in root `SelectionArea` enabling desktop drag-to-select everywhere.
+  - Clickable copy badges with copy icons and `CopyHelper.copy` on system version (`v1.0.73 (Build 74)`), dev DB path, prod DB path, and backup filenames.
+  - Copy suffix button on table search field alongside clear button.
+  - Quick-copy row summary action buttons (`Icons.copy_rounded`) on backups archive and schema diff items.
+  - Terminal console with dedicated "Copy All Logs" button copying clean execution traces to clipboard.
+- **Task C (Linked Outputs / TSV, Excel & Vector PDF Export):** Complete.
+  - Built `ProductionSyncExportService` providing 4 standard export actions:
+    1. **TSV Export:** UTF-8 BOM (`\uFEFF`), tab-separated values for table differences and backups archive.
+    2. **Excel Export:** UTF-8 BOM (`\uFEFF`), RFC 4180 unmerged CSV for table differences and backups archive.
+    3. **Vector PDF Export:** Cairo Arabic font, landscape A4, KPI blocks, DB comparison details, official ERP branding, dynamic RTL/LTR.
+    4. **Clipboard Dossier Copy:** Complete structured itemized summary copied directly to clipboard for WhatsApp & Email sharing.
+- **Task D (Human-Readable Names & Database Integrity):** Complete.
+  - Schema diff tables and migration status display plain-language Arabic/English indicators (`سجلات جديدة مرتقبة`, `متطابقة بالكامل`, `جدول جديد`) rather than raw status codes.
+  - Database paths formatted with clear monospace display and copy triggers.
+- **Task E (Actionable Verification & Safe Recovery):** Complete.
+  - Instant one-click safety backup generation before any schema migration.
+  - Safe restoration confirmation modal dialog with zero-data-loss warnings.
+  - Visual diff comparison and real-time terminal output during synchronization operations.
+- **Verification:**
+  - `flutter analyze lib/` ➔ **0 issues found (100% clean)!** ✅
+  - `flutter test test/production_sync_test.dart` ➔ **9/9 tests passed (100%)** ✅
+  - `flutter test test/production_sync_localization_test.dart` ➔ **3/3 tests passed (100%)** ✅
+  - `flutter test test/production_sync_export_service_test.dart` ➔ **5/5 tests passed (100%)** ✅
+  - `flutter test test/production_sync_hub_dialog_test.dart` ➔ **1/1 tests passed (100%)** ✅
+  - `flutter test test/perf/screen_59_production_sync_perf_test.dart` ➔ **1/1 benchmark passed (First Frame: 111.7ms | Settled: 155.7ms | Nav-OUT: 30.3ms)** ✅
+  - `flutter test test/perf/production_sync_hub_dialog_perf_test.dart` ➔ **1/1 benchmark passed (First Frame: 114ms | Settled: 167ms | Nav-OUT: 24ms)** ✅
+  - Combined Screen 59 suite: **20/20 tests passed (100% green)** ✅
 
 ---
 

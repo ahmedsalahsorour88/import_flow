@@ -531,8 +531,7 @@ class _SyncProgressAndDiffWidgetState extends State<SyncProgressAndDiffWidget> {
   Widget _buildLiveProgressCard(SyncProgressEvent? event, AppLocalizations l) {
     final percent = event?.percent ?? (widget.isRunning ? 10 : 100);
     final isComplete = percent >= 100;
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final defaultAction = isAr ? 'المزامنة' : 'Sync';
+    final defaultAction = l.prodSyncSyncDevToProdBtn;
     final message = event?.message.isNotEmpty == true
         ? event!.message
         : (widget.isRunning ? l.prodSyncActionStarting(defaultAction) : l.prodSyncActionSuccess(defaultAction));

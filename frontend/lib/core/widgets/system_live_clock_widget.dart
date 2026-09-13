@@ -166,8 +166,17 @@ class WorldTimezoneHelper {
   }
 
   /// Check if a given country time is within official business working hours:
-  /// 8:00 AM (08:00) to 5:00 PM (17:00), Monday through Friday.
-  static bool isBusinessHours(DateTime time) {
+  /// - For Egypt (مصر): Sunday through Thursday, 08:00 to 17:00 (Friday & Saturday are official weekend holidays).
+  /// - For other jurisdictions: Monday through Friday, 08:00 to 17:00 (Saturday & Sunday are weekend holidays).
+  static bool isBusinessHours(DateTime time, {String? countryKey}) {
+    if (countryKey == 'egypt') {
+      // In Egypt: Friday and Saturday are the official weekend holidays
+      if (time.weekday == DateTime.friday || time.weekday == DateTime.saturday) {
+        return false;
+      }
+      return time.hour >= 8 && time.hour < 17;
+    }
+    // Standard international working days: Monday through Friday
     if (time.weekday < DateTime.monday || time.weekday > DateTime.friday) {
       return false;
     }
@@ -392,7 +401,7 @@ class SystemDateWeekBadge extends StatelessWidget {
 /// - Red (أحمر) if outside working hours.
 /// Respects language settings (Arabic / English).
 class WorldClockChip extends StatelessWidget {
-  final String flag;
+  final String? flag;
   final String countryName;
   final String time24h;
   final bool isBusinessHours;
@@ -403,7 +412,7 @@ class WorldClockChip extends StatelessWidget {
 
   const WorldClockChip({
     super.key,
-    required this.flag,
+    this.flag,
     required this.countryName,
     required this.time24h,
     required this.isBusinessHours,
@@ -427,19 +436,21 @@ class WorldClockChip extends StatelessWidget {
       message: fullTooltip,
       waitDuration: const Duration(milliseconds: 300),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: isPrimary
               ? (isBusinessHours
-                  ? AppTheme.cobalt.withOpacity(0.22)
-                  : const Color(0xFF2A1C23))
+                  ? (isDark ? AppTheme.cobalt.withOpacity(0.22) : const Color(0xFFEBF5FB))
+                  : (isDark ? const Color(0xFF2A1C23) : const Color(0xFFFDEDEE)))
               : (isDark
                   ? (isBusinessHours ? const Color(0xFF142B24) : const Color(0xFF2B161B))
                   : (isBusinessHours ? const Color(0xFFEAF8F1) : const Color(0xFFFDEDEE))),
           borderRadius: BorderRadius.circular(5),
           border: Border.all(
             color: isPrimary
-                ? AppTheme.cobalt.withOpacity(0.8)
+                ? (isDark
+                    ? AppTheme.cobalt.withOpacity(0.8)
+                    : (isBusinessHours ? AppTheme.cobalt : AppTheme.crimson.withOpacity(0.6)))
                 : statusColor.withOpacity(isDark ? 0.45 : 0.6),
             width: isPrimary ? 1.0 : 0.8,
           ),
@@ -455,18 +466,14 @@ class WorldClockChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Country Flag
-            Text(
-              flag,
-              style: const TextStyle(fontSize: 12),
-            ),
-            const SizedBox(width: 4.5),
-            // Country Localized Name
+            // Country Localized Name (Flags removed per user requirement: "فى الساعه الغى الاعلام")
             Text(
               countryName,
               style: TextStyle(
                 color: isPrimary
-                    ? const Color(0xFF90CAF9)
+                    ? (isDark
+                        ? const Color(0xFF90CAF9)
+                        : (isBusinessHours ? AppTheme.cobalt : AppTheme.crimson))
                     : (isDark ? const Color(0xFFCBD5E1) : Colors.grey.shade800),
                 fontSize: countryName.length > 16 ? 9.8 : 10.5,
                 fontWeight: isPrimary ? FontWeight.bold : FontWeight.w600,
@@ -587,17 +594,15 @@ class SystemWorldClocksBar extends StatelessWidget {
 
     final clocks = [
       WorldClockChip(
-        flag: WorldTimezoneHelper.egyptFlag,
         countryName: WorldTimezoneHelper.getCountryName('egypt', isArabic: isAr),
         time24h: WorldTimezoneHelper.formatTime24h(egyptTime, showSeconds: showSeconds),
-        isBusinessHours: WorldTimezoneHelper.isBusinessHours(egyptTime),
+        isBusinessHours: WorldTimezoneHelper.isBusinessHours(egyptTime, countryKey: 'egypt'),
         tooltip: egyptTooltip,
         isPrimary: true,
         isDark: effectiveIsDark,
         isArabic: isAr,
       ),
       WorldClockChip(
-        flag: WorldTimezoneHelper.franceItalySpainFlag,
         countryName: WorldTimezoneHelper.getCountryName('france_italy_spain', isArabic: isAr),
         time24h: WorldTimezoneHelper.formatTime24h(franceItalySpainTime, showSeconds: showSeconds),
         isBusinessHours: WorldTimezoneHelper.isBusinessHours(franceItalySpainTime),
@@ -606,7 +611,6 @@ class SystemWorldClocksBar extends StatelessWidget {
         isArabic: isAr,
       ),
       WorldClockChip(
-        flag: WorldTimezoneHelper.ukFlag,
         countryName: WorldTimezoneHelper.getCountryName('uk', isArabic: isAr),
         time24h: WorldTimezoneHelper.formatTime24h(ukTime, showSeconds: showSeconds),
         isBusinessHours: WorldTimezoneHelper.isBusinessHours(ukTime),
@@ -615,7 +619,6 @@ class SystemWorldClocksBar extends StatelessWidget {
         isArabic: isAr,
       ),
       WorldClockChip(
-        flag: WorldTimezoneHelper.turkeyLithuaniaFlag,
         countryName: WorldTimezoneHelper.getCountryName('turkey_lithuania', isArabic: isAr),
         time24h: WorldTimezoneHelper.formatTime24h(turkeyLithuaniaTime, showSeconds: showSeconds),
         isBusinessHours: WorldTimezoneHelper.isBusinessHours(turkeyLithuaniaTime),
@@ -624,7 +627,6 @@ class SystemWorldClocksBar extends StatelessWidget {
         isArabic: isAr,
       ),
       WorldClockChip(
-        flag: WorldTimezoneHelper.chinaFlag,
         countryName: WorldTimezoneHelper.getCountryName('china', isArabic: isAr),
         time24h: WorldTimezoneHelper.formatTime24h(chinaTime, showSeconds: showSeconds),
         isBusinessHours: WorldTimezoneHelper.isBusinessHours(chinaTime),
@@ -633,7 +635,6 @@ class SystemWorldClocksBar extends StatelessWidget {
         isArabic: isAr,
       ),
       WorldClockChip(
-        flag: WorldTimezoneHelper.uaeFlag,
         countryName: WorldTimezoneHelper.getCountryName('uae', isArabic: isAr),
         time24h: WorldTimezoneHelper.formatTime24h(uaeTime, showSeconds: showSeconds),
         isBusinessHours: WorldTimezoneHelper.isBusinessHours(uaeTime),
@@ -642,7 +643,6 @@ class SystemWorldClocksBar extends StatelessWidget {
         isArabic: isAr,
       ),
       WorldClockChip(
-        flag: WorldTimezoneHelper.usFlag,
         countryName: WorldTimezoneHelper.getCountryName('us', isArabic: isAr),
         time24h: WorldTimezoneHelper.formatTime24h(usTime, showSeconds: showSeconds),
         isBusinessHours: WorldTimezoneHelper.isBusinessHours(usTime),

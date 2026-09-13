@@ -195,7 +195,7 @@ void main() {
       expect(winterTurkey.hour, equals(15));
     });
 
-    test('business hours detection (08:00 - 17:00 Mon-Fri)', () {
+    test('business hours detection (08:00 - 17:00 Mon-Fri default)', () {
       // Thursday 08:00 -> start of business hours (Green)
       final startWork = DateTime(2026, 9, 10, 8, 0);
       expect(WorldTimezoneHelper.isBusinessHours(startWork), isTrue);
@@ -212,9 +212,31 @@ void main() {
       final closeTime = DateTime(2026, 9, 10, 17, 0);
       expect(WorldTimezoneHelper.isBusinessHours(closeTime), isFalse);
 
-      // Sunday 11:00 -> weekend (Red)
+      // Sunday 11:00 -> weekend for standard countries (Red)
       final weekendTime = DateTime(2026, 9, 13, 11, 0);
       expect(WorldTimezoneHelper.isBusinessHours(weekendTime), isFalse);
+    });
+
+    test('Egypt business hours detection (Sun-Thu 08:00-17:00, Fri-Sat weekend)', () {
+      // Sunday 11:00 in Egypt -> working day within business hours (Green)
+      final sundayWork = DateTime(2026, 9, 13, 11, 0);
+      expect(WorldTimezoneHelper.isBusinessHours(sundayWork, countryKey: 'egypt'), isTrue);
+
+      // Sunday 07:59 in Egypt -> before 8 AM (Red)
+      final sundayEarly = DateTime(2026, 9, 13, 7, 59);
+      expect(WorldTimezoneHelper.isBusinessHours(sundayEarly, countryKey: 'egypt'), isFalse);
+
+      // Friday 11:00 in Egypt -> Friday weekend holiday (Red)
+      final fridayWeekend = DateTime(2026, 9, 11, 11, 0);
+      expect(WorldTimezoneHelper.isBusinessHours(fridayWeekend, countryKey: 'egypt'), isFalse);
+
+      // Saturday 11:00 in Egypt -> Saturday weekend holiday (Red)
+      final saturdayWeekend = DateTime(2026, 9, 12, 11, 0);
+      expect(WorldTimezoneHelper.isBusinessHours(saturdayWeekend, countryKey: 'egypt'), isFalse);
+
+      // Wednesday 14:00 in Egypt -> regular working day (Green)
+      final wednesdayWork = DateTime(2026, 9, 9, 14, 0);
+      expect(WorldTimezoneHelper.isBusinessHours(wednesdayWork, countryKey: 'egypt'), isTrue);
     });
   });
 
@@ -239,7 +261,7 @@ void main() {
       expect(find.byIcon(Icons.calendar_month_rounded), findsOneWidget);
     });
 
-    testWidgets('SystemWorldClocksBar renders combined France/Italy/Spain, UAE, USA, and other countries', (tester) async {
+    testWidgets('SystemWorldClocksBar renders combined France/Italy/Spain, UAE, USA without flags', (tester) async {
       final refUtc = DateTime.utc(2026, 9, 10, 12, 0, 0);
 
       await tester.pumpWidget(
@@ -262,14 +284,14 @@ void main() {
       expect(find.text('الإمارات'), findsOneWidget);      // UAE
       expect(find.text('أمريكا'), findsOneWidget);        // USA
 
-      // Verify country flags
-      expect(find.text('🇪🇬'), findsOneWidget);
-      expect(find.text('🇪🇺'), findsOneWidget); // Compact European flag
-      expect(find.text('🇬🇧'), findsOneWidget);
-      expect(find.text('🇹🇷 🇱🇹'), findsOneWidget); // Merged Turkey & Lithuania flags
-      expect(find.text('🇨🇳'), findsOneWidget);
-      expect(find.text('🇦🇪'), findsOneWidget);
-      expect(find.text('🇺🇸'), findsOneWidget);
+      // Verify flags are NOT rendered (removed per user request)
+      expect(find.text('🇪🇬'), findsNothing);
+      expect(find.text('🇪🇺'), findsNothing);
+      expect(find.text('🇬🇧'), findsNothing);
+      expect(find.text('🇹🇷 🇱🇹'), findsNothing);
+      expect(find.text('🇨🇳'), findsNothing);
+      expect(find.text('🇦🇪'), findsNothing);
+      expect(find.text('🇺🇸'), findsNothing);
 
       // Verify 24-hour time values (compact HH:mm format without seconds)
       expect(find.text('15:00'), findsNWidgets(2)); // Egypt and Turkey & Lithuania
@@ -323,14 +345,14 @@ void main() {
       expect(find.text('UAE'), findsOneWidget);
       expect(find.text('USA'), findsOneWidget);
 
-      // Verify flags are still present
-      expect(find.text('🇪🇬'), findsOneWidget);
-      expect(find.text('🇪🇺'), findsOneWidget);
-      expect(find.text('🇬🇧'), findsOneWidget);
-      expect(find.text('🇹🇷 🇱🇹'), findsOneWidget);
-      expect(find.text('🇨🇳'), findsOneWidget);
-      expect(find.text('🇦🇪'), findsOneWidget);
-      expect(find.text('🇺🇸'), findsOneWidget);
+      // Verify flags are NOT rendered (removed per user request)
+      expect(find.text('🇪🇬'), findsNothing);
+      expect(find.text('🇪🇺'), findsNothing);
+      expect(find.text('🇬🇧'), findsNothing);
+      expect(find.text('🇹🇷 🇱🇹'), findsNothing);
+      expect(find.text('🇨🇳'), findsNothing);
+      expect(find.text('🇦🇪'), findsNothing);
+      expect(find.text('🇺🇸'), findsNothing);
     });
 
     testWidgets('SystemDateWeekBadge auto-detects Arabic from RTL Directionality without explicit flag', (tester) async {

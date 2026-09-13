@@ -141,7 +141,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           _appendLog('✅ ${res.message}');
           return 0;
         } catch (e) {
-          _appendLog('❌ فشل الاسترجاع: $e', isError: true);
+          _appendLog('❌ ${l.prodSyncActionFailed(e.toString())}', isError: true);
           return 1;
         }
       });
@@ -208,7 +208,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
     final currentBuild = versionInfo.whenOrNull(data: (i) => i.buildNumber) ?? 74;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: AppTheme.charcoal,
         elevation: 1,
@@ -367,6 +367,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
   // ──────────────────────────────────────────────────────────────────────────
 
   Widget _buildUpdateStatusBanner(AsyncValue<RemoteUpdateCheckResultModel?> updateState, AppLocalizations l) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
     return updateState.when(
       data: (result) {
         if (result == null) {
@@ -380,12 +381,19 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           );
         }
         final versionInfo = ref.watch(systemVersionInfoProvider);
+        final bannerMsg = !result.hasUpdate
+            ? l.prodSyncSystemUpToDateMsg
+            : (isArabic
+                ? result.message
+                : (result.latestVersion.isNotEmpty
+                    ? 'New update v${result.latestVersion} is available.'
+                    : 'A new system update is available.'));
         return _buildVersionInfoCard(
           version: result.currentVersion,
           buildNumber: versionInfo.whenOrNull(data: (i) => i.buildNumber) ?? 74,
           hasUpdate: result.hasUpdate,
           latestVersion: result.latestVersion,
-          message: result.message,
+          message: bannerMsg,
           releaseNotes: result.releaseNotes,
           downloadUrl: result.downloadUrl,
           installerUrl: result.installerUrl,
@@ -1074,7 +1082,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           ),
-                          icon: _isRunning && _currentAction.contains('Dev → Prod')
+                          icon: _isRunning && _currentAction == l.prodSyncSyncDevToProdBtn
                               ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                               : const Icon(Icons.cloud_upload_rounded, size: 16),
                           label: Text(l.prodSyncSyncDevToProdBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),

@@ -159,8 +159,9 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Checkbox(
                               value: _hasCoi,
@@ -169,7 +170,7 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
                             Text(l10n.goeicCoiCertificateCheckbox, style: const TextStyle(fontSize: 13)),
                           ],
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         ElevatedButton.icon(
                           onPressed: _isChecking ? null : _checkCompliance,
                           icon: _isChecking
@@ -179,7 +180,7 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.cobalt,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                           ),
                         ),
                       ],

@@ -124,7 +124,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
     final l10n = context.l10n;
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final selectedFile = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
-    final fileCode = selectedFile?.importFileCode ?? '';
+    final fileCode = selectedFile?.primaryNameWithCode ?? selectedFile?.importFileCode ?? '';
     final supplierName = selectedFile?.supplierName ?? '';
 
     return Scaffold(
@@ -296,10 +296,9 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
     final importFiles = preloadedFiles ?? (ref.watch(importFilesProvider).value ?? []);
 
     final items = importFiles.map((file) {
-      final code = file.importFileCode;
       final supplier = file.supplierName.isNotEmpty ? file.supplierName : l10n.unknownSupplierFallback;
       final company = file.companyName.isNotEmpty ? file.companyName : '';
-      final label = '$code — $supplier ${company.isNotEmpty ? "($company)" : ""}';
+      final label = '${file.primaryNameWithCode} — $supplier ${company.isNotEmpty ? "($company)" : ""}';
       return SearchableDropdownItem<int>(
         value: file.importFileId,
         label: label,

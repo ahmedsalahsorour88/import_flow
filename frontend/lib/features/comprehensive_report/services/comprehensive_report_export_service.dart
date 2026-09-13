@@ -5,6 +5,7 @@ import 'package:printing/printing.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../customs_clearance/models/customs_clearance_model.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../shipment_updates/models/shipment_update_model.dart';
@@ -36,10 +37,15 @@ class ComprehensiveReportExportService {
     if (file.brokerName != null && file.brokerName!.isNotEmpty) {
       sb.writeln('${l.compReportColBroker}: ${file.brokerName}');
     }
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final stageName = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isArabic);
+    final moduleName = DisplayNameResolver.resolvePhaseName(file.currentModule, isArabic: isArabic);
+    final nextAction = DisplayNameResolver.resolveActionTitle(file.nextAction, isArabic: isArabic);
+
     sb.writeln('${l.compReportStatusLabel}: ${file.status}');
-    sb.writeln('${l.compReportCurrentStageLabel}: ${file.currentStage}');
-    sb.writeln('${l.compReportCurrentModuleLabel}: ${file.currentModule}');
-    sb.writeln('${l.compReportNextActionLabel}: ${file.nextAction}');
+    sb.writeln('${l.compReportCurrentStageLabel}: $stageName');
+    sb.writeln('${l.compReportCurrentModuleLabel}: $moduleName');
+    sb.writeln('${l.compReportNextActionLabel}: $nextAction');
     sb.writeln('${l.compReportTotalProgressLabel} ${file.progressPercent.toStringAsFixed(0)}%');
     sb.writeln();
 
@@ -284,7 +290,7 @@ class ComprehensiveReportExportService {
                     _pdfTableRow(l.compReportColIncoterm, file.incotermCode, l.compReportColCategory, file.shipmentCategory),
                     _pdfTableRow(l.compReportColPoNumber, file.poNumber ?? '—', l.compReportColPiNumber, file.piNumber ?? '—'),
                     _pdfTableRow(l.compReportColScenario, file.selectedScenario ?? '—', l.compReportColRequiredEta, file.requiredEta ?? '—'),
-                    _pdfTableRow(l.compReportCurrentStageLabel, file.currentStage, l.compReportTotalProgressLabel, '${file.progressPercent.toStringAsFixed(0)}%'),
+                    _pdfTableRow(l.compReportCurrentStageLabel, DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr), l.compReportTotalProgressLabel, '${file.progressPercent.toStringAsFixed(0)}%'),
                   ],
                 ),
                 pw.SizedBox(height: 12),
@@ -504,10 +510,11 @@ class ComprehensiveReportExportService {
 
     // Status
     final sStat = l.compReportSecStatus;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     addRow(sStat, l.compReportStatusLabel, file.status);
-    addRow(sStat, l.compReportCurrentStageLabel, file.currentStage);
-    addRow(sStat, l.compReportCurrentModuleLabel, file.currentModule);
-    addRow(sStat, l.compReportNextActionLabel, file.nextAction);
+    addRow(sStat, l.compReportCurrentStageLabel, DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isArabic));
+    addRow(sStat, l.compReportCurrentModuleLabel, DisplayNameResolver.resolvePhaseName(file.currentModule, isArabic: isArabic));
+    addRow(sStat, l.compReportNextActionLabel, DisplayNameResolver.resolveActionTitle(file.nextAction, isArabic: isArabic));
     addRow(sStat, l.compReportTotalProgressLabel, '${file.progressPercent.toStringAsFixed(0)}%');
 
     // Clearance

@@ -8061,6 +8061,10 @@ abstract class AppLocalizations {
   String get inqDossierRowShippingMode;
   String get inqDossierRowIncoterm;
   String get inqDossierRowFreight;
+  String get themeToggleTooltip;
+  String get darkMode;
+  String get lightMode;
+  String get systemMode;
 }
 
 

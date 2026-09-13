@@ -3,6 +3,7 @@ import 'package:frontend/core/widgets/container_load_plan_painter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/core/services/display_name_resolver.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/features/customs_tariff/models/customs_tariff_model.dart';
 import 'package:frontend/features/purchase_orders/models/purchase_order_model.dart';
@@ -510,7 +511,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                       if (widget.companyTaxId != null && widget.companyTaxId!.isNotEmpty)
                         Text('${l.poReportTaxId}: ${widget.companyTaxId}', style: const TextStyle(fontSize: 10.5, color: Colors.black54)),
                       if (widget.importFileCode != null && widget.importFileCode!.isNotEmpty)
-                        Text('${l.poReportImportFile}: ${widget.importFileCode}', style: const TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                        Text('${l.poReportImportFile}: ${DisplayNameResolver.resolveShipmentTitleByCode(widget.importFileCode, isArabic: Localizations.localeOf(context).languageCode == "ar")}', style: const TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -922,7 +923,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
     sb.writeln('${l.poReportSeller}: ${widget.supplierName} (${l.poReportSupplierCountry}: ${widget.supplierCountry ?? widget.countryOfOrigin ?? "N/A"})');
     sb.writeln('${l.poReportIncoterms}: ${widget.incoterm} | ${l.currency}: ${widget.currency} | ${l.poReportExchangeRate}: ${widget.exchangeRate} EGP');
     if (widget.projectName != null) sb.writeln('Project: ${widget.projectName}');
-    if (widget.importFileCode != null) sb.writeln('${l.poReportImportFile}: ${widget.importFileCode}');
+    if (widget.importFileCode != null) sb.writeln('${l.poReportImportFile}: ${DisplayNameResolver.resolveShipmentTitleByCode(widget.importFileCode, isArabic: Localizations.localeOf(context).languageCode == "ar")}');
     sb.writeln('----------------------------------------------------------------');
     sb.writeln('${l.poReportTotalInvoice}: ${totalAmount.toStringAsFixed(2)} ${widget.currency} (${(totalAmount * widget.exchangeRate).toStringAsFixed(2)} EGP)');
     sb.writeln('${l.poReportTotalPkgsAndPcs}: ${totalPackages.toStringAsFixed(0)} | ${l.poReportGrossWeight}: ${effectiveGrossWeight.toStringAsFixed(1)} kg | ${l.poReportNetWeight}: ${totalNetWeight.toStringAsFixed(1)} kg');

@@ -21,6 +21,7 @@ import '../models/freight_booking_model.dart';
 import '../providers/freight_booking_provider.dart';
 import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
+import '../../../core/services/display_name_resolver.dart';
 
 class FreightBookingScreen extends ConsumerStatefulWidget {
   const FreightBookingScreen({super.key});
@@ -353,21 +354,47 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
 
                                 // 3. Linked Import File
                                 DataCell(
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.cobalt.withOpacity(0.08),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      () {
-                                        final f = bkg.importFileId != null ? importFilesMap[bkg.importFileId] : null;
-                                        final fCode = f?.customFileNumber ?? f?.importFileCode ?? bkg.importFileCode ?? (bkg.importFileId != null ? 'IMP-${bkg.importFileId}' : '—');
-                                        final comp = f?.companyName ?? '';
-                                        return comp.isNotEmpty ? '[$fCode] $comp' : fCode;
-                                      }(),
-                                      style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
-                                    ),
+                                  Builder(
+                                    builder: (context) {
+                                      final f = bkg.importFileId != null ? importFilesMap[bkg.importFileId] : null;
+                                      final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                                      final rawCode = bkg.importFileCode ?? (bkg.importFileId != null ? 'IMP-${bkg.importFileId}' : '');
+                                      final shipName = f != null
+                                          ? DisplayNameResolver.resolveShipmentName(f, isArabic: isAr)
+                                          : DisplayNameResolver.resolveShipmentNameByCode(rawCode, shipments: importFiles, isArabic: isAr);
+                                      final shipTitle = f != null
+                                          ? DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr)
+                                          : DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: importFiles, isArabic: isAr);
+
+                                      return CopyableTableCell(
+                                        value: shipTitle,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              shipName,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            if (rawCode.isNotEmpty)
+                                              Container(
+                                                margin: const EdgeInsets.only(top: 2),
+                                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.cobalt.withOpacity(0.08),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  rawCode,
+                                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ),
 

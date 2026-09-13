@@ -124,10 +124,10 @@ void main() {
       expect(ar.hsRegulatorySectionHeader, isNotEmpty);
       expect(en.hsRegulatorySectionHeader, isNotEmpty);
 
-      expect(ar.hsReqAcidSystem, equals('نظام التسجيل المسبق ACID'));
+      expect(ar.hsReqAcidSystem, equals('نظام القيد والتسجيل المسبق للشحنات (نافذة)'));
       expect(en.hsReqAcidSystem, equals('ACID Pre-Registration System'));
 
-      expect(ar.hsReqCertificateOfOrigin, equals('شهادة المنشأ (COO)'));
+      expect(ar.hsReqCertificateOfOrigin, equals('شهادة المنشأ الرسمية المعتمدة'));
       expect(en.hsReqCertificateOfOrigin, equals('Certificate of Origin (COO)'));
 
       expect(ar.hsReqQualityInspection, equals('فحص المطابقة النوعي'));

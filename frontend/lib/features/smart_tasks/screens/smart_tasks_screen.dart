@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/master_data_export_service.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/enterprise_data_table/enterprise_data_table.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../models/smart_task_model.dart';
 import '../providers/smart_tasks_provider.dart';
 import '../widgets/smart_task_dialog.dart';
@@ -29,11 +31,12 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
   @override
   void initState() {
     super.initState();
-    if (!ref.read(smartTasksProvider).isLoading) {
-      Future.microtask(() {
+    Future.microtask(() {
+      if (!ref.read(smartTasksProvider).isLoading) {
         ref.read(smartTasksProvider.notifier).fetchTasks();
-      });
-    }
+      }
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    });
   }
 
   @override
@@ -68,21 +71,34 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
 
   String _buildSmartTaskRowSummary(SmartTaskModel task) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final shipments = ref.read(importFilesProvider).value ?? [];
+    final cleanTitle = DisplayNameResolver.cleanTaskTitle(task.title, isArabic: isAr);
+    final cleanDesc = DisplayNameResolver.resolveTaskDescription(
+      task.description,
+      isArabic: isAr,
+      shipmentCode: task.importFileCode,
+      shipments: shipments,
+    );
+    final shipmentTitle = task.importFileCode != null
+        ? DisplayNameResolver.resolveShipmentTitleByCode(task.importFileCode, shipments: shipments, isArabic: isAr)
+        : null;
+
     final b = StringBuffer();
-    b.writeln('📋 ${task.taskCode} — ${task.title}');
-    b.writeln('🏷️ ${l.smartTasksColType}: ${task.taskType == "System Generated" ? l.smartTasksTypeSystem : l.smartTasksTypeManual}');
-    if (task.description != null && task.description!.isNotEmpty) {
-      b.writeln('📝 ${l.smartTaskFieldDescription}: ${task.description}');
+    b.writeln('📋 ${task.taskCode} — $cleanTitle');
+    b.writeln('🏷️ ${l.smartTasksColType}: ${DisplayNameResolver.resolveTaskType(task.taskType, isArabic: isAr)}');
+    if (cleanDesc.isNotEmpty) {
+      b.writeln('📝 ${l.smartTaskFieldDescription}: $cleanDesc');
     }
-    if (task.importFileCode != null) {
-      b.writeln('📦 ${l.smartTasksColShipment}: ${task.importFileCode}');
+    if (shipmentTitle != null) {
+      b.writeln('📦 ${l.smartTasksColShipment}: $shipmentTitle');
     }
     b.writeln('⚡ ${l.smartTasksColPriority}: ${l.smartTaskPriorityLabel(task.priority)}');
     b.writeln('🔔 ${l.smartTasksColReminder}: ${l.smartTaskReminderTypeLabel(task.reminderType)}');
     if (task.dueDate != null) {
       b.writeln('📅 ${l.smartTasksColDueDate}: ${task.dueDate}');
     }
-    b.writeln('🚦 ${l.smartTasksColStatus}: ${l.smartTaskStatusLabel(task.status)}');
+    b.writeln('🚦 ${l.smartTasksColStatus}: ${DisplayNameResolver.resolveTaskStatus(task.status, isArabic: isAr)}');
     b.writeln('👤 ${l.smartTasksTsvHeaderAssignedUser}: ${task.assignedUser}');
     if (task.notes != null && task.notes!.isNotEmpty) {
       b.writeln('🗒️ ${l.smartTaskFieldNotes}: ${task.notes}');
@@ -92,6 +108,8 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
 
   void _copySmartTasksTsv(List<SmartTaskModel> tasks) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final shipments = ref.read(importFilesProvider).value ?? [];
     final buffer = StringBuffer();
     buffer.writeln(
       '${l.smartTasksTsvHeaderCode}\t'
@@ -107,18 +125,25 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
     );
 
     for (final t in tasks) {
-      final isSys = t.taskType == 'System Generated';
-      final typeLabel = isSys ? l.smartTasksTypeSystem : l.smartTasksTypeManual;
-      final shipment = t.importFileCode ?? l.smartTasksGeneralBadge;
+      final typeLabel = DisplayNameResolver.resolveTaskType(t.taskType, isArabic: isAr);
+      final cleanTitle = DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isAr);
+      final shipment = t.importFileCode != null
+          ? DisplayNameResolver.resolveShipmentTitleByCode(t.importFileCode, shipments: shipments, isArabic: isAr)
+          : l.smartTasksGeneralBadge;
       final priority = l.smartTaskPriorityLabel(t.priority);
       final reminder = l.smartTaskReminderTypeLabel(t.reminderType);
-      final status = l.smartTaskStatusLabel(t.status);
-      final desc = (t.description ?? '').replaceAll('\t', ' ').replaceAll('\n', ' ');
+      final status = DisplayNameResolver.resolveTaskStatus(t.status, isArabic: isAr);
+      final desc = DisplayNameResolver.resolveTaskDescription(
+        t.description,
+        isArabic: isAr,
+        shipmentCode: t.importFileCode,
+        shipments: shipments,
+      ).replaceAll('\t', ' ').replaceAll('\n', ' ');
 
       buffer.writeln(
         '${t.taskCode}\t'
         '$typeLabel\t'
-        '${t.title.replaceAll('\t', ' ')}\t'
+        '${cleanTitle.replaceAll('\t', ' ')}\t'
         '$shipment\t'
         '$priority\t'
         '$reminder\t'
@@ -219,20 +244,32 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
         title: l.smartTasksColTitle,
         flex: 2,
         searchValue: (t) => '${t.title} ${t.description ?? ""}',
-        exportValue: (t) => t.description != null ? '${t.title} - ${t.description}' : t.title,
+        exportValue: (t) {
+          final isAr = Localizations.localeOf(context).languageCode == 'ar';
+          return DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isAr);
+        },
         cellBuilder: (ctx, t, idx) {
+          final isAr = Localizations.localeOf(context).languageCode == 'ar';
+          final shipments = ref.watch(importFilesProvider).value ?? [];
+          final cleanTitle = DisplayNameResolver.cleanTaskTitle(t.title, isArabic: isAr);
+          final cleanDesc = DisplayNameResolver.resolveTaskDescription(
+            t.description,
+            isArabic: isAr,
+            shipmentCode: t.importFileCode,
+            shipments: shipments,
+          );
           final rowSummary = _buildSmartTaskRowSummary(t);
           return _wrapCell(
-            value: '${t.title} ${t.description ?? ""}'.trim(),
+            value: '$cleanTitle $cleanDesc'.trim(),
             rowSummary: rowSummary,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(t.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                if (t.description != null && t.description!.isNotEmpty)
+                Text(cleanTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                if (cleanDesc.isNotEmpty)
                   Text(
-                    t.description!,
+                    cleanDesc,
                     style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -245,48 +282,78 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
       EnterpriseColumn<SmartTaskModel>(
         id: 'shipment',
         title: l.smartTasksColShipment,
-        searchValue: (t) => t.importFileCode ?? '',
-        exportValue: (t) => t.importFileCode ?? l.smartTasksGeneralBadge,
+        searchValue: (t) {
+          final isAr = Localizations.localeOf(context).languageCode == 'ar';
+          final shipments = ref.watch(importFilesProvider).value ?? [];
+          return DisplayNameResolver.resolveShipmentTitleByCode(t.importFileCode, shipments: shipments, isArabic: isAr);
+        },
+        exportValue: (t) {
+          final isAr = Localizations.localeOf(context).languageCode == 'ar';
+          final shipments = ref.watch(importFilesProvider).value ?? [];
+          return t.importFileCode != null
+              ? DisplayNameResolver.resolveShipmentTitleByCode(t.importFileCode, shipments: shipments, isArabic: isAr)
+              : l.smartTasksGeneralBadge;
+        },
         cellBuilder: (ctx, t, idx) {
+          final isAr = Localizations.localeOf(context).languageCode == 'ar';
+          final shipments = ref.watch(importFilesProvider).value ?? [];
           final rowSummary = _buildSmartTaskRowSummary(t);
+          if (t.importFileCode == null) {
+            return _wrapCell(
+              value: l.smartTasksGeneralBadge,
+              rowSummary: rowSummary,
+              child: Text(
+                l.smartTasksGeneralBadge,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+              ),
+            );
+          }
+          final commercialName = DisplayNameResolver.resolveShipmentNameByCode(t.importFileCode, shipments: shipments, isArabic: isAr);
           return _wrapCell(
-            value: t.importFileCode ?? l.smartTasksGeneralBadge,
+            value: '$commercialName (${t.importFileCode})',
             rowSummary: rowSummary,
-            child: t.importFileCode != null
-                ? InkWell(
-                    onTap: () => CopyHelper.copy(
-                      context,
-                      t.importFileCode!,
-                      customMessage: l.smartTaskImportFileBadgeLabel,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppTheme.charcoal.withOpacity(0.06),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.copy_rounded, size: 11, color: AppTheme.cobalt),
-                          const SizedBox(width: 4),
-                          Text(
-                            t.importFileCode!,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.cobalt,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : Text(
-                    l.smartTasksGeneralBadge,
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+            child: InkWell(
+              onTap: () => CopyHelper.copy(
+                context,
+                t.importFileCode!,
+                customMessage: l.smartTaskImportFileBadgeLabel,
+              ),
+              borderRadius: BorderRadius.circular(4),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    commercialName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.charcoal),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.charcoal.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.copy_rounded, size: 10, color: AppTheme.cobalt),
+                        const SizedBox(width: 3),
+                        Text(
+                          t.importFileCode!,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.cobalt,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         },
       ),
@@ -501,60 +568,63 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
                   child: Column(
                     children: [
                       // Action Buttons Row
-                      Row(
-                        children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.cobalt,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.cobalt,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              ),
+                              onPressed: () => SmartTaskDialog.show(context),
+                              icon: const Icon(Icons.add_task),
+                              label: Text(l.smartTasksNewTaskBtn),
                             ),
-                            onPressed: () => SmartTaskDialog.show(context),
-                            icon: const Icon(Icons.add_task),
-                            label: Text(l.smartTasksNewTaskBtn),
-                          ),
-                          const SizedBox(width: 10),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.charcoal,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            const SizedBox(width: 10),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.charcoal,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              ),
+                              onPressed: () => SmartEmailListenerDialog.show(context),
+                              icon: const Icon(Icons.mark_email_read_outlined, size: 18),
+                              label: Text(l.smartEmailListenerDialogTitle),
                             ),
-                            onPressed: () => SmartEmailListenerDialog.show(context),
-                            icon: const Icon(Icons.mark_email_read_outlined, size: 18),
-                            label: Text(l.smartEmailListenerDialogTitle),
-                          ),
-                          const SizedBox(width: 10),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.charcoal,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            const SizedBox(width: 10),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.charcoal,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              ),
+                              onPressed: () => _copySmartTasksTsv(state.tasks),
+                              icon: const Icon(Icons.copy_all, size: 16, color: AppTheme.cobalt),
+                              label: Text(l.smartTasksExportTsvBtn),
                             ),
-                            onPressed: () => _copySmartTasksTsv(state.tasks),
-                            icon: const Icon(Icons.copy_all, size: 16, color: AppTheme.cobalt),
-                            label: Text(l.smartTasksExportTsvBtn),
-                          ),
-                          const SizedBox(width: 10),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.charcoal,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            const SizedBox(width: 10),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.charcoal,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              ),
+                              onPressed: () => MasterDataExportService.exportSmartTasksToExcel(context, state.tasks),
+                              icon: const Icon(Icons.table_view, size: 16, color: AppTheme.emerald),
+                              label: Text(l.smartTasksExportExcelBtn),
                             ),
-                            onPressed: () => MasterDataExportService.exportSmartTasksToExcel(context, state.tasks),
-                            icon: const Icon(Icons.table_view, size: 16, color: AppTheme.emerald),
-                            label: Text(l.smartTasksExportExcelBtn),
-                          ),
-                          const SizedBox(width: 10),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.charcoal,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            const SizedBox(width: 10),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.charcoal,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              ),
+                              onPressed: () => MasterDataExportService.printOrSaveSmartTasksListPdf(state.tasks),
+                              icon: const Icon(Icons.print, size: 16, color: AppTheme.charcoal),
+                              label: Text(l.smartTasksExportPdfBtn),
                             ),
-                            onPressed: () => MasterDataExportService.printOrSaveSmartTasksListPdf(state.tasks),
-                            icon: const Icon(Icons.print, size: 16, color: AppTheme.charcoal),
-                            label: Text(l.smartTasksExportPdfBtn),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       const Divider(height: 24),
 

@@ -23,6 +23,7 @@ import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
 import '../../experience_guide/providers/experience_guide_provider.dart';
 import '../../experience_guide/models/guide_entry_model.dart';
+import '../../../core/services/display_name_resolver.dart';
 
 
 class ImportFileFormDialog extends ConsumerStatefulWidget {
@@ -420,6 +421,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final companies = ref.watch(importCompaniesProvider).valueOrNull ?? [];
     final suppliers = ref.watch(suppliersProvider).valueOrNull ?? [];
     final partners = ref.watch(partnersProvider).valueOrNull ?? [];
@@ -859,19 +861,19 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                           value: _initialStartingStep,
                           labelText: '${l.currentPhaseStage} *',
                           searchHintText: l.currentPhaseStage,
-                          items: const [
-                            SearchableDropdownItem(value: 'STEP_01', label: 'STEP 1: Pre-Planning'),
-                            SearchableDropdownItem(value: 'STEP_04', label: 'STEP 2: Finance Approvals'),
-                            SearchableDropdownItem(value: 'STEP_05', label: 'STEP 2: ACID Operations'),
-                            SearchableDropdownItem(value: 'STEP_06', label: 'STEP 3: Freight Booking'),
-                            SearchableDropdownItem(value: 'STEP_08', label: 'STEP 3: Draft Docs Review'),
-                            SearchableDropdownItem(value: 'STEP_10', label: 'STEP 4: CargoX Upload'),
-                            SearchableDropdownItem(value: 'STEP_12', label: 'STEP 4: Bank Form 4'),
-                            SearchableDropdownItem(value: 'STEP_13', label: 'STEP 5: Customs Declaration 46'),
-                            SearchableDropdownItem(value: 'STEP_14', label: 'STEP 5: Clearance Follow-up'),
-                            SearchableDropdownItem(value: 'STEP_17', label: 'STEP 5: Customs Duty Payment'),
-                            SearchableDropdownItem(value: 'STEP_19', label: 'STEP 6: Warehouse GRN'),
-                            SearchableDropdownItem(value: 'STEP_20', label: 'STEP 6: Landed Cost Settlement'),
+                          items: [
+                            SearchableDropdownItem(value: 'STEP_01', label: DisplayNameResolver.resolveStepName('STEP_01', isArabic: isArabic)),
+                            SearchableDropdownItem(value: 'STEP_04', label: DisplayNameResolver.resolveStepName('STEP_04', isArabic: isArabic)),
+                            SearchableDropdownItem(value: 'STEP_05', label: DisplayNameResolver.resolveStepName('STEP_05', isArabic: isArabic)),
+                            SearchableDropdownItem(value: 'STEP_06', label: DisplayNameResolver.resolveStepName('STEP_06', isArabic: isArabic)),
+                            SearchableDropdownItem(value: 'STEP_08', label: DisplayNameResolver.resolveStepName('STEP_08', isArabic: isArabic)),
+                            SearchableDropdownItem(value: 'STEP_10', label: DisplayNameResolver.resolveStepName('STEP_10', isArabic: isArabic)),
+                            SearchableDropdownItem(value: 'STEP_12', label: DisplayNameResolver.resolveStepName('STEP_12', isArabic: isArabic)),
+                            SearchableDropdownItem(value: 'STEP_13', label: DisplayNameResolver.resolveStepName('STEP_13', isArabic: isArabic)),
+                            SearchableDropdownItem(value: 'STEP_14', label: DisplayNameResolver.resolveStepName('STEP_14', isArabic: isArabic)),
+                            SearchableDropdownItem(value: 'STEP_17', label: DisplayNameResolver.resolveStepName('STEP_17', isArabic: isArabic)),
+                            SearchableDropdownItem(value: 'STEP_19', label: DisplayNameResolver.resolveStepName('STEP_19', isArabic: isArabic)),
+                            SearchableDropdownItem(value: 'STEP_20', label: DisplayNameResolver.resolveStepName('STEP_20', isArabic: isArabic)),
                           ],
                           onChanged: (v) {
                             if (v != null) setState(() => _initialStartingStep = v);

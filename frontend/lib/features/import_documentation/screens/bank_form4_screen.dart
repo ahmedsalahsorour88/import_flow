@@ -14,6 +14,7 @@ import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
+import '../../../core/services/display_name_resolver.dart';
 
 class BankForm4Screen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -456,6 +457,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
   // --- SUB-VIEW 1: REGISTRY TAB ---
   Widget _buildForm4HistoryRegistryTab() {
     final bankingDocs = ref.watch(bankingDocumentsProvider).valueOrNull ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final filtered = bankingDocs.where((d) {
       final matchesSearch = _form4SearchQuery.isEmpty ||
           d.bankDocCode.toLowerCase().contains(_form4SearchQuery.toLowerCase()) ||
@@ -524,10 +526,14 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
               ],
 
             rows: filtered.map((d) {
+              final isAr = Localizations.localeOf(context).languageCode == 'ar';
+              final rawCode = d.importFileCode ?? (d.importFileId != null ? 'IMP-${d.importFileId}' : '');
+              final shipName = DisplayNameResolver.resolveShipmentNameByCode(rawCode, shipments: importFiles, isArabic: isAr);
+              final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: importFiles, isArabic: isAr);
               final statusLabel = d.status == 'Received' ? context.l10n.endorsedStatusBadge : context.l10n.bankProcessingStatusBadge;
               final formattedDate = d.requestDate ?? d.issueDate.substring(0, min(10, d.issueDate.length));
               final formattedAmount = '${d.amount.toStringAsFixed(2)} ${d.currencyCode}';
-              final rowSummary = '${d.bankDocCode}\t${d.importFileCode ?? "-"}\t${d.bankName}\t$formattedAmount\t$formattedDate\t$statusLabel';
+              final rowSummary = '${d.bankDocCode}\t$shipTitle\t${d.bankName}\t$formattedAmount\t$formattedDate\t$statusLabel';
 
               return DataRow(
                 cells: [
@@ -540,9 +546,33 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                   ),
                   DataCell(
                     CopyableTableCell(
-                      value: d.importFileCode ?? '-',
+                      value: shipTitle,
                       rowSummary: rowSummary,
-                      child: Text(d.importFileCode ?? '-'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            shipName,
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (rawCode.isNotEmpty)
+                            Container(
+                              margin: const EdgeInsets.only(top: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                rawCode,
+                                style: TextStyle(fontSize: 10, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                   DataCell(

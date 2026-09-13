@@ -93,14 +93,15 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final tabsState = ref.watch(workspaceTabsProvider);
     final tabsNotifier = ref.read(workspaceTabsProvider.notifier);
+    final isDark = AppTheme.isDark(context);
 
     return Container(
       height: 42,
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F4F8),
+        color: isDark ? const Color(0xFF141A22) : const Color(0xFFF1F4F8),
         border: Border(
           bottom: BorderSide(
-            color: Colors.grey.shade300,
+            color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
             width: 1.0,
           ),
         ),
@@ -127,13 +128,18 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     constraints: const BoxConstraints(maxWidth: 220, minWidth: 100),
                     decoration: BoxDecoration(
-                      color: isActive ? Colors.white : Colors.transparent,
+                      color: isActive
+                          ? (isDark ? AppTheme.darkCardBackground : Colors.white)
+                          : Colors.transparent,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(6),
                         topRight: Radius.circular(6),
                       ),
                       border: isActive
-                          ? Border.all(color: Colors.grey.shade300, width: 1.0)
+                          ? Border.all(
+                              color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                              width: 1.0,
+                            )
                           : null,
                     ),
 
@@ -143,7 +149,9 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                         Icon(
                           tab.icon,
                           size: 15,
-                          color: isActive ? AppTheme.cobalt : AppTheme.charcoal.withOpacity(0.7),
+                          color: isActive
+                              ? AppTheme.cobalt
+                              : (isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withOpacity(0.7)),
                         ),
                         const SizedBox(width: 8),
                         Flexible(
@@ -153,7 +161,9 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                              color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
+                              color: isActive
+                                  ? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)
+                                  : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                             ),
                           ),
                         ),
@@ -167,7 +177,9 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                               child: Icon(
                                 Icons.close,
                                 size: 13,
-                                color: isActive ? Colors.grey.shade600 : Colors.grey.shade400,
+                                color: isActive
+                                    ? (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)
+                                    : (isDark ? AppTheme.darkTextMuted : Colors.grey.shade400),
                               ),
                             ),
                           ),
@@ -182,7 +194,11 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
           // Tab bar actions menu
           PopupMenuButton<String>(
             tooltip: l10n.tabOptionsTooltip,
-            icon: Icon(Icons.more_horiz, size: 18, color: Colors.grey.shade700),
+            icon: Icon(
+              Icons.more_horiz,
+              size: 18,
+              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+            ),
             onSelected: (value) {
               if (value == 'close_others') {
                 tabsNotifier.closeOtherTabs(tabsState.activeTabId);

@@ -13,6 +13,9 @@ import '../models/shipping_scenario_model.dart';
 import '../providers/shipping_scenarios_provider.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
+import '../../../core/services/display_name_resolver.dart';
+import '../../import_files/models/import_file_model.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 
 class SavedScenariosRegistryTab extends ConsumerStatefulWidget {
@@ -43,11 +46,17 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     final state = ref.watch(shippingScenariosProvider);
     final poList = ref.watch(purchaseOrdersProvider).purchaseOrders;
     final projectsList = ref.watch(projectsProvider).valueOrNull ?? [];
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
-    return _buildHistoryRegistryTab(state, poList, projectsList);
+    return _buildHistoryRegistryTab(state, poList, projectsList, importFiles);
   }
 
-  Widget _buildHistoryRegistryTab(ShippingScenariosState state, List poList, List projectsList) {
+  Widget _buildHistoryRegistryTab(
+    ShippingScenariosState state,
+    List poList,
+    List projectsList,
+    List<ImportFileModel> importFiles,
+  ) {
     final l = context.l10n;
     final totalSessions = state.sessions.length;
     final activeSessions = state.sessions.where((s) => s.isActive).length;
@@ -289,18 +298,24 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                       ? Colors.white
                                       : Colors.grey.shade50;
 
-                              final rowSummary = '${sess.sessionCode} | ${sess.title ?? ""} | ${sess.avgExpectedTransitDays.toStringAsFixed(1)}d | WH: ${sess.avgExpectedWarehouseArrivalDate ?? "-"} | ${sess.recommendedScenarioProvider ?? "-"}';
+                              final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+                              final rawFileCode = sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : '—');
+                              final shipmentTitle = (rawFileCode != '—')
+                                  ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isArabic)
+                                  : '—';
+
+                              final rowSummary = '${sess.sessionCode} | ${sess.title ?? ""} | $shipmentTitle | ${sess.avgExpectedTransitDays.toStringAsFixed(1)}d | WH: ${sess.avgExpectedWarehouseArrivalDate ?? "-"} | ${sess.recommendedScenarioProvider ?? "-"}';
 
                               return DataRow(
                                 color: WidgetStateProperty.all(rowColor),
-                                onSelectChanged: (_) => _showSessionDetailsDialog(context, sess),
+                                onSelectChanged: (_) => _showSessionDetailsDialog(context, sess, importFiles),
                                 cells: [
                                   // ⚡ 1. ACTIONS — أول عمود دائماً مرئي
                                   DataCell(
                                     RowActionsPill(
-                                      onView: () => _showSessionDetailsDialog(context, sess),
+                                      onView: () => _showSessionDetailsDialog(context, sess, importFiles),
                                       onEdit: () => widget.onEditSession(sess),
-                                      onPrint: () => _showPrintReportDialog(context, sess),
+                                      onPrint: () => _showPrintReportDialog(context, sess, importFiles),
                                       onDelete: () async {
                                         if (sess.isActive) {
                                           final confirm = await showDialog<bool>(
@@ -338,10 +353,6 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                           await ref.read(shippingScenariosProvider.notifier).restoreSession(sess.sessionId!);
                                         }
                                       },
-                                      viewTooltip: l.view,
-                                      editTooltip: l.edit,
-                                      printTooltip: l.print,
-                                      deleteTooltip: sess.isActive ? l.delete : l.restore,
                                     ),
                                   ),
 
@@ -350,35 +361,35 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                     CopyableTableCell(
                                       value: sess.sessionCode,
                                       rowSummary: rowSummary,
-                                      child: InkWell(
-                                        onTap: () => _showSessionDetailsDialog(context, sess),
-                                        borderRadius: BorderRadius.circular(6),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.cobalt.withOpacity(0.08),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: (sess.isActive ? AppTheme.cobalt : AppTheme.crimson).withOpacity(0.08),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: (sess.isActive ? AppTheme.cobalt : AppTheme.crimson).withOpacity(0.3),
+                                            width: 1,
                                           ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              if (!sess.isActive)
-                                                const Padding(
-                                                  padding: EdgeInsets.only(right: 4),
-                                                  child: Icon(Icons.block, size: 12, color: AppTheme.crimson),
-                                                ),
-                                              Text(
-                                                sess.sessionCode,
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: sess.isActive ? AppTheme.cobalt : AppTheme.crimson,
-                                                  fontSize: 12,
-                                                  decoration: sess.isActive ? TextDecoration.none : TextDecoration.lineThrough,
-                                                ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              sess.isActive ? Icons.analytics_outlined : Icons.delete_outline,
+                                              size: 13,
+                                              color: sess.isActive ? AppTheme.cobalt : AppTheme.crimson,
+                                            ),
+                                            const SizedBox(width: 5),
+                                            CopyableText(
+                                              sess.sessionCode,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: sess.isActive ? AppTheme.cobalt : AppTheme.crimson,
+                                                fontSize: 12,
+                                                decoration: sess.isActive ? TextDecoration.none : TextDecoration.lineThrough,
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
@@ -387,19 +398,45 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                   // 3. Import File
                                   DataCell(
                                     CopyableTableCell(
-                                      value: sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : '—'),
+                                      value: rawFileCode != '—' ? '$shipmentTitle ($rawFileCode)' : '—',
                                       rowSummary: rowSummary,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.charcoal.withOpacity(0.07),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : '—'),
-                                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
-                                        ),
-                                      ),
+                                      child: rawFileCode == '—'
+                                          ? const Text('—', style: TextStyle(color: Colors.grey))
+                                          : Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  shipmentTitle,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12.5,
+                                                    color: AppTheme.charcoal,
+                                                 ),
+                                                 maxLines: 1,
+                                                 overflow: TextOverflow.ellipsis,
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.cobalt.withOpacity(0.08),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.2), width: 0.8),
+                                                  ),
+                                                  child: Text(
+                                                    rawFileCode,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w600,
+                                                      color: AppTheme.cobalt,
+                                                      fontSize: 10,
+                                                      letterSpacing: 0.3,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                     ),
                                   ),
 
@@ -627,8 +664,14 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     );
   }
 
-  void _showSessionDetailsDialog(BuildContext context, ShippingEvaluationModel sess) {
+  void _showSessionDetailsDialog(BuildContext context, ShippingEvaluationModel sess, [List<ImportFileModel>? importFiles]) {
     final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final rawFileCode = sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : null);
+    final shipmentTitle = (rawFileCode != null && rawFileCode != '—')
+        ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isArabic)
+        : null;
+
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -640,6 +683,26 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(sess.title ?? l.freightStudiesTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                if (shipmentTitle != null) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.folder_outlined, size: 14, color: AppTheme.cobalt),
+                        const SizedBox(width: 4),
+                        Text('$shipmentTitle ($rawFileCode)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 6),
                 Text('${l.crdLabel}: ${sess.cargoReadyDate} | ${l.pickupAddressLabel}: ${sess.pickUpAddress ?? "—"} | ${l.avgForm4DaysLabel}: ${sess.avgForm4Days}d | ${l.avgClearanceDaysLabel}: ${sess.avgClearanceDays}d', style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 const Divider(height: 20),
 
@@ -691,7 +754,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
               foregroundColor: Colors.white,
             ),
             icon: const Icon(Icons.file_download_outlined, size: 16),
-            onPressed: () => _exportScenarioCsv(context, sess),
+            onPressed: () => _exportScenarioCsv(context, sess, importFiles),
             label: Text(l.exportExcel),
           ),
           TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
@@ -700,8 +763,8 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     );
   }
 
-  void _showPrintReportDialog(BuildContext context, ShippingEvaluationModel sess) {
-    _exportScenarioCsv(context, sess);
+  void _showPrintReportDialog(BuildContext context, ShippingEvaluationModel sess, [List<ImportFileModel>? importFiles]) {
+    _exportScenarioCsv(context, sess, importFiles);
   }
 
   // ignore: unused_element
@@ -1238,13 +1301,20 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     );
   }
 
-  Future<void> _exportScenarioCsv(BuildContext context, ShippingEvaluationModel sess) async {
+  Future<void> _exportScenarioCsv(BuildContext context, ShippingEvaluationModel sess, [List<ImportFileModel>? importFiles]) async {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final rawFileCode = sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : '-');
+    final shipmentTitle = rawFileCode != '-' ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isArabic) : '-';
+
     final buffer = StringBuffer();
     buffer.write('\uFEFF');
     buffer.writeln('Sorour Logistics ERP — تقرير دراسة وتقييم سيناريوهات الشحن');
     buffer.writeln('كود الدراسة,${sess.sessionCode}');
     buffer.writeln('عنوان الدراسة,"${(sess.title ?? '').replaceAll('"', '""')}"');
-    buffer.writeln('كود ملف الاستيراد,${sess.importFileCode ?? "-"}');
+    buffer.writeln('كود ملف الاستيراد,$rawFileCode');
+    if (shipmentTitle != '-') {
+      buffer.writeln('اسم الشحنة التجاري,"${shipmentTitle.replaceAll('"', '""')}"');
+    }
     buffer.writeln('أمر الشراء,${sess.poNumber ?? "-"}');
     buffer.writeln('المشروع,${sess.projectName ?? "-"}');
     buffer.writeln('تاريخ الجاهزية CRD,${sess.cargoReadyDate}');

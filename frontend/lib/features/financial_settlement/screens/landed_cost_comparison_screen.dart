@@ -228,10 +228,9 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     final items = importFiles.map((file) {
-      final code = file.importFileCode;
       final supplier = file.supplierName.isNotEmpty ? file.supplierName : l10n.unknownSupplierFallback;
       final company = file.companyName.isNotEmpty ? file.companyName : '';
-      final label = '$code — $supplier ${company.isNotEmpty ? "($company)" : ""}';
+      final label = '${file.primaryNameWithCode} — $supplier ${company.isNotEmpty ? "($company)" : ""}';
       return SearchableDropdownItem<int>(
         value: file.importFileId,
         label: label,

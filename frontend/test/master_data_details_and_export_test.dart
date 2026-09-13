@@ -148,10 +148,10 @@ void main() {
       expect(find.text('IMP-778899'), findsOneWidget);
       expect(find.text('TAX-112233'), findsOneWidget);
       expect(find.text('CR-445566'), findsOneWidget);
-      expect(find.text('طباعة / حفظ PDF 🖨️'), findsOneWidget);
-      expect(find.text('تنزيل EXCEL 📊'), findsOneWidget);
-      expect(find.text('نسخة واتس 💬'), findsOneWidget);
-      expect(find.text('إيميل ✉️'), findsOneWidget);
+      expect(find.text('طباعة وحفظ المستند 🖨️'), findsOneWidget);
+      expect(find.text('تصدير جدول بيانات 📊'), findsOneWidget);
+      expect(find.text('مشاركة واتساب 💬'), findsOneWidget);
+      expect(find.text('مشاركة بريد إلكتروني ✉️'), findsOneWidget);
     });
 
     final testSupplier = SupplierModel(
@@ -191,10 +191,10 @@ void main() {
       expect(find.text('FE-IT-5544'), findsOneWidget);
       expect(find.text('BCITITMM'), findsOneWidget);
       expect(find.text('Intesa Sanpaolo'), findsOneWidget);
-      expect(find.text('طباعة / حفظ PDF 🖨️'), findsOneWidget);
-      expect(find.text('تنزيل EXCEL 📊'), findsOneWidget);
-      expect(find.text('نسخة واتس 💬'), findsOneWidget);
-      expect(find.text('إيميل ✉️'), findsOneWidget);
+      expect(find.text('طباعة وحفظ المستند 🖨️'), findsOneWidget);
+      expect(find.text('تصدير جدول بيانات 📊'), findsOneWidget);
+      expect(find.text('مشاركة واتساب 💬'), findsOneWidget);
+      expect(find.text('مشاركة بريد إلكتروني ✉️'), findsOneWidget);
     });
 
     final testPartner = PartnerModel(
@@ -225,10 +225,10 @@ void main() {
       expect(find.text('National Bank of Egypt (NBE)'), findsOneWidget);
       expect(find.text('NBEGEGCX'), findsOneWidget);
       expect(find.text('Mr. Sherif Mansour'), findsOneWidget);
-      expect(find.text('طباعة / حفظ PDF 🖨️'), findsOneWidget);
-      expect(find.text('تنزيل EXCEL 📊'), findsOneWidget);
-      expect(find.text('نسخة واتس 💬'), findsOneWidget);
-      expect(find.text('إيميل ✉️'), findsOneWidget);
+      expect(find.text('طباعة وحفظ المستند 🖨️'), findsOneWidget);
+      expect(find.text('تصدير جدول بيانات 📊'), findsOneWidget);
+      expect(find.text('مشاركة واتساب 💬'), findsOneWidget);
+      expect(find.text('مشاركة بريد إلكتروني ✉️'), findsOneWidget);
       expect(find.text('كشف حساب 📑'), findsOneWidget);
     });
   });

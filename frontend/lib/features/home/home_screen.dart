@@ -6,6 +6,7 @@ import '../../core/localization/locale_provider.dart';
 import '../../core/providers/navigation_provider.dart';
 import '../../core/providers/workspace_tabs_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_provider.dart';
 import 'widgets/multi_tab_workspace_bar.dart';
 import '../audit_logs/screens/audit_logs_screen.dart';
 
@@ -222,12 +223,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           Row(
             children: [
-              // Animated Collapsible Professional Sidebar (52px <-> 235px)
+              // Animated Collapsible Professional Sidebar (52px <-> 255px)
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeInOut,
-                width: _isSidebarCollapsed ? 52 : 235,
-                color: AppTheme.charcoal,
+                width: _isSidebarCollapsed ? 52 : 255,
+                color: AppTheme.isDark(context)
+                    ? const Color(0xFF141A22)
+                    : AppTheme.charcoal,
                 child: _isSidebarCollapsed
                     ? _buildCollapsedRail(currentRouteIndex, user)
                     : _buildFullSidebar(currentRouteIndex, user),
@@ -308,6 +311,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const Divider(color: Colors.white24, height: 8),
         const NotificationBellWidget(),
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          icon: Icon(
+            AppTheme.isDark(context) ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+            color: Colors.white70,
+            size: 16,
+          ),
+          tooltip: context.l10n.themeToggleTooltip,
+          onPressed: () => ref.read(themeModeProvider.notifier).toggleTheme(),
+        ),
+        const SizedBox(height: 6),
         IconButton(
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
@@ -400,23 +415,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
+              // 🌙 Theme Toggle Button
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                icon: Icon(
+                  AppTheme.isDark(context) ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                  color: Colors.white70,
+                  size: 15,
+                ),
+                tooltip: l.themeToggleTooltip,
+                onPressed: () =>
+                    ref.read(themeModeProvider.notifier).toggleTheme(),
+              ),
+              const SizedBox(width: 2),
               // 🌐 Language Toggle Button
               IconButton(
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                icon: const Icon(Icons.language, color: Colors.white70, size: 16),
+                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                icon: const Icon(Icons.language, color: Colors.white70, size: 15),
                 tooltip: l.languageToggleTooltip,
                 onPressed: () =>
                     ref.read(localeProvider.notifier).toggleLocale(),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
               const NotificationBellWidget(),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
               IconButton(
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
                 icon: const Icon(Icons.keyboard_double_arrow_left,
-                    color: Colors.white70, size: 18),
+                    color: Colors.white70, size: 17),
                 tooltip: l.collapseSidebar,
                 onPressed: () => setState(() => _isSidebarCollapsed = true),
               ),

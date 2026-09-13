@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/adaptive_tab_scaffold.dart';
@@ -2351,6 +2352,9 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   }
 
   Widget _buildSessionsRegistryTab(AsyncValue<List<StandardInvoiceSessionModel>> sessionsAsync) {
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
@@ -2396,7 +2400,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                 onPressed: () async {
                   final sessions = sessionsAsync.valueOrNull ?? [];
                   if (sessions.isEmpty) return;
-                  await CargoXExportService.saveSessionsTsvToFile(context: context, sessions: sessions);
+                  await CargoXExportService.saveSessionsTsvToFile(context: context, sessions: sessions, shipments: importFiles);
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(context.l10n.cargoxCopiedTsvSuccess)),
@@ -2411,7 +2415,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                 onPressed: () async {
                   final sessions = sessionsAsync.valueOrNull ?? [];
                   if (sessions.isEmpty) return;
-                  await CargoXExportService.saveSessionsCsvToFile(context: context, sessions: sessions);
+                  await CargoXExportService.saveSessionsCsvToFile(context: context, sessions: sessions, shipments: importFiles);
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(context.l10n.cargoxCopiedExcelSuccess)),
@@ -2426,7 +2430,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                 onPressed: () async {
                   final sessions = sessionsAsync.valueOrNull ?? [];
                   if (sessions.isEmpty) return;
-                  await CargoXExportService.printOrSaveSessionsPdf(context: context, sessions: sessions);
+                  await CargoXExportService.printOrSaveSessionsPdf(context: context, sessions: sessions, shipments: importFiles);
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(context.l10n.cargoxExportPdfDialogTitle)),
@@ -2441,7 +2445,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                 onPressed: () {
                   final sessions = sessionsAsync.valueOrNull ?? [];
                   if (sessions.isEmpty) return;
-                  CargoXExportService.copySessionsDossier(context: context, sessions: sessions);
+                  CargoXExportService.copySessionsDossier(context: context, sessions: sessions, shipments: importFiles);
                 },
               ),
             ],
@@ -2469,11 +2473,66 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                     DataColumn(label: Text(context.l10n.standardInvoiceColUpdatedAt)),
                   ],
                   rows: sessions.map((s) {
-                    final rowSummary = '${s.sessionCode} | File: ${s.importFileCode} | ACID: ${s.acidNumber ?? "—"} | Inv: ${s.invoiceNumber ?? "—"} | Supp: ${s.exporterName ?? "—"} | Total: ${s.totalAmount.toStringAsFixed(2)} ${s.currencyCode} | Items: ${s.lineItemsCount} | Status: ${s.status} | Updated: ${_formatDateTime(s.updatedAt)}';
+                    final resolvedTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+                      s.importFileCode,
+                      shipments: importFiles,
+                      isArabic: isAr,
+                    );
+                    final rowSummary = '${s.sessionCode} | File: $resolvedTitle (${s.importFileCode}) | ACID: ${s.acidNumber ?? "—"} | Inv: ${s.invoiceNumber ?? "—"} | Supp: ${s.exporterName ?? "—"} | Total: ${s.totalAmount.toStringAsFixed(2)} ${s.currencyCode} | Items: ${s.lineItemsCount} | Status: ${s.status} | Updated: ${_formatDateTime(s.updatedAt)}';
                     return DataRow(
                       cells: [
                         DataCell(CopyableTableCell(value: s.sessionCode, rowSummary: rowSummary, child: Text(s.sessionCode, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                        DataCell(CopyableTableCell(value: s.importFileCode, rowSummary: rowSummary, child: Text(s.importFileCode))),
+                        DataCell(
+                          CopyableTableCell(
+                            value: resolvedTitle.isNotEmpty ? '$resolvedTitle (${s.importFileCode})' : s.importFileCode,
+                            rowSummary: rowSummary,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (resolvedTitle.isNotEmpty && resolvedTitle != s.importFileCode)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 2),
+                                    child: Text(
+                                      resolvedTitle,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.charcoal),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.cobalt.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        s.importFileCode,
+                                        style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    InkWell(
+                                      onTap: () => CopyHelper.copy(
+                                        context,
+                                        s.importFileCode,
+                                        customMessage: '${context.l10n.standardInvoiceColFileCode}: ${s.importFileCode}',
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(2.0),
+                                        child: Icon(Icons.copy_rounded, size: 10, color: AppTheme.cobalt),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                         DataCell(CopyableTableCell(value: s.acidNumber ?? '—', rowSummary: rowSummary, child: Text(s.acidNumber ?? '—'))),
                         DataCell(CopyableTableCell(value: s.invoiceNumber ?? '—', rowSummary: rowSummary, child: Text(s.invoiceNumber ?? '—'))),
                         DataCell(CopyableTableCell(value: s.exporterName ?? '—', rowSummary: rowSummary, child: Text(s.exporterName ?? '—'))),

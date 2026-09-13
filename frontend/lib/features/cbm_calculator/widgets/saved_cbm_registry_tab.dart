@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/cbm_calculator_model.dart';
@@ -51,10 +53,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   Widget _buildSavedRegistryTab(
     BuildContext context,
     CBMCalculatorState state,
-    List projectsList,
+    List<ImportFileModel> importFiles,
     List poList,
   ) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final totalCalcs = state.calculations.length;
     final activeCalcs = state.calculations.where((c) => c.isActive).length;
     final totalCbmAll = state.calculations.fold<double>(0, (sum, c) => sum + c.totalCbm);
@@ -372,23 +375,65 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                   ),
 
                                   // 3. Import File
-                                  DataCell(
-                                    CopyableTableCell(
-                                      value: calc.importFileCode ?? (calc.importFileId != null ? 'IMP-${calc.importFileId}' : '—'),
-                                      rowSummary: calc.calcCode,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.charcoal.withOpacity(0.07),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          calc.importFileCode ?? (calc.importFileId != null ? 'IMP-${calc.importFileId}' : '—'),
-                                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
-                                        ),
+                                  () {
+                                    final rawFileCode = calc.importFileCode ?? (calc.importFileId != null ? 'IMP-${calc.importFileId}' : null);
+                                    final resolvedShipmentTitle = rawFileCode != null
+                                        ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isAr)
+                                        : null;
+                                    return DataCell(
+                                      CopyableTableCell(
+                                        value: resolvedShipmentTitle != null ? '$resolvedShipmentTitle ($rawFileCode)' : (rawFileCode ?? '—'),
+                                        rowSummary: calc.calcCode,
+                                        child: rawFileCode == null
+                                            ? const Text('—', style: TextStyle(color: Colors.grey))
+                                            : Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  if (resolvedShipmentTitle != null && resolvedShipmentTitle != rawFileCode)
+                                                    Padding(
+                                                      padding: const EdgeInsets.only(bottom: 2),
+                                                      child: Text(
+                                                        resolvedShipmentTitle,
+                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.charcoal),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                        decoration: BoxDecoration(
+                                                          color: AppTheme.cobalt.withOpacity(0.08),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          rawFileCode,
+                                                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.cobalt, fontSize: 10.5),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      InkWell(
+                                                        onTap: () => CopyHelper.copy(
+                                                          context,
+                                                          rawFileCode,
+                                                          customMessage: '${l.importFile}: $rawFileCode',
+                                                        ),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        child: const Padding(
+                                                          padding: EdgeInsets.all(2.0),
+                                                          child: Icon(Icons.copy_rounded, size: 10, color: AppTheme.cobalt),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
                                       ),
-                                    ),
-                                  ),
+                                    );
+                                  }(),
 
                                   // 4. Title
                                   DataCell(
@@ -578,6 +623,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   void _showDetailDialog(BuildContext context, CBMCalculationModel calc) {
     final l = context.l10n;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final rawFileCode = calc.importFileCode ?? (calc.importFileId != null ? 'IMP-${calc.importFileId}' : null);
+    final resolvedShipmentTitle = rawFileCode != null
+        ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isArabic)
+        : null;
     final containerRec = ContainerRequirementEngine.calculate(
       totalCbm: calc.totalCbm,
       totalWeightKg: calc.totalGrossWeightKg,
@@ -624,7 +674,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
               child: Text(
                 calc.poNumber != null
                     ? l.cbmSessionLinkedPo(calc.poNumber!)
-                    : (calc.importFileCode != null ? l.cbmSessionImportFile(calc.importFileCode!) : l.cbmSessionStandalone),
+                    : (rawFileCode != null
+                        ? (resolvedShipmentTitle != null && resolvedShipmentTitle != rawFileCode
+                            ? '$resolvedShipmentTitle ($rawFileCode)'
+                            : l.cbmSessionImportFile(rawFileCode))
+                        : l.cbmSessionStandalone),
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
               ),
             ),
@@ -675,11 +729,16 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            if (calc.importFileCode != null)
+                            if (rawFileCode != null)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                                child: Text(l.cbmSessionImportFile(calc.importFileCode!), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal)),
+                                child: Text(
+                                  resolvedShipmentTitle != null && resolvedShipmentTitle != rawFileCode
+                                      ? '$resolvedShipmentTitle ($rawFileCode)'
+                                      : l.cbmSessionImportFile(rawFileCode),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+                                ),
                               ),
                             if (calc.poNumber != null) ...[
                               const SizedBox(height: 4),

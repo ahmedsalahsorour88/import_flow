@@ -46,7 +46,7 @@ class RowActionsPill extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      decoration: AppTheme.pillDecoration,
+      decoration: AppTheme.pillDecorationOf(context),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

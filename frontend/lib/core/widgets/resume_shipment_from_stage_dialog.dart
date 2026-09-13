@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../localization/app_localizations.dart';
+import '../services/display_name_resolver.dart';
 import '../theme/app_theme.dart';
 import '../../features/import_files/models/import_file_model.dart';
 import '../../features/import_files/providers/import_files_provider.dart';
@@ -175,7 +176,7 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '• ${isAr ? "مرحلة التوقف" : "Hold Stage"}: $pausedStage',
+                      '• ${isAr ? "مرحلة التوقف" : "Hold Stage"}: ${DisplayNameResolver.resolveStepName(pausedStage, isArabic: isAr)}',
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
                     ),
                     const SizedBox(height: 4),

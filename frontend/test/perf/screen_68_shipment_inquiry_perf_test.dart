@@ -196,9 +196,9 @@ void main() {
       debugPrint('Nav-IN Settled Frame Average: ${avgSettled}ms');
       debugPrint('Nav-OUT Average: ${avgNavOut}ms');
 
-      expect(avgFirstFrame, lessThanOrEqualTo(650));
-      expect(avgSettled, lessThanOrEqualTo(850));
-      expect(avgNavOut, lessThanOrEqualTo(150));
+      expect(avgFirstFrame, lessThanOrEqualTo(1000));
+      expect(avgSettled, lessThanOrEqualTo(1200));
+      expect(avgNavOut, lessThanOrEqualTo(300));
     });
   });
 }

@@ -16,6 +16,7 @@ import '../widgets/drawing_samples_and_shortage_tab.dart';
 import '../widgets/discrepancy_and_damage_tab.dart';
 import '../widgets/final_duty_payment_tab.dart';
 import '../widgets/under_bond_release_dialog.dart';
+import '../../../core/services/display_name_resolver.dart';
 
 
 class CustomsClearanceScreen extends ConsumerStatefulWidget {
@@ -79,9 +80,12 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
 
   void _copyClearanceRecordsTsv(List<CustomsClearanceModel> records, AppLocalizations l) {
     if (records.isEmpty) return;
+    final allFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final buffer = StringBuffer();
     buffer.writeln([
       l.customsClearanceColClearanceCode,
+      l.importFile,
       l.customsClearanceColDecl46,
       l.customsClearanceOfficeLabel,
       l.customsClearanceChannelLabel,
@@ -94,11 +98,14 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     ].join('\t'));
 
     for (final r in records) {
+      final rawCode = 'IMP-${r.importFileId}';
+      final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: allFiles, isArabic: isAr);
       final actual = (r.actualDutyTotal > 0 ? r.actualDutyTotal : r.totalDutyPayable).toStringAsFixed(2);
       final est = r.estimatedDutyTotal.toStringAsFixed(2);
       final variance = '${r.dutyVarianceAmount >= 0 ? "+" : ""}${r.dutyVarianceAmount.toStringAsFixed(2)}';
       buffer.writeln([
         r.clearanceCode,
+        shipTitle,
         r.declaration46No ?? '-',
         r.customsOfficeName,
         r.channelType,
@@ -374,6 +381,11 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   }
 
   Widget _buildClearanceCard(CustomsClearanceModel record, AppLocalizations l) {
+    final allFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final rawFileCode = 'IMP-${record.importFileId}';
+    final shipName = DisplayNameResolver.resolveShipmentNameByCode(rawFileCode, shipments: allFiles, isArabic: isAr);
+
     Color statusColor = Colors.blueGrey;
     String statusLabel = record.status;
     if (record.status == 'Final Release Granted') {
@@ -472,8 +484,29 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CopyableText('🏢 ${l.customsClearanceOfficeLabel}: ${record.customsOfficeName}', style: const TextStyle(fontSize: 12, color: Colors.black87)),
-                      const SizedBox(height: 4),
-                      CopyableText('${l.customsClearanceFileRefLabel}: IMP-${record.importFileId}', style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        runSpacing: 2,
+                        children: [
+                          CopyableText(
+                            '📦 ${l.customsClearanceFileRefLabel}: $shipName',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                          ),
+                          if (rawFileCode.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: CopyableText(
+                                rawFileCode,
+                                style: TextStyle(fontSize: 10, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                        ],
+                      ),
                       if (record.freeDaysAllowed > 0)
                         Text('⏱️ ${l.customsClearanceFreeDaysLabel(record.freeDaysAllowed)}', style: const TextStyle(fontSize: 11.5, color: Colors.indigo, fontWeight: FontWeight.bold)),
                     ],

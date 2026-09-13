@@ -6,6 +6,8 @@ import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
 import 'package:frontend/core/localization/locale_provider.dart';
+import 'package:frontend/features/import_files/models/import_file_model.dart';
+import 'package:frontend/features/import_files/providers/import_files_provider.dart';
 import 'package:frontend/features/smart_tasks/models/smart_task_model.dart';
 import 'package:frontend/features/smart_tasks/providers/smart_tasks_provider.dart';
 import 'package:frontend/features/smart_tasks/screens/smart_tasks_screen.dart';
@@ -22,6 +24,24 @@ class MockSmartTasksNotifier extends SmartTasksNotifier {
     String? priority,
     int? importFileId,
     String? search,
+  }) async {}
+}
+
+/// Prevents network calls during widget tests.
+/// SmartTasksScreen reads importFilesProvider (for DisplayNameResolver) in initState.
+class MockImportFilesNotifier extends ImportFilesNotifier {
+  MockImportFilesNotifier() : super(Dio()) {
+    state = const AsyncData(<ImportFileModel>[]);
+  }
+
+  @override
+  Future<void> fetchImportFiles({
+    bool includeInactive = false,
+    String? search,
+    int? companyId,
+    int? supplierId,
+    String? status,
+    String? owner,
   }) async {}
 }
 
@@ -441,6 +461,7 @@ void main() {
               return n;
             }),
             smartTasksProvider.overrideWith((ref) => MockSmartTasksNotifier(sampleTasks)),
+            importFilesProvider.overrideWith((ref) => MockImportFilesNotifier()),
           ],
           child: const MaterialApp(
             home: AppLocalizationsProvider(
@@ -499,6 +520,7 @@ void main() {
               return n;
             }),
             smartTasksProvider.overrideWith((ref) => MockSmartTasksNotifier(sampleTasks)),
+            importFilesProvider.overrideWith((ref) => MockImportFilesNotifier()),
           ],
           child: const MaterialApp(
             home: AppLocalizationsProvider(

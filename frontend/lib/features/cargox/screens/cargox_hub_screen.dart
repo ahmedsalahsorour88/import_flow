@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/error_details_dialog.dart';
@@ -883,6 +884,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
 
   // ── TAB 1: BLOCKCHAIN ENVELOPES TRACKING HUB ────────────────────────────────
   Widget _buildEnvelopesTrackingTab(List<CargoXEnvelopeModel> envelopes) {
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final filtered = envelopes.where((e) {
       final q = _searchQuery.toLowerCase();
       if (q.isNotEmpty) {
@@ -963,7 +965,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                       onPressed: filtered.isEmpty
                           ? null
                           : () async {
-                              await CargoXExportService.saveEnvelopesTsvToFile(context: context, envelopes: filtered);
+                              await CargoXExportService.saveEnvelopesTsvToFile(context: context, envelopes: filtered, shipments: importFiles);
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text(context.l10n.cargoxCopiedTsvSuccess)),
@@ -978,7 +980,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                       onPressed: filtered.isEmpty
                           ? null
                           : () async {
-                              await CargoXExportService.saveEnvelopesCsvToFile(context: context, envelopes: filtered);
+                              await CargoXExportService.saveEnvelopesCsvToFile(context: context, envelopes: filtered, shipments: importFiles);
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text(context.l10n.cargoxCopiedExcelSuccess)),
@@ -993,7 +995,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                       onPressed: filtered.isEmpty
                           ? null
                           : () async {
-                              await CargoXExportService.printOrSaveEnvelopesPdf(context: context, envelopes: filtered);
+                              await CargoXExportService.printOrSaveEnvelopesPdf(context: context, envelopes: filtered, shipments: importFiles);
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text(context.l10n.cargoxExportPdfDialogTitle)),
@@ -1008,7 +1010,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                       onPressed: filtered.isEmpty
                           ? null
                           : () {
-                              CargoXExportService.copyEnvelopesDossier(context: context, envelopes: filtered);
+                              CargoXExportService.copyEnvelopesDossier(context: context, envelopes: filtered, shipments: importFiles);
                             },
                     ),
                     const SizedBox(width: 8),
@@ -1084,6 +1086,13 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
 
   Widget _buildEnvelopeCard(CargoXEnvelopeModel env) {
     final isAccepted = env.status == 'ACCEPTED_BY_CUSTOMS';
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(
+      env.importFileCode,
+      shipments: importFiles,
+      isArabic: isAr,
+    );
 
     return Card(
       elevation: 2,
@@ -1098,42 +1107,55 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.markunread_mailbox, color: AppTheme.cobalt, size: 22),
-                    const SizedBox(width: 8),
-                    InkWell(
-                      onTap: () => CopyHelper.copy(context, env.envelopeCode, customMessage: context.l10n.cargoxCopiedEnvelopeSuccess(env.envelopeCode)),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            env.envelopeCode,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.copy, size: 14, color: AppTheme.cobalt),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    if (env.importFileCode != null)
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.markunread_mailbox, color: AppTheme.cobalt, size: 22),
+                      const SizedBox(width: 8),
                       InkWell(
-                        onTap: () => CopyHelper.copy(context, env.importFileCode!, customMessage: context.l10n.cargoxCopiedToClipboard),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.blue.shade200)),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(env.importFileCode!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                              const SizedBox(width: 4),
-                              const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
-                            ],
-                          ),
+                        onTap: () => CopyHelper.copy(context, env.envelopeCode, customMessage: context.l10n.cargoxCopiedEnvelopeSuccess(env.envelopeCode)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              env.envelopeCode,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.copy, size: 14, color: AppTheme.cobalt),
+                          ],
                         ),
                       ),
-                  ],
+                      if (env.importFileCode != null) ...[
+                        const SizedBox(width: 10),
+                        if (shipmentName != env.importFileCode) ...[
+                          Flexible(
+                            child: Text(
+                              shipmentName,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        InkWell(
+                          onTap: () => CopyHelper.copy(context, env.importFileCode!, customMessage: context.l10n.cargoxCopiedToClipboard),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.blue.shade200)),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(env.importFileCode!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1143,8 +1165,13 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                       tooltip: context.l10n.cargoxCopyDossierBtn,
                       onPressed: () {
                         final summary = StringBuffer();
+                        final resolvedShipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+                          env.importFileCode,
+                          shipments: importFiles,
+                          isArabic: isAr,
+                        );
                         summary.writeln('${context.l10n.cargoxTsvHeaderEnvelopeCode}: ${env.envelopeCode}');
-                        summary.writeln('${context.l10n.cargoxTsvHeaderImportFile}: ${env.importFileCode ?? "—"}');
+                        summary.writeln('${context.l10n.cargoxTsvHeaderImportFile}: $resolvedShipmentTitle');
                         summary.writeln('${context.l10n.cargoxTsvHeaderAcid}: ${env.acidNumber}');
                         summary.writeln('${context.l10n.cargoxTsvHeaderSupplier}: ${env.supplierName}');
                         summary.writeln('${context.l10n.cargoxTsvHeaderSupplierCargoxId}: ${env.supplierCargoxId}');

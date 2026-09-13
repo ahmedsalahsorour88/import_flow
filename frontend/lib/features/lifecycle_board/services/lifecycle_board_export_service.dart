@@ -4,7 +4,9 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/services/file_save_helper.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../models/lifecycle_board_model.dart';
 
 /// Central export and dossier generation service for the Lifecycle Board & Live Radar (Screen 48).
@@ -20,9 +22,11 @@ class LifecycleBoardExportService {
     required BuildContext context,
     required List<ShipmentStageCardModel> shipments,
     required List<PhaseSummaryModel> phases,
+    List<ImportFileModel>? allImportFiles,
     String? filterTitle,
   }) {
     final l = context.l10n;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     final sb = StringBuffer();
 
     sb.writeln('================================================================');
@@ -36,8 +40,14 @@ class LifecycleBoardExportService {
 
     for (int i = 0; i < shipments.length; i++) {
       final s = shipments[i];
-      final stepName = l.lifecycleStepName(s.stepCode);
-      sb.writeln('${i + 1}. [${s.importFileCode}] - ${s.stepCode}: $stepName');
+      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+        s.importFileCode,
+        shipments: allImportFiles,
+        isArabic: isAr,
+        includeCodeSecondary: true,
+      );
+      final stepName = DisplayNameResolver.resolveStepName(s.stepCode, isArabic: isAr);
+      sb.writeln('${i + 1}. $shipmentTitle - $stepName');
       sb.writeln('   ${l.colImportCompany}: ${s.companyName} | ${l.colForeignSupplier}: ${s.supplierName}');
       if (s.poNumber != null && s.poNumber!.isNotEmpty) {
         sb.writeln('   ${l.colPurchaseOrder}: ${s.poNumber}');
@@ -48,10 +58,12 @@ class LifecycleBoardExportService {
         sb.writeln('   ${l.lifecycleTsvHeaderStatus}: ${l.onHoldStatusTag}');
       }
       if (s.previousStepCode != null) {
-        sb.writeln('   ${l.colPreviousStep}: ${s.previousStepCode}: ${l.lifecycleStepName(s.previousStepCode!)}');
+        final prevStepName = DisplayNameResolver.resolveStepName(s.previousStepCode!, isArabic: isAr);
+        sb.writeln('   ${l.colPreviousStep}: $prevStepName');
       }
       if (s.nextStepCode != null) {
-        sb.writeln('   ${l.colNextStep}: ${s.nextStepCode}: ${l.lifecycleStepName(s.nextStepCode!)}');
+        final nxtStepName = DisplayNameResolver.resolveStepName(s.nextStepCode!, isArabic: isAr);
+        sb.writeln('   ${l.colNextStep}: $nxtStepName');
       }
       if (s.notes != null && s.notes!.isNotEmpty) {
         sb.writeln('   ${l.colNotesAndActivities}: ${s.notes}');
@@ -66,13 +78,16 @@ class LifecycleBoardExportService {
   static Future<void> exportKanbanToTsv({
     required BuildContext context,
     required List<ShipmentStageCardModel> shipments,
+    List<ImportFileModel>? allImportFiles,
     String? filterTitle,
   }) async {
     final l = context.l10n;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     final sb = StringBuffer();
 
     // Headers
     sb.writeln([
+      l.operationalTsvHeaderShipmentName,
       l.lifecycleTsvHeaderFileCode,
       l.lifecycleTsvHeaderPreviousStep,
       l.lifecycleTsvHeaderCurrentStep,
@@ -87,12 +102,22 @@ class LifecycleBoardExportService {
     ].join('\t'));
 
     for (final s in shipments) {
-      final prevStep = s.previousStepCode != null ? '${s.previousStepCode}: ${l.lifecycleStepName(s.previousStepCode!)}' : '-';
-      final curStep = '${s.stepCode}: ${l.lifecycleStepName(s.stepCode)}';
-      final nxtStep = s.nextStepCode != null ? '${s.nextStepCode}: ${l.lifecycleStepName(s.nextStepCode!)}' : '-';
+      final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(
+        s.importFileCode,
+        shipments: allImportFiles,
+        isArabic: isAr,
+      );
+      final prevStep = s.previousStepCode != null
+          ? DisplayNameResolver.resolveStepName(s.previousStepCode!, isArabic: isAr)
+          : '-';
+      final curStep = DisplayNameResolver.resolveStepName(s.stepCode, isArabic: isAr);
+      final nxtStep = s.nextStepCode != null
+          ? DisplayNameResolver.resolveStepName(s.nextStepCode!, isArabic: isAr)
+          : '-';
       final statusStr = s.status == 'On-Hold' ? l.onHoldStatusTag : s.status;
 
       sb.writeln([
+        shipmentName,
         s.importFileCode,
         prevStep,
         curStep,
@@ -122,9 +147,11 @@ class LifecycleBoardExportService {
   static Future<void> exportKanbanToExcel({
     required BuildContext context,
     required List<ShipmentStageCardModel> shipments,
+    List<ImportFileModel>? allImportFiles,
     String? filterTitle,
   }) async {
     final l = context.l10n;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     final sb = StringBuffer();
 
     String escapeCsv(String text) {
@@ -136,6 +163,7 @@ class LifecycleBoardExportService {
 
     // Headers
     sb.writeln([
+      escapeCsv(l.operationalTsvHeaderShipmentName),
       escapeCsv(l.lifecycleTsvHeaderFileCode),
       escapeCsv(l.lifecycleTsvHeaderPreviousStep),
       escapeCsv(l.lifecycleTsvHeaderCurrentStep),
@@ -150,12 +178,22 @@ class LifecycleBoardExportService {
     ].join(','));
 
     for (final s in shipments) {
-      final prevStep = s.previousStepCode != null ? '${s.previousStepCode}: ${l.lifecycleStepName(s.previousStepCode!)}' : '-';
-      final curStep = '${s.stepCode}: ${l.lifecycleStepName(s.stepCode)}';
-      final nxtStep = s.nextStepCode != null ? '${s.nextStepCode}: ${l.lifecycleStepName(s.nextStepCode!)}' : '-';
+      final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(
+        s.importFileCode,
+        shipments: allImportFiles,
+        isArabic: isAr,
+      );
+      final prevStep = s.previousStepCode != null
+          ? DisplayNameResolver.resolveStepName(s.previousStepCode!, isArabic: isAr)
+          : '-';
+      final curStep = DisplayNameResolver.resolveStepName(s.stepCode, isArabic: isAr);
+      final nxtStep = s.nextStepCode != null
+          ? DisplayNameResolver.resolveStepName(s.nextStepCode!, isArabic: isAr)
+          : '-';
       final statusStr = s.status == 'On-Hold' ? l.onHoldStatusTag : s.status;
 
       sb.writeln([
+        escapeCsv(shipmentName),
         escapeCsv(s.importFileCode),
         escapeCsv(prevStep),
         escapeCsv(curStep),
@@ -186,6 +224,7 @@ class LifecycleBoardExportService {
     required BuildContext context,
     required List<ShipmentStageCardModel> shipments,
     required List<PhaseSummaryModel> phases,
+    List<ImportFileModel>? allImportFiles,
     String? filterTitle,
   }) async {
     final l = context.l10n;
@@ -250,7 +289,7 @@ class LifecycleBoardExportService {
                 pw.Table(
                   border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
                   columnWidths: {
-                    0: const pw.FlexColumnWidth(1.2), // File Code
+                    0: const pw.FlexColumnWidth(1.4), // Shipment Name & Code
                     1: const pw.FlexColumnWidth(1.4), // Current Step
                     2: const pw.FlexColumnWidth(1.5), // Importer
                     3: const pw.FlexColumnWidth(1.5), // Supplier
@@ -265,7 +304,7 @@ class LifecycleBoardExportService {
                     pw.TableRow(
                       decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECF0F1')),
                       children: [
-                        _pdfHeaderCell(l.lifecycleTsvHeaderFileCode),
+                        _pdfHeaderCell(l.operationalTsvHeaderShipmentName),
                         _pdfHeaderCell(l.lifecycleTsvHeaderCurrentStep),
                         _pdfHeaderCell(l.lifecycleTsvHeaderCompany),
                         _pdfHeaderCell(l.lifecycleTsvHeaderSupplier),
@@ -278,12 +317,37 @@ class LifecycleBoardExportService {
                     ),
                     // Data Rows
                     ...shipments.map((s) {
-                      final curStep = '${s.stepCode}: ${l.lifecycleStepName(s.stepCode)}';
+                      final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(
+                        s.importFileCode,
+                        shipments: allImportFiles,
+                        isArabic: isAr,
+                      );
+                      final curStep = DisplayNameResolver.resolveStepName(s.stepCode, isArabic: isAr);
                       final statusStr = s.status == 'On-Hold' ? l.onHoldStatusTag : s.status;
 
                       return pw.TableRow(
                         children: [
-                          _pdfDataCell(s.importFileCode, isBold: true),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text(
+                                  shipmentName,
+                                  style: pw.TextStyle(
+                                    fontSize: 7.5,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: PdfColor.fromHex('#2C3E50'),
+                                  ),
+                                ),
+                                if (shipmentName != s.importFileCode)
+                                  pw.Text(
+                                    s.importFileCode,
+                                    style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey700),
+                                  ),
+                              ],
+                            ),
+                          ),
                           _pdfDataCell(curStep),
                           _pdfDataCell(s.companyName),
                           _pdfDataCell(s.supplierName),
@@ -329,8 +393,10 @@ class LifecycleBoardExportService {
   static String buildRadarDossierText({
     required BuildContext context,
     required List<LiveLogisticsTrackingItemModel> items,
+    List<ImportFileModel>? allImportFiles,
   }) {
     final l = context.l10n;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     final sb = StringBuffer();
 
     sb.writeln('================================================================');
@@ -341,7 +407,13 @@ class LifecycleBoardExportService {
 
     for (int i = 0; i < items.length; i++) {
       final item = items[i];
-      sb.writeln('${i + 1}. [${item.importFileCode}] - ${item.companyName} → ${item.supplierName}');
+      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+        item.importFileCode,
+        shipments: allImportFiles,
+        isArabic: isAr,
+        includeCodeSecondary: true,
+      );
+      sb.writeln('${i + 1}. $shipmentTitle - ${item.companyName} → ${item.supplierName}');
       sb.writeln('   ${l.radarTsvHeaderCarrierVessel}: ${item.carrierName ?? l.colCarrierUnderPrep} (${item.vesselName ?? "-"})');
       sb.writeln('   ${l.radarTsvHeaderBlRoute}: ${l.colBillOfLadingPrefix}: ${item.blNumber ?? l.colCarrierUnderPrep} | ${item.polName ?? "-"} → ${item.podName ?? "-"}');
       sb.writeln('   ${l.radarTsvHeaderArrivalStatus}: ${l.colEtaPrefix}: ${item.eta ?? "-"} | ${item.arrivalStatus}');
@@ -362,11 +434,14 @@ class LifecycleBoardExportService {
   static Future<void> exportRadarToTsv({
     required BuildContext context,
     required List<LiveLogisticsTrackingItemModel> items,
+    List<ImportFileModel>? allImportFiles,
   }) async {
     final l = context.l10n;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     final sb = StringBuffer();
 
     sb.writeln([
+      l.operationalTsvHeaderShipmentName,
       l.radarTsvHeaderFileCode,
       l.radarTsvHeaderCarrierVessel,
       l.radarTsvHeaderBlRoute,
@@ -377,6 +452,11 @@ class LifecycleBoardExportService {
     ].join('\t'));
 
     for (final item in items) {
+      final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(
+        item.importFileCode,
+        shipments: allImportFiles,
+        isArabic: isAr,
+      );
       final carrierVessel = '${item.carrierName ?? l.colCarrierUnderPrep} (${item.vesselName ?? "-"})';
       final blRoute = '${item.blNumber ?? l.colCarrierUnderPrep} | ${item.polName ?? "-"} -> ${item.podName ?? "-"}';
       final arrivalStr = '${item.eta ?? "-"} (${item.arrivalStatus})';
@@ -385,6 +465,7 @@ class LifecycleBoardExportService {
           : l.freeDaysRemainingBadge(item.freeDaysRemaining);
 
       sb.writeln([
+        shipmentName,
         '${item.importFileCode} (${item.shipmentMode}|${item.incotermCode})',
         carrierVessel,
         blRoute,
@@ -410,8 +491,10 @@ class LifecycleBoardExportService {
   static Future<void> exportRadarToExcel({
     required BuildContext context,
     required List<LiveLogisticsTrackingItemModel> items,
+    List<ImportFileModel>? allImportFiles,
   }) async {
     final l = context.l10n;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     final sb = StringBuffer();
 
     String escapeCsv(String text) {
@@ -422,6 +505,7 @@ class LifecycleBoardExportService {
     }
 
     sb.writeln([
+      escapeCsv(l.operationalTsvHeaderShipmentName),
       escapeCsv(l.radarTsvHeaderFileCode),
       escapeCsv(l.radarTsvHeaderCarrierVessel),
       escapeCsv(l.radarTsvHeaderBlRoute),
@@ -432,6 +516,11 @@ class LifecycleBoardExportService {
     ].join(','));
 
     for (final item in items) {
+      final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(
+        item.importFileCode,
+        shipments: allImportFiles,
+        isArabic: isAr,
+      );
       final carrierVessel = '${item.carrierName ?? l.colCarrierUnderPrep} (${item.vesselName ?? "-"})';
       final blRoute = '${item.blNumber ?? l.colCarrierUnderPrep} | ${item.polName ?? "-"} -> ${item.podName ?? "-"}';
       final arrivalStr = '${item.eta ?? "-"} (${item.arrivalStatus})';
@@ -440,6 +529,7 @@ class LifecycleBoardExportService {
           : l.freeDaysRemainingBadge(item.freeDaysRemaining);
 
       sb.writeln([
+        escapeCsv(shipmentName),
         escapeCsv('${item.importFileCode} (${item.shipmentMode}|${item.incotermCode})'),
         escapeCsv(carrierVessel),
         escapeCsv(blRoute),
@@ -462,10 +552,10 @@ class LifecycleBoardExportService {
   }
 
   /// Generates vector A4 landscape Cairo PDF for Live Logistics Tracking Radar.
-  /// Generates vector A4 landscape Cairo PDF for Live Logistics Tracking Radar.
   static Future<void> printOrSaveRadarPdf({
     required BuildContext context,
     required List<LiveLogisticsTrackingItemModel> items,
+    List<ImportFileModel>? allImportFiles,
   }) async {
     final l = context.l10n;
     final isAr = Directionality.of(context) == TextDirection.rtl;
@@ -528,7 +618,7 @@ class LifecycleBoardExportService {
                 pw.Table(
                   border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
                   columnWidths: {
-                    0: const pw.FlexColumnWidth(1.5), // Shipment
+                    0: const pw.FlexColumnWidth(1.6), // Shipment Name & Code
                     1: const pw.FlexColumnWidth(1.8), // Carrier & Vessel
                     2: const pw.FlexColumnWidth(2.0), // B/L & Route
                     3: const pw.FlexColumnWidth(1.6), // Arrival
@@ -541,7 +631,7 @@ class LifecycleBoardExportService {
                     pw.TableRow(
                       decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECF0F1')),
                       children: [
-                        _pdfHeaderCell(l.radarTsvHeaderFileCode),
+                        _pdfHeaderCell(l.operationalTsvHeaderShipmentName),
                         _pdfHeaderCell(l.radarTsvHeaderCarrierVessel),
                         _pdfHeaderCell(l.radarTsvHeaderBlRoute),
                         _pdfHeaderCell(l.radarTsvHeaderArrivalStatus),
@@ -552,6 +642,11 @@ class LifecycleBoardExportService {
                     ),
                     // Data Rows
                     ...items.map((item) {
+                      final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(
+                        item.importFileCode,
+                        shipments: allImportFiles,
+                        isArabic: isAr,
+                      );
                       final carrierVessel = '${item.carrierName ?? l.colCarrierUnderPrep} (${item.vesselName ?? "-"})';
                       final blRoute = '${item.blNumber ?? l.colCarrierUnderPrep}\n${item.polName ?? "-"} -> ${item.podName ?? "-"}';
                       final arrivalStr = '${l.colEtaPrefix}: ${item.eta ?? "-"}\n${item.arrivalStatus}';
@@ -561,7 +656,30 @@ class LifecycleBoardExportService {
 
                       return pw.TableRow(
                         children: [
-                          _pdfDataCell('${item.importFileCode}\n${item.companyName}', isBold: true),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text(
+                                  shipmentName,
+                                  style: pw.TextStyle(
+                                    fontSize: 7.5,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: PdfColor.fromHex('#2C3E50'),
+                                  ),
+                                ),
+                                pw.Text(
+                                  '${item.importFileCode} (${item.shipmentMode}|${item.incotermCode})',
+                                  style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey700),
+                                ),
+                                pw.Text(
+                                  item.companyName,
+                                  style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey600),
+                                ),
+                              ],
+                            ),
+                          ),
                           _pdfDataCell(carrierVessel),
                           _pdfDataCell(blRoute),
                           _pdfDataCell(arrivalStr),

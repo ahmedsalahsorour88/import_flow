@@ -13,6 +13,7 @@ import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/file_closure_model.dart';
 import '../providers/file_closure_provider.dart';
+import '../../../core/services/display_name_resolver.dart';
 
 class FileClosureScreen extends ConsumerStatefulWidget {
   const FileClosureScreen({super.key});
@@ -275,6 +276,12 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                               spacing: 12,
                               runSpacing: 10,
                               children: closedFiles.map((cf) {
+                                final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                                final shipName = DisplayNameResolver.resolveShipmentName(cf, isArabic: isAr);
+                                final phaseName = cf.closedAtPhase != null
+                                    ? DisplayNameResolver.resolvePhaseName(cf.closedAtPhase!, isArabic: isAr)
+                                    : context.l10n.fileClosureClosedBadge;
+
                                 return Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
@@ -284,14 +291,23 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                       Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          CopyableText(cf.importFileCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13)),
+                                          CopyableText(shipName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 13)),
                                           const SizedBox(width: 8),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
-                                            child: Text(cf.closedAtPhase ?? context.l10n.fileClosureClosedBadge, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.crimson)),
+                                            child: Text(phaseName, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.crimson)),
                                           ),
                                         ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.cobalt.withOpacity(0.08),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: CopyableText(cf.importFileCode, style: TextStyle(fontSize: 10, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
                                       ),
                                       if (cf.closureReason != null && cf.closureReason!.isNotEmpty) ...[
                                         const SizedBox(height: 4),
@@ -344,9 +360,11 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                         final r = records[idx];
                         final chk = r.closureChecklist;
                         final matchingFile = importFilesMap[r.importFileId];
-                        final fileTitle = matchingFile != null
-                            ? '${context.l10n.fileClosureFileRefLabel(r.importFileId)} (${matchingFile.primaryNameWithCode})'
-                            : context.l10n.fileClosureFileRefLabel(r.importFileId);
+                        final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                        final rawCode = 'IMP-${r.importFileId}';
+                        final shipName = matchingFile != null
+                            ? DisplayNameResolver.resolveShipmentName(matchingFile, isArabic: isAr)
+                            : DisplayNameResolver.resolveShipmentNameByCode(rawCode, shipments: importFiles, isArabic: isAr);
 
                         return Card(
                           margin: const EdgeInsets.only(bottom: 16),
@@ -364,7 +382,13 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                       child: CopyableText(r.closureCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                                     ),
                                     const SizedBox(width: 12),
-                                    CopyableText(fileTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                    CopyableText(shipName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08), borderRadius: BorderRadius.circular(4)),
+                                      child: CopyableText(rawCode, style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
+                                    ),
                                     const SizedBox(width: 12),
                                     CopyableText(context.l10n.fileClosureVaultLabel(r.archiveLocation), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
                                     const Spacer(),

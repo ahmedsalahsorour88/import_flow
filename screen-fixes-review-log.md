@@ -3,9 +3,21 @@
 ---
 
 ## 📌 Current Review Status
-- **Last screen / tool where ALL tasks (A, B, C) were fully completed:** Screen 0: Operational Workspace Dashboard (`OperationalDashboardScreen`, Route Index 0)
+- **Session:** System Comprehensive Review & Audit Verification — 2026-09-13
+- **Architecture Decisions:**
+  - Localization system used: Flutter InheritedWidget / Localizations via `AppLocalizations` (`frontend/lib/core/localization/app_localizations.dart`), concrete implementations `AppLocalizationsAr` and `AppLocalizationsEn`, Riverpod `localeProvider`, type-safe accessor `context.l10n`.
+  - Root cause of the mixed-language bug: Hardcoded concatenated strings (`/`), stacked `Column`/`Wrap` widgets rendering both languages simultaneously, and hardcoded English/Arabic fallbacks.
+  - Translation file locations: `frontend/lib/core/localization/app_localizations_ar.dart`, `frontend/lib/core/localization/app_localizations_en.dart`.
+  - On-screen value-copy mechanism used, and helper locations: `CopyHelper.copy` with localized `SnackBar`, `CopyableText`, `CopyableTableCell` with right-click menu, in `frontend/lib/core/widgets/copyable_data_helper.dart`.
+  - On-screen label-selection mechanism used, and helper locations: Root `SelectionArea` wrappers across all screen scaffolds and modal dialogs.
+  - ExportContentBuilder location, and which PDF/Excel/Python libraries it wraps: Dedicated export services (`OperationalDashboardExportService`, `ShipmentInquiryExportService`, `MasterDataExportService`, etc.) wrapping `pdf`, `printing` (Cairo vector fonts, dynamic RTL/LTR), `excel` / RFC-4180 CSV with UTF-8 BOM, and formatted plain-text clipboard dossiers for WhatsApp & Email sharing.
 - **Review Progress:** 🏆 **ALL SCREENS (LOGIN SCREEN & SCREENS 0 TO 68), ALL STANDALONE EXTRACTION, CUSTOMS-CLEARANCE & DOCUMENT TOOLS, AND PERSISTENT SMART IMPORT AI ASSISTANT OVERLAY WITH INTERACTIVE SHIPMENT LIFECYCLE NAVIGATOR HAVE BEEN 100% COMPLETED, REFINED, LOCALIZED, COPY-ENABLED, AND EXPORT-LINKED!**
-- **Next screen / tool to review:** All application screens, standalone tools, and global assistant overlays completed! 🏆
+- **Remaining screens/modules (not yet reviewed):** None (All 69 screens 0..68 & Login are complete)
+- **Remaining standalone extraction/generation tools (not yet reviewed):** None (All 8 standalone extraction/generation tools are complete)
+- **Last screen/tool where ALL applicable tasks (localization, on-screen copy, linked outputs) were fully completed:** Screen 0: Operational Workspace Dashboard (`OperationalDashboardScreen`, Route Index 0)
+- **Next screen/tool to review:** All application screens, standalone tools, and global assistant overlays completed! 🏆 (Standing by for any newly added screen, feature request, or custom deep-dive).
+
+---
 
 ## 📝 Session Log: Screen 0: Operational Workspace Dashboard — 2026-09-11
 - **Target Files:**
@@ -2281,6 +2293,117 @@
   - **Single-Locale Enforcement:** Must adhere strictly to active app locale; no bilingual slashes or dual-language fallback strings.
   - **Full Selection & Copy Enablement:** All modal dialogs must be wrapped in `SelectionArea` with `CopyableTableCell` for tables and `CopyHelper.copy` for output dispatches.
   - **Decoupled Business Logic:** Standalone tools must never throw exceptions or fail to render when `importFile` is null; they must operate on sample data, user clipboard text, or uploaded files gracefully.
+
+---
+
+### 5. Linked Outputs Architecture & `ExportContentBuilder`
+- **Central Output Service Pattern:**
+  - All export generators consume structured data objects produced by typed report models (e.g. `ReportRow`, `ItemizedSummary`, `ExportPayload`), where labels and values are resolved through `AppLocalizations` (`context.l10n`) for the currently active locale.
+- **PDF Generation Pipeline (`pdf` & `printing`):**
+  - Text is drawn as real vector font elements (`pw.Text`, `pw.Table`, `pw.Paragraph`) using Cairo Regular, Bold, and SemiBold Arabic fonts.
+  - Strictly zero rasterized screenshots or canvas flattened images.
+  - Page direction is set dynamically: `pw.TextDirection.rtl` when Arabic is active, `pw.TextDirection.ltr` when English is active.
+  - All text is natively selectable and copyable in any standard desktop PDF viewer (Acrobat, Chrome, Edge).
+- **Excel & TSV Generation Pipeline (`excel` / RFC-4180 CSV):**
+  - Values sit in plain, individual, unmerged cells.
+  - Every column header is translated into the active language only (no bilingual stacked headers).
+  - Encoded with UTF-8 BOM (`\uFEFF`) to prevent Arabic character corruption in Microsoft Excel desktop on Windows.
+- **WhatsApp & Email Share Pipeline:**
+  - Dynamic plain-text templates built from the same translation source of truth (`context.l10n`).
+  - Formatted cleanly with section dividers and emojis, completely free of HTML tags or unescaped characters.
+  - Dispatched either directly via system URL handlers (`whatsapp://send?text=...`, `mailto:...`) or copied as a formatted clipboard dossier for manual pasting.
+
+---
+
+### 6. Full Project Modules & Screens Export Matrix (Screens 0 to 68 + Login)
+
+| # | Screen / Module Name | Route Index | PDF | Excel / TSV | WhatsApp | Email / Dossier | Status |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| - | Login Screen (Authentication Gateway) | Auth | N/A | N/A | N/A | N/A | Complete ✅ |
+| 0 | Operational Workspace Dashboard | 0 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 1 | Import Files Management | 1 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 2 | Purchase Orders Management | 2 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 3 | CBM & Cargo Calculator | 3 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Template | ✅ Dossier | Complete ✅ |
+| 4 | Shipping Scenarios & Timeline (Study) | 4 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 5 | Shipping Scenarios (Saved Records) | 5 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 6 | Customs Studies & Consultations | 6 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Template | ✅ Dossier | Complete ✅ |
+| 7 | Customs Consultations Log | 7 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 8 | Financial Approval Requests | 8 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Template | ✅ Template | Complete ✅ |
+| 9 | Financial Approval (LC / CAD) | 9 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Template | ✅ Template | Complete ✅ |
+| 10 | Financial Approval (Bank Form 4) | 10 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 11 | Nafeza & ACID Request Engine | 11 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Template | ✅ Template | Complete ✅ |
+| 12 | Nafeza ACID Expiry Tracker | 12 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 13 | Nafeza Compliance Checklist | 13 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 14 | Nafeza CargoX Dispatch Hub | 14 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 15 | Nafeza Declarations & 46 Sync | 15 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 16 | Bank Form 4 Application | 16 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 17 | Bank Form 4 Document Endorsement | 17 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 18 | Draft B/L Review Workspace | 18 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 19 | Draft COO / EUR.1 Review | 19 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 20 | Draft Docs Customs Approval | 20 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 21 | PO & Packing List Reconciliation | 21 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 22 | Invoice vs B/L Smart Match | 22 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Template | ✅ Template | Complete ✅ |
+| 23 | Customs Declaration 46 Entry | 23 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 24 | Declaration 46 Tariff Valuation | 24 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 25 | Freight Booking Operations | 25 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 26 | Cargo Shipping Allocations (VGM) | 26 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 27 | Customs Clearance Execution Hub | 27 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 28 | Inbound Warehouse Hub (GRN) | 28 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 29 | Financial Settlement Hub | 29 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 30 | File Closure & Archive | 30 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 31 | Master Data - Projects | 31 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 32 | Master Data - Importing Companies | 32 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 33 | Master Data - Suppliers | 33 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Template | ✅ Template | Complete ✅ |
+| 34 | Master Data - Partners & Providers | 34 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Template | ✅ Template | Complete ✅ |
+| 35 | Reference - Incoterms 2020 | 35 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 36 | Reference - Customs Tariff Schedule | 36 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Template | ✅ Template | Complete ✅ |
+| 37 | Reference - Transport Locations | 37 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 38 | Reference - Currencies & Rates | 38 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 39 | System Audit Logs & History | 39 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 40 | Smart Tasks & Priority Reminders | 40 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Template | ✅ Template | Complete ✅ |
+| 41 | Dynamic Report Builder | 41 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 42 | Shipment Updates & Milestones | 42 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 43 | Import Requirements & Regulations | 43 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 44 | Demurrage & Detention Calculator | 44 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Template | ✅ Template | Complete ✅ |
+| 45 | HS Code Explorer & Duty Sandbox | 45 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Template | ✅ Template | Complete ✅ |
+| 46 | SWIFT Message Reconciliation | 46 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 47 | Import File Comprehensive Report | 47 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 48 | Lifecycle Operations Board | 48 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 49 | Freight Quotations & RFQ Evaluator | 49 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Template | ✅ Template | Complete ✅ |
+| 50 | Landed Cost Comparison Analysis | 50 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 51 | Central Shipment Docs Archive | 51 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 52 | Cargo Shipping 48h SLA Tracking | 52 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 53 | Draft Inspection Certificate Review | 53 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 54 | CargoX Blockchain Dispatch Hub | 54 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 55 | Customs Clearance Quotes Evaluator | 55 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 56 | Customs Duty Review Workspace | 56 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 57 | Originals Collection & Courier | 57 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 58 | Original Docs & CargoX Hub (Scaffold) | 58 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 59 | Production Sync & Deployment Hub | 59 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 60 | Clearance - Samples & Shortage | 60 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 61 | Clearance - Discrepancy & Damage | 61 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 62 | Clearance - Final Customs Payment | 62 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 63 | Inbound Hub - GIT Inventory Ledger | 63 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 64 | Warehouse Received Detailed Report | 64 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 65 | Cargo & Marine Insurance Hub | 65 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 66 | Users Management & RBAC Security | 66 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 67 | Step Config Management (Governance) | 67 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+| 68 | Smart Shipment Inquiry & Cloning | 68 | ✅ Vector PDF | ✅ TSV & Excel | ✅ Via Dossier | ✅ Dossier | Complete ✅ |
+
+---
+
+### 7. Standalone Extraction & Document Tools Capabilities Matrix
+
+| # | Standalone Tool Name | Implementation File | Primary Purpose | Output Channels | Status |
+|---|---|---|---|---|:---:|
+| 1 | Smart Commercial Invoice & B/L Matcher | `smart_invoice_bl_extractor_dialog.dart` | 10-point discrepancy compliance radar | TSV, Rectification Notice (WhatsApp/Email), Dossier | Complete ✅ |
+| 2 | Smart AI Clearance Quotation Extractor | `showSmartClearanceExtractorDialog` | 35+ item freight/clearance broker breakdown | TSV, CSV, Clipboard Dossier | Complete ✅ |
+| 3 | MTS Nafeza Smart AI Parser | `nafeza_acid_screen.dart` (SubTab 1) | Raw MTS Nafeza notification text extractor | Plain-text copy, Verified Dossier | Complete ✅ |
+| 4 | Universal 10-Party Entity Extractor | `universal_entity_extractor_dialog.dart` | Universal master data document parser | Clean key-value copy, Structured Dossier | Complete ✅ |
+| 5 | Smart Upload Preview & OCR Progress | `smart_upload_button.dart` | Document verification & confidence scoring | Field-by-field copy, Batch Dossier | Complete ✅ |
+| 6 | What-If Crisis & FX Hedging Simulator | `what_if_simulator_dialog.dart` | Devaluation, demurrage & tariff impact sandbox | Simulation breakdown, Clipboard Dossier | Complete ✅ |
+| 7 | Free Demurrage & Storage Tariffs Engine | `free_freight_demurrage_connector.dart` | Egyptian port tariffs & container demurrage | Itemized detention summary, Dossier | Complete ✅ |
+| 8 | Persistent AI Assistant & Lifecycle Navigator | `ai_assistant_panel.dart` | System-wide contextual copilot & step tracker | Full conversation transcript dossier | Complete ✅ |
 
 ---
 

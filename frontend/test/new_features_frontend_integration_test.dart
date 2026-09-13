@@ -169,9 +169,9 @@ void main() {
       );
 
       expect(find.byType(DualClockRadarDialog), findsOneWidget);
-      expect(find.textContaining('Dual-Clock Radar'), findsOneWidget);
-      expect(find.textContaining('Carrier Demurrage'), findsOneWidget);
-      expect(find.text('Port Storage'), findsOneWidget);
+      expect(find.textContaining('رادار المتابعة المزدوج'), findsOneWidget);
+      expect(find.textContaining('غرامات التوكيل'), findsOneWidget);
+      expect(find.textContaining('أرضيات هيئة الميناء'), findsOneWidget);
     });
 
     testWidgets('RouteIntelligenceDialog renders properly', (tester) async {
@@ -184,7 +184,7 @@ void main() {
       );
 
       expect(find.byType(RouteIntelligenceDialog), findsOneWidget);
-      expect(find.textContaining('Route Intelligence Card'), findsOneWidget);
+      expect(find.textContaining('بطاقة ذكاء المسار'), findsOneWidget);
       expect(find.textContaining('توصية الذكاء الاصطناعي'), findsOneWidget);
     });
 
@@ -198,7 +198,7 @@ void main() {
       );
 
       expect(find.byType(GOEICVerificationDialog), findsOneWidget);
-      expect(find.text('بوابة فحص الرقابة على الصادرات والواردات (GOEIC Compliance Hub)'), findsOneWidget);
+      expect(find.textContaining('بوابة فحص الرقابة على الصادرات والواردات'), findsOneWidget);
       expect(find.textContaining('مصرح بالشحن'), findsOneWidget);
     });
 
@@ -242,7 +242,7 @@ void main() {
       );
 
       expect(find.byType(PartnerScorecardDialog), findsOneWidget);
-      expect(find.textContaining('SLA Performance Scorecard'), findsOneWidget);
+      expect(find.textContaining('بطاقة تقييم أداء'), findsOneWidget);
       expect(find.textContaining('Platinum A+'), findsOneWidget);
       expect(find.textContaining('92.0 / 100'), findsOneWidget);
     });
@@ -257,7 +257,7 @@ void main() {
       );
 
       expect(find.byType(UnderBondReleaseDialog), findsOneWidget);
-      expect(find.text('مسار الإفراج تحت التحفظ وقفل الفحص المعملي (Under-Bond Release)'), findsOneWidget);
+      expect(find.textContaining('مسار الإفراج تحت التحفظ'), findsOneWidget);
       expect(find.text('سحب على عهدة (تحت التحفظ)'), findsOneWidget);
     });
 

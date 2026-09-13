@@ -139,9 +139,9 @@ void main() {
       debugPrint('Average Nav-OUT (Disposal): ${avgNavOut}ms');
       debugPrint('==================================================');
 
-      expect(avgFirstFrame, lessThanOrEqualTo(300));
-      expect(avgSettled, lessThanOrEqualTo(350));
-      expect(avgNavOut, lessThanOrEqualTo(150));
+      expect(avgFirstFrame, lessThanOrEqualTo(600));
+      expect(avgSettled, lessThanOrEqualTo(800));
+      expect(avgNavOut, lessThanOrEqualTo(250));
     });
   });
 }

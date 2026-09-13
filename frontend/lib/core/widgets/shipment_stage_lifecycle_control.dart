@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../localization/app_localizations.dart';
+import '../services/display_name_resolver.dart';
 import '../theme/app_theme.dart';
 import '../../features/import_files/models/import_file_model.dart';
 import '../../features/import_files/providers/import_files_provider.dart';
@@ -454,7 +455,10 @@ class ShipmentHoldWarningBanner extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  l.holdShipmentStageBannerTitle(file.importFileCode, pausedStage),
+                  l.holdShipmentStageBannerTitle(
+                    DisplayNameResolver.resolveShipmentName(file, isArabic: Directionality.of(context) == TextDirection.rtl),
+                    DisplayNameResolver.resolveStepName(pausedStage, isArabic: Directionality.of(context) == TextDirection.rtl),
+                  ),
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,

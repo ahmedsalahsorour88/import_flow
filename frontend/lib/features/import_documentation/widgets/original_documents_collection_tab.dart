@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -1284,6 +1285,7 @@ class _OriginalDocumentsCollectionTabState
   Widget _buildRegistrySection(AppLocalizations l, AsyncValue<List<OriginalDocumentsCollectionSessionModel>> sessionsAsync) {
     final sessions = sessionsAsync.asData?.value ?? [];
     final hasSessions = sessions.isNotEmpty;
+    final allImportFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1370,6 +1372,7 @@ class _OriginalDocumentsCollectionTabState
                           : () => OriginalDocsExportService.exportRegistryTsv(
                                 context: context,
                                 sessions: sessions,
+                                shipments: allImportFiles,
                               ),
                       icon: const Icon(Icons.table_view_outlined, size: 16, color: Color(0xFF16A085)),
                       label: Text(l.originalDocsExportTsvBtn,
@@ -1386,6 +1389,7 @@ class _OriginalDocumentsCollectionTabState
                           : () => OriginalDocsExportService.exportRegistryExcel(
                                 context: context,
                                 sessions: sessions,
+                                shipments: allImportFiles,
                               ),
                       icon: const Icon(Icons.file_download_outlined, size: 16, color: AppTheme.emerald),
                       label: Text(l.originalDocsExportExcelBtn,
@@ -1402,6 +1406,7 @@ class _OriginalDocumentsCollectionTabState
                           : () => OriginalDocsExportService.printRegistryPdf(
                                 context: context,
                                 sessions: sessions,
+                                shipments: allImportFiles,
                               ),
                       icon: const Icon(Icons.print_outlined, size: 16, color: Color(0xFF8E44AD)),
                       label: Text(l.originalDocsPrintPdfBtn,
@@ -1418,6 +1423,7 @@ class _OriginalDocumentsCollectionTabState
                           : () => OriginalDocsExportService.copyRegistryDossier(
                                 context: context,
                                 sessions: sessions,
+                                shipments: allImportFiles,
                               ),
                       icon: const Icon(Icons.copy_all_outlined, size: 16, color: AppTheme.charcoal),
                       label: Text(l.originalDocsCopyDossierBtn,
@@ -1462,10 +1468,22 @@ class _OriginalDocumentsCollectionTabState
                     DataColumn(label: Text(l.colAction)),
                   ],
                   rows: sessionsList.map((s) {
+                    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                    final allFiles = allImportFiles;
+                    final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(
+                      s.importFileCode,
+                      shipments: allFiles,
+                      isArabic: isAr,
+                    );
+                    final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+                      s.importFileCode,
+                      shipments: allFiles,
+                      isArabic: isAr,
+                    );
                     final statusStr = _getRegistryStatusFilterLabel(s.status, l);
                     final updatedStr = _formatDateTime(s.updatedAt);
                     final sessionSummary =
-                        '${s.collectionCode} | ${s.importFileCode} | ${s.acidNumber ?? "—"} | ${s.supplierName ?? "—"} | ${s.totalDocumentsCount} | ${s.receivedDocumentsCount} | ${s.verifiedDocumentsCount} | ${s.completionPercentage}% | $statusStr | $updatedStr';
+                        '${s.collectionCode} | $shipmentTitle | ${s.acidNumber ?? "—"} | ${s.supplierName ?? "—"} | ${s.totalDocumentsCount} | ${s.receivedDocumentsCount} | ${s.verifiedDocumentsCount} | ${s.completionPercentage}% | $statusStr | $updatedStr';
 
                     return DataRow(
                       cells: [
@@ -1504,33 +1522,46 @@ class _OriginalDocumentsCollectionTabState
                         ),
                         DataCell(
                           CopyableTableCell(
-                            value: s.importFileCode,
+                            value: shipmentName,
                             rowSummary: sessionSummary,
-                            child: InkWell(
-                              onTap: () => CopyHelper.copy(
-                                context,
-                                s.importFileCode,
-                                customMessage: l.copiedToClipboard(s.importFileCode),
-                              ),
-                              borderRadius: BorderRadius.circular(4),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.blueGrey.withOpacity(0.08),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (shipmentName != s.importFileCode) ...[
+                                  Text(
+                                    shipmentName,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+                                  ),
+                                  const SizedBox(height: 2),
+                                ],
+                                InkWell(
+                                  onTap: () => CopyHelper.copy(
+                                    context,
+                                    s.importFileCode,
+                                    customMessage: l.copiedToClipboard(s.importFileCode),
+                                  ),
                                   borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      s.importFileCode,
-                                      style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blueGrey.withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
-                                    const SizedBox(width: 4),
-                                    const Icon(Icons.copy, size: 12, color: Colors.blueGrey),
-                                  ],
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          s.importFileCode,
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(Icons.copy, size: 10, color: Colors.blueGrey),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
                           ),
                         ),

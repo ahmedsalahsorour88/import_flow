@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
@@ -193,6 +194,8 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
 
   Widget _buildMainContent(AsyncValue<List<CargoInsuranceModel>> certificatesAsync) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     return certificatesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
@@ -231,7 +234,11 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
             final pol = (c.policyNumber ?? '').toLowerCase();
             final entity = c.insuredEntityName.toLowerCase();
             final carrier = (c.carrierName ?? '').toLowerCase();
-            final file = c.importFileId != null ? 'file #${c.importFileId}' : '';
+            final shipmentCode = c.importFileId != null ? 'IMP-${c.importFileId}' : '';
+            final shipmentTitle = c.importFileId != null
+                ? DisplayNameResolver.resolveShipmentTitleByCode(shipmentCode, shipments: importFiles, isArabic: isAr).toLowerCase()
+                : '';
+            final file = c.importFileId != null ? 'file #${c.importFileId} $shipmentCode $shipmentTitle' : '';
             final ports = '${c.portOfLoading} ${c.portOfDischarge}'.toLowerCase();
             if (!code.contains(query) &&
                 !pol.contains(query) &&
@@ -315,7 +322,6 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
             ),
 
             // ─── Export & Linked Outputs Toolbar ─────────────────────────────
-            // ─── Export & Linked Outputs Toolbar ─────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               child: Wrap(
@@ -331,7 +337,11 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                       side: BorderSide(color: AppTheme.cobalt.withOpacity(0.4)),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
-                    onPressed: () => CargoInsuranceExportService.saveCertificatesTsvToFile(context, filteredCertificates),
+                    onPressed: () => CargoInsuranceExportService.saveCertificatesTsvToFile(
+                      context,
+                      filteredCertificates,
+                      shipments: importFiles,
+                    ),
                   ),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.file_download_outlined, size: 16),
@@ -341,7 +351,11 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                       side: BorderSide(color: AppTheme.emerald.withOpacity(0.4)),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
-                    onPressed: () => CargoInsuranceExportService.saveCertificatesCsvToFile(context, filteredCertificates),
+                    onPressed: () => CargoInsuranceExportService.saveCertificatesCsvToFile(
+                      context,
+                      filteredCertificates,
+                      shipments: importFiles,
+                    ),
                   ),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
@@ -351,7 +365,11 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                       side: BorderSide(color: AppTheme.crimson.withOpacity(0.4)),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
-                    onPressed: () => CargoInsuranceExportService.printOrSaveCertificatesPdf(context, filteredCertificates),
+                    onPressed: () => CargoInsuranceExportService.printOrSaveCertificatesPdf(
+                      context,
+                      filteredCertificates,
+                      shipments: importFiles,
+                    ),
                   ),
                   ElevatedButton.icon(
                     icon: const Icon(Icons.copy_all_rounded, size: 16),
@@ -362,7 +380,11 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    onPressed: () => CargoInsuranceExportService.copyDossierToClipboard(context, filteredCertificates),
+                    onPressed: () => CargoInsuranceExportService.copyDossierToClipboard(
+                      context,
+                      filteredCertificates,
+                      shipments: importFiles,
+                    ),
                   ),
                 ],
               ),
@@ -556,8 +578,21 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                               final cert = entry.value;
                               final isIssued = cert.status == 'ISSUED';
                               final isCancelled = cert.status == 'CANCELLED';
+                              final shipmentCode = cert.importFileId != null ? 'IMP-${cert.importFileId}' : null;
+                              final shipmentTitle = shipmentCode != null
+                                  ? DisplayNameResolver.resolveShipmentTitleByCode(
+                                      shipmentCode,
+                                      shipments: importFiles,
+                                      isArabic: isAr,
+                                    )
+                                  : null;
 
-                              final rowSummary = CargoInsuranceExportService.toRowSummary(cert, l);
+                              final rowSummary = CargoInsuranceExportService.toRowSummary(
+                                cert,
+                                l,
+                                shipments: importFiles,
+                                isArabic: isAr,
+                              );
 
                               return DataRow(
                                 cells: [
@@ -617,21 +652,39 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                                     ),
                                   ),
 
-                                  // 4. Policy / File (with Copy Badges)
+                                  // 4. Policy / File (with Commercial Title & Badges)
                                   DataCell(
                                     CopyableTableCell(
-                                      value: '${cert.policyNumber ?? "-"} (${cert.importFileId != null ? "IMP-${cert.importFileId}" : "-"})',
+                                      value: '${shipmentTitle ?? (cert.policyNumber ?? "-")} (${cert.policyNumber ?? "-"})',
                                       rowSummary: rowSummary,
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
+                                          if (shipmentTitle != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(bottom: 2),
+                                              child: Text(
+                                                shipmentTitle,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                  color: AppTheme.charcoal,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
                                           Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Text(
-                                                cert.policyNumber ?? '-',
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                                cert.policyNumber != null ? 'Policy: ${cert.policyNumber}' : '-',
+                                                style: TextStyle(
+                                                  fontWeight: shipmentTitle == null ? FontWeight.bold : FontWeight.normal,
+                                                  fontSize: 11,
+                                                  color: shipmentTitle == null ? AppTheme.charcoal : Colors.blueGrey.shade700,
+                                                ),
                                               ),
                                               if (cert.policyNumber != null && cert.policyNumber!.isNotEmpty) ...[
                                                 const SizedBox(width: 4),
@@ -644,34 +697,30 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                                                   borderRadius: BorderRadius.circular(4),
                                                   child: const Padding(
                                                     padding: EdgeInsets.all(2.0),
-                                                    child: Icon(Icons.copy_rounded, size: 12, color: Colors.blueGrey),
+                                                    child: Icon(Icons.copy_rounded, size: 11, color: Colors.blueGrey),
                                                   ),
                                                 ),
                                               ],
-                                            ],
-                                          ),
-                                          if (cert.importFileId != null)
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
+                                              if (shipmentCode != null) ...[
+                                                const SizedBox(width: 6),
                                                 Container(
-                                                  margin: const EdgeInsets.only(top: 2),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                                   decoration: BoxDecoration(
                                                     color: AppTheme.cobalt.withOpacity(0.08),
                                                     borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.2), width: 0.5),
                                                   ),
                                                   child: Text(
-                                                    '📁 IMP-${cert.importFileId}',
+                                                    shipmentCode,
                                                     style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
                                                   ),
                                                 ),
-                                                const SizedBox(width: 4),
+                                                const SizedBox(width: 2),
                                                 InkWell(
                                                   onTap: () => CopyHelper.copy(
                                                     context,
-                                                    'IMP-${cert.importFileId}',
-                                                    customMessage: l.insuranceCopyBadgeSuccess(l.insuranceFieldLinkImportFile, 'IMP-${cert.importFileId}'),
+                                                    shipmentCode,
+                                                    customMessage: l.insuranceCopyBadgeSuccess(l.insuranceFieldLinkImportFile, shipmentCode),
                                                   ),
                                                   borderRadius: BorderRadius.circular(4),
                                                   child: const Padding(
@@ -680,7 +729,8 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                                                   ),
                                                 ),
                                               ],
-                                            ),
+                                            ],
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -1995,13 +2045,19 @@ class _CargoInsuranceFormDialogState extends ConsumerState<_CargoInsuranceFormDi
 // =============================================================================
 // Details Dialog: Official Printable Marine Insurance Certificate Preview
 // =============================================================================
-class _CargoInsuranceDetailsDialog extends StatelessWidget {
+class _CargoInsuranceDetailsDialog extends ConsumerWidget {
   final CargoInsuranceModel certificate;
   const _CargoInsuranceDetailsDialog({required this.certificate});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final shipmentCode = certificate.importFileId != null ? 'IMP-${certificate.importFileId}' : null;
+    final shipmentTitle = shipmentCode != null
+        ? DisplayNameResolver.resolveShipmentTitleByCode(shipmentCode, shipments: importFiles, isArabic: isAr)
+        : null;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -2080,6 +2136,8 @@ class _CargoInsuranceDetailsDialog extends StatelessWidget {
                           MapEntry(l.insurancePreviewInsuredLabel, certificate.insuredEntityName),
                           MapEntry(l.insurancePreviewCompanyLabel, certificate.insuranceCompanyName ?? "Misr Insurance Company"),
                           MapEntry(l.insurancePreviewPolicyNoLabel, certificate.policyNumber ?? "PENDING / ON DEMAND"),
+                          if (shipmentCode != null)
+                            MapEntry(l.insuranceFieldLinkImportFile, '$shipmentTitle ($shipmentCode)'),
                           MapEntry(l.insurancePreviewPolicyTypeLabel, certificate.policyType),
                         ],
                       ),

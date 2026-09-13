@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
@@ -259,8 +259,8 @@ void main() {
       expect(find.text('نواقص مستندية'), findsOneWidget);
 
       // 5. Verify Radar items and badges
-      expect(find.text('IMP-2026-0001'), findsOneWidget);
-      expect(find.text('IMP-2026-0002'), findsOneWidget);
+      expect(find.text('IMP-2026-0001'), findsWidgets);
+      expect(find.text('IMP-2026-0002'), findsWidgets);
       expect(find.text('Under Testing'), findsOneWidget);
       expect(find.text('Approved'), findsOneWidget);
       expect(find.text('86%'), findsOneWidget);
@@ -275,15 +275,15 @@ void main() {
       await tester.tap(criticalFilter);
       await tester.pumpAndSettle();
 
-      expect(find.text('IMP-2026-0002'), findsOneWidget);
+      expect(find.text('IMP-2026-0002'), findsWidgets);
       expect(find.text('IMP-2026-0001'), findsNothing);
 
       // Switch back to All
       final allFilter = find.text('جميع مستويات الخطر');
       await tester.tap(allFilter);
       await tester.pumpAndSettle();
-      expect(find.text('IMP-2026-0001'), findsOneWidget);
-      expect(find.text('IMP-2026-0002'), findsOneWidget);
+      expect(find.text('IMP-2026-0001'), findsWidgets);
+      expect(find.text('IMP-2026-0002'), findsWidgets);
     });
   });
 }

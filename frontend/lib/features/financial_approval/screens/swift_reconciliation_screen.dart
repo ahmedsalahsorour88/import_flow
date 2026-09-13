@@ -11,6 +11,7 @@ import '../../../core/widgets/copyable_data_helper.dart';
 
 import 'package:flutter/services.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/services/display_name_resolver.dart';
 
 const String kSampleSwiftMT103 = '''{1:F01ARAIECXXXXX.SN...ISN.}{2:I103CITIUS33XXXXN}{3:{108:xxxxx}}{4:
 :20/TRANSACTION REFERENCE NUMBER       : FT/26228/KZ70Q
@@ -96,6 +97,9 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
       l10n.swiftTsvHeaderStatus,
     ].join('\t'));
 
+    final allFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+
     for (final p in payments) {
       final days = p.swiftProcessingDays != null ? '${p.swiftProcessingDays}' : '-';
       final transferred = p.swiftTransferredAmount != null
@@ -108,10 +112,11 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           (p.swiftReferenceNo != null && p.swiftReferenceNo!.isNotEmpty
               ? l10n.swiftBadgeMatchedFull
               : l10n.swiftBadgePending);
+      final resolvedShipTitle = DisplayNameResolver.resolveShipmentTitleByCode(p.importFileCode, shipments: allFiles, isArabic: isAr);
 
       buffer.writeln([
         p.paymentCode,
-        p.importFileCode ?? '-',
+        resolvedShipTitle,
         p.beneficiaryName ?? p.supplierName,
         p.bankName ?? '-',
         p.requestDate,
@@ -136,6 +141,9 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
 
   void _copyPaymentDossier(PaymentRequestModel pay) {
     final l10n = context.l10n;
+    final allFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final resolvedShipTitle = DisplayNameResolver.resolveShipmentTitleByCode(pay.importFileCode, shipments: allFiles, isArabic: isAr);
     final status = pay.swiftVarianceStatus ??
         (pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty
             ? l10n.swiftBadgeMatchedFull
@@ -143,7 +151,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
     final text = '''
 ${l10n.swiftDetailsDialogTitle(pay.paymentCode)}
 ${l10n.swiftRequestTitleLabel} ${pay.title}
-${l10n.swiftTsvHeaderImportFile}: ${pay.importFileCode ?? "-"}
+${l10n.swiftTsvHeaderImportFile}: $resolvedShipTitle
 ${l10n.swiftBeneficiaryLabel} ${pay.beneficiaryName ?? pay.supplierName}
 ${l10n.swiftBankLabel} ${pay.bankName ?? "-"} | SWIFT: ${pay.swiftCode ?? "-"} | ${l10n.swiftAccountLabel} ${pay.ibanAccountNo ?? "-"}
 ${l10n.swiftRequestDateLabel}: ${pay.requestDate.isNotEmpty ? pay.requestDate : "-"}
@@ -1240,9 +1248,13 @@ ${l10n.swiftVariancesMetric}: $varianceCount
         SearchableDropdownField<int>(
           labelText: l10n.swiftTargetPaymentLabel,
           items: paymentsList.where((p) => p.isActive).map((p) {
+            final allFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+            final isAr = Localizations.localeOf(context).languageCode == 'ar';
+            final shipName = DisplayNameResolver.resolveShipmentNameByCode(p.importFileCode, shipments: allFiles, isArabic: isAr);
+            final shipBadge = (shipName.isNotEmpty && shipName != '-') ? ' [$shipName]' : '';
             return SearchableDropdownItem<int>(
               value: p.paymentId,
-              label: '${p.paymentCode} - ${p.supplierName} (${p.requestedAmount.toStringAsFixed(2)} ${p.currencyCode}) [${p.status}]',
+              label: '${p.paymentCode}$shipBadge - ${p.supplierName} (${p.requestedAmount.toStringAsFixed(2)} ${p.currencyCode}) [${p.status}]',
               icon: Icons.receipt_long,
             );
           }).toList(),
@@ -1967,13 +1979,17 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                 DataColumn(label: Text(l10n.swiftColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                               ],
                               rows: filtered.map((pay) {
+                                final allFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+                                final isAr = Localizations.localeOf(context).languageCode == 'ar';
                                 final isReconciled = pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty;
-                                final rowSummary = '${pay.paymentCode} | ${pay.importFileCode ?? "-"} | ${pay.beneficiaryName ?? pay.supplierName} | ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode} | ${pay.swiftReferenceNo ?? l10n.swiftPendingSwiftBadge}';
+                                final shipName = DisplayNameResolver.resolveShipmentNameByCode(pay.importFileCode, shipments: allFiles, isArabic: isAr);
+                                final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(pay.importFileCode, shipments: allFiles, isArabic: isAr);
+                                final rowSummary = '${pay.paymentCode} | $shipTitle | ${pay.beneficiaryName ?? pay.supplierName} | ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode} | ${pay.swiftReferenceNo ?? l10n.swiftPendingSwiftBadge}';
                                 return DataRow(
                                   cells: [
                                     DataCell(
                                       CopyableTableCell(
-                                        value: '${pay.paymentCode}${pay.importFileCode != null ? " / ${pay.importFileCode}" : ""}',
+                                        value: '${pay.paymentCode}${pay.importFileCode != null ? " / $shipTitle" : ""}',
                                         rowSummary: rowSummary,
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1988,13 +2004,31 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                               ],
                                             ),
                                             if (pay.importFileCode != null)
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Text(pay.importFileCode!, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
-                                                  const SizedBox(width: 4),
-                                                  _buildCopyBadge(pay.importFileCode!, tooltip: l10n.swiftCopyBtn),
-                                                ],
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 2),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      shipName,
+                                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.charcoal.withOpacity(0.08),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: Text(
+                                                        pay.importFileCode!,
+                                                        style: TextStyle(fontSize: 9, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 2),
+                                                    _buildCopyBadge(pay.importFileCode!, tooltip: l10n.swiftCopyBtn),
+                                                  ],
+                                                ),
                                               ),
                                           ],
                                         ),

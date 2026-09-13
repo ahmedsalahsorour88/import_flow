@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -218,10 +219,14 @@ class _ImportFileComprehensiveReportScreenState
                       child: SearchableDropdownField<int>(
                         value: _selectedFileId,
                         labelText: l.compReportSelectFileLabel,
-                        items: files.map((f) => SearchableDropdownItem<int>(
-                          value: f.importFileId,
-                          label: '${f.primaryNameWithCode}  |  ${f.supplierName}  |  ${f.currentStage}  |  ${f.status}',
-                        )).toList(),
+                        items: files.map((f) {
+                          final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                          final stageName = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isAr);
+                          return SearchableDropdownItem<int>(
+                            value: f.importFileId,
+                            label: '${f.primaryNameWithCode}  |  ${f.supplierName}  |  $stageName  |  ${f.status}',
+                          );
+                        }).toList(),
                         onChanged: (val) => _onFileSelected(val, files),
                       ),
                     ),
@@ -483,7 +488,7 @@ class _ImportFileComprehensiveReportScreenState
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  file.currentStage,
+                  DisplayNameResolver.resolveStepName(file.currentStage, isArabic: Localizations.localeOf(context).languageCode == 'ar'),
                   style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 const SizedBox(height: 10),
@@ -984,6 +989,7 @@ class _ImportFileComprehensiveReportScreenState
   // ── Section 3e: Status Card ───────────────────────────────────────
   Widget _buildStatusCard(BuildContext context, ImportFileModel file) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     return _reportCard(
       title: l.compReportSecStatus,
       icon: Icons.timeline_outlined,
@@ -1000,9 +1006,9 @@ class _ImportFileComprehensiveReportScreenState
           ),
           const SizedBox(height: 8),
           _infoRow(context, l.compReportStatusLabel, file.status),
-          _infoRow(context, l.compReportCurrentStageLabel, file.currentStage),
-          _infoRow(context, l.compReportCurrentModuleLabel, file.currentModule),
-          _infoRow(context, l.compReportNextActionLabel, file.nextAction),
+          _infoRow(context, l.compReportCurrentStageLabel, DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr)),
+          _infoRow(context, l.compReportCurrentModuleLabel, DisplayNameResolver.resolvePhaseName(file.currentModule, isArabic: isAr)),
+          _infoRow(context, l.compReportNextActionLabel, DisplayNameResolver.resolveActionTitle(file.nextAction, isArabic: isAr)),
           const SizedBox(height: 10),
           Text(l.compReportTotalProgressLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
           const SizedBox(height: 6),

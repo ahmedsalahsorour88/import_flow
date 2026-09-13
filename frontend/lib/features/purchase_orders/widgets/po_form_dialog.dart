@@ -3275,7 +3275,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       countryOfOrigin: _selectedCountryOfOrigin,
       paymentTerms: _selectedPaymentTerms,
       projectName: proj?.projectName,
-      importFileCode: impF?.importFileCode ?? impF?.customFileNumber,
+      importFileCode: impF?.primaryNameWithCode ?? impF?.importFileCode ?? impF?.customFileNumber,
       items: _dialogItems,
       packingItems: _dialogPackingItems,
       palletItems: _isDirectVolumeMode ? _dialogPalletItems : <PalletPlanItemModel>[],

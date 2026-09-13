@@ -1019,173 +1019,187 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
   // ──────────────────────────────────────────────────────────────────────────
 
   Widget _buildDevOperationsTab(AppLocalizations l) {
-    return Column(
-      children: [
-        // DB Status Cards
-        Row(
-          children: [
-            Expanded(
-              child: _buildDbCard(
-                title: l.prodSyncDevDbTitle,
-                path: _service.devDbPath,
-                stats: _devStats,
-                color: AppTheme.cobalt,
-                icon: Icons.code_rounded,
-                l: l,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: IntrinsicHeight(
+              child: Column(
+                children: [
+                  // DB Status Cards
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDbCard(
+                          title: l.prodSyncDevDbTitle,
+                          path: _service.devDbPath,
+                          stats: _devStats,
+                          color: AppTheme.cobalt,
+                          icon: Icons.code_rounded,
+                          l: l,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildDbCard(
+                          title: l.prodSyncProdDbTitle,
+                          path: _service.prodDbPath,
+                          stats: _prodStats,
+                          color: AppTheme.emerald,
+                          icon: Icons.desktop_windows_rounded,
+                          l: l,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Action Buttons Row
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.emerald,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                          icon: _isRunning && _currentAction.contains('Dev → Prod')
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.cloud_upload_rounded, size: 16),
+                          label: Text(l.prodSyncSyncDevToProdBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          onPressed: _isRunning
+                              ? null
+                              : () => _executeAction(
+                                    l.prodSyncSyncDevToProdBtn,
+                                    () => _service.syncDevToProd(
+                                      onOutput: (l) => _appendLog(l),
+                                      onError: (l) => _appendLog(l, isError: true),
+                                      onProgress: (p) {
+                                        if (mounted) setState(() => _progress = p);
+                                      },
+                                      onDiffSummary: (d) {
+                                        if (mounted) setState(() => _diffSummary = d);
+                                      },
+                                    ),
+                                  ),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.cobalt,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                          icon: const Icon(Icons.compare_arrows_rounded, size: 16),
+                          label: Text(l.prodSyncCompareTablesBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          onPressed: _isRunning
+                              ? null
+                              : () => _executeAction(
+                                    l.prodSyncCompareTablesBtn,
+                                    () => _service.compareDatabases(
+                                      onOutput: (l) => _appendLog(l),
+                                      onError: (l) => _appendLog(l, isError: true),
+                                      onDiffSummary: (d) {
+                                        if (mounted) setState(() => _diffSummary = d);
+                                      },
+                                    ),
+                                  ),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.charcoal,
+                            side: const BorderSide(color: AppTheme.charcoal),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                          icon: const Icon(Icons.download_rounded, size: 16),
+                          label: Text(l.prodSyncPullProdToDevBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          onPressed: _isRunning
+                              ? null
+                              : () => _executeAction(
+                                    l.prodSyncPullProdToDevBtn,
+                                    () => _service.pullProdToDev(
+                                      onOutput: (l) => _appendLog(l),
+                                      onError: (l) => _appendLog(l, isError: true),
+                                      onProgress: (p) {
+                                        if (mounted) setState(() => _progress = p);
+                                      },
+                                    ),
+                                  ),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.orange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                          icon: const Icon(Icons.inventory_rounded, size: 16),
+                          label: Text(l.prodSyncFullBuildBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          onPressed: _isRunning
+                              ? null
+                              : () => _executeAction(
+                                    l.prodSyncFullBuildBtn,
+                                    () => _service.fullBuildAndSync(
+                                      onOutput: (l) => _appendLog(l),
+                                      onError: (l) => _appendLog(l, isError: true),
+                                      onProgress: (p) {
+                                        if (mounted) setState(() => _progress = p);
+                                      },
+                                      onDiffSummary: (d) {
+                                        if (mounted) setState(() => _diffSummary = d);
+                                      },
+                                    ),
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Visual Progress & Diff Inspector
+                  SyncProgressAndDiffWidget(
+                    progress: _progress,
+                    diffSummary: _diffSummary,
+                    isRunning: _isRunning,
+                    onCheckDiff: () => _executeAction(
+                      l.prodSyncCompareTablesBtn,
+                      () => _service.compareDatabases(
+                        onOutput: (l) => _appendLog(l),
+                        onError: (l) => _appendLog(l, isError: true),
+                        onDiffSummary: (d) {
+                          if (mounted) setState(() => _diffSummary = d);
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Live Console Terminal Output
+                  Expanded(
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 180),
+                      child: SyncConsoleWidget(
+                        logs: _consoleLogs,
+                        isRunning: _isRunning,
+                        onClear: () => setState(() => _consoleLogs.clear()),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildDbCard(
-                title: l.prodSyncProdDbTitle,
-                path: _service.prodDbPath,
-                stats: _prodStats,
-                color: AppTheme.emerald,
-                icon: Icons.desktop_windows_rounded,
-                l: l,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-
-        // Action Buttons Row
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade300),
           ),
-          child: Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            alignment: WrapAlignment.center,
-            children: [
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.emerald,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                icon: _isRunning && _currentAction.contains('Dev → Prod')
-                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.cloud_upload_rounded, size: 16),
-                label: Text(l.prodSyncSyncDevToProdBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
-                          l.prodSyncSyncDevToProdBtn,
-                          () => _service.syncDevToProd(
-                            onOutput: (l) => _appendLog(l),
-                            onError: (l) => _appendLog(l, isError: true),
-                            onProgress: (p) {
-                              if (mounted) setState(() => _progress = p);
-                            },
-                            onDiffSummary: (d) {
-                              if (mounted) setState(() => _diffSummary = d);
-                            },
-                          ),
-                        ),
-              ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                icon: const Icon(Icons.compare_arrows_rounded, size: 16),
-                label: Text(l.prodSyncCompareTablesBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
-                          l.prodSyncCompareTablesBtn,
-                          () => _service.compareDatabases(
-                            onOutput: (l) => _appendLog(l),
-                            onError: (l) => _appendLog(l, isError: true),
-                            onDiffSummary: (d) {
-                              if (mounted) setState(() => _diffSummary = d);
-                            },
-                          ),
-                        ),
-              ),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.charcoal,
-                  side: const BorderSide(color: AppTheme.charcoal),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                icon: const Icon(Icons.download_rounded, size: 16),
-                label: Text(l.prodSyncPullProdToDevBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
-                          l.prodSyncPullProdToDevBtn,
-                          () => _service.pullProdToDev(
-                            onOutput: (l) => _appendLog(l),
-                            onError: (l) => _appendLog(l, isError: true),
-                            onProgress: (p) {
-                              if (mounted) setState(() => _progress = p);
-                            },
-                          ),
-                        ),
-              ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.orange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                icon: const Icon(Icons.inventory_rounded, size: 16),
-                label: Text(l.prodSyncFullBuildBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
-                          l.prodSyncFullBuildBtn,
-                          () => _service.fullBuildAndSync(
-                            onOutput: (l) => _appendLog(l),
-                            onError: (l) => _appendLog(l, isError: true),
-                            onProgress: (p) {
-                              if (mounted) setState(() => _progress = p);
-                            },
-                            onDiffSummary: (d) {
-                              if (mounted) setState(() => _diffSummary = d);
-                            },
-                          ),
-                        ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // Visual Progress & Diff Inspector
-        SyncProgressAndDiffWidget(
-          progress: _progress,
-          diffSummary: _diffSummary,
-          isRunning: _isRunning,
-          onCheckDiff: () => _executeAction(
-            l.prodSyncCompareTablesBtn,
-            () => _service.compareDatabases(
-              onOutput: (l) => _appendLog(l),
-              onError: (l) => _appendLog(l, isError: true),
-              onDiffSummary: (d) {
-                if (mounted) setState(() => _diffSummary = d);
-              },
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // Live Console Terminal Output
-        Expanded(
-          child: SyncConsoleWidget(
-            logs: _consoleLogs,
-            isRunning: _isRunning,
-            onClear: () => setState(() => _consoleLogs.clear()),
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 

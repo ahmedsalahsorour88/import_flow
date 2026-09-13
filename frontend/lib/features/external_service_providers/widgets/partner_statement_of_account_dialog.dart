@@ -450,10 +450,13 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    l10n.soaFooterText,
-                    style: const TextStyle(fontSize: 11, color: Colors.black54),
+                  Expanded(
+                    child: Text(
+                      l10n.soaFooterText,
+                      style: const TextStyle(fontSize: 11, color: Colors.black54),
+                    ),
                   ),
+                  const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: ElevatedButton.styleFrom(

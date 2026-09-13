@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/import_file_po_linker.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -523,7 +524,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                 ),
                                 if (selectedFileId != null && displayFiles.isNotEmpty)
                                   Text(
-                                    '${l.filteredForShipment} ${displayFiles.first.customFileNumber ?? displayFiles.first.importFileCode} (${displayFiles.first.companyName})',
+                                    '${l.filteredForShipment} ${DisplayNameResolver.resolveShipmentTitle(displayFiles.first, isArabic: Localizations.localeOf(context).languageCode == 'ar')}',
                                     style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 12),
                                   ),
                               ],
@@ -536,6 +537,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             ),
                             onPressed: () {
+                              final isAr = Localizations.localeOf(context).languageCode == 'ar';
                               final buffer = StringBuffer();
                               buffer.writeln('=====================================================');
                               buffer.writeln('Sorour Logistics ERP - Master Import Report');
@@ -551,7 +553,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                     ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                     : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
 
-                                buffer.writeln('"${f.owner.contains('Broker') ? f.owner : 'Customs Broker'}",${f.customFileNumber ?? f.importFileCode},"${f.supplierName}","${f.projectNames ?? 'Main Site Building'}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","${f.currentStage} (${f.progressPercent.toInt()}%) - ${f.nextAction}","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COCOS'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
+                                final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
+                                final stg = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isAr);
+                                final act = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+
+                                buffer.writeln('"${f.owner.contains('Broker') ? f.owner : 'Customs Broker'}","$shipName","${f.supplierName}","${f.projectNames ?? 'Main Site Building'}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","$stg (${f.progressPercent.toInt()}%) - $act","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COCOS'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
                               }
 
                               buffer.writeln('\n--- 2. DETAILED POs & CARGO VOLUMES BREAKDOWN ---');
@@ -719,6 +725,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                           ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                           : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
                                       final ownerText = f.owner.contains('Broker') ? f.owner : l.customsBrokerLabel;
+                                      final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                                      final shipName = DisplayNameResolver.resolveShipmentName(f, isArabic: isAr);
+                                      final resolvedStage = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isAr);
+                                      final resolvedAction = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                                      final stageProgressText = '$resolvedStage (${f.progressPercent.toInt()}%) - $resolvedAction';
 
                                       return DataRow(
                                         cells: [
@@ -735,7 +746,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                   mainAxisAlignment: MainAxisAlignment.center,
                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
-                                                    Text(f.customFileNumber ?? f.importFileCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline, fontSize: 12)),
+                                                    Text(shipName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline, fontSize: 12)),
                                                     Text(f.importFileCode, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                                                   ],
                                                 ),
@@ -755,11 +766,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                           DataCell(CopyableTableCell(value: f.requiredEta ?? '15-8-2026', child: Text(f.requiredEta ?? '15-8-2026', style: const TextStyle(fontSize: 11)))),
                                           DataCell(
                                             CopyableTableCell(
-                                              value: '${f.currentStage} (${f.progressPercent.toInt()}%) - ${f.nextAction}',
+                                              value: stageProgressText,
                                               child: SizedBox(
                                                 width: 240,
                                                 child: Text(
-                                                  '${f.currentStage} (${f.progressPercent.toInt()}%) - ${f.nextAction}',
+                                                  stageProgressText,
                                                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
@@ -877,7 +888,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                     children: [
                                       Text('${l.importFileIdLabel}: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
                                       CopyableText(
-                                        '${file.customFileNumber ?? file.importFileCode} (${file.companyName})',
+                                        '${DisplayNameResolver.resolveShipmentTitle(file, isArabic: Localizations.localeOf(context).languageCode == 'ar')} (${file.companyName})',
                                         showIcon: false,
                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                                       ),
@@ -1076,6 +1087,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                         onPressed: () async {
+                          final isAr = Localizations.localeOf(context).languageCode == 'ar';
                           final buffer = StringBuffer();
                           buffer.write('\uFEFF');
                           buffer.writeln('custom broker name,shipment no,supp. Name,Project name,PI Value,shipping mode,Inco term,TOTAL,shipping date,arrival port,arrival warehouse,DIRECT OVER,ready to pick up Date,latest update for pending shipment,Doc Date,Swift,Carrier,ACID,FORM 4,FORM 46');
@@ -1084,7 +1096,10 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                             final double piVal = f.invoicesData.isNotEmpty
                                 ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                 : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
-                            buffer.writeln('"${f.owner.contains('Broker') ? f.owner : 'Customs Broker'}",${f.customFileNumber ?? f.importFileCode},"${f.supplierName}","${f.projectNames ?? 'Main Site Building'}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","${f.currentStage} (${f.progressPercent.toInt()}%) - ${f.nextAction}","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COSCO'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
+                            final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
+                            final stg = DisplayNameResolver.resolveStepName(f.currentStage, isArabic: isAr);
+                            final act = DisplayNameResolver.resolveActionTitle(f.nextAction, isArabic: isAr);
+                            buffer.writeln('"${f.owner.contains('Broker') ? f.owner : 'Customs Broker'}","$shipName","${f.supplierName}","${f.projectNames ?? 'Main Site Building'}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","$stg (${f.progressPercent.toInt()}%) - $act","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COSCO'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
                           }
 
                           final filename = 'Reports_Import_Files_Master_Summary_${DateTime.now().millisecondsSinceEpoch}.csv';
@@ -1429,14 +1444,18 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                               }
                             }
                             final piDisplay = file.piNumber != null && file.piNumber!.trim().isNotEmpty ? file.piNumber!.trim() : '-';
-                            final rowSummary = '${file.displayName}\t${file.companyName}\t${l.poNumberShortPrefix}$poDisplay, ${l.piNumberShortPrefix}$piDisplay\t${file.supplierName}\t${file.shipmentMode} (${file.incotermCode})\t$priorityText\t${file.requiredEta ?? "-"}\t${file.currentStage}\t${file.progressPercent.toInt()}%\t${file.nextAction}\t${file.owner}\t$statusText';
+                            final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                            final resolvedStage = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr);
+                            final resolvedAction = DisplayNameResolver.resolveActionTitle(file.nextAction, isArabic: isAr);
+                            final shipDisplayName = DisplayNameResolver.resolveShipmentName(file, isArabic: isAr);
+                            final rowSummary = '$shipDisplayName\t${file.companyName}\t${l.poNumberShortPrefix}$poDisplay, ${l.piNumberShortPrefix}$piDisplay\t${file.supplierName}\t${file.shipmentMode} (${file.incotermCode})\t$priorityText\t${file.requiredEta ?? "-"}\t$resolvedStage\t${file.progressPercent.toInt()}%\t$resolvedAction\t${file.owner}\t$statusText';
 
                             return DataRow(
                               selected: _highlightedFileId == file.importFileId,
                               cells: [
                                 DataCell(
                                   CopyableTableCell(
-                                    value: file.displayName,
+                                    value: shipDisplayName,
                                     rowSummary: rowSummary,
                                     child: InkWell(
                                       onTap: () => _showImportFileDetailsDialog(context, file),
@@ -1444,8 +1463,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(file.displayName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline)),
-                                          if (file.displayName != file.importFileCode)
+                                          Text(shipDisplayName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline)),
+                                          if (shipDisplayName != file.importFileCode)
                                             Text(file.importFileCode, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                                           if (file.clonedFromCode != null && file.clonedFromCode!.isNotEmpty)
                                             Text(
@@ -1511,9 +1530,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                 ),
                                 DataCell(
                                   CopyableTableCell(
-                                    value: file.currentStage,
+                                    value: resolvedStage,
                                     rowSummary: rowSummary,
-                                    child: Text(file.currentStage, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                    child: Text(resolvedStage, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                   ),
                                 ),
                                 DataCell(
@@ -1535,9 +1554,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                 ),
                                 DataCell(
                                   CopyableTableCell(
-                                    value: file.nextAction,
+                                    value: resolvedAction,
                                     rowSummary: rowSummary,
-                                    child: Text(file.nextAction, style: const TextStyle(fontSize: 11, color: AppTheme.charcoal)),
+                                    child: Text(resolvedAction, style: const TextStyle(fontSize: 11, color: AppTheme.charcoal)),
                                   ),
                                 ),
                                 DataCell(
@@ -1601,7 +1620,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                       if (file.status != 'Closed')
                                         IconButton(
                                           icon: const Icon(Icons.fast_forward_rounded, color: AppTheme.orange, size: 18),
-                                          tooltip: '${l.skipStepBtn}: ${file.currentStage}',
+                                          tooltip: '${l.skipStepBtn}: $resolvedStage',
                                           onPressed: () => SkipStepDialogHelper.show(
                                             context: context,
                                             ref: ref,

@@ -21,6 +21,7 @@ import '../services/financial_export_service.dart';
 import '../widgets/saved_budgets_registry_tab.dart';
 import '../../simulation/widgets/what_if_simulator_dialog.dart';
 import 'swift_reconciliation_screen.dart';
+import '../../../core/services/display_name_resolver.dart';
 
 class FinancialApprovalScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -2519,6 +2520,8 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                     loading: () => const Center(child: CircularProgressIndicator()),
                     error: (err, stack) => Center(child: Text('❌ Error: $err')),
                     data: (payments) {
+                      final allFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+                      final isAr = Localizations.localeOf(context).languageCode == 'ar';
                       final filtered = payments.where((p) {
                         final matchQ = _searchQuery.isEmpty ||
                             p.paymentCode.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -2596,9 +2599,12 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                       final index = entry.key;
                                       final p = entry.value;
                                       final isEven = index % 2 == 0;
+                                      final rawFileCode = p.importFileCode ?? (p.importFileId != null ? 'IMP-${p.importFileId}' : '');
+                                      final resolvedShipName = DisplayNameResolver.resolveShipmentNameByCode(rawFileCode, shipments: allFiles, isArabic: isAr);
+                                      final resolvedShipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: allFiles, isArabic: isAr);
                                       final rowSummary = [
                                         p.paymentCode,
-                                        p.importFileCode ?? (p.importFileId != null ? 'IMP-${p.importFileId}' : '-'),
+                                        resolvedShipTitle,
                                         p.beneficiaryName ?? p.supplierName,
                                         '${p.bankName ?? "-"} ${p.swiftCode ?? ""}'.trim(),
                                         p.paymentType,
@@ -2639,18 +2645,32 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                           ),
                                           DataCell(
                                             CopyableTableCell(
-                                              value: p.importFileCode ?? (p.importFileId != null ? 'IMP-${p.importFileId}' : '-'),
+                                              value: resolvedShipTitle,
                                               rowSummary: rowSummary,
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: AppTheme.charcoal.withOpacity(0.08),
-                                                  borderRadius: BorderRadius.circular(6),
-                                                ),
-                                                child: Text(
-                                                  p.importFileCode ?? (p.importFileId != null ? 'IMP-${p.importFileId}' : '-'),
-                                                  style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
-                                                ),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Text(
+                                                    resolvedShipName,
+                                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  if (rawFileCode.isNotEmpty)
+                                                    Container(
+                                                      margin: const EdgeInsets.only(top: 2),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.charcoal.withOpacity(0.08),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: Text(
+                                                        rawFileCode,
+                                                        style: TextStyle(fontSize: 10, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                                                      ),
+                                                    ),
+                                                ],
                                               ),
                                             ),
                                           ),

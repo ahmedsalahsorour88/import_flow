@@ -372,6 +372,98 @@ void main() {
       expect(cleanedEn, isNot(contains('[IMP-2026-0004]')));
       expect(cleanedEn, isNot(contains('STEP_03')));
     });
+
+    // ── 11. Full System Generalization Tests (Task D Comprehensive) ─────────
+    test('ImportFiles table and export stage/action resolution produces human-readable strings', () {
+      const rawStage = 'STEP_07';
+      const rawAction = 'STEP_07 تدقيق بيانات تخصيص الحاويات وأوزان VGM ومراجعة مسودات الشحن';
+
+      final stageAr = DisplayNameResolver.resolveStepName(rawStage, isArabic: true);
+      final stageEn = DisplayNameResolver.resolveStepName(rawStage, isArabic: false);
+      final actAr = DisplayNameResolver.resolveActionTitle(rawAction, isArabic: true);
+      final actEn = DisplayNameResolver.resolveActionTitle(rawAction, isArabic: false);
+
+      expect(stageAr, 'تخصيص وتوزيع الحاويات والبضائع');
+      expect(stageEn, 'Container Allocation');
+      expect(actAr, isNot(contains('STEP_07')));
+      expect(actEn, isNot(contains('STEP_07')));
+      expect(actAr, contains('تخصيص الحاويات'));
+      expect(actEn, contains('VGM Verification'));
+
+      final progressSummaryAr = '$stageAr (70%) - $actAr';
+      expect(progressSummaryAr, isNot(contains('STEP_')));
+      expect(progressSummaryAr, contains('تخصيص وتوزيع الحاويات والبضائع'));
+    });
+
+    test('Smart Tasks row summary and TSV exports produce clean titles and commercial names', () {
+      final shipments = [
+        ImportFileModel(
+          importFileId: 10,
+          importFileCode: 'IMP-2026-0010',
+          customFileNumber: 'بطاريات طاقة شمسية',
+          companyName: 'Solar Tech Egypt',
+          supplierName: 'CATL Global',
+          priority: 'Critical',
+          currentModule: 'Customs Clearance',
+          currentStage: 'STEP_14',
+          progressPercent: 65.0,
+          nextAction: 'الكشف والمعاينة',
+          status: 'Open',
+          isActive: true,
+          createdAt: '2026-03-01',
+          updatedAt: '2026-03-01',
+        ),
+      ];
+
+      const rawTaskTitle = '[IMP-2026-0010] (STEP_14) - الكشف والمعاينة والتثمين الجمركي';
+      final cleanTitleAr = DisplayNameResolver.cleanTaskTitle(rawTaskTitle, isArabic: true);
+      final cleanTitleEn = DisplayNameResolver.cleanTaskTitle(rawTaskTitle, isArabic: false);
+
+      expect(cleanTitleAr, isNot(contains('[IMP-2026-0010]')));
+      expect(cleanTitleAr, isNot(contains('STEP_14')));
+      expect(cleanTitleAr, contains('الكشف والمعاينة'));
+
+      expect(cleanTitleEn, isNot(contains('[IMP-2026-0010]')));
+      expect(cleanTitleEn, isNot(contains('STEP_14')));
+      expect(cleanTitleEn, contains('Customs Inspection'));
+
+      final shipmentDisplay = DisplayNameResolver.resolveShipmentTitleByCode(
+        'IMP-2026-0010',
+        shipments: shipments,
+        isArabic: true,
+      );
+      expect(shipmentDisplay, 'بطاريات طاقة شمسية (IMP-2026-0010)');
+    });
+
+    test('Comprehensive Report and PO Report display commercial titles rather than raw codes', () {
+      final shipments = [
+        ImportFileModel(
+          importFileId: 4,
+          importFileCode: 'IMP-2026-0004',
+          customFileNumber: 'PET Stock',
+          companyName: 'Al-Amal Plastics',
+          supplierName: 'SABIC Saudi',
+          priority: 'High',
+          currentModule: 'Phase 5',
+          currentStage: 'STEP_13',
+          progressPercent: 60.0,
+          nextAction: 'قيد إقرار 46 ك.م',
+          status: 'Open',
+          isActive: true,
+          createdAt: '2026-02-01',
+          updatedAt: '2026-02-01',
+        ),
+      ];
+
+      final file = shipments.first;
+      final resolvedShipmentTitle = DisplayNameResolver.resolveShipmentTitle(file, isArabic: true);
+      final resolvedStepName = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: true);
+      final resolvedPhaseName = DisplayNameResolver.resolvePhaseName(file.currentModule, isArabic: true);
+
+      expect(resolvedShipmentTitle, 'PET Stock (IMP-2026-0004)');
+      expect(resolvedStepName, 'قيد إقرار 46 ك.م جمركي');
+      expect(resolvedPhaseName, 'المرحلة الخامسة: التخليص الجمركي والإفراج');
+    });
   });
 }
 

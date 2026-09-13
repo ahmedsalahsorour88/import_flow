@@ -199,7 +199,7 @@ class _MasterDataToolbarWidgetState
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: AppTheme.toolbarDecoration,
+      decoration: AppTheme.toolbarDecorationOf(context),
       child: Wrap(
         spacing: 10,
         runSpacing: 10,
@@ -218,7 +218,7 @@ class _MasterDataToolbarWidgetState
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
-                    color: Colors.grey.shade800),
+                    color: AppTheme.isDark(context) ? AppTheme.darkTextPrimary : Colors.grey.shade800),
               ),
             ],
           ),

@@ -20,6 +20,7 @@ import '../../import_files/models/import_file_model.dart';
 import '../models/shipment_update_model.dart';
 import '../providers/shipment_updates_provider.dart';
 import '../widgets/shipment_update_dialog.dart';
+import '../../../core/services/display_name_resolver.dart';
 
 class ShipmentUpdateEngineScreen extends ConsumerStatefulWidget {
   const ShipmentUpdateEngineScreen({super.key});
@@ -46,19 +47,10 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
   ];
 
   String _getPhaseName(AppLocalizations l, String phaseCode) {
-    switch (phaseCode) {
-      case 'Phase 1': return l.shipmentUpdatePhase1Name;
-      case 'Phase 2': return l.shipmentUpdatePhase2Name;
-      case 'Phase 3': return l.shipmentUpdatePhase3Name;
-      case 'Phase 4': return l.shipmentUpdatePhase4Name;
-      case 'Phase 5': return l.shipmentUpdatePhase5Name;
-      case 'Phase 6': return l.shipmentUpdatePhase6Name;
-      case 'Phase 7': return l.shipmentUpdatePhase7Name;
-      case 'Phase 8': return l.shipmentUpdatePhase8Name;
-      case 'Phase 9': return l.shipmentUpdatePhase9Name;
-      case 'Phase 10': return l.shipmentUpdatePhase10Name;
-      default: return phaseCode;
-    }
+    return DisplayNameResolver.resolvePhaseName(
+      phaseCode,
+      isArabic: Localizations.localeOf(context).languageCode == 'ar',
+    );
   }
 
   String _getStatusName(AppLocalizations l, String status) {
@@ -239,14 +231,15 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                           child: SearchableDropdownField<int>(
                             value: _selectedFileId,
                             labelText: l.shipmentUpdateSelectShipmentPrompt,
-                            items: files.map((f) => SearchableDropdownItem<int>(
-                              value: f.importFileId,
-                              label: l.shipmentUpdateDropdownLabel(
-                                f.customFileNumber ?? f.importFileCode,
-                                f.supplierName,
-                                f.currentModule,
-                              ),
-                            )).toList(),
+                            items: files.map((f) {
+                              final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                              final sTitle = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
+                              final pTitle = DisplayNameResolver.resolvePhaseName(f.currentModule, isArabic: isAr);
+                              return SearchableDropdownItem<int>(
+                                value: f.importFileId,
+                                label: '$sTitle - ${f.supplierName} ($pTitle)',
+                              );
+                            }).toList(),
                             onChanged: (val) => _onShipmentSelected(val, files),
                           ),
                         ),
@@ -325,15 +318,40 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                           const Icon(Icons.hub, color: AppTheme.cobalt, size: 22),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                              l.shipmentUpdatePipelineTitle(_selectedFile!.customFileNumber ?? _selectedFile!.importFileCode),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                              overflow: TextOverflow.ellipsis,
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    DisplayNameResolver.resolveShipmentName(
+                                      _selectedFile!,
+                                      isArabic: Localizations.localeOf(context).languageCode == 'ar',
+                                    ),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cobalt.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                  ),
+                                  child: Text(
+                                    _selectedFile!.customFileNumber ?? _selectedFile!.importFileCode,
+                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            l.shipmentUpdateCurrentStage(_selectedFile!.currentModule),
+                            DisplayNameResolver.resolvePhaseName(
+                              _selectedFile!.currentModule,
+                              isArabic: Localizations.localeOf(context).languageCode == 'ar',
+                            ),
                             style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12),
                           ),
                         ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -8,6 +9,8 @@ import '../../../core/widgets/critical_alert_banner.dart';
 import '../../demurrage_detention/screens/demurrage_detention_screen.dart';
 import '../../import_documentation/screens/central_docs_archive_screen.dart';
 import '../../import_documentation/screens/customs_declaration46_screen.dart';
+import '../../import_files/models/import_file_model.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../../import_files/screens/import_files_screen.dart';
 import '../../import_requirements/screens/import_requirements_screen.dart';
 import '../../notifications/providers/notifications_provider.dart';
@@ -272,13 +275,17 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
       ),
       data: (boardData) {
         final allShipments = boardData.allShipments;
+        final isAr = Directionality.of(context) == TextDirection.rtl;
+        final allImportFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
         final filteredShipments = allShipments.where((s) {
           final matchesStep = _selectedStepCode == null || s.stepCode == _selectedStepCode;
           final matchesPhase = _selectedPhaseId == null || _isStepInPhase(s.stepCode, _selectedPhaseId!, boardData.phases);
+          final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(s.importFileCode, shipments: allImportFiles, isArabic: isAr);
 
           final matchesSearch = _searchQuery.isEmpty ||
               s.importFileCode.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              shipmentName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
               s.companyName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
               s.supplierName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
               (s.poNumber != null && s.poNumber!.toLowerCase().contains(_searchQuery.toLowerCase())) ||
@@ -399,11 +406,11 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildTableTopBar(filteredShipments, boardData.phases),
+                      _buildTableTopBar(filteredShipments, boardData.phases, allImportFiles),
                       Expanded(
                         child: filteredShipments.isEmpty
                             ? _buildEmptyState()
-                            : _buildShipmentsTable(filteredShipments, boardData.phases),
+                            : _buildShipmentsTable(filteredShipments, boardData.phases, allImportFiles),
                       ),
                     ],
                   ),
@@ -443,10 +450,15 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
         ),
       ),
       data: (radarData) {
+        final isAr = Directionality.of(context) == TextDirection.rtl;
+        final allImportFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+
         final filteredItems = radarData.items.where((item) {
           final q = _searchQuery.toLowerCase().trim();
+          final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(item.importFileCode, shipments: allImportFiles, isArabic: isAr);
           final matchesSearch = q.isEmpty ||
               item.importFileCode.toLowerCase().contains(q) ||
+              shipmentName.toLowerCase().contains(q) ||
               item.companyName.toLowerCase().contains(q) ||
               item.supplierName.toLowerCase().contains(q) ||
               (item.poNumber != null && item.poNumber!.toLowerCase().contains(q)) ||
@@ -620,6 +632,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                           : () => LifecycleBoardExportService.exportRadarToTsv(
                                 context: context,
                                 items: filteredItems,
+                                allImportFiles: allImportFiles,
                               ),
                       icon: const Icon(Icons.table_chart_outlined, size: 14),
                       label: Text(l10n.lifecycleExportTsvBtn, style: const TextStyle(fontSize: 11)),
@@ -635,6 +648,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                           : () => LifecycleBoardExportService.exportRadarToExcel(
                                 context: context,
                                 items: filteredItems,
+                                allImportFiles: allImportFiles,
                               ),
                       icon: const Icon(Icons.file_download_outlined, size: 14, color: AppTheme.emerald),
                       label: Text(l10n.lifecycleExportExcelBtn, style: const TextStyle(fontSize: 11, color: AppTheme.emerald)),
@@ -650,6 +664,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                           : () => LifecycleBoardExportService.printOrSaveRadarPdf(
                                 context: context,
                                 items: filteredItems,
+                                allImportFiles: allImportFiles,
                               ),
                       icon: const Icon(Icons.picture_as_pdf_outlined, size: 14, color: AppTheme.crimson),
                       label: Text(l10n.lifecyclePrintPdfBtn, style: const TextStyle(fontSize: 11, color: AppTheme.crimson)),
@@ -666,6 +681,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                               final dossier = LifecycleBoardExportService.buildRadarDossierText(
                                 context: context,
                                 items: filteredItems,
+                                allImportFiles: allImportFiles,
                               );
                               CopyHelper.copy(context, dossier, customMessage: l10n.lifecycleCopyDossierSuccess);
                             },
@@ -700,7 +716,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                   ),
                   child: filteredItems.isEmpty
                       ? _buildEmptyState()
-                      : _buildRadarDataTable(filteredItems, l10n),
+                      : _buildRadarDataTable(filteredItems, l10n, allImportFiles),
                 ),
               ),
             ),
@@ -773,7 +789,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
     );
   }
 
-  Widget _buildRadarDataTable(List<LiveLogisticsTrackingItemModel> items, AppLocalizations l10n) {
+  Widget _buildRadarDataTable(List<LiveLogisticsTrackingItemModel> items, AppLocalizations l10n, List<ImportFileModel> allImportFiles) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Scrollbar(
@@ -795,7 +811,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     columnSpacing: 16,
                     horizontalMargin: 12,
                     columns: [
-                      DataColumn(label: Text(l10n.colShipmentCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.operationalTsvHeaderShipmentName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal))),
                       DataColumn(label: Text(l10n.colVesselAndBl, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal))),
                       DataColumn(label: Text(l10n.colEtaCountdown, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal))),
                       DataColumn(label: Text(l10n.colDemurrageRisk, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal))),
@@ -827,7 +843,11 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                         docColor = AppTheme.orange;
                       }
 
-                      final rowSummary = '[${item.importFileCode}] ${item.companyName} -> ${item.supplierName} | ${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"}) | ${l10n.colBillOfLadingPrefix}: ${item.blNumber ?? l10n.colCarrierUnderPrep} | ${l10n.colEtaPrefix}: ${item.eta ?? "-"} | ${item.accumulatedDemurrageFx > 0 ? l10n.demurrageIncurredBadge : l10n.freeDaysRemainingBadge(item.freeDaysRemaining)} | ${item.sampleTestStatus} | ${item.docReadinessPercent.toStringAsFixed(0)}%';
+                      final isAr = Directionality.of(context) == TextDirection.rtl;
+                      final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(item.importFileCode, shipments: allImportFiles, isArabic: isAr);
+                      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(item.importFileCode, shipments: allImportFiles, isArabic: isAr, includeCodeSecondary: true);
+
+                      final rowSummary = '$shipmentTitle | ${item.companyName} -> ${item.supplierName} | ${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"}) | ${l10n.colBillOfLadingPrefix}: ${item.blNumber ?? l10n.colCarrierUnderPrep} | ${l10n.colEtaPrefix}: ${item.eta ?? "-"} | ${item.accumulatedDemurrageFx > 0 ? l10n.demurrageIncurredBadge : l10n.freeDaysRemainingBadge(item.freeDaysRemaining)} | ${item.sampleTestStatus} | ${item.docReadinessPercent.toStringAsFixed(0)}%';
 
                       return DataRow(
                         // CL-005: الضغط على الصف ينتقل لشاشة ملف الاستيراد المقابل
@@ -845,21 +865,28 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                           }
                         },
                         cells: [
-                          // 1. Shipment Code & Importer / Supplier — مع أيقونة التنقل
+                          // 1. Shipment Name & Code & Importer / Supplier — مع أيقونة التنقل
                           DataCell(
                             CopyableTableCell(
-                              value: item.importFileCode,
+                              value: shipmentTitle,
                               rowSummary: rowSummary,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
+                                  Text(
+                                    shipmentName,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
                                   Row(
                                     children: [
                                       InkWell(
                                         onTap: () => CopyHelper.copy(context, item.importFileCode),
                                         child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                           decoration: BoxDecoration(
                                             color: AppTheme.charcoal,
                                             borderRadius: BorderRadius.circular(4),
@@ -869,7 +896,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                             children: [
                                               Text(
                                                 item.importFileCode,
-                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10.5),
+                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 9.5),
                                               ),
                                               const SizedBox(width: 3),
                                               const Icon(Icons.copy, size: 9, color: Colors.white70),
@@ -890,7 +917,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     '${item.companyName} → ${item.supplierName}',
-                                    style: const TextStyle(fontSize: 10, color: AppTheme.charcoal, fontWeight: FontWeight.w500),
+                                    style: const TextStyle(fontSize: 9.5, color: AppTheme.charcoal, fontWeight: FontWeight.w500),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -1344,14 +1371,16 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
   // --- Table Top Filter Bar --------------------------------------------------
 
-  Widget _buildTableTopBar(List<ShipmentStageCardModel> filteredShipments, List<PhaseSummaryModel> phases) {
+  Widget _buildTableTopBar(List<ShipmentStageCardModel> filteredShipments, List<PhaseSummaryModel> phases, List<ImportFileModel> allImportFiles) {
     final l10n = context.l10n;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     final filteredCount = filteredShipments.length;
     String selectedTitle = l10n.allShipmentsAllPhases;
     Color badgeColor = AppTheme.cobalt;
 
     if (_selectedStepCode != null) {
-      selectedTitle = '${_selectedStepCode!}: ${l10n.lifecycleStepName(_selectedStepCode!)}';
+      final cleanStepName = DisplayNameResolver.resolveStepName(_selectedStepCode!, isArabic: isAr);
+      selectedTitle = isAr ? '$cleanStepName (${_selectedStepCode!})' : '$cleanStepName (${_selectedStepCode!})';
       final phaseStr = _stepPhases[_selectedStepCode!];
       final phaseId = int.tryParse(phaseStr ?? '1') ?? 1;
       final p = phases.firstWhere((ph) => ph.phaseId == phaseId, orElse: () => phases[0]);
@@ -1405,6 +1434,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                   : () => LifecycleBoardExportService.exportKanbanToTsv(
                         context: context,
                         shipments: filteredShipments,
+                        allImportFiles: allImportFiles,
                         filterTitle: selectedTitle,
                       ),
               icon: const Icon(Icons.table_chart_outlined, size: 14),
@@ -1421,6 +1451,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                   : () => LifecycleBoardExportService.exportKanbanToExcel(
                         context: context,
                         shipments: filteredShipments,
+                        allImportFiles: allImportFiles,
                         filterTitle: selectedTitle,
                       ),
               icon: const Icon(Icons.file_download_outlined, size: 14, color: AppTheme.emerald),
@@ -1438,6 +1469,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                         context: context,
                         shipments: filteredShipments,
                         phases: phases,
+                        allImportFiles: allImportFiles,
                         filterTitle: selectedTitle,
                       ),
               icon: const Icon(Icons.picture_as_pdf_outlined, size: 14, color: AppTheme.crimson),
@@ -1456,6 +1488,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                         context: context,
                         shipments: filteredShipments,
                         phases: phases,
+                        allImportFiles: allImportFiles,
                         filterTitle: selectedTitle,
                       );
                       CopyHelper.copy(context, dossier, customMessage: l10n.lifecycleCopyDossierSuccess);
@@ -1508,7 +1541,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
   // --- Shipments Table -------------------------------------------------------
 
-  Widget _buildShipmentsTable(List<ShipmentStageCardModel> shipments, List<PhaseSummaryModel> phases) {
+  Widget _buildShipmentsTable(List<ShipmentStageCardModel> shipments, List<PhaseSummaryModel> phases, List<ImportFileModel> allImportFiles) {
     final l10n = context.l10n;
 
     return LayoutBuilder(
@@ -1532,7 +1565,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     columnSpacing: 14,
                     horizontalMargin: 10,
                     columns: [
-                      DataColumn(label: Text(l10n.colShipmentCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
+                      DataColumn(label: Text(l10n.operationalTsvHeaderShipmentName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
                       DataColumn(label: Text(l10n.colPreviousStep, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
                       DataColumn(label: Text(l10n.colCurrentStep, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
                       DataColumn(label: Text(l10n.colNextStep, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.charcoal))),
@@ -1551,70 +1584,92 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       final stepColor = _parseColor(p.colorHex);
                       final isOnHold = s.status == 'On-Hold';
 
-                      final rowSummary = '[${s.importFileCode}] ${s.companyName} | ${s.supplierName} | ${s.stepCode}: ${l10n.lifecycleStepName(s.stepCode)} | ${s.shipmentMode} - ${s.incotermCode} | ${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}${isOnHold ? " (${l10n.onHoldStatusTag})" : ""}';
+                      final isAr = Directionality.of(context) == TextDirection.rtl;
+                      final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(s.importFileCode, shipments: allImportFiles, isArabic: isAr);
+                      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(s.importFileCode, shipments: allImportFiles, isArabic: isAr, includeCodeSecondary: true);
+                      final cleanCurStep = DisplayNameResolver.resolveStepName(s.stepCode, isArabic: isAr);
+                      final cleanPrevStep = s.previousStepCode != null ? DisplayNameResolver.resolveStepName(s.previousStepCode!, isArabic: isAr) : '-';
+                      final cleanNextStep = s.nextStepCode != null ? DisplayNameResolver.resolveStepName(s.nextStepCode!, isArabic: isAr) : '-';
+
+                      final rowSummary = '$shipmentTitle | ${s.companyName} | ${s.supplierName} | $cleanCurStep | ${s.shipmentMode} - ${s.incotermCode} | ${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}${isOnHold ? " (${l10n.onHoldStatusTag})" : ""}';
 
                       return DataRow(
                         cells: [
                           DataCell(
                             CopyableTableCell(
-                              value: s.importFileCode,
+                              value: shipmentTitle,
                               rowSummary: rowSummary,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  InkWell(
-                                    onTap: () => CopyHelper.copy(context, s.importFileCode),
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.charcoal,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            s.importFileCode,
-                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
-                                          ),
-                                          const SizedBox(width: 3),
-                                          const Icon(Icons.copy_rounded, size: 9, color: Colors.white70),
-                                        ],
-                                      ),
-                                    ),
+                                  Text(
+                                    shipmentName,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  if (isOnHold) ...[
-                                    const SizedBox(width: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.crimson,
-                                        borderRadius: BorderRadius.circular(3),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      InkWell(
+                                        onTap: () => CopyHelper.copy(context, s.importFileCode),
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.charcoal,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                s.importFileCode,
+                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 9.5),
+                                              ),
+                                              const SizedBox(width: 3),
+                                              const Icon(Icons.copy_rounded, size: 9, color: Colors.white70),
+                                            ],
+                                          ),
+                                        ),
                                       ),
-                                      child: Text(
-                                        l10n.onHoldStatusTag,
-                                        style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                  ],
+                                      if (isOnHold) ...[
+                                        const SizedBox(width: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.crimson,
+                                            borderRadius: BorderRadius.circular(3),
+                                          ),
+                                          child: Text(
+                                            l10n.onHoldStatusTag,
+                                            style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                 ],
                               ),
                             ),
                           ),
                           DataCell(
                             CopyableTableCell(
-                              value: s.previousStepCode != null ? '${s.previousStepCode!}: ${l10n.lifecycleStepName(s.previousStepCode!)}' : '-',
+                              value: cleanPrevStep,
                               rowSummary: rowSummary,
                               child: Text(
-                                s.previousStepCode != null ? '${s.previousStepCode!}: ${l10n.lifecycleStepName(s.previousStepCode!)}' : '-',
+                                cleanPrevStep,
                                 style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ),
                           DataCell(
                             CopyableTableCell(
-                              value: '${s.stepCode}: ${l10n.lifecycleStepName(s.stepCode)}',
+                              value: cleanCurStep,
                               rowSummary: rowSummary,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -1628,12 +1683,16 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                   children: [
                                     Icon(isOnHold ? Icons.pause_circle_outline : Icons.play_circle_fill, size: 11, color: isOnHold ? AppTheme.crimson : stepColor),
                                     const SizedBox(width: 4),
-                                    Text(
-                                      '${s.stepCode}: ${l10n.lifecycleStepName(s.stepCode)}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 10.5,
-                                        color: isOnHold ? AppTheme.crimson : stepColor,
+                                    Flexible(
+                                      child: Text(
+                                        cleanCurStep,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 10.5,
+                                          color: isOnHold ? AppTheme.crimson : stepColor,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
@@ -1643,11 +1702,13 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                           ),
                           DataCell(
                             CopyableTableCell(
-                              value: s.nextStepCode != null ? '${s.nextStepCode!}: ${l10n.lifecycleStepName(s.nextStepCode!)}' : '-',
+                              value: cleanNextStep,
                               rowSummary: rowSummary,
                               child: Text(
-                                s.nextStepCode != null ? '${s.nextStepCode!}: ${l10n.lifecycleStepName(s.nextStepCode!)}' : '-',
+                                cleanNextStep,
                                 style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.w500),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ),

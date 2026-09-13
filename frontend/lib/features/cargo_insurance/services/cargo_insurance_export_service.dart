@@ -4,8 +4,10 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../models/cargo_insurance_model.dart';
 
 /// Dedicated Export & Dossier Service for Screen 65:
@@ -24,15 +26,24 @@ class CargoInsuranceExportService {
   }
 
   /// Converts single certificate to a clean single-line summary string for clipboard copy
-  static String toRowSummary(CargoInsuranceModel cert, AppLocalizations l) {
+  static String toRowSummary(
+    CargoInsuranceModel cert,
+    AppLocalizations l, {
+    List<ImportFileModel>? shipments,
+    bool isArabic = true,
+  }) {
     final date = cert.issuedAt != null && cert.issuedAt!.length >= 10
         ? cert.issuedAt!.substring(0, 10)
         : (cert.createdAt.length >= 10 ? cert.createdAt.substring(0, 10) : cert.createdAt);
     final route = '${cert.portOfLoading} -> ${cert.portOfDischarge}';
+    final shipmentCode = cert.importFileId != null ? 'IMP-${cert.importFileId}' : null;
+    final fileStr = shipmentCode != null
+        ? DisplayNameResolver.resolveShipmentTitleByCode(shipmentCode, shipments: shipments, isArabic: isArabic)
+        : 'N/A';
     return [
       '${l.insuranceColCertCode}: ${cert.certificateCode}',
       '${l.insuranceColIssueDate}: $date',
-      '${l.insuranceColPolicyFile}: ${cert.policyNumber ?? "N/A"} (${cert.importFileId != null ? "IMP-${cert.importFileId}" : "N/A"})',
+      '${l.insuranceColPolicyFile}: ${cert.policyNumber ?? "N/A"} ($fileStr)',
       '${l.insuranceColInsuredEntity}: ${cert.insuredEntityName}',
       '${l.insuranceColInsuranceCo}: ${cert.insuranceCompanyName ?? "N/A"}',
       '${l.insuranceColTransportRoute}: ${cert.transportMode} - $route',
@@ -44,8 +55,13 @@ class CargoInsuranceExportService {
   }
 
   /// Exports certificates registry as TSV string with UTF-8 BOM
-  static String exportCertificatesToTsv(BuildContext context, List<CargoInsuranceModel> certs) {
+  static String exportCertificatesToTsv(
+    BuildContext context,
+    List<CargoInsuranceModel> certs, {
+    List<ImportFileModel>? shipments,
+  }) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final buf = StringBuffer();
     buf.write('\uFEFF'); // UTF-8 BOM
 
@@ -73,11 +89,17 @@ class CargoInsuranceExportService {
       final date = c.issuedAt != null && c.issuedAt!.length >= 10
           ? c.issuedAt!.substring(0, 10)
           : (c.createdAt.length >= 10 ? c.createdAt.substring(0, 10) : c.createdAt);
+      final shipmentCode = c.importFileId != null ? 'IMP-${c.importFileId}' : null;
+      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+        shipmentCode,
+        shipments: shipments,
+        isArabic: isAr,
+      );
       buf.writeln([
         _cleanTsv(c.certificateCode),
         _cleanTsv(date),
         _cleanTsv(c.policyNumber ?? '-'),
-        _cleanTsv(c.importFileId != null ? 'IMP-${c.importFileId}' : '-'),
+        _cleanTsv(shipmentCode != null ? shipmentTitle : '-'),
         _cleanTsv(c.insuredEntityName),
         _cleanTsv(c.insuranceCompanyName ?? '-'),
         _cleanTsv(c.transportMode),
@@ -98,8 +120,13 @@ class CargoInsuranceExportService {
   }
 
   /// Exports certificates registry as RFC 4180 unmerged CSV string with UTF-8 BOM
-  static String exportCertificatesToCsv(BuildContext context, List<CargoInsuranceModel> certs) {
+  static String exportCertificatesToCsv(
+    BuildContext context,
+    List<CargoInsuranceModel> certs, {
+    List<ImportFileModel>? shipments,
+  }) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final buf = StringBuffer();
     buf.write('\uFEFF'); // UTF-8 BOM
 
@@ -127,11 +154,17 @@ class CargoInsuranceExportService {
       final date = c.issuedAt != null && c.issuedAt!.length >= 10
           ? c.issuedAt!.substring(0, 10)
           : (c.createdAt.length >= 10 ? c.createdAt.substring(0, 10) : c.createdAt);
+      final shipmentCode = c.importFileId != null ? 'IMP-${c.importFileId}' : null;
+      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+        shipmentCode,
+        shipments: shipments,
+        isArabic: isAr,
+      );
       buf.writeln([
         _csvQuote(c.certificateCode),
         _csvQuote(date),
         _csvQuote(c.policyNumber ?? '-'),
-        _csvQuote(c.importFileId != null ? 'IMP-${c.importFileId}' : '-'),
+        _csvQuote(shipmentCode != null ? shipmentTitle : '-'),
         _csvQuote(c.insuredEntityName),
         _csvQuote(c.insuranceCompanyName ?? '-'),
         _csvQuote(c.transportMode),
@@ -154,10 +187,11 @@ class CargoInsuranceExportService {
   /// Saves TSV export file and copies TSV to clipboard
   static Future<void> saveCertificatesTsvToFile(
     BuildContext context,
-    List<CargoInsuranceModel> certs,
-  ) async {
+    List<CargoInsuranceModel> certs, {
+    List<ImportFileModel>? shipments,
+  }) async {
     final l = context.l10n;
-    final tsv = exportCertificatesToTsv(context, certs);
+    final tsv = exportCertificatesToTsv(context, certs, shipments: shipments);
     await CopyHelper.copy(context, tsv, customMessage: l.insuranceCopiedTsvSuccess);
     if (!context.mounted) return;
 
@@ -176,10 +210,11 @@ class CargoInsuranceExportService {
   /// Saves unmerged CSV export file and copies CSV to clipboard
   static Future<void> saveCertificatesCsvToFile(
     BuildContext context,
-    List<CargoInsuranceModel> certs,
-  ) async {
+    List<CargoInsuranceModel> certs, {
+    List<ImportFileModel>? shipments,
+  }) async {
     final l = context.l10n;
-    final csv = exportCertificatesToCsv(context, certs);
+    final csv = exportCertificatesToCsv(context, certs, shipments: shipments);
     await CopyHelper.copy(context, csv, customMessage: l.insuranceCopiedExcelSuccess);
     if (!context.mounted) return;
 
@@ -199,8 +234,10 @@ class CargoInsuranceExportService {
   static String buildCertificatesDossier({
     required BuildContext context,
     required List<CargoInsuranceModel> certs,
+    List<ImportFileModel>? shipments,
   }) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final buf = StringBuffer();
 
     buf.writeln('================================================================');
@@ -237,9 +274,18 @@ class CargoInsuranceExportService {
         final date = c.issuedAt != null && c.issuedAt!.length >= 10
             ? c.issuedAt!.substring(0, 10)
             : (c.createdAt.length >= 10 ? c.createdAt.substring(0, 10) : c.createdAt);
+        final shipmentCode = c.importFileId != null ? 'IMP-${c.importFileId}' : null;
+        final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+          shipmentCode,
+          shipments: shipments,
+          isArabic: isAr,
+        );
+        final polFileStr = shipmentCode != null
+            ? '${c.policyNumber ?? "N/A"} ($shipmentTitle [$shipmentCode])'
+            : '${c.policyNumber ?? "N/A"} (N/A)';
         buf.writeln('[${i + 1}] ${l.insuranceColCertCode}: ${c.certificateCode} (${c.status})');
         buf.writeln('    • ${l.insuranceColIssueDate}: $date');
-        buf.writeln('    • ${l.insuranceColPolicyFile}: ${c.policyNumber ?? "N/A"} (${c.importFileId != null ? "IMP-${c.importFileId}" : "N/A"})');
+        buf.writeln('    • ${l.insuranceColPolicyFile}: $polFileStr');
         buf.writeln('    • ${l.insuranceColInsuredEntity}: ${c.insuredEntityName}');
         buf.writeln('    • ${l.insuranceColInsuranceCo}: ${c.insuranceCompanyName ?? "N/A"}');
         buf.writeln('    • ${l.insuranceColTransportRoute}: ${c.transportMode} (${c.portOfLoading} -> ${c.portOfDischarge})');
@@ -267,18 +313,20 @@ class CargoInsuranceExportService {
   /// Copies full plain-text dossier to system clipboard
   static Future<void> copyDossierToClipboard(
     BuildContext context,
-    List<CargoInsuranceModel> certs,
-  ) async {
+    List<CargoInsuranceModel> certs, {
+    List<ImportFileModel>? shipments,
+  }) async {
     final l = context.l10n;
-    final dossier = buildCertificatesDossier(context: context, certs: certs);
+    final dossier = buildCertificatesDossier(context: context, certs: certs, shipments: shipments);
     await CopyHelper.copy(context, dossier, customMessage: l.insuranceCopiedDossierSuccess);
   }
 
   /// Generates and previews a Vector A4 Landscape PDF using Cairo font
   static Future<void> printOrSaveCertificatesPdf(
     BuildContext context,
-    List<CargoInsuranceModel> certs,
-  ) async {
+    List<CargoInsuranceModel> certs, {
+    List<ImportFileModel>? shipments,
+  }) async {
     final l = context.l10n;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final doc = pw.Document();
@@ -413,7 +461,15 @@ class CargoInsuranceExportService {
                 final date = c.issuedAt != null && c.issuedAt!.length >= 10
                     ? c.issuedAt!.substring(0, 10)
                     : (c.createdAt.length >= 10 ? c.createdAt.substring(0, 10) : c.createdAt);
-                final polFile = '${c.policyNumber ?? "-"}\n(${c.importFileId != null ? "IMP-${c.importFileId}" : "-"})';
+                final shipmentCode = c.importFileId != null ? 'IMP-${c.importFileId}' : null;
+                final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+                  shipmentCode,
+                  shipments: shipments,
+                  isArabic: isAr,
+                );
+                final polFile = shipmentCode != null
+                    ? '${c.policyNumber ?? "-"}\n$shipmentTitle\n[$shipmentCode]'
+                    : (c.policyNumber ?? "-");
                 final route = '${c.transportMode}\n${c.portOfLoading} -> ${c.portOfDischarge}';
                 return [
                   c.certificateCode,

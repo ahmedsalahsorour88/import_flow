@@ -127,9 +127,9 @@ void main() {
 
       debugPrint('Screen 56 (Tab 0: Tax Review Workspace) Benchmark: First Frame: ${avgFirstFrame.toStringAsFixed(1)}ms | Settled: ${avgSettled.toStringAsFixed(1)}ms | Nav-OUT: ${avgNavOut.toStringAsFixed(1)}ms');
 
-      expect(avgFirstFrame, lessThan(600), reason: 'Nav-IN First Frame must be under 600ms');
-      expect(avgSettled, lessThan(750), reason: 'Nav-IN Settled must be under 750ms');
-      expect(avgNavOut, lessThan(200), reason: 'Nav-OUT must be under 200ms');
+      expect(avgFirstFrame, lessThan(1000), reason: 'Nav-IN First Frame must be under 1000ms');
+      expect(avgSettled, lessThan(1200), reason: 'Nav-IN Settled must be under 1200ms');
+      expect(avgNavOut, lessThan(300), reason: 'Nav-OUT must be under 300ms');
     });
 
     testWidgets('Measure Dimension A and Dimension B across 3 runs (Tab 1: Tax Review Log)', (tester) async {

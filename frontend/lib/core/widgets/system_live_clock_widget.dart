@@ -518,20 +518,21 @@ class WorldClockChip extends StatelessWidget {
 /// 7. United States (USA)
 class SystemWorldClocksBar extends StatelessWidget {
   final DateTime currentTimeUtc;
-  final bool isDark;
+  final bool? isDark;
   final bool? isArabic;
   final bool showSeconds;
 
   const SystemWorldClocksBar({
     super.key,
     required this.currentTimeUtc,
-    this.isDark = true,
+    this.isDark,
     this.isArabic,
     this.showSeconds = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveIsDark = isDark ?? AppTheme.isDark(context);
     final isAr = WorldTimezoneHelper.resolveIsArabic(context, isArabic);
 
     // 1. Egypt (Cairo)
@@ -592,7 +593,7 @@ class SystemWorldClocksBar extends StatelessWidget {
         isBusinessHours: WorldTimezoneHelper.isBusinessHours(egyptTime),
         tooltip: egyptTooltip,
         isPrimary: true,
-        isDark: isDark,
+        isDark: effectiveIsDark,
         isArabic: isAr,
       ),
       WorldClockChip(
@@ -601,7 +602,7 @@ class SystemWorldClocksBar extends StatelessWidget {
         time24h: WorldTimezoneHelper.formatTime24h(franceItalySpainTime, showSeconds: showSeconds),
         isBusinessHours: WorldTimezoneHelper.isBusinessHours(franceItalySpainTime),
         tooltip: franceItalySpainTooltip,
-        isDark: isDark,
+        isDark: effectiveIsDark,
         isArabic: isAr,
       ),
       WorldClockChip(
@@ -610,7 +611,7 @@ class SystemWorldClocksBar extends StatelessWidget {
         time24h: WorldTimezoneHelper.formatTime24h(ukTime, showSeconds: showSeconds),
         isBusinessHours: WorldTimezoneHelper.isBusinessHours(ukTime),
         tooltip: ukTooltip,
-        isDark: isDark,
+        isDark: effectiveIsDark,
         isArabic: isAr,
       ),
       WorldClockChip(
@@ -619,7 +620,7 @@ class SystemWorldClocksBar extends StatelessWidget {
         time24h: WorldTimezoneHelper.formatTime24h(turkeyLithuaniaTime, showSeconds: showSeconds),
         isBusinessHours: WorldTimezoneHelper.isBusinessHours(turkeyLithuaniaTime),
         tooltip: turkeyLithuaniaTooltip,
-        isDark: isDark,
+        isDark: effectiveIsDark,
         isArabic: isAr,
       ),
       WorldClockChip(
@@ -628,7 +629,7 @@ class SystemWorldClocksBar extends StatelessWidget {
         time24h: WorldTimezoneHelper.formatTime24h(chinaTime, showSeconds: showSeconds),
         isBusinessHours: WorldTimezoneHelper.isBusinessHours(chinaTime),
         tooltip: chinaTooltip,
-        isDark: isDark,
+        isDark: effectiveIsDark,
         isArabic: isAr,
       ),
       WorldClockChip(
@@ -637,7 +638,7 @@ class SystemWorldClocksBar extends StatelessWidget {
         time24h: WorldTimezoneHelper.formatTime24h(uaeTime, showSeconds: showSeconds),
         isBusinessHours: WorldTimezoneHelper.isBusinessHours(uaeTime),
         tooltip: uaeTooltip,
-        isDark: isDark,
+        isDark: effectiveIsDark,
         isArabic: isAr,
       ),
       WorldClockChip(
@@ -646,7 +647,7 @@ class SystemWorldClocksBar extends StatelessWidget {
         time24h: WorldTimezoneHelper.formatTime24h(usTime, showSeconds: showSeconds),
         isBusinessHours: WorldTimezoneHelper.isBusinessHours(usTime),
         tooltip: usTooltip,
-        isDark: isDark,
+        isDark: effectiveIsDark,
         isArabic: isAr,
       ),
     ];
@@ -672,13 +673,13 @@ class SystemWorldClocksBar extends StatelessWidget {
 /// - Tier 2: شريط الساعات المتزامنة بنظام 24 ساعة مع تمييز مواعيد العمل (أخضر / أحمر)
 /// Automatically respects language settings (Arabic / English).
 class SystemWorldClocksHeader extends StatefulWidget {
-  final bool isDark;
+  final bool? isDark;
   final bool? isArabic;
   final bool showSeconds;
 
   const SystemWorldClocksHeader({
     super.key,
-    this.isDark = true,
+    this.isDark,
     this.isArabic,
     this.showSeconds = false,
   });
@@ -715,9 +716,10 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveIsDark = widget.isDark ?? AppTheme.isDark(context);
     final isAr = WorldTimezoneHelper.resolveIsArabic(context, widget.isArabic);
-    final bgColor = widget.isDark ? AppTheme.charcoal : const Color(0xFFF8FAFC);
-    final borderColor = widget.isDark ? const Color(0xFF334155) : Colors.grey.shade300;
+    final bgColor = effectiveIsDark ? (AppTheme.isDark(context) ? const Color(0xFF1E2631) : AppTheme.charcoal) : const Color(0xFFF8FAFC);
+    final borderColor = effectiveIsDark ? const Color(0xFF334155) : Colors.grey.shade300;
 
     final beaconTooltip = isAr
         ? 'أخضر = مواعيد العمل (08:00 - 17:00) │ أحمر = مغلق │ الساعات بنظام 24 ساعة'
@@ -754,21 +756,21 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
                 // Line 1: Date & Week Badge alone
                 SystemDateWeekBadge(
                   currentTime: _localNow,
-                  isDark: widget.isDark,
+                  isDark: effectiveIsDark,
                   isArabic: isAr,
                 ),
                 const SizedBox(width: 8),
                 Container(
                   height: 18,
                   width: 1,
-                  color: widget.isDark ? Colors.white12 : Colors.black12,
+                  color: effectiveIsDark ? Colors.white12 : Colors.black12,
                 ),
                 const SizedBox(width: 8),
                 // Line 2: The Synchronized World Clocks
                 Expanded(
                   child: SystemWorldClocksBar(
                     currentTimeUtc: _nowUtc,
-                    isDark: widget.isDark,
+                    isDark: effectiveIsDark,
                     isArabic: isAr,
                     showSeconds: widget.showSeconds,
                   ),
@@ -801,7 +803,7 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
                           '24H LIVE',
                           style: TextStyle(
                             fontFamily: 'monospace',
-                            color: widget.isDark ? Colors.white38 : Colors.black38,
+                            color: effectiveIsDark ? Colors.white38 : Colors.black38,
                             fontSize: 8.5,
                             fontWeight: FontWeight.bold,
                           ),
@@ -825,7 +827,7 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
                 children: [
                   SystemDateWeekBadge(
                     currentTime: _localNow,
-                    isDark: widget.isDark,
+                    isDark: effectiveIsDark,
                     isArabic: isAr,
                   ),
                   Tooltip(
@@ -845,7 +847,7 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
                         Text(
                           openLabel,
                           style: TextStyle(
-                            color: widget.isDark ? Colors.white70 : Colors.black87,
+                            color: effectiveIsDark ? Colors.white70 : Colors.black87,
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
                           ),
@@ -863,7 +865,7 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
                         Text(
                           closedLabel,
                           style: TextStyle(
-                            color: widget.isDark ? Colors.white54 : Colors.black54,
+                            color: effectiveIsDark ? Colors.white54 : Colors.black54,
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
                           ),
@@ -872,7 +874,7 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
                         Text(
                           compactSubtitle,
                           style: TextStyle(
-                            color: widget.isDark ? Colors.white38 : Colors.black38,
+                            color: effectiveIsDark ? Colors.white38 : Colors.black38,
                             fontSize: 8.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -886,7 +888,7 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
               // Row 2: Synchronized Clocks
               SystemWorldClocksBar(
                 currentTimeUtc: _nowUtc,
-                isDark: widget.isDark,
+                isDark: effectiveIsDark,
                 isArabic: isAr,
                 showSeconds: widget.showSeconds,
               ),

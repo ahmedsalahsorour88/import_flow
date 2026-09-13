@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/services/display_name_resolver.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../models/customs_consultation_model.dart';
 
 class NafezaFeeItem {
@@ -269,9 +271,11 @@ class CustomsExportService {
   static Future<String> exportConsultationsLogTsv({
     required BuildContext context,
     required List<CustomsConsultationModel> sessions,
+    List<ImportFileModel>? shipments,
     bool copyToClipboard = true,
   }) async {
     final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final buffer = StringBuffer();
     buffer.write('\uFEFF');
     final headers = [
@@ -287,7 +291,10 @@ class CustomsExportService {
     buffer.writeln(headers.join('\t'));
 
     for (final s in sessions) {
-      final fileCodeStr = s.importFileCode ?? (s.importFileId != null ? 'IMP-${s.importFileId}' : '-');
+      final rawFileCode = s.importFileCode ?? (s.importFileId != null ? 'IMP-${s.importFileId}' : '-');
+      final fileCodeStr = (rawFileCode != '-' && shipments != null)
+          ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: shipments, isArabic: isArabic)
+          : rawFileCode;
       final dateStr = s.createdAt.split('T').first.split(' ').first;
       final row = [
         s.consultationCode,
@@ -313,8 +320,10 @@ class CustomsExportService {
   static Future<String?> exportConsultationsLogExcel({
     required BuildContext context,
     required List<CustomsConsultationModel> sessions,
+    List<ImportFileModel>? shipments,
   }) async {
     final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final buffer = StringBuffer();
     buffer.write('\uFEFF');
     buffer.writeln('"${l.taxReviewLogTab}"');
@@ -334,7 +343,10 @@ class CustomsExportService {
     buffer.writeln(headers.map((h) => '"$h"').join(','));
 
     for (final s in sessions) {
-      final fileCodeStr = s.importFileCode ?? (s.importFileId != null ? 'IMP-${s.importFileId}' : '-');
+      final rawFileCode = s.importFileCode ?? (s.importFileId != null ? 'IMP-${s.importFileId}' : '-');
+      final fileCodeStr = (rawFileCode != '-' && shipments != null)
+          ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: shipments, isArabic: isArabic)
+          : rawFileCode;
       final dateStr = s.createdAt.split('T').first.split(' ').first;
       final row = [
         s.consultationCode,
@@ -363,6 +375,7 @@ class CustomsExportService {
   static String buildConsultationsLogDossier({
     required BuildContext context,
     required List<CustomsConsultationModel> sessions,
+    List<ImportFileModel>? shipments,
   }) {
     final l = context.l10n;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
@@ -377,7 +390,10 @@ class CustomsExportService {
     buffer.writeln('----------------------------------------------------');
     for (var i = 0; i < sessions.length; i++) {
       final s = sessions[i];
-      final fileCodeStr = s.importFileCode ?? (s.importFileId != null ? 'IMP-${s.importFileId}' : '-');
+      final rawFileCode = s.importFileCode ?? (s.importFileId != null ? 'IMP-${s.importFileId}' : '-');
+      final fileCodeStr = (rawFileCode != '-' && shipments != null)
+          ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: shipments, isArabic: isArabic)
+          : rawFileCode;
       buffer.writeln('[${i + 1}] ${s.consultationCode} | $fileCodeStr | ${s.title}');
       buffer.writeln('    ${l.customsBrokerLabel}: ${s.brokerName} | ${l.statusCol}: ${s.overallStatus}');
       buffer.writeln('    ${l.customsDutyCol}: ${s.estimatedDutiesEgp.toStringAsFixed(2)} $egpLabel | ${l.customsInspectionReadiness}: ${s.readinessPercentage.toStringAsFixed(0)}%');
@@ -390,8 +406,9 @@ class CustomsExportService {
   static Future<void> copyConsultationsLogDossier({
     required BuildContext context,
     required List<CustomsConsultationModel> sessions,
+    List<ImportFileModel>? shipments,
   }) async {
-    final dossier = buildConsultationsLogDossier(context: context, sessions: sessions);
+    final dossier = buildConsultationsLogDossier(context: context, sessions: sessions, shipments: shipments);
     final l = context.l10n;
     await CopyHelper.copy(context, dossier, customMessage: l.customsTaxCopiedDossierSuccess);
   }

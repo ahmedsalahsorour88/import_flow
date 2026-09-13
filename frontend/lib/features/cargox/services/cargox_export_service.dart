@@ -4,8 +4,10 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../models/cargox_model.dart';
 
 class CargoXExportService {
@@ -13,6 +15,7 @@ class CargoXExportService {
   static String exportEnvelopesToTsv({
     required List<CargoXEnvelopeModel> envelopes,
     required BuildContext context,
+    List<ImportFileModel>? shipments,
   }) {
     final l10n = context.l10n;
     final buffer = StringBuffer();
@@ -36,12 +39,18 @@ class CargoXExportService {
     ];
     buffer.writeln(headers.join('\t'));
 
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     for (int i = 0; i < envelopes.length; i++) {
       final env = envelopes[i];
+      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+        env.importFileCode,
+        shipments: shipments,
+        isArabic: isAr,
+      );
       final row = [
         '${i + 1}',
         env.envelopeCode,
-        env.importFileCode ?? '—',
+        shipmentTitle,
         env.acidNumber,
         env.supplierName,
         env.supplierCargoxId,
@@ -63,8 +72,9 @@ class CargoXExportService {
   static Future<void> saveEnvelopesTsvToFile({
     required BuildContext context,
     required List<CargoXEnvelopeModel> envelopes,
+    List<ImportFileModel>? shipments,
   }) async {
-    final tsvContent = exportEnvelopesToTsv(envelopes: envelopes, context: context);
+    final tsvContent = exportEnvelopesToTsv(envelopes: envelopes, context: context, shipments: shipments);
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     await FileSaveHelper.saveText(
       context: context,
@@ -80,6 +90,7 @@ class CargoXExportService {
   static String exportEnvelopesToCsv({
     required List<CargoXEnvelopeModel> envelopes,
     required BuildContext context,
+    List<ImportFileModel>? shipments,
   }) {
     final l10n = context.l10n;
     final buffer = StringBuffer();
@@ -109,12 +120,18 @@ class CargoXExportService {
     ];
     buffer.writeln(headers.map(escapeCsv).join(','));
 
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     for (int i = 0; i < envelopes.length; i++) {
       final env = envelopes[i];
+      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+        env.importFileCode,
+        shipments: shipments,
+        isArabic: isAr,
+      );
       final row = [
         '${i + 1}',
         env.envelopeCode,
-        env.importFileCode ?? '—',
+        shipmentTitle,
         env.acidNumber,
         env.supplierName,
         env.supplierCargoxId,
@@ -136,8 +153,9 @@ class CargoXExportService {
   static Future<void> saveEnvelopesCsvToFile({
     required BuildContext context,
     required List<CargoXEnvelopeModel> envelopes,
+    List<ImportFileModel>? shipments,
   }) async {
-    final csvContent = exportEnvelopesToCsv(envelopes: envelopes, context: context);
+    final csvContent = exportEnvelopesToCsv(envelopes: envelopes, context: context, shipments: shipments);
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     await FileSaveHelper.saveText(
       context: context,
@@ -153,6 +171,7 @@ class CargoXExportService {
   static Future<void> printOrSaveEnvelopesPdf({
     required BuildContext context,
     required List<CargoXEnvelopeModel> envelopes,
+    List<ImportFileModel>? shipments,
   }) async {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final l10n = context.l10n;
@@ -219,11 +238,11 @@ class CargoXExportService {
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(
-                'CargoX & ACI Blockchain Dispatch Verification Report',
+                'ImportFlow ERP — Logistics & Customs Engine',
                 style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
               ),
               pw.Text(
-                '${ctx.pageNumber} / ${ctx.pagesCount}',
+                'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
                 style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
               ),
             ],
@@ -268,10 +287,15 @@ class CargoXExportService {
             data: envelopes.asMap().entries.map((entry) {
               final idx = entry.key + 1;
               final env = entry.value;
+              final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+                env.importFileCode,
+                shipments: shipments,
+                isArabic: isAr,
+              );
               return [
                 '$idx',
                 env.envelopeCode,
-                env.importFileCode ?? '—',
+                shipmentTitle,
                 env.acidNumber,
                 env.supplierName,
                 env.supplierCargoxId,
@@ -320,6 +344,7 @@ class CargoXExportService {
   static void copyEnvelopesDossier({
     required BuildContext context,
     required List<CargoXEnvelopeModel> envelopes,
+    List<ImportFileModel>? shipments,
   }) {
     final l10n = context.l10n;
     final buffer = StringBuffer();
@@ -334,9 +359,15 @@ class CargoXExportService {
     buffer.writeln(l10n.cargoxDossierEnvelopesTitle);
     buffer.writeln('----------------------------------------------------------------');
 
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     for (int i = 0; i < envelopes.length; i++) {
       final env = envelopes[i];
-      buffer.writeln('[${i + 1}] ${env.envelopeCode} | ${l10n.cargoxTsvHeaderImportFile}: ${env.importFileCode ?? "N/A"}');
+      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+        env.importFileCode,
+        shipments: shipments,
+        isArabic: isAr,
+      );
+      buffer.writeln('[${i + 1}] ${env.envelopeCode} | ${l10n.cargoxTsvHeaderImportFile}: $shipmentTitle');
       buffer.writeln('     ${l10n.cargoxTsvHeaderAcid}: ${env.acidNumber}');
       buffer.writeln('     ${l10n.cargoxTsvHeaderSupplier}: ${env.supplierName} (${env.supplierCargoxId})');
       buffer.writeln('     ${l10n.cargoxTsvHeaderBlNumber}: ${env.blNumber ?? "N/A"}');
@@ -363,8 +394,10 @@ class CargoXExportService {
   static String exportSessionsToTsv({
     required List<StandardInvoiceSessionModel> sessions,
     required BuildContext context,
+    List<ImportFileModel>? shipments,
   }) {
     final l10n = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final buffer = StringBuffer();
     buffer.write('\uFEFF');
 
@@ -384,10 +417,15 @@ class CargoXExportService {
 
     for (int i = 0; i < sessions.length; i++) {
       final s = sessions[i];
+      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+        s.importFileCode,
+        shipments: shipments,
+        isArabic: isAr,
+      );
       final row = [
         '${i + 1}',
         s.sessionCode,
-        s.importFileCode,
+        shipmentTitle.isNotEmpty ? '$shipmentTitle (${s.importFileCode})' : s.importFileCode,
         s.acidNumber ?? '—',
         s.invoiceNumber ?? '—',
         s.exporterName ?? '—',
@@ -405,8 +443,9 @@ class CargoXExportService {
   static Future<void> saveSessionsTsvToFile({
     required BuildContext context,
     required List<StandardInvoiceSessionModel> sessions,
+    List<ImportFileModel>? shipments,
   }) async {
-    final tsvContent = exportSessionsToTsv(sessions: sessions, context: context);
+    final tsvContent = exportSessionsToTsv(sessions: sessions, context: context, shipments: shipments);
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     await FileSaveHelper.saveText(
       context: context,
@@ -421,8 +460,10 @@ class CargoXExportService {
   static String exportSessionsToCsv({
     required List<StandardInvoiceSessionModel> sessions,
     required BuildContext context,
+    List<ImportFileModel>? shipments,
   }) {
     final l10n = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final buffer = StringBuffer();
     buffer.write('\uFEFF');
 
@@ -449,10 +490,15 @@ class CargoXExportService {
 
     for (int i = 0; i < sessions.length; i++) {
       final s = sessions[i];
+      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+        s.importFileCode,
+        shipments: shipments,
+        isArabic: isAr,
+      );
       final row = [
         '${i + 1}',
         s.sessionCode,
-        s.importFileCode,
+        shipmentTitle.isNotEmpty ? '$shipmentTitle (${s.importFileCode})' : s.importFileCode,
         s.acidNumber ?? '—',
         s.invoiceNumber ?? '—',
         s.exporterName ?? '—',
@@ -470,8 +516,9 @@ class CargoXExportService {
   static Future<void> saveSessionsCsvToFile({
     required BuildContext context,
     required List<StandardInvoiceSessionModel> sessions,
+    List<ImportFileModel>? shipments,
   }) async {
-    final csvContent = exportSessionsToCsv(sessions: sessions, context: context);
+    final csvContent = exportSessionsToCsv(sessions: sessions, context: context, shipments: shipments);
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     await FileSaveHelper.saveText(
       context: context,
@@ -486,6 +533,7 @@ class CargoXExportService {
   static Future<void> printOrSaveSessionsPdf({
     required BuildContext context,
     required List<StandardInvoiceSessionModel> sessions,
+    List<ImportFileModel>? shipments,
   }) async {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final l10n = context.l10n;
@@ -564,10 +612,15 @@ class CargoXExportService {
             data: sessions.asMap().entries.map((entry) {
               final idx = entry.key + 1;
               final s = entry.value;
+              final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+                s.importFileCode,
+                shipments: shipments,
+                isArabic: isAr,
+              );
               return [
                 '$idx',
                 s.sessionCode,
-                s.importFileCode,
+                shipmentTitle.isNotEmpty ? '$shipmentTitle\n[${s.importFileCode}]' : s.importFileCode,
                 s.acidNumber ?? '—',
                 s.invoiceNumber ?? '—',
                 s.exporterName ?? '—',
@@ -591,8 +644,10 @@ class CargoXExportService {
   static void copySessionsDossier({
     required BuildContext context,
     required List<StandardInvoiceSessionModel> sessions,
+    List<ImportFileModel>? shipments,
   }) {
     final l10n = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final buffer = StringBuffer();
 
     buffer.writeln('================================================================');
@@ -606,7 +661,12 @@ class CargoXExportService {
 
     for (int i = 0; i < sessions.length; i++) {
       final s = sessions[i];
-      buffer.writeln('[${i + 1}] ${s.sessionCode} | File: ${s.importFileCode} | ACID: ${s.acidNumber ?? "N/A"}');
+      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+        s.importFileCode,
+        shipments: shipments,
+        isArabic: isAr,
+      );
+      buffer.writeln('[${i + 1}] ${s.sessionCode} | File: $shipmentTitle (${s.importFileCode}) | ACID: ${s.acidNumber ?? "N/A"}');
       buffer.writeln('     Invoice: ${s.invoiceNumber ?? "N/A"} | Supplier: ${s.exporterName ?? "N/A"}');
       buffer.writeln('     Total: ${s.totalAmount.toStringAsFixed(2)} ${s.currencyCode} | Items: ${s.lineItemsCount}');
       buffer.writeln('     Status: ${s.status} | Updated: ${s.updatedAt.toIso8601String().substring(0, 10)}');

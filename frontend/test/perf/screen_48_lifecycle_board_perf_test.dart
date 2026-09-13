@@ -151,7 +151,7 @@ void main() {
 
       expect(kanbanDossier, contains('IMP-2026-001'));
       expect(kanbanDossier, contains('Test Company'));
-      expect(kanbanDossier, contains('STEP_04'));
+      expect(kanbanDossier, contains('اعتماد الميزانية'));
 
       final testRadarItem = LiveLogisticsTrackingItemModel(
         importFileId: 1,

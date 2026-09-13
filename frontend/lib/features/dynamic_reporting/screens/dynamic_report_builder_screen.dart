@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/master_data_export_service.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/import_file_po_linker.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
@@ -409,13 +410,13 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
       case 'status':
         return file.status;
       case 'currentStage':
-        return file.currentStage;
+        return DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr);
       case 'progressPercent':
         return '${file.progressPercent.toInt()}%';
       case 'priority':
         return file.priority;
       case 'nextAction':
-        return file.nextAction;
+        return DisplayNameResolver.resolveActionTitle(file.nextAction, isArabic: isAr);
       case 'fileOpeningDate':
         return file.fileOpeningDate ?? '-';
       case 'notes':

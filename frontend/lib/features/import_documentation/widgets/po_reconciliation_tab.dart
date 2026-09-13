@@ -6,9 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/import_documentation_model.dart';
@@ -1187,7 +1189,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             // ==========================================
             // PART 2: SAVED SESSIONS HISTORY REGISTRY
             // ==========================================
-            _buildSavedSessionsHistorySection(sessionsList),
+            _buildSavedSessionsHistorySection(sessionsList, importFiles),
           ],
         ),
       ),
@@ -1693,8 +1695,12 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   // ==========================================
   // PART 2: SAVED SESSIONS HISTORY SECTION
   // ==========================================
-  Widget _buildSavedSessionsHistorySection(List<POReconciliationSessionModel> allSessions) {
+  Widget _buildSavedSessionsHistorySection(
+    List<POReconciliationSessionModel> allSessions,
+    List<ImportFileModel> importFiles,
+  ) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     // Apply filters
     var filtered = allSessions.where((s) {
       if (_statusFilter != 'All' && s.overallStatus != _statusFilter) return false;
@@ -1702,11 +1708,15 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         final q = _searchHistoryCtrl.text.trim().toLowerCase();
         final code = s.sessionCode.toLowerCase();
         final fCode = (s.importFileCode ?? '').toLowerCase();
+        final rawFileCode = s.importFileCode ?? 'IMP-${s.importFileId}';
+        final shipmentTitle = rawFileCode.isNotEmpty
+            ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isAr).toLowerCase()
+            : '';
         final imp = (s.importerName ?? '').toLowerCase();
         final inv = (s.finalInvoiceNumber ?? '').toLowerCase();
         final pl = (s.finalPackingListNumber ?? '').toLowerCase();
         final acid = (s.acidNumber ?? '').toLowerCase();
-        return code.contains(q) || fCode.contains(q) || imp.contains(q) || inv.contains(q) || pl.contains(q) || acid.contains(q);
+        return code.contains(q) || fCode.contains(q) || shipmentTitle.contains(q) || imp.contains(q) || inv.contains(q) || pl.contains(q) || acid.contains(q);
       }
       return true;
     }).toList();
@@ -1959,7 +1969,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         final idx = entry.key + 1;
                         final sess = entry.value;
 
-                        final importFileSummary = '${sess.importFileCode ?? "IMP-${sess.importFileId}"} - ${sess.importerName ?? ""}';
+                        final rawFileCode = sess.importFileCode ?? 'IMP-${sess.importFileId}';
+                        final shipmentTitle = rawFileCode.isNotEmpty
+                            ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isAr)
+                            : (sess.importerName ?? '—');
+                        final importFileSummary = rawFileCode.isNotEmpty && rawFileCode != shipmentTitle
+                            ? '$shipmentTitle ($rawFileCode) - ${sess.importerName ?? ""}'
+                            : '$shipmentTitle - ${sess.importerName ?? ""}';
                         final invPlSummary = '${sess.finalInvoiceNumber ?? ""} | ${sess.finalPackingListNumber ?? ""}';
                         final totalValSummary = '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}';
                         final pkgGrossSummary = '${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit} | ${sess.totalGrossWeightKg.toStringAsFixed(0)} ${l.poRecKgUnit}';
@@ -2019,20 +2035,52 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
                             // 3. Import File & Importer
                             DataCell(
-                              CopyableTableCell(value: importFileSummary, rowSummary: rowSummary, child: Column(
+                              CopyableTableCell(
+                                value: importFileSummary,
+                                rowSummary: rowSummary,
+                                child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-                                      sess.importFileCode ?? 'IMP-${sess.importFileId}',
+                                      shipmentTitle,
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                                     ),
-                                    Text(
-                                      sess.importerName ?? '—',
-                                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (rawFileCode.isNotEmpty) ...[
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.cobalt.withOpacity(0.08),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                            ),
+                                            child: Text(
+                                              rawFileCode,
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme.cobalt,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                        ],
+                                        Flexible(
+                                          child: Text(
+                                            sess.importerName ?? '—',
+                                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
-                                )),
+                                ),
+                              ),
                             ),
 
                             // 4. Final Invoice & Packing List
@@ -2239,6 +2287,16 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   // --- POPUP DIALOGS ---
   void _showSaveSuccessReportDialog(BuildContext context, POReconciliationSessionModel sess) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final rawFileCode = sess.importFileCode ?? 'IMP-${sess.importFileId}';
+    final shipmentTitle = rawFileCode.isNotEmpty
+        ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isAr)
+        : '';
+    final fileDisplay = shipmentTitle.isNotEmpty && shipmentTitle != rawFileCode
+        ? '$shipmentTitle ($rawFileCode)'
+        : (rawFileCode.isNotEmpty ? rawFileCode : 'N/A');
+
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -2262,7 +2320,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${l.poRecImportFileLabel}: ${sess.importFileCode ?? "IMP-${sess.importFileId}"} - ${sess.importerName ?? "N/A"}'),
+                Text('${l.poRecImportFileLabel}: $fileDisplay - ${sess.importerName ?? "N/A"}'),
                 const SizedBox(height: 6),
                 Text('${l.poRecFinalInvoiceNoLabel}: ${sess.finalInvoiceNumber ?? "N/A"} | ${l.poRecFinalPackingListNoLabel}: ${sess.finalPackingListNumber ?? "N/A"}'),
                 const SizedBox(height: 6),
@@ -2313,6 +2371,16 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
   void _showSessionDetailsModal(BuildContext context, POReconciliationSessionModel sess) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final rawFileCode = sess.importFileCode ?? 'IMP-${sess.importFileId}';
+    final shipmentTitle = rawFileCode.isNotEmpty
+        ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isAr)
+        : '';
+    final fileDisplay = shipmentTitle.isNotEmpty && shipmentTitle != rawFileCode
+        ? '$shipmentTitle ($rawFileCode)'
+        : (rawFileCode.isNotEmpty ? rawFileCode : '—');
+
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -2347,7 +2415,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     ),
                     child: Row(
                       children: [
-                        _buildExtractedPill(l.poRecImportFileLabel, sess.importFileCode ?? 'IMP-${sess.importFileId}', Icons.folder_rounded),
+                        _buildExtractedPill(l.poRecImportFileLabel, fileDisplay, Icons.folder_rounded),
                         const SizedBox(width: 8),
                         _buildExtractedPill(l.poRecFinalInvoiceNoLabel, sess.finalInvoiceNumber ?? '—', Icons.receipt_long),
                         const SizedBox(width: 8),
@@ -2431,11 +2499,21 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
   void _showPrintReportDialog(BuildContext context, POReconciliationSessionModel sess) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final rawFileCode = sess.importFileCode ?? 'IMP-${sess.importFileId}';
+    final shipmentTitle = rawFileCode.isNotEmpty
+        ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isAr)
+        : '';
+    final fileDisplay = shipmentTitle.isNotEmpty && shipmentTitle != rawFileCode
+        ? '$shipmentTitle ($rawFileCode)'
+        : (rawFileCode.isNotEmpty ? rawFileCode : 'N/A');
+
     final buffer = StringBuffer();
     buffer.writeln('================================================================');
     buffer.writeln(l.poRecReportTitle);
     buffer.writeln('${l.poRecReportSessionCode}: ${sess.sessionCode}');
-    buffer.writeln('${l.poRecReportImportFile}: ${sess.importFileCode ?? "IMP-${sess.importFileId}"} | ${l.poRecReportImporter}: ${sess.importerName ?? "N/A"}');
+    buffer.writeln('${l.poRecReportImportFile}: $fileDisplay | ${l.poRecReportImporter}: ${sess.importerName ?? "N/A"}');
     buffer.writeln('${l.poRecReportShipper}: ${sess.shipperName ?? "N/A"} | ${l.poRecReportAcid}: ${sess.acidNumber ?? "N/A"}');
     buffer.writeln('${l.poRecReportInvoiceNo}: ${sess.finalInvoiceNumber ?? "N/A"} | ${l.poRecReportPackingNo}: ${sess.finalPackingListNumber ?? "N/A"}');
     buffer.writeln('${l.poRecReportTotalValue}: ${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}');

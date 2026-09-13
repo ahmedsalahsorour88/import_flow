@@ -10503,6 +10503,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get inqDossierRowShippingMode => 'Shipping Mode';
   @override String get inqDossierRowIncoterm => 'Incoterm';
   @override String get inqDossierRowFreight => 'Freight Cost';
+  @override String get themeToggleTooltip => 'Toggle Dark / Light Mode';
+  @override String get darkMode => 'Dark Mode';
+  @override String get lightMode => 'Light Mode';
+  @override String get systemMode => 'System Default';
 }
 
 

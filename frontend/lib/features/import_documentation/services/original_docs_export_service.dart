@@ -4,6 +4,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/display_name_resolver.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../import_files/models/import_file_model.dart';
@@ -415,7 +416,7 @@ class OriginalDocsExportService {
                   crossAxisAlignment: isAr ? pw.CrossAxisAlignment.start : pw.CrossAxisAlignment.end,
                   children: [
                     pw.Text(
-                      '${l.colImportFile}: ${file.importFileCode}',
+                      '${l.colImportFile}: ${file.primaryNameWithCode}',
                       style: pw.TextStyle(color: PdfColors.white, fontSize: 12, fontWeight: pw.FontWeight.bold),
                     ),
                     if (session != null)
@@ -628,6 +629,7 @@ class OriginalDocsExportService {
   static String buildRegistryDossier({
     required BuildContext context,
     required List<OriginalDocumentsCollectionSessionModel> sessions,
+    List<ImportFileModel>? shipments,
   }) {
     final l = context.l10n;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
@@ -642,7 +644,12 @@ class OriginalDocsExportService {
     for (var i = 0; i < sessions.length; i++) {
       final s = sessions[i];
       final status = getStatusLabel(context, s.status);
-      buf.writeln('${i + 1}. [${s.collectionCode}] — ${s.importFileCode} ($status)');
+      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+        s.importFileCode,
+        shipments: shipments,
+        isArabic: isAr,
+      );
+      buf.writeln('${i + 1}. [${s.collectionCode}] — $shipmentTitle ($status)');
       buf.writeln('   $acidLabel: ${s.acidNumber ?? "—"} | ${l.partySupplier}: ${s.supplierName ?? "—"}');
       buf.writeln('   ${l.colTotalDocs}: ${s.totalDocumentsCount} | ${l.colReceivedDocs}: ${s.receivedDocumentsCount} | ${l.colVerifiedDocs}: ${s.verifiedDocumentsCount} | ${l.colCompletionPercentage}: ${s.completionPercentage}%');
       buf.writeln('   ${l.colUpdatedAt}: ${s.updatedAt.toIso8601String().substring(0, 16).replaceAll("T", " ")}');
@@ -660,9 +667,10 @@ class OriginalDocsExportService {
   static Future<void> copyRegistryDossier({
     required BuildContext context,
     required List<OriginalDocumentsCollectionSessionModel> sessions,
+    List<ImportFileModel>? shipments,
   }) async {
     final l = context.l10n;
-    final text = buildRegistryDossier(context: context, sessions: sessions);
+    final text = buildRegistryDossier(context: context, sessions: sessions, shipments: shipments);
     await CopyHelper.copy(context, text, customMessage: l.originalDocsRegistryCopiedSuccess);
   }
 
@@ -670,8 +678,10 @@ class OriginalDocsExportService {
   static Future<void> exportRegistryTsv({
     required BuildContext context,
     required List<OriginalDocumentsCollectionSessionModel> sessions,
+    List<ImportFileModel>? shipments,
   }) async {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final buf = StringBuffer();
     buf.write('\uFEFF'); // UTF-8 BOM
 
@@ -690,9 +700,14 @@ class OriginalDocsExportService {
     ].join('\t'));
 
     for (final s in sessions) {
+      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+        s.importFileCode,
+        shipments: shipments,
+        isArabic: isAr,
+      );
       buf.writeln([
         _cleanTsv(s.collectionCode),
-        _cleanTsv(s.importFileCode),
+        _cleanTsv(shipmentTitle),
         _cleanTsv(s.acidNumber ?? ''),
         _cleanTsv(s.supplierName ?? ''),
         s.totalDocumentsCount.toString(),
@@ -724,8 +739,10 @@ class OriginalDocsExportService {
   static Future<void> exportRegistryExcel({
     required BuildContext context,
     required List<OriginalDocumentsCollectionSessionModel> sessions,
+    List<ImportFileModel>? shipments,
   }) async {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final buf = StringBuffer();
     buf.write('\uFEFF'); // UTF-8 BOM
 
@@ -744,9 +761,14 @@ class OriginalDocsExportService {
     ].join(','));
 
     for (final s in sessions) {
+      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+        s.importFileCode,
+        shipments: shipments,
+        isArabic: isAr,
+      );
       buf.writeln([
         _csvQuote(s.collectionCode),
-        _csvQuote(s.importFileCode),
+        _csvQuote(shipmentTitle),
         _csvQuote(s.acidNumber ?? ''),
         _csvQuote(s.supplierName ?? ''),
         s.totalDocumentsCount.toString(),
@@ -774,6 +796,7 @@ class OriginalDocsExportService {
   static Future<void> printRegistryPdf({
     required BuildContext context,
     required List<OriginalDocumentsCollectionSessionModel> sessions,
+    List<ImportFileModel>? shipments,
   }) async {
     final l = context.l10n;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
@@ -843,23 +866,30 @@ class OriginalDocsExportService {
                   _pdfCell(l.colUpdatedAt, isHeader: true, headerColor: PdfColors.white),
                 ],
               ),
-              ...sessions.map((s) => pw.TableRow(
-                    decoration: pw.BoxDecoration(
-                      color: s.completionPercentage == 100 ? PdfColors.green50 : PdfColors.white,
-                    ),
-                    children: [
-                      _pdfCell(s.collectionCode, isBold: true),
-                      _pdfCell(s.importFileCode),
-                      _pdfCell(s.acidNumber ?? '—'),
-                      _pdfCell(s.supplierName ?? '—'),
-                      _pdfCell('${s.totalDocumentsCount}'),
-                      _pdfCell('${s.receivedDocumentsCount}'),
-                      _pdfCell('${s.verifiedDocumentsCount}'),
-                      _pdfCell('${s.completionPercentage}%'),
-                      _pdfCell(getStatusLabel(context, s.status)),
-                      _pdfCell(s.updatedAt.toIso8601String().substring(0, 16).replaceAll('T', ' ')),
-                    ],
-                  )),
+              ...sessions.map((s) {
+                final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(
+                  s.importFileCode,
+                  shipments: shipments,
+                  isArabic: isAr,
+                );
+                return pw.TableRow(
+                  decoration: pw.BoxDecoration(
+                    color: s.completionPercentage == 100 ? PdfColors.green50 : PdfColors.white,
+                  ),
+                  children: [
+                    _pdfCell(s.collectionCode, isBold: true),
+                    _pdfCell(shipmentTitle),
+                    _pdfCell(s.acidNumber ?? '—'),
+                    _pdfCell(s.supplierName ?? '—'),
+                    _pdfCell('${s.totalDocumentsCount}'),
+                    _pdfCell('${s.receivedDocumentsCount}'),
+                    _pdfCell('${s.verifiedDocumentsCount}'),
+                    _pdfCell('${s.completionPercentage}%'),
+                    _pdfCell(getStatusLabel(context, s.status)),
+                    _pdfCell(s.updatedAt.toIso8601String().substring(0, 16).replaceAll('T', ' ')),
+                  ],
+                );
+              }),
             ],
           ),
         ],

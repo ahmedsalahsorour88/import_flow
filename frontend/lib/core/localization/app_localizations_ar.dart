@@ -10504,6 +10504,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get inqDossierRowShippingMode => 'أسلوب الشحن';
   @override String get inqDossierRowIncoterm => 'شرط التسليم';
   @override String get inqDossierRowFreight => 'النولون';
+  @override String get themeToggleTooltip => 'تبديل المظهر الداكن والنهاري';
+  @override String get darkMode => 'الوضع الداكن';
+  @override String get lightMode => 'الوضع النهاري';
+  @override String get systemMode => 'حسب إعدادات النظام';
 }
 
 

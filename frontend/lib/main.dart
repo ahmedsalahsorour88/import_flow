@@ -11,6 +11,7 @@ import 'core/localization/locale_provider.dart';
 import 'core/network/dio_client.dart';
 import 'core/performance/navigation_perf_tracker.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_provider.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/home/home_screen.dart';
@@ -248,6 +249,7 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
     final reloadKey = ref.watch(appReloadKeyProvider);
     final authState = ref.watch(authProvider);
     final locale = ref.watch(localeProvider);
+    final themeMode = ref.watch(themeModeProvider);
     final isRtl = locale.languageCode == 'ar';
 
     return KeyedSubtree(
@@ -261,6 +263,8 @@ class _SorourLogisticsAppState extends ConsumerState<SorourLogisticsApp>
             debugShowCheckedModeBanner: false,
             title: 'Sorour Logistics ERP (v1.0.159)',
             theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeMode,
             scrollBehavior: AppCustomScrollBehavior(),
             locale: locale,
             navigatorObservers: [NavigationPerfTracker.instance],

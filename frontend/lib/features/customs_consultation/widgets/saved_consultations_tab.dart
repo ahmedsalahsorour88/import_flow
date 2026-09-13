@@ -10,6 +10,8 @@ import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import 'package:printing/printing.dart';
+import '../../../core/services/display_name_resolver.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../services/customs_consultation_pdf_service.dart';
 import '../services/customs_export_service.dart';
 class SavedConsultationsTab extends ConsumerStatefulWidget {
@@ -44,6 +46,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final consultationsState = ref.watch(customsConsultationsProvider);
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     return // TAB 2: SAVED CONSULTATIONS HISTORY REGISTRY (Premium Design)
         consultationsState.when(
       loading: () => Center(
@@ -64,6 +67,10 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
             : allSessions;
 
         final filtered = sessions.where((s) {
+          final rawFileCode = s.importFileCode ?? (s.importFileId != null ? 'IMP-${s.importFileId}' : '');
+          final shipmentTitle = rawFileCode.isNotEmpty
+              ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: Localizations.localeOf(context).languageCode == 'ar')
+              : '';
           final matchQuery = _searchQuery.isEmpty ||
               s.consultationCode
                   .toLowerCase()
@@ -72,6 +79,12 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                   .toLowerCase()
                   .contains(_searchQuery.toLowerCase()) ||
               s.brokerName
+                  .toLowerCase()
+                  .contains(_searchQuery.toLowerCase()) ||
+              rawFileCode
+                  .toLowerCase()
+                  .contains(_searchQuery.toLowerCase()) ||
+              shipmentTitle
                   .toLowerCase()
                   .contains(_searchQuery.toLowerCase());
           final matchStatus =
@@ -237,6 +250,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                               onPressed: () => CustomsExportService.exportConsultationsLogTsv(
                                 context: context,
                                 sessions: filtered,
+                                shipments: importFiles,
                               ),
                               icon: const Icon(Icons.table_view_outlined, size: 15, color: Colors.blueGrey),
                               label: Text(l.customsTaxExportTsvBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -252,6 +266,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                               onPressed: () => CustomsExportService.exportConsultationsLogExcel(
                                 context: context,
                                 sessions: filtered,
+                                shipments: importFiles,
                               ),
                               icon: const Icon(Icons.description_outlined, size: 15, color: AppTheme.emerald),
                               label: Text(l.customsTaxExportExcelBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -279,6 +294,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                               onPressed: () => CustomsExportService.copyConsultationsLogDossier(
                                 context: context,
                                 sessions: filtered,
+                                shipments: importFiles,
                               ),
                               icon: const Icon(Icons.copy_all_outlined, size: 15, color: AppTheme.cobalt),
                               label: Text(l.customsTaxCopyDossierBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -381,12 +397,17 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                     final hasBlocking =
                                         session.hasBlockingIssues ||
                                             session.blockingIssuesCount > 0;
-                                    final fileCodeStr = session.importFileCode ?? (session.importFileId != null ? 'IMP-${session.importFileId}' : '—');
+                                    final rawFileCode = session.importFileCode ?? (session.importFileId != null ? 'IMP-${session.importFileId}' : '—');
                                     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
                                     final egpLabel = isArabic ? 'ج.م' : 'EGP';
-                                    final rowSummary = isArabic
-                                        ? '${session.consultationCode} | $fileCodeStr | ${session.title} | ${session.brokerName} | ${session.estimatedDutiesEgp.toStringAsFixed(0)} $egpLabel | ${readinessPct.toStringAsFixed(0)}% | ${session.overallStatus}'
-                                        : '${session.consultationCode} | $fileCodeStr | ${session.title} | ${session.brokerName} | ${session.estimatedDutiesEgp.toStringAsFixed(0)} $egpLabel | ${readinessPct.toStringAsFixed(0)}% | ${session.overallStatus}';
+                                    final shipmentTitle = (rawFileCode != '—')
+                                        ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isArabic)
+                                        : '—';
+                                    final fileDisplay = (shipmentTitle != '—' && shipmentTitle != rawFileCode)
+                                        ? '$shipmentTitle ($rawFileCode)'
+                                        : shipmentTitle;
+                                    final rowSummary =
+                                        '${session.consultationCode} | $fileDisplay | ${session.title} | ${session.brokerName} | ${session.estimatedDutiesEgp.toStringAsFixed(0)} $egpLabel | ${readinessPct.toStringAsFixed(0)}% | ${session.overallStatus}';
 
                                     return DataRow(
                                       color:
@@ -560,18 +581,36 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                         // 3. Import File
                                         DataCell(
                                           CopyableTableCell(
-                                            value: fileCodeStr,
+                                            value: fileDisplay,
                                             rowSummary: rowSummary,
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: AppTheme.charcoal.withOpacity(0.07),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                fileCodeStr,
-                                                style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
-                                              ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  shipmentTitle,
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                                                ),
+                                                if (rawFileCode != '—' && rawFileCode != shipmentTitle) ...[
+                                                  const SizedBox(height: 2),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                    decoration: BoxDecoration(
+                                                      color: AppTheme.cobalt.withOpacity(0.08),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                                    ),
+                                                    child: Text(
+                                                      rawFileCode,
+                                                      style: const TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: AppTheme.cobalt,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
                                             ),
                                           ),
                                         ),

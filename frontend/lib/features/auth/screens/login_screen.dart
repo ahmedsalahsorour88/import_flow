@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../providers/auth_provider.dart';
 
@@ -62,10 +63,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final currentLocale = ref.watch(localeProvider);
+    final isDark = AppTheme.isDark(context);
     final l = context.l10n;
 
     return Scaffold(
-      backgroundColor: AppTheme.charcoal,
+      backgroundColor: isDark ? const Color(0xFF141A22) : AppTheme.charcoal,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(vertical: 24),
@@ -84,22 +86,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Language Switcher in Card Header
+                          // Theme & Language Switcher in Card Header
                           Align(
                             alignment: AlignmentDirectional.topEnd,
-                            child: TextButton.icon(
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppTheme.cobalt,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              ),
-                              icon: const Icon(Icons.language_rounded, size: 18),
-                              label: Text(
-                                currentLocale.languageCode == 'ar' ? 'English' : 'العربية',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                              ),
-                              onPressed: () {
-                                ref.read(localeProvider.notifier).toggleLocale();
-                              },
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                  icon: Icon(
+                                    isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                                    size: 18,
+                                    color: AppTheme.cobalt,
+                                  ),
+                                  tooltip: l.themeToggleTooltip,
+                                  onPressed: () {
+                                    ref.read(themeModeProvider.notifier).toggleTheme();
+                                  },
+                                ),
+                                const SizedBox(width: 6),
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppTheme.cobalt,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  ),
+                                  icon: const Icon(Icons.language_rounded, size: 18),
+                                  label: Text(
+                                    currentLocale.languageCode == 'ar' ? 'English' : 'العربية',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                  onPressed: () {
+                                    ref.read(localeProvider.notifier).toggleLocale();
+                                  },
+                                ),
+                              ],
                             ),
                           ),
 
@@ -115,10 +136,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const SizedBox(height: 16),
                           Text(
                             l.appTitle,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.charcoal,
+                              color: isDark ? AppTheme.cloudWhite : AppTheme.charcoal,
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -126,7 +147,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           Text(
                             l.loginScreenSubtitle,
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                            style: TextStyle(
+                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              fontSize: 13,
+                            ),
                           ),
                           const SizedBox(height: 28),
 
@@ -212,13 +236,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
 
                           const SizedBox(height: 24),
-                          Divider(color: Colors.grey.shade300),
+                          Divider(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                           const SizedBox(height: 12),
 
                           // Quick Dev Logins
                           Text(
                             l.loginQuickDemoAccess,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                            ),
                           ),
                           const SizedBox(height: 10),
                           Wrap(

@@ -7,6 +7,8 @@ import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../providers/goods_in_transit_provider.dart';
 import '../services/goods_in_transit_export_service.dart';
+import '../../import_files/providers/import_files_provider.dart';
+import '../../../core/services/display_name_resolver.dart';
 
 class GoodsInTransitScreen extends ConsumerStatefulWidget {
   final bool isEmbedded;
@@ -330,39 +332,71 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                                 DataColumn(label: Text(l.gitColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                               ],
                               rows: filteredItems.map((item) {
+                                final allFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+                                final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                                final rawCode = item.importFileCode;
+                                final shipName = DisplayNameResolver.resolveShipmentNameByCode(rawCode, shipments: allFiles, isArabic: isAr);
+                                final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: allFiles, isArabic: isAr);
                                 final isDelivered = item.isDeliveredToWarehouse;
                                 final statusStr = isDelivered ? l.gitStatusDeliveredToWarehouse : l.gitStatusInTransit;
                                 final rowSummary =
-                                    '${item.importFileCode}\t${item.poNumber}\t${item.itemCode}\t${item.itemName}\t${item.invoicedQty.toStringAsFixed(0)}\t${item.packagesCount} ${item.packageType}\t${item.containersCount} × ${item.containerType}\t${item.certifiedDate}\t$statusStr';
+                                    '$shipTitle\t${item.poNumber}\t${item.itemCode}\t${item.itemName}\t${item.invoicedQty.toStringAsFixed(0)}\t${item.packagesCount} ${item.packageType}\t${item.containersCount} × ${item.containerType}\t${item.certifiedDate}\t$statusStr';
 
                                 return DataRow(cells: [
                                   // Import File Code badge
                                   DataCell(
                                     CopyableTableCell(
-                                      value: item.importFileCode,
+                                      value: shipTitle,
                                       rowSummary: rowSummary,
-                                      child: InkWell(
-                                        onTap: () => CopyHelper.copy(
-                                          context,
-                                          item.importFileCode,
-                                          customMessage: '${l.gitColFileCode}: ${item.importFileCode}',
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.charcoal.withOpacity(0.08),
-                                            borderRadius: BorderRadius.circular(4),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            shipName,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.charcoal,
+                                              fontSize: 12,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(item.importFileCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
-                                              const SizedBox(width: 4),
-                                              const Icon(Icons.copy, size: 12, color: AppTheme.charcoal),
-                                            ],
-                                          ),
-                                        ),
+                                          if (rawCode.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 2),
+                                              child: InkWell(
+                                                onTap: () => CopyHelper.copy(
+                                                  context,
+                                                  rawCode,
+                                                  customMessage: '${l.gitColFileCode}: $rawCode',
+                                                ),
+                                                borderRadius: BorderRadius.circular(4),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.charcoal.withOpacity(0.08),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        rawCode,
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.w600,
+                                                          color: Colors.grey.shade700,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 3),
+                                                      const Icon(Icons.copy, size: 10, color: Colors.grey),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
                                   ),

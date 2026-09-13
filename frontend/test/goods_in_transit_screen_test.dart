@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -149,13 +149,13 @@ void main() {
 
       // Verify item codes rendered
       final fileCodeFinder = find.text('IMP-2026-001');
-      expect(fileCodeFinder, findsOneWidget);
+      expect(fileCodeFinder, findsWidgets);
 
-      await tester.ensureVisible(fileCodeFinder);
+      await tester.ensureVisible(fileCodeFinder.last);
       await tester.pumpAndSettle();
 
       // Tap on file code badge
-      await tester.tap(fileCodeFinder, warnIfMissed: false);
+      await tester.tap(fileCodeFinder.last, warnIfMissed: false);
       await tester.pumpAndSettle();
 
       // Verify clipboard was set

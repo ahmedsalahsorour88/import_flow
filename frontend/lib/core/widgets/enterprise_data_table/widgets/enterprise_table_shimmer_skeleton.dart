@@ -44,14 +44,22 @@ class _EnterpriseTableShimmerSkeletonState
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final baseColor = isDark ? AppTheme.darkSurface : Colors.grey.shade200;
+    final highlightColor = isDark ? AppTheme.darkBorderLight : Colors.grey.shade50;
+    final headerBaseColor = isDark ? AppTheme.darkBorder : Colors.grey.shade300;
+    final headerHighlightColor = isDark ? AppTheme.darkBorderLight : Colors.grey.shade100;
+
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) {
         return Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? AppTheme.darkCardBackground : Colors.white,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(
+              color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+            ),
           ),
           child: Column(
             children: [
@@ -60,12 +68,16 @@ class _EnterpriseTableShimmerSkeletonState
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: AppTheme.charcoal.withOpacity(0.04),
+                  color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04),
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(8),
                     topRight: Radius.circular(8),
                   ),
-                  border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                    ),
+                  ),
                 ),
                 child: Row(
                   children: List.generate(widget.columnCount, (index) {
@@ -75,8 +87,8 @@ class _EnterpriseTableShimmerSkeletonState
                         child: _buildShimmerBox(
                           height: 16,
                           width: double.infinity,
-                          baseColor: Colors.grey.shade300,
-                          highlightColor: Colors.grey.shade100,
+                          baseColor: headerBaseColor,
+                          highlightColor: headerHighlightColor,
                         ),
                       ),
                     );
@@ -91,9 +103,13 @@ class _EnterpriseTableShimmerSkeletonState
                   height: 46,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: isEven ? Colors.grey.shade50 : Colors.white,
+                    color: isDark
+                        ? (isEven ? AppTheme.darkSurface : AppTheme.darkCardBackground)
+                        : (isEven ? Colors.grey.shade50 : Colors.white),
                     border: Border(
-                      bottom: BorderSide(color: Colors.grey.shade100),
+                      bottom: BorderSide(
+                        color: isDark ? AppTheme.darkBorder : Colors.grey.shade100,
+                      ),
                     ),
                   ),
                   child: Row(
@@ -108,8 +124,8 @@ class _EnterpriseTableShimmerSkeletonState
                             child: _buildShimmerBox(
                               height: 13,
                               width: 120 * factor,
-                              baseColor: Colors.grey.shade200,
-                              highlightColor: Colors.grey.shade50,
+                              baseColor: baseColor,
+                              highlightColor: highlightColor,
                             ),
                           ),
                         ),

@@ -8,6 +8,7 @@ import '../../../core/services/display_name_resolver.dart';
 import '../../../core/providers/navigation_provider.dart';
 import '../../../core/performance/dispose_tracker.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_shimmer_skeleton.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
@@ -200,7 +201,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   children: [
                     // 0. Executive KPI Summary Cards & Risk Alerts
                     dashboardState.data.when(
-                      loading: () => const SizedBox(height: 90, child: Center(child: CircularProgressIndicator())),
+                      loading: () => const DashboardKpiShimmerSkeleton(),
                       error: (_, __) => const SizedBox(),
                       data: (data) => Column(
                         children: [
@@ -236,14 +237,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
 
             // 4. Virtualized Shipment Cards List / Loading / Error / Empty States
             dashboardState.data.when(
-              loading: () => const SliverToBoxAdapter(
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(40),
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
-              ),
+              loading: () => ShipmentListShimmerSkeleton.sliver(count: 3),
               error: (err, _) => SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -316,7 +310,10 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
 
             // Customs Broker Dynamic Select Dropdown
             dashboardState.data.when(
-              loading: () => const SizedBox(width: 200, child: LinearProgressIndicator()),
+              loading: () => const SizedBox(
+                width: 240,
+                child: ShimmerBox(width: 240, height: 40, borderRadius: 6),
+              ),
               error: (_, __) => const SizedBox(),
               data: (data) {
                 final brokers = data.availableBrokers;
@@ -2008,12 +2005,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
 
             // 6 Phases & 21 Steps
             boardAsync.when(
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: CircularProgressIndicator(),
-                ),
-              ),
+              loading: () => const LifecycleSummaryShimmerSkeleton(),
               error: (_, __) => _buildDynamicLifecyclePhases(null, dashboardState, notifier),
               data: (boardData) => _buildDynamicLifecyclePhases(boardData, dashboardState, notifier),
             ),

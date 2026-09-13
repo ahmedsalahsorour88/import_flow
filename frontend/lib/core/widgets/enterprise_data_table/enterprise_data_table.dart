@@ -349,15 +349,19 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
     final isAllSelected = filteredData.isNotEmpty &&
         filteredData.every((item) => _internalSelectedItems.contains(item));
 
+    final isDark = AppTheme.isDark(context);
+
     return SelectionArea(
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? AppTheme.darkCardBackground : Colors.white,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(
+            color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.02),
+              color: isDark ? const Color(0x33000000) : Colors.black.withOpacity(0.02),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -472,6 +476,7 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
     List<T> pagedData,
     bool isAllSelected,
   ) {
+    final isDark = AppTheme.isDark(context);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: ConstrainedBox(
@@ -482,7 +487,9 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
           dataRowMaxHeight: widget.rowHeight + 8,
           horizontalMargin: 16,
           columnSpacing: 20,
-          headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
+          headingRowColor: WidgetStateProperty.all(
+            isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.06),
+          ),
           showCheckboxColumn: false, // handled via our custom checkbox column
           columns: [
             // Optional Selection Checkbox Column
@@ -517,7 +524,9 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: isSorted ? AppTheme.cobalt : AppTheme.charcoal,
+                            color: isSorted
+                                ? AppTheme.cobalt
+                                : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                           ),
                           textAlign: col.textAlign,
                         ),
@@ -548,8 +557,14 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
               selected: isSelected,
               color: WidgetStateProperty.resolveWith((states) {
                 if (isSelected) return AppTheme.cobalt.withOpacity(0.08);
-                if (states.contains(WidgetState.hovered)) return Colors.blueGrey.shade50.withOpacity(0.5);
-                return isEven ? Colors.grey.shade50 : Colors.white;
+                if (states.contains(WidgetState.hovered)) {
+                  return isDark
+                      ? AppTheme.darkElevatedSurface.withOpacity(0.4)
+                      : Colors.blueGrey.shade50.withOpacity(0.5);
+                }
+                return isEven
+                    ? (isDark ? AppTheme.darkSurface : Colors.grey.shade50)
+                    : (isDark ? AppTheme.darkCardBackground : Colors.white);
               }),
               onSelectChanged: widget.onRowTap != null
                   ? (_) => widget.onRowTap!(item)

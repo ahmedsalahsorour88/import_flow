@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_shimmer_skeleton.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/critical_alert_banner.dart';
@@ -256,7 +257,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
     final boardAsync = ref.watch(lifecycleBoardSummaryProvider);
 
     return boardAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const KanbanBoardShimmerSkeleton(),
       error: (err, _) => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -432,7 +433,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
     final radarAsync = ref.watch(livePollingProvider);
 
     return radarAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const RadarTableShimmerSkeleton(),
       error: (err, _) => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

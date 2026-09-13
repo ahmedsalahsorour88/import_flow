@@ -27,6 +27,7 @@ import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/stop_shipment_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/app_shimmer_skeleton.dart';
 import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
@@ -1401,7 +1402,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
             // Files Data Table
             Expanded(
               child: paginatedState.isLoading 
-                ? const Center(child: CircularProgressIndicator())
+                ? const ImportFilesTableShimmerSkeleton()
                 : paginatedState.error != null
                   ? Center(child: Text('❌ Error: ${paginatedState.error}', style: const TextStyle(color: Colors.red)))
                   : paginatedState.items.isEmpty

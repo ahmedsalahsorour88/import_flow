@@ -559,10 +559,14 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
     final l = context.l10n;
     final totalCount = widget.records.length;
     final displayedList = _filteredRecords;
+    final isDark = AppTheme.isDark(context);
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+      ),
+      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
       child: Container(
         width: 880,
@@ -576,16 +580,16 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                color: widget.themeColor.withOpacity(0.06),
+                color: widget.themeColor.withOpacity(isDark ? 0.15 : 0.06),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200)),
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: widget.themeColor.withOpacity(0.15),
+                      color: widget.themeColor.withOpacity(isDark ? 0.25 : 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(widget.icon, color: widget.themeColor, size: 22),
@@ -597,10 +601,10 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                         Flexible(
                           child: Text(
                             widget.title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.charcoal,
+                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -627,8 +631,8 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                   if (totalCount > 0) ...[
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: widget.themeColor,
-                        side: BorderSide(color: widget.themeColor.withOpacity(0.5)),
+                        foregroundColor: isDark ? Colors.white : widget.themeColor,
+                        side: BorderSide(color: widget.themeColor.withOpacity(isDark ? 0.7 : 0.5)),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       icon: const Icon(Icons.copy_all_rounded, size: 16),
@@ -638,10 +642,10 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                       ),
                       onPressed: () => _copyAllRecords(context, l),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                   ],
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.grey),
+                    icon: Icon(Icons.close, size: 20, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
                     tooltip: l.drillDownCloseBtn,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -649,20 +653,21 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
               ),
             ),
 
-            // ── Search Bar Filter (Only if items > 0) ──────────────────────
+            // ── Search & Filter Bar ────────────────────────────────────────
             if (totalCount > 0)
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
                 child: TextField(
                   controller: _searchController,
+                  style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                   onChanged: (val) => setState(() => _searchQuery = val),
                   decoration: InputDecoration(
                     hintText: l.drillDownSearchHint,
-                    hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-                    prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                    hintStyle: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextMuted : Colors.grey.shade500),
+                    prefixIcon: Icon(Icons.search, size: 20, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
+                            icon: Icon(Icons.clear, size: 18, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
                             onPressed: () {
                               _searchController.clear();
                               setState(() => _searchQuery = '');
@@ -670,15 +675,15 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                           )
                         : null,
                     filled: true,
-                    fillColor: Colors.grey.shade50,
+                    fillColor: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                     ),
                   ),
                 ),
@@ -687,14 +692,14 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
             // ── Records List or Empty State ────────────────────────────────
             Expanded(
               child: totalCount == 0
-                  ? _buildEmptyState(context, l)
+                  ? _buildEmptyState(context, l, isDark: isDark)
                   : displayedList.isEmpty
                       ? Center(
                           child: Text(
                             widget.isArabic
                                 ? 'لا توجد نتائج مطابقة لبحثك'
                                 : 'No items match your search query',
-                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                            style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600, fontSize: 13),
                           ),
                         )
                       : ListView.separated(
@@ -703,7 +708,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                           separatorBuilder: (_, __) => const SizedBox(height: 12),
                           itemBuilder: (ctx, index) {
                             final item = displayedList[index];
-                            return _buildRecordCard(context, item, l);
+                            return _buildRecordCard(context, item, l, isDark: isDark);
                           },
                         ),
             ),
@@ -712,20 +717,20 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
-                border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                border: Border(top: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     '${l.drillDownItemsCountSuffix}: ${displayedList.length} / $totalCount',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
                   ),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.charcoal,
+                      backgroundColor: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
@@ -744,7 +749,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, AppLocalizations l) {
+  Widget _buildEmptyState(BuildContext context, AppLocalizations l, {bool isDark = false}) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -754,7 +759,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: widget.themeColor.withOpacity(0.08),
+                color: widget.themeColor.withOpacity(isDark ? 0.18 : 0.08),
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.task_alt_rounded, size: 48, color: widget.themeColor),
@@ -762,10 +767,10 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
             const SizedBox(height: 16),
             Text(
               l.drillDownEmptyTitle,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.charcoal,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
               ),
             ),
             const SizedBox(height: 8),
@@ -774,7 +779,11 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
               child: Text(
                 l.drillDownEmptyDesc,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                  height: 1.4,
+                ),
               ),
             ),
           ],
@@ -783,14 +792,15 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
     );
   }
 
-  Widget _buildRecordCard(BuildContext context, DrillDownItem item, AppLocalizations l) {
+  Widget _buildRecordCard(BuildContext context, DrillDownItem item, AppLocalizations l, {bool isDark = false}) {
     final statusColor = _getStatusColor(item.statusColorType);
 
     return Card(
       elevation: 1.5,
+      color: isDark ? AppTheme.darkCardBackground : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -807,17 +817,20 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                     children: [
                       CopyableText(
                         item.title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.charcoal,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                         ),
                       ),
                       if (item.subtitle != null && item.subtitle!.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(
                           item.subtitle!,
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                          ),
                         ),
                       ],
                     ],
@@ -827,14 +840,14 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.12),
+                    color: statusColor.withOpacity(isDark ? 0.22 : 0.12),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: statusColor.withOpacity(0.4)),
+                    border: Border.all(color: statusColor.withOpacity(isDark ? 0.6 : 0.4)),
                   ),
                   child: Text(
                     item.status,
                     style: TextStyle(
-                      color: statusColor,
+                      color: isDark ? Colors.tealAccent.shade100 : statusColor,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
@@ -842,7 +855,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                 ),
                 const SizedBox(width: 6),
                 IconButton(
-                  icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                  icon: Icon(Icons.copy_rounded, size: 16, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
                   tooltip: l.drillDownCopiedItemToast,
                   onPressed: () => _copySingleRecord(context, item, l),
                   padding: EdgeInsets.zero,
@@ -856,20 +869,21 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.08),
+                  color: AppTheme.cobalt.withOpacity(isDark ? 0.22 : 0.08),
                   borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: isDark ? AppTheme.cobalt.withOpacity(0.4) : Colors.transparent),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.local_shipping_outlined, size: 14, color: AppTheme.cobalt),
+                    Icon(Icons.local_shipping_outlined, size: 14, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
                     const SizedBox(width: 6),
                     Text(
                       DashboardCardDrillDownDialog.formatBadgeShipment(item),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.cobalt,
+                        color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt,
                       ),
                     ),
                   ],
@@ -877,7 +891,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
               ),
             ],
 
-            const Divider(height: 20),
+            Divider(height: 20, color: isDark ? AppTheme.darkBorder : const Color(0xFFE0E0E0)),
 
             // Middle Grid: What / Who / By When
             Wrap(
@@ -888,19 +902,22 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                   icon: Icons.checklist_rtl_rounded,
                   label: l.drillDownLabelWhat,
                   value: item.nextAction ?? item.title,
-                  color: AppTheme.charcoal,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                  isDark: isDark,
                 ),
                 _buildInfoBlock(
                   icon: Icons.person_outline_rounded,
                   label: l.drillDownLabelWho,
                   value: item.who,
-                  color: AppTheme.cobalt,
+                  color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt,
+                  isDark: isDark,
                 ),
                 _buildInfoBlock(
                   icon: Icons.event_available_rounded,
                   label: l.drillDownLabelWhen,
                   value: item.byWhen,
-                  color: AppTheme.orange,
+                  color: isDark ? Colors.orange.shade300 : AppTheme.orange,
+                  isDark: isDark,
                 ),
               ],
             ),
@@ -912,14 +929,14 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
+                  color: isDark ? const Color(0xFF2E2419) : Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.amber.shade300),
+                  border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade300),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.info_outline, size: 15, color: Colors.amber.shade900),
+                    Icon(Icons.info_outline, size: 15, color: isDark ? Colors.amber.shade300 : Colors.amber.shade900),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -929,7 +946,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                             '⚠️ ${l.drillDownDataGapBadge}: $gap',
                             style: TextStyle(
                               fontSize: 11,
-                              color: Colors.amber.shade900,
+                              color: isDark ? Colors.amber.shade200 : Colors.amber.shade900,
                               fontWeight: FontWeight.w600,
                             ),
                           );
@@ -950,8 +967,8 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                   if (item.onSecondaryAction != null && item.secondaryActionLabel != null) ...[
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.cobalt,
-                        side: const BorderSide(color: AppTheme.cobalt),
+                        foregroundColor: isDark ? Colors.lightBlueAccent : AppTheme.cobalt,
+                        side: BorderSide(color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       ),
                       icon: const Icon(Icons.touch_app_rounded, size: 14),
@@ -997,6 +1014,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
     required String label,
     required String value,
     required Color color,
+    bool isDark = false,
   }) {
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 200, maxWidth: 360),
@@ -1014,16 +1032,16 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: Colors.grey.shade600,
+                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
                   ),
                 ),
                 const SizedBox(height: 2),
                 CopyableText(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.charcoal,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                   ),
                   showIcon: false,
                 ),

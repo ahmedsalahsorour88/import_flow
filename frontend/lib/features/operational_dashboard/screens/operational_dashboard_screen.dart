@@ -166,10 +166,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       }
     }
 
+    final isDark = AppTheme.isDark(context);
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
+        backgroundColor: isDark ? const Color(0xFF141A22) : AppTheme.charcoal,
         title: Row(
           children: [
             const Icon(Icons.dashboard_customize, color: AppTheme.cobalt),

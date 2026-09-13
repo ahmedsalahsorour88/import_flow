@@ -40,10 +40,15 @@ class ShipmentMilestoneTracker extends StatelessWidget {
     final activeIndex = _getCurrentPhaseIndex();
     final isClosed = importFile.status == 'Closed';
     final shipmentTitle = DisplayNameResolver.resolveShipmentTitle(importFile, isArabic: isArabic);
+    final isDark = AppTheme.isDark(context);
 
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -54,7 +59,10 @@ class ShipmentMilestoneTracker extends StatelessWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt.withOpacity(isDark ? 0.25 : 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   child: const Icon(Icons.timeline, color: AppTheme.cobalt, size: 20),
                 ),
                 const SizedBox(width: 10),
@@ -66,14 +74,21 @@ class ShipmentMilestoneTracker extends StatelessWidget {
                         isArabic
                             ? 'مخطط تتبع التقدم التشغيلي للشحنة: $shipmentTitle'
                             : 'Operational Progress Milestone: $shipmentTitle',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         isArabic
                             ? 'الشركة المستوردة: ${importFile.companyName} | المورد: ${importFile.supplierName}'
                             : 'Importing Company: ${importFile.companyName} | Supplier: ${importFile.supplierName}',
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                        ),
                       ),
                     ],
                   ),
@@ -82,15 +97,27 @@ class ShipmentMilestoneTracker extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: isClosed ? Colors.grey.shade200 : AppTheme.emerald.withOpacity(0.1),
+                    color: isClosed
+                        ? (isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade200)
+                        : (isDark ? AppTheme.emerald.withOpacity(0.2) : AppTheme.emerald.withOpacity(0.1)),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: isClosed ? Colors.grey : AppTheme.emerald),
+                    border: Border.all(
+                      color: isClosed
+                          ? (isDark ? AppTheme.darkBorder : Colors.grey)
+                          : (isDark ? Colors.tealAccent : AppTheme.emerald),
+                    ),
                   ),
                   child: Text(
                     isClosed
                         ? (isArabic ? 'مغلقة ومؤرشفة' : 'Closed & Archived')
                         : (isArabic ? 'نسبة الإنجاز: ${importFile.progressPercent.toInt()}%' : 'Progress: ${importFile.progressPercent.toInt()}%'),
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isClosed ? Colors.grey.shade700 : AppTheme.emerald),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: isClosed
+                          ? (isDark ? AppTheme.darkTextMuted : Colors.grey.shade700)
+                          : (isDark ? Colors.tealAccent : AppTheme.emerald),
+                    ),
                   ),
                 ),
               ],
@@ -107,8 +134,8 @@ class ShipmentMilestoneTracker extends StatelessWidget {
                   final isCurrent = idx == activeIndex && !isClosed;
                   final phaseName = isArabic ? (phase['name_ar'] as String) : (phase['name_en'] as String);
 
-                  Color circleColor = Colors.grey.shade300;
-                  Color iconColor = Colors.grey.shade600;
+                  Color circleColor = isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade300;
+                  Color iconColor = isDark ? AppTheme.darkTextMuted : Colors.grey.shade600;
                   if (isDone) {
                     circleColor = AppTheme.emerald;
                     iconColor = Colors.white;
@@ -127,7 +154,9 @@ class ShipmentMilestoneTracker extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: circleColor,
                               shape: BoxShape.circle,
-                              boxShadow: isCurrent ? [BoxShadow(color: AppTheme.cobalt.withOpacity(0.4), blurRadius: 8, spreadRadius: 2)] : null,
+                              boxShadow: isCurrent
+                                  ? [BoxShadow(color: AppTheme.cobalt.withOpacity(isDark ? 0.6 : 0.4), blurRadius: 8, spreadRadius: 2)]
+                                  : null,
                             ),
                             child: Icon(
                               isDone ? Icons.check : (phase['icon'] as IconData),
@@ -141,7 +170,11 @@ class ShipmentMilestoneTracker extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                              color: isCurrent ? AppTheme.cobalt : (isDone ? AppTheme.emerald : Colors.grey),
+                              color: isCurrent
+                                  ? (isDark ? Colors.lightBlueAccent : AppTheme.cobalt)
+                                  : (isDone
+                                      ? (isDark ? Colors.tealAccent : AppTheme.emerald)
+                                      : (isDark ? AppTheme.darkTextMuted : Colors.grey.shade600)),
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -155,7 +188,9 @@ class ShipmentMilestoneTracker extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                                color: isCurrent ? AppTheme.charcoal : Colors.grey.shade700,
+                                color: isCurrent
+                                  ? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)
+                                  : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                               ),
                             ),
                           ),
@@ -166,7 +201,9 @@ class ShipmentMilestoneTracker extends StatelessWidget {
                           width: 40,
                           height: 3,
                           margin: const EdgeInsets.only(bottom: 24),
-                          color: isDone ? AppTheme.emerald : Colors.grey.shade300,
+                          color: isDone
+                              ? AppTheme.emerald
+                              : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                         ),
                     ],
                   );

@@ -69,7 +69,7 @@ from modules.lifecycle_board.model import (
     StepConfigAuditLog,
     PendingReferenceRecord,
 )
-from modules.smart_email_listener.model import InboundEmailLog
+from modules.smart_email_listener.model import InboundEmailLog, EmailSettings
 from modules.formal_letters.model import FormalLetterRecord
 from modules.freight_data_connector.model import (
     FreightIndexSnapshot,
@@ -79,6 +79,7 @@ from modules.freight_data_connector.model import (
 )
 from modules.expense_catalog.model import ExpenseCatalog
 from modules.experience_guide.model import GuideEntry, GuideEntryScope
+from modules.smart_checklists.model import ImportFileChecklistItem
 
 
 
@@ -127,11 +128,12 @@ from modules.original_documents_collection.router import router as original_docu
 from modules.production_sync.router import router as production_sync_router
 from modules.route_intelligence.router import router as route_intelligence_router
 from modules.simulation.router import router as simulation_router
-from modules.smart_email_listener.router import router as smart_email_listener_router
+from modules.smart_email_listener.router import router as smart_email_listener_router, compat_router as smart_email_compat_router
 from modules.formal_letters.router import router as formal_letters_router
 from modules.freight_data_connector.router import freight_data_router
 from modules.expense_catalog.router import router as expense_catalog_router
 from modules.experience_guide.router import router as experience_guide_router
+from modules.smart_checklists.router import router as smart_checklists_router
 
 
 
@@ -245,10 +247,12 @@ app.include_router(production_sync_router)
 app.include_router(route_intelligence_router)
 app.include_router(simulation_router)
 app.include_router(smart_email_listener_router)
+app.include_router(smart_email_compat_router)
 app.include_router(formal_letters_router)
 app.include_router(freight_data_router)
 app.include_router(expense_catalog_router)
 app.include_router(experience_guide_router)
+app.include_router(smart_checklists_router)
 
 
 

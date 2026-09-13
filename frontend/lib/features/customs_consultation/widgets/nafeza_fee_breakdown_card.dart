@@ -53,6 +53,7 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final egpLabel = isArabic ? 'ج.م' : 'EGP';
     final nafezaResult = CustomsExportService.computeNafezaFeeBreakdown(
       totalDutyEgp: totalDutyEgp,
@@ -65,7 +66,7 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(top: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? AppTheme.darkCardBackground : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppTheme.cobalt.withOpacity(0.35)),
           boxShadow: [
@@ -83,7 +84,7 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: AppTheme.cobalt.withOpacity(0.08),
+                color: AppTheme.cobalt.withOpacity(isDark ? 0.18 : 0.08),
                 borderRadius: const BorderRadius.only(topLeft: Radius.circular(9), topRight: Radius.circular(9)),
                 border: Border(bottom: BorderSide(color: AppTheme.cobalt.withOpacity(0.2))),
               ),
@@ -171,7 +172,7 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                       // 3. PDF Export Button
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.charcoal,
+                          backgroundColor: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         ),
@@ -236,9 +237,9 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
+                      color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                     ),
                     child: Column(
                       children: [
@@ -246,7 +247,7 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.blueGrey.shade100.withOpacity(0.4),
+                            color: isDark ? AppTheme.darkCardBackground : Colors.blueGrey.shade100.withOpacity(0.4),
                             borderRadius: const BorderRadius.only(topLeft: Radius.circular(5), topRight: Radius.circular(5)),
                           ),
                           child: Row(
@@ -254,11 +255,11 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                             children: [
                               Text(
                                 '${l.nafezaCollectionPrefix} ${group.groupName}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                               ),
                               Text(
                                 '${group.totalAmount.toStringAsFixed(2)} $egpLabel',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                               ),
                             ],
                           ),
@@ -282,13 +283,13 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                                       width: 44,
                                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.shade200,
+                                        color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade200,
                                         borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: Colors.grey.shade300),
+                                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                                       ),
                                       child: Text(
                                         '[${item.code}]',
-                                        style: const TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.bold),
+                                        style: TextStyle(fontSize: 11, color: isDark ? AppTheme.cobalt : Colors.blueGrey, fontWeight: FontWeight.bold),
                                         textAlign: TextAlign.center,
                                       ),
                                     ),
@@ -299,21 +300,25 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                                 Expanded(
                                   child: Text(
                                     item.nameAr,
-                                    style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, fontWeight: FontWeight.w500),
+                                    style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal, fontWeight: FontWeight.w500),
                                   ),
                                 ),
                                 // Calculation Type
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: item.calculationType == 'flat' ? Colors.blue.shade50 : Colors.teal.shade50,
+                                    color: item.calculationType == 'flat'
+                                        ? (isDark ? Colors.blue.withOpacity(0.2) : Colors.blue.shade50)
+                                        : (isDark ? Colors.teal.withOpacity(0.2) : Colors.teal.shade50),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     typeLabel,
                                     style: TextStyle(
                                       fontSize: 10,
-                                      color: item.calculationType == 'flat' ? Colors.blue.shade800 : Colors.teal.shade800,
+                                      color: item.calculationType == 'flat'
+                                          ? (isDark ? Colors.blue.shade300 : Colors.blue.shade800)
+                                          : (isDark ? Colors.teal.shade300 : Colors.teal.shade800),
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -324,7 +329,7 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                                   width: 110,
                                   child: Text(
                                     '${item.calculatedAmount.toStringAsFixed(2)} $egpLabel',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                     textAlign: TextAlign.end,
                                   ),
                                 ),

@@ -55,6 +55,8 @@ import '../production_sync/widgets/production_sync_hub_dialog.dart';
 import '../production_sync/providers/production_sync_provider.dart';
 import '../auth/screens/users_management_screen.dart';
 import '../shipment_inquiry/screens/shipment_inquiry_screen.dart';
+import '../smart_tasks/widgets/smart_email_listener_dialog.dart';
+import '../smart_tasks/widgets/email_settings_dialog.dart';
 import '../../core/widgets/ai_assistant_panel.dart';
 import '../../core/widgets/system_live_clock_widget.dart';
 
@@ -314,6 +316,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         IconButton(
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
+          icon: const Icon(Icons.mail_outline_rounded, color: Colors.white70, size: 16),
+          tooltip: isArabic ? 'إعدادات ومزامنة البريد الإلكتروني' : 'Email Integration & Settings',
+          onPressed: () => EmailSettingsDialog.show(context),
+        ),
+        const SizedBox(height: 6),
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
           icon: Icon(
             AppTheme.isDark(context) ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
             color: Colors.white70,
@@ -375,6 +385,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildFullSidebar(int selectedIndex, dynamic user) {
     final l = context.l10n;
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -440,6 +451,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               const SizedBox(width: 2),
               const NotificationBellWidget(),
+              const SizedBox(width: 2),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                icon: const Icon(Icons.mail_outline_rounded, color: Colors.white70, size: 15),
+                tooltip: isArabic ? 'إعدادات ومزامنة البريد الإلكتروني' : 'Email Integration & Settings',
+                onPressed: () => EmailSettingsDialog.show(context),
+              ),
               const SizedBox(width: 2),
               IconButton(
                 padding: EdgeInsets.zero,
@@ -658,6 +677,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildMenuItem(Icons.assessment_outlined, 'Dynamic Report Builder', 'مُنشئ التقارير المخصصة', 41, selectedIndex),
                   _buildMenuItem(Icons.published_with_changes_outlined, 'Quick Update Engine', 'محرك التحديث السريع', 42, selectedIndex),
                   _buildMenuItem(Icons.task_alt_outlined, 'Smart Tasks & Alerts', 'المهام والتنبيهات الذكية', 40, selectedIndex),
+                  _buildActionMenuItem(
+                    icon: Icons.mark_email_read_outlined,
+                    titleEn: 'Smart Email & Inbox Listener',
+                    titleAr: 'المستمع الذكي للبريد وإشعارات الوصول',
+                    color: AppTheme.cobalt,
+                    onTap: () => SmartEmailListenerDialog.show(context),
+                  ),
+                  _buildActionMenuItem(
+                    icon: Icons.settings_suggest_rounded,
+                    titleEn: 'Email Server Settings (IMAP/SMTP)',
+                    titleAr: 'إعدادات ربط البريد (IMAP/SMTP)',
+                    color: Colors.cyanAccent.shade700,
+                    onTap: () => EmailSettingsDialog.show(context),
+                  ),
                   _buildMenuItem(Icons.history_edu_outlined, 'System Audit Logs', 'سجل التدقيق والرقابة', 39, selectedIndex),
                   _buildMenuItem(Icons.sync_alt_rounded, 'Production Sync Hub', 'مركز مزامنة وتحديث الإنتاج', 59, selectedIndex),
                   // Users Management & RBAC — ADMIN and MANAGER
@@ -930,6 +963,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
+
+  Widget _buildActionMenuItem({
+    required IconData icon,
+    required String titleEn,
+    required String titleAr,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    if (_searchQuery.isNotEmpty &&
+        !titleEn.toLowerCase().contains(_searchQuery) &&
+        !titleAr.toLowerCase().contains(_searchQuery)) {
+      return const SizedBox.shrink();
+    }
+
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
+    final title = isArabic ? titleAr : titleEn;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(4),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 13.5,
+                  color: color ?? const Color(0xCCECF0F1),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: color ?? AppTheme.cloudWhite,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 10.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
 
 
   void _showSystemInfoDialog(BuildContext context) {

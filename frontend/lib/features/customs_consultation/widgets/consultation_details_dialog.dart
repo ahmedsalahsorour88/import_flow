@@ -13,13 +13,18 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
       context: context,
       builder: (context) {
         final l = context.l10n;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
           title: Row(
             children: [
               const Icon(Icons.verified_user, color: AppTheme.cobalt),
               const SizedBox(width: 8),
               Expanded(
-                child: CopyableText('${l.consultationDetailsTitle}: ${session.consultationCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                child: CopyableText(
+                  '${l.consultationDetailsTitle}: ${session.consultationCode}',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                ),
               ),
               ConsultationStatusBadge(status: session.overallStatus),
             ],
@@ -33,7 +38,10 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                 children: [
                   Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -68,7 +76,10 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(l.clearanceQuotesTab, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                        Text(
+                          l.clearanceQuotesTab,
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
@@ -78,7 +89,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                     ),
                     const SizedBox(height: 8),
                     Table(
-                      border: TableBorder.all(color: Colors.grey.shade300),
+                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                       columnWidths: const {
                         0: FlexColumnWidth(2.8),
                         1: FlexColumnWidth(1.8),
@@ -88,7 +99,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                       },
                       children: [
                         TableRow(
-                          decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.08)),
+                          decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(isDark ? 0.2 : 0.08)),
                           children: [
                             Padding(padding: const EdgeInsets.all(8), child: Text(l.expenseItemNameCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                             Padding(padding: const EdgeInsets.all(8), child: Text(l.categoryCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
@@ -115,10 +126,13 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                     ),
                   ],
 
-                  Text(l.customsChecklistTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(
+                    l.customsChecklistTitle,
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                  ),
                   const SizedBox(height: 8),
                   Table(
-                    border: TableBorder.all(color: Colors.grey.shade300),
+                    border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                     columnWidths: const {
                       0: FlexColumnWidth(2.5),
                       1: FlexColumnWidth(1.2),
@@ -127,7 +141,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                     },
                     children: [
                       TableRow(
-                        decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                        decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.08)),
                         children: [
                           Padding(padding: const EdgeInsets.all(8), child: Text(l.requiredDocCheckbox, style: const TextStyle(fontWeight: FontWeight.bold))),
                           Padding(padding: const EdgeInsets.all(8), child: Text(l.responsiblePartyLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -186,7 +200,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
           ),
           actions: [
             ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal),
+              style: ElevatedButton.styleFrom(backgroundColor: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal),
               onPressed: () async {
                 await Printing.layoutPdf(
                   onLayout: (format) => CustomsConsultationPdfService.generateConsultationPdf(session),

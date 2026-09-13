@@ -41,6 +41,8 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     super.dispose();
   }
 
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(cbmCalculatorProvider);
@@ -68,7 +70,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       children: [
         // ─── Top Summary Cards (Matching Shipping Study Style) ───────────────
         Container(
-          color: AppTheme.charcoal,
+          color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
@@ -119,7 +121,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
           ),
           child: Row(
@@ -140,10 +142,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                           )
                         : null,
                     filled: true,
-                    fillColor: Colors.grey.shade50,
+                    fillColor: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
                     isDense: true,
                   ),
@@ -167,7 +169,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       state.showInactive ? l.showDeleted : l.hideDeleted,
                       style: TextStyle(
                         fontSize: 12,
-                        color: state.showInactive ? AppTheme.crimson : Colors.grey.shade700,
+                        color: state.showInactive ? AppTheme.crimson : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                         fontWeight: state.showInactive ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
@@ -226,9 +228,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                       child: Card(
                         elevation: 2,
+                        color: isDark ? AppTheme.darkCardBackground : Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Colors.grey.shade200),
+                          side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: SingleChildScrollView(
@@ -240,7 +243,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                             horizontalMargin: 16,
                             columnSpacing: 18,
                             dividerThickness: 0.5,
-                            headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
+                            headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal),
                             headingTextStyle: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -275,10 +278,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               final calc = entry.value;
                               final isEven = idx.isEven;
                               final rowColor = !calc.isActive
-                                  ? Colors.red.shade50
+                                  ? (isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50)
                                   : isEven
-                                      ? Colors.white
-                                      : Colors.grey.shade50;
+                                      ? (isDark ? AppTheme.darkCardBackground : Colors.white)
+                                      : (isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50);
 
                               return DataRow(
                                 color: WidgetStateProperty.all(rowColor),
@@ -395,7 +398,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                                       padding: const EdgeInsets.only(bottom: 2),
                                                       child: Text(
                                                         resolvedShipmentTitle,
-                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.charcoal),
+                                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                                         maxLines: 1,
                                                         overflow: TextOverflow.ellipsis,
                                                       ),
@@ -638,9 +641,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       totalWeightKg: calc.totalGrossWeightKg,
     );
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCardBackground : null,
         title: Row(
           children: [
             const Icon(Icons.view_in_ar_rounded, color: AppTheme.cobalt, size: 26),
@@ -648,7 +654,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             Expanded(
               child: Text(
                 l.cbmSessionDetailsTitle(calc.calcCode),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
               ),
             ),
             Container(
@@ -695,9 +701,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.green.shade50.withOpacity(0.6),
+                    color: isDark ? AppTheme.darkElevatedSurface : Colors.green.shade50.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.green.shade200),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.green.shade200),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -709,16 +715,16 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                           children: [
                             Text(
                               calc.title ?? l.calculationSessionTitle,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                             ),
                             if (calc.notes != null && calc.notes!.isNotEmpty) ...[
                               const SizedBox(height: 6),
-                              Text(l.cbmCargoNotes(calc.notes!), style: TextStyle(color: Colors.grey.shade800, fontSize: 12)),
+                              Text(l.cbmCargoNotes(calc.notes!), style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800, fontSize: 12)),
                             ],
                             const SizedBox(height: 6),
                             Text(
                               l.cbmCreationDate(calc.createdAt != null ? calc.createdAt.toString().substring(0, 16) : "—"),
-                              style: const TextStyle(color: Colors.grey, fontSize: 11),
+                              style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontSize: 11),
                             ),
                           ],
                         ),
@@ -732,12 +738,15 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                             if (rawFileCode != null)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                                decoration: BoxDecoration(
+                                  color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
                                 child: Text(
                                   resolvedShipmentTitle != null && resolvedShipmentTitle != rawFileCode
                                       ? '$resolvedShipmentTitle ($rawFileCode)'
                                       : l.cbmSessionImportFile(rawFileCode),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                 ),
                               ),
                             if (calc.poNumber != null) ...[
@@ -755,7 +764,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 const SizedBox(height: 16),
 
                 // 2. Metrics Strip Cards Row
-                Text(l.cbmStandardMetricsTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                Text(l.cbmStandardMetricsTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 10,
@@ -776,9 +785,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50.withOpacity(0.5),
+                    color: isDark ? AppTheme.darkElevatedSurface : Colors.blue.shade50.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.shade200),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.blue.shade200),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -790,7 +799,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                             children: [
                               const Icon(Icons.compare_arrows_rounded, color: AppTheme.cobalt, size: 20),
                               const SizedBox(width: 6),
-                              Text(l.cbmContainerComparisonTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                              Text(l.cbmContainerComparisonTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                             ],
                           ),
                           Container(
@@ -805,28 +814,28 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       ),
                       const SizedBox(height: 8),
                       Table(
-                        border: TableBorder.all(color: Colors.grey.shade300),
+                        border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                         children: [
                           TableRow(
-                            decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.06)),
+                            decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.06)),
                             children: [
-                              Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmScenarioHypothesisCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmScenarioHypothesisCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                               Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmScenarioStackableCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.emerald))),
                               Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmScenarioNonStackableCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.orange))),
                             ],
                           ),
                           TableRow(
                             children: [
-                              Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmRequiredContainerCount, style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmRequiredContainerCount, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${dualRec.stackableResult.requiredContainersCount} x ${dualRec.stackableResult.recommendedContainerCode}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${dualRec.nonStackableResult.requiredContainersCount} x ${dualRec.nonStackableResult.recommendedContainerCode}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange, fontSize: 11))),
                             ],
                           ),
                           TableRow(
                             children: [
-                              Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmSpaceUtilizationPercent, style: const TextStyle(fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6), child: Text('${dualRec.stackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6), child: Text('${dualRec.nonStackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmSpaceUtilizationPercent, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${dualRec.stackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${dualRec.nonStackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                             ],
                           ),
                         ],
@@ -841,7 +850,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(l.packageMeasurementsTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                    Text(l.packageMeasurementsTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.emerald,
@@ -860,7 +869,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
 
                 // 5. Table of Packages
                 Table(
-                  border: TableBorder.all(color: Colors.grey.shade300),
+                  border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                   columnWidths: const {
                     0: FlexColumnWidth(0.6),
                     1: FlexColumnWidth(1.8),
@@ -873,16 +882,16 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   },
                   children: [
                     TableRow(
-                      decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                      decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.08)),
                       children: [
-                        const Padding(padding: EdgeInsets.all(8), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: const EdgeInsets.all(8), child: Text(l.packageTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: const EdgeInsets.all(8), child: Text(l.qtyCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: const EdgeInsets.all(8), child: Text(l.cbmPackageDimensionsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: const EdgeInsets.all(8), child: Text(l.grossWtPerUnitCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: const EdgeInsets.all(8), child: Text(l.totalGrossWeightRegistryMetric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: const EdgeInsets.all(8), child: Text(l.stackingCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: const EdgeInsets.all(8), child: Text(l.cbmVolumeMetric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.packageTypeCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.qtyCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.cbmPackageDimensionsCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.grossWtPerUnitCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.totalGrossWeightRegistryMetric, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.stackingCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.cbmVolumeMetric, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                       ],
                     ),
                     ...calc.items.asMap().entries.map(
@@ -892,20 +901,20 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                         final lineGross = item.quantity * item.grossWeightPerUnitKg;
                         return TableRow(
                           children: [
-                            Padding(padding: const EdgeInsets.all(8), child: Text('${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(8), child: Text(item.packageType, style: const TextStyle(fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(8), child: Text('${item.quantity}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                            Padding(padding: const EdgeInsets.all(8), child: Text('${item.lengthCm} x ${item.widthCm} x ${item.heightCm}', style: const TextStyle(fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(8), child: Text('${item.grossWeightPerUnitKg} kg', style: const TextStyle(fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(8), child: Text('${lineGross.toStringAsFixed(1)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text('${idx + 1}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(item.packageType, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text('${item.quantity}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : null))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text('${item.lengthCm} x ${item.widthCm} x ${item.heightCm}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text('${item.grossWeightPerUnitKg} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text('${lineGross.toStringAsFixed(1)} kg', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                             Padding(
                               padding: const EdgeInsets.all(6),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: item.isStackable ? Colors.green.shade50 : Colors.red.shade50,
+                                  color: item.isStackable ? (isDark ? AppTheme.emerald.withOpacity(0.15) : Colors.green.shade50) : (isDark ? AppTheme.crimson.withOpacity(0.15) : Colors.red.shade50),
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: item.isStackable ? Colors.green.shade300 : Colors.red.shade300),
+                                  border: Border.all(color: item.isStackable ? (isDark ? AppTheme.emerald : Colors.green.shade300) : (isDark ? AppTheme.crimson : Colors.red.shade300)),
                                 ),
                                 child: Text(
                                   item.isStackable ? l.stackableOption : l.nonStackableOption,
@@ -913,7 +922,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
-                                    color: item.isStackable ? Colors.green.shade800 : Colors.red.shade800,
+                                    color: item.isStackable ? AppTheme.emerald : AppTheme.crimson,
                                   ),
                                 ),
                               ),
@@ -949,7 +958,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             },
           ),
           ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal, foregroundColor: Colors.white),
             icon: const Icon(Icons.link, size: 16),
             label: Text(l.cbmLinkToPoProjectBtn),
             onPressed: () {
@@ -978,13 +987,14 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   }
 
   Widget _buildDetailCardBadge(String title, String val, IconData icon, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: 280,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: isDark ? AppTheme.darkElevatedSurface : color.withOpacity(0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : color.withOpacity(0.3)),
       ),
       child: Row(
         children: [
@@ -994,7 +1004,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                Text(title, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontWeight: FontWeight.bold)),
                 Text(val, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis),
               ],
             ),
@@ -1006,6 +1016,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
 
   void _showEditCalcDialog(BuildContext context, CBMCalculationModel calc) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final formKey = GlobalKey<FormState>();
     final titleCtrl = TextEditingController(text: calc.title ?? '');
     final notesCtrl = TextEditingController(text: calc.notes ?? '');
@@ -1013,6 +1024,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCardBackground : null,
         title: Text(l.cbmEditMetadataDialogTitle(calc.calcCode)),
         content: SizedBox(
           width: 500,
@@ -1066,9 +1078,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
 
   void _showPrintReportDialog(BuildContext context, CBMCalculationModel calc) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCardBackground : null,
         title: Row(
           children: [
             const Icon(Icons.print_outlined, color: AppTheme.emerald),
@@ -1082,9 +1096,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1096,10 +1110,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Sorour Logistics ERP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal)),
+                          Text('Sorour Logistics ERP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                           Text(l.cbmCalculatorTitle, style: const TextStyle(color: AppTheme.cobalt, fontSize: 12, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 2),
-                          Text(l.cbmCalculatorSubtitle, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+                          Text(l.cbmCalculatorSubtitle, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600, fontSize: 11)),
                         ],
                       ),
                       Column(
@@ -1111,7 +1125,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                             child: Text(calc.calcCode, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                           ),
                           const SizedBox(height: 4),
-                          Text(l.cbmCreationDate(calc.createdAt != null ? calc.createdAt.toString().substring(0, 10) : DateTime.now().toString().substring(0, 10)), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                          Text(l.cbmCreationDate(calc.createdAt != null ? calc.createdAt.toString().substring(0, 10) : DateTime.now().toString().substring(0, 10)), style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
                         ],
                       ),
                     ],
@@ -1121,52 +1135,56 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   // Session Metadata
                   Row(
                     children: [
-                      Expanded(child: Text('${l.calculationSessionTitle}: ${calc.title ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                      Expanded(child: Text('${l.calculationSessionTitle}: ${calc.title ?? "-"}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : null))),
                       if (calc.poNumber != null)
                         Text(l.cbmSessionLinkedPo(calc.poNumber!), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12)),
                     ],
                   ),
                   if (calc.notes != null && calc.notes!.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(l.cbmCargoNotes(calc.notes!), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(l.cbmCargoNotes(calc.notes!), style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
                   ],
                   const SizedBox(height: 16),
 
                   // Summary Box
                   Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade300)),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildReportStat(l.totalCbmVolumeMetric, '${calc.totalCbm.toStringAsFixed(4)} m³', Colors.orange),
-                        _buildReportStat(l.airChargeableWtMetric, '${calc.airChargeableWeightKg.toStringAsFixed(1)} kg', Colors.purple),
-                        _buildReportStat(l.totalGrossWeightRegistryMetric, '${calc.totalGrossWeightKg.toStringAsFixed(1)} kg', AppTheme.cobalt),
-                        _buildReportStat(l.cargoStackingInstructions, calc.isStackable ? l.stackableOption : l.nonStackableOption, Colors.teal),
-                        _buildReportStat(l.shippingStrategyCol, calc.recommendedShippingMethod ?? '-', Colors.blue),
-                        _buildReportStat(l.recommendedContainerCol, calc.recommendedContainerType ?? '-', Colors.brown),
+                        _buildReportStat(l.totalCbmVolumeMetric, '${calc.totalCbm.toStringAsFixed(4)} m³', Colors.orange, isDark),
+                        _buildReportStat(l.airChargeableWtMetric, '${calc.airChargeableWeightKg.toStringAsFixed(1)} kg', Colors.purple, isDark),
+                        _buildReportStat(l.totalGrossWeightRegistryMetric, '${calc.totalGrossWeightKg.toStringAsFixed(1)} kg', AppTheme.cobalt, isDark),
+                        _buildReportStat(l.cargoStackingInstructions, calc.isStackable ? l.stackableOption : l.nonStackableOption, Colors.teal, isDark),
+                        _buildReportStat(l.shippingStrategyCol, calc.recommendedShippingMethod ?? '-', Colors.blue, isDark),
+                        _buildReportStat(l.recommendedContainerCol, calc.recommendedContainerType ?? '-', Colors.brown, isDark),
                       ],
                     ),
                   ),
                   const SizedBox(height: 20),
 
                   // Package Details Table
-                  Text(l.packageMeasurementsTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(l.packageMeasurementsTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : null)),
                   const SizedBox(height: 8),
                   Table(
-                    border: TableBorder.all(color: Colors.grey.shade400),
+                    border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade400),
                     children: [
                       TableRow(
-                        decoration: const BoxDecoration(color: AppTheme.cloudWhite),
+                        decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.cloudWhite),
                         children: [
-                          const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(l.packageTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmPackageDimensionsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(l.grossWtPerUnitCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(l.stackingCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(l.totalGrossWeightRegistryMetric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmVolumeMetric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.packageTypeCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmPackageDimensionsCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.grossWtPerUnitCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.stackingCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.totalGrossWeightRegistryMetric, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmVolumeMetric, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                         ],
                       ),
                       ...calc.items.asMap().entries.map(
@@ -1176,13 +1194,13 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                           final lineGross = item.quantity * item.grossWeightPerUnitKg;
                           return TableRow(
                             children: [
-                              Padding(padding: const EdgeInsets.all(6), child: Text('${idx + 1}', style: const TextStyle(fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6), child: Text(item.packageType, style: const TextStyle(fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity}', style: const TextStyle(fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6), child: Text('${item.lengthCm}x${item.widthCm}x${item.heightCm}', style: const TextStyle(fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6), child: Text('${item.grossWeightPerUnitKg} kg', style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${idx + 1}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text(item.packageType, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${item.lengthCm}x${item.widthCm}x${item.heightCm}', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${item.grossWeightPerUnitKg} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                               Padding(padding: const EdgeInsets.all(6), child: Text(item.isStackable ? l.stackableOption : l.nonStackableOption, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: item.isStackable ? Colors.green.shade800 : Colors.red.shade800))),
-                              Padding(padding: const EdgeInsets.all(6), child: Text('${lineGross.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${lineGross.toStringAsFixed(1)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${item.totalCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange))),
                             ],
                           );
@@ -1218,10 +1236,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     );
   }
 
-  Widget _buildReportStat(String label, String val, Color color) {
+  Widget _buildReportStat(String label, String val, Color color, [bool isDark = false]) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontWeight: FontWeight.bold)),
         Text(val, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
       ],
     );
@@ -1275,6 +1293,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     List projectsList,
   ) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     int? selectedPoId = calc.poId;
     int? selectedProjectId = calc.projectId;
 
@@ -1282,6 +1301,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCardBackground : null,
           title: Text(l.cbmLinkPoDialogTitle(calc.calcCode)),
           content: SizedBox(
             width: 450,
@@ -1345,12 +1365,14 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   // ignore: unused_element
   void _showContainerComparisonDialog(BuildContext context, ContainerDualRecommendationResult dualRec, double totalCbm, double totalWeightKg) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (dialogCtx) {
         return DefaultTabController(
           length: 2,
           child: AlertDialog(
+            backgroundColor: isDark ? AppTheme.darkCardBackground : null,
             title: Row(
               children: [
                 const Icon(Icons.inventory_2, color: AppTheme.cobalt),
@@ -1372,7 +1394,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
               child: Column(
                 children: [
                   Container(
-                    color: AppTheme.charcoal,
+                    color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
                     child: TabBar(
                       indicatorColor: AppTheme.cobalt,
                       labelColor: Colors.white,
@@ -1406,6 +1428,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   Widget _buildComparisonTable(BuildContext context, ContainerRecommendationResult rec) {
     final l = context.l10n;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -1414,15 +1437,20 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: rec.isStackable ? AppTheme.emerald.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+              color: rec.isStackable
+                  ? (isDark ? AppTheme.emerald.withOpacity(0.15) : AppTheme.emerald.withOpacity(0.1))
+                  : (isDark ? AppTheme.orange.withOpacity(0.15) : Colors.orange.withOpacity(0.1)),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade800),
+              border: Border.all(color: rec.isStackable ? AppTheme.emerald : (isDark ? AppTheme.orange : Colors.orange.shade800)),
             ),
-            child: Text('${l.approvedRecommendation}: ${isArabic ? rec.recommendationSummary : rec.recommendationSummaryEn}', style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade900)),
+            child: Text(
+              '${l.approvedRecommendation}: ${isArabic ? rec.recommendationSummary : rec.recommendationSummaryEn}',
+              style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : (isDark ? AppTheme.orange : Colors.orange.shade900)),
+            ),
           ),
           const SizedBox(height: 12),
           Table(
-            border: TableBorder.all(color: Colors.grey.shade300),
+            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
             columnWidths: const {
               0: FlexColumnWidth(2.0),
               1: FlexColumnWidth(1.2),
@@ -1432,13 +1460,13 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             },
             children: [
               TableRow(
-                decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.08)),
                 children: [
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.containerSpecCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.cbmRequiredContainerCount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.cbmSpaceUtilizationPercent, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.weightUtilizationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.recommendationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.containerSpecCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.cbmRequiredContainerCount, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.cbmSpaceUtilizationPercent, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.weightUtilizationCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.recommendationCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
                 ],
               ),
               ...rec.comparisonDetails.map((detail) {
@@ -1456,14 +1484,14 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
-                          Text('${l.cbmVolumeMetric}: ${spec.internalVolumeCbm} CBM | ${l.grossWtPerUnitCol}: ${spec.maxPayloadKg} kg', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                          Text('${l.cbmVolumeMetric}: ${spec.internalVolumeCbm} CBM | ${l.grossWtPerUnitCol}: ${spec.maxPayloadKg} kg', style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
                         ],
                       ),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: Text('$count x ${spec.code}', style: TextStyle(fontWeight: FontWeight.bold, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
+                      child: Text('$count x ${spec.code}', style: TextStyle(fontWeight: FontWeight.bold, color: isBest ? AppTheme.emerald : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -1481,7 +1509,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               decoration: BoxDecoration(color: AppTheme.emerald, borderRadius: BorderRadius.circular(4)),
                               child: Text(l.bestOptionBadge, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
                             )
-                          : Text(l.viableAlternative, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                          : Text(l.viableAlternative, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
                     ),
                   ],
                 );
@@ -1582,6 +1610,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             final fleetSummaryText = containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
 
             return AlertDialog(
+              backgroundColor: isDark ? AppTheme.darkCardBackground : null,
               title: Row(
                 children: [
                   const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
@@ -1589,7 +1618,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   Expanded(
                     child: Text(
                       l.cbmVisualPlannerTitle,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                     ),
                   ),
                   Container(
@@ -1615,9 +1644,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                       ),
                       child: Wrap(
                         alignment: WrapAlignment.spaceBetween,
@@ -1627,7 +1656,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                         children: [
                           Text(
                             l.chooseStackingScenario,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                           ),
                           Wrap(
                             spacing: 8,
@@ -1638,7 +1667,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                 selected: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false,
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
-                                  color: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false ? Colors.white : AppTheme.charcoal,
+                                  color: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1656,7 +1685,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                 selected: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false,
                                 selectedColor: Colors.blue.shade700,
                                 labelStyle: TextStyle(
-                                  color: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false ? Colors.white : AppTheme.charcoal,
+                                  color: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1674,7 +1703,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                 selected: activeStackingMode == false,
                                 selectedColor: Colors.orange.shade800,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == false ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1691,7 +1720,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                 selected: activeStackingMode == null,
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == null ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == null ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1710,9 +1739,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppTheme.charcoal.withOpacity(0.04),
+                        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.04),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1721,7 +1750,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                             children: [
                               _buildMetricPill(l.packageMeasurementsTitle, '$totalPkgs', AppTheme.cobalt),
                               const SizedBox(width: 8),
-                              _buildMetricPill(l.totalGrossWeightRegistryMetric, '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
+                              _buildMetricPill(l.totalGrossWeightRegistryMetric, '${totalPlanWeight.toStringAsFixed(0)} kg', isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                               const SizedBox(width: 8),
                               _buildMetricPill(l.totalCbmVolumeMetric, '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
                             ],
@@ -1740,7 +1769,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
 
                     // 2. Table summary of container loads
                     Table(
-                      border: TableBorder.all(color: Colors.grey.shade300),
+                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                       columnWidths: const {
                         0: FlexColumnWidth(1.2),
                         1: FlexColumnWidth(1.8),
@@ -1750,13 +1779,13 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       },
                       children: [
                         TableRow(
-                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                          decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.08)),
                           children: [
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerSpecCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.packageTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.grossWtPerUnitCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.spaceUtilizationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.cbmFloorAreaUtilization, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerSpecCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.packageTypeCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.grossWtPerUnitCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.spaceUtilizationCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.cbmFloorAreaUtilization, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                           ],
                         ),
                         ...plan.asMap().entries.map((entry) {
@@ -1798,12 +1827,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                 padding: const EdgeInsets.all(6.0),
                                 child: Text(
                                   placedIds.isEmpty ? '-' : '$placedIds ($totalPlacedCount)',
-                                  style: const TextStyle(fontSize: 11),
+                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null),
                                 ),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11)),
+                                child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),

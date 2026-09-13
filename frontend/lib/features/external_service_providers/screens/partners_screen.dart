@@ -221,8 +221,10 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     final showInactive = ref.watch(showInactivePartnersProvider);
     final partnerList = partnersAsync.asData?.value ?? [];
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppTheme.cloudWhite,
+      backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : AppTheme.cloudWhite,
       body: SelectionArea(
         child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -239,16 +241,16 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                     children: [
                       Text(
                         l10n.partnersScreenTitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.charcoal,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         l10n.partnersScreenSubtitle,
-                        style: const TextStyle(color: Colors.grey, fontSize: 14),
+                        style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontSize: 14),
                       ),
                     ],
                   ),
@@ -320,13 +322,13 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                       label: Text(
                         _getCategoryLabel(context, cat),
                         style: TextStyle(
-                          color: isSelected ? Colors.white : AppTheme.charcoal,
+                          color: isSelected ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                         ),
                       ),
                       selected: isSelected,
                       selectedColor: AppTheme.cobalt,
-                      backgroundColor: Colors.white,
+                      backgroundColor: isDark ? AppTheme.darkElevatedSurface : Colors.white,
                       onSelected: (val) {
                         if (val) {
                           ref.read(selectedPartnerCategoryProvider.notifier).state = cat;
@@ -345,8 +347,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
                       borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.transparent),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.03),
@@ -359,10 +362,11 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                       valueListenable: _searchController,
                       builder: (_, val, __) => TextField(
                         controller: _searchController,
-                        style: const TextStyle(fontSize: 14),
+                        style: TextStyle(fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                         decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
+                          prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
                           hintText: l10n.searchPartnersHint,
+                          hintStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
                           filled: false,
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
@@ -373,7 +377,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                           suffixIcon: val.text.isEmpty
                               ? null
                               : IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
+                                  icon: Icon(Icons.clear, size: 18, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
                                   onPressed: () {
                                     _searchController.clear();
                                     setState(() => _searchQuery = '');
@@ -395,8 +399,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
                     borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.transparent),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.03),
@@ -409,7 +414,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                     children: [
                       Text(
                         l10n.showInactivePartnersLabel,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                       ),
                       Switch(
                         value: showInactive,
@@ -488,8 +493,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                       return Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
                           borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.transparent),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.04),
@@ -519,7 +525,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   children: [
                                     // Table Header
                                     TableRow(
-                                      decoration: const BoxDecoration(color: AppTheme.charcoal),
+                                      decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal),
                                       children: [
                                         l10n.partnerCodeCol,
                                         l10n.partnerNameAndCategoryCol,
@@ -551,7 +557,10 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
                                       return TableRow(
                                         decoration: BoxDecoration(
-                                          color: isEven ? Colors.white : Colors.grey.shade50,
+                                          color: isDark
+                                              ? (isEven ? AppTheme.darkElevatedSurface : AppTheme.darkCardBackground)
+                                              : (isEven ? Colors.white : Colors.grey.shade50),
+                                          border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200)),
                                         ),
                                         children: [
                                           // Code
@@ -568,24 +577,24 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                 child: Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                                   decoration: BoxDecoration(
-                                                    color: AppTheme.charcoal.withOpacity(0.08),
+                                                    color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.08),
                                                     borderRadius: BorderRadius.circular(6),
-                                                    border: Border.all(color: AppTheme.charcoal.withOpacity(0.15)),
+                                                    border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.charcoal.withOpacity(0.15)),
                                                   ),
                                                   child: Row(
                                                     mainAxisSize: MainAxisSize.min,
                                                     children: [
                                                       Text(
                                                         partner.partnerCode,
-                                                        style: const TextStyle(
+                                                        style: TextStyle(
                                                           fontWeight: FontWeight.bold,
                                                           fontSize: 12,
                                                           letterSpacing: 0.3,
-                                                          color: AppTheme.charcoal,
+                                                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                                                         ),
                                                       ),
                                                       const SizedBox(width: 4),
-                                                      const Icon(Icons.copy_rounded, size: 11, color: AppTheme.charcoal),
+                                                      Icon(Icons.copy_rounded, size: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
                                                     ],
                                                   ),
                                                 ),
@@ -609,7 +618,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                         style: TextStyle(
                                                           fontWeight: FontWeight.bold,
                                                           fontSize: 14,
-                                                          color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
+                                                          color: isActive ? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal) : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
                                                           decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
                                                         ),
                                                       ),
@@ -711,12 +720,12 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                     child: Row(
                                                       mainAxisSize: MainAxisSize.min,
                                                       children: [
-                                                        const Icon(Icons.description_outlined, size: 12, color: AppTheme.charcoal),
+                                                        Icon(Icons.description_outlined, size: 12, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
                                                         const SizedBox(width: 4),
                                                         Flexible(
                                                           child: Text(
                                                             l10n.partnerRegLabel(partner.commercialRegister!),
-                                                            style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
+                                                            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
                                                             maxLines: 1,
                                                             overflow: TextOverflow.ellipsis,
                                                           ),
@@ -760,7 +769,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                         Flexible(
                                                           child: Text(
                                                             partner.email!,
-                                                            style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
+                                                            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                                             maxLines: 1,
                                                             overflow: TextOverflow.ellipsis,
                                                           ),
@@ -1082,7 +1091,10 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
               );
             }
 
+            final isDarkDialog = Theme.of(context).brightness == Brightness.dark;
+
             return Dialog(
+              backgroundColor: isDarkDialog ? AppTheme.darkCardBackground : Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: SelectionArea(
                 child: SizedBox(
@@ -1093,9 +1105,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                     // Banner
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                      decoration: const BoxDecoration(
-                        color: AppTheme.charcoal,
-                        borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+                      decoration: BoxDecoration(
+                        color: isDarkDialog ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
+                        borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1133,7 +1145,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                 children: [
                                   Text(
                                     l10n.partnerCategoriesLabel,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.charcoal),
+                                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: isDarkDialog ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   ),
                                 ],
                               ),
@@ -1149,7 +1161,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                     selectedColor: AppTheme.cobalt.withOpacity(0.2),
                                     checkmarkColor: AppTheme.cobalt,
                                     labelStyle: TextStyle(
-                                      color: isChecked ? AppTheme.cobalt : AppTheme.charcoal,
+                                      color: isChecked ? AppTheme.cobalt : (isDarkDialog ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                       fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
                                     ),
                                     onSelected: (bool selected) {

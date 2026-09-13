@@ -14,6 +14,7 @@ import '../widgets/close_shipment_dialog.dart';
 import '../widgets/freight_rfq_dialog.dart';
 import '../../experience_guide/widgets/smart_shipment_reference_card.dart';
 import '../../experience_guide/widgets/add_guide_entry_dialog.dart';
+import '../../smart_checklists/widgets/smart_checklist_dialog.dart';
 
 
 
@@ -712,6 +713,20 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                 ),
               ],
             ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.cobalt,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.playlist_add_check_circle, size: 18),
+            label: const Text('قائمة التحقق الذكية', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              SmartChecklistDialog.show(context, file);
+            },
           ),
         ],
       ),

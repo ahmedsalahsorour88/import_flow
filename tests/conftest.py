@@ -45,6 +45,7 @@ import modules.smart_document_upload.model
 import modules.docs_customs_approval.model
 import modules.cargox.model
 import modules.original_documents_collection.model
+import modules.smart_email_listener.model
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():

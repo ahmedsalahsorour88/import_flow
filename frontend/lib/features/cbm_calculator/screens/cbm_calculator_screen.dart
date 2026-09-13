@@ -180,6 +180,8 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     }
   }
 
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -188,7 +190,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     final poList = ref.watch(purchaseOrdersProvider).purchaseOrders;
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.grey.shade100,
       body: Column(
         children: [
           // Header Banner
@@ -313,7 +315,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
+                  color: isDark ? Colors.amber.shade900.withOpacity(0.2) : Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.amber.shade700, width: 1.5),
                 ),
@@ -326,7 +328,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.edit_note, color: Colors.amber.shade900, size: 24),
+                        Icon(Icons.edit_note, color: Colors.amber.shade700, size: 24),
                         const SizedBox(width: 8),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -334,12 +336,12 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                           children: [
                             Text(
                               '${l.activeEditSessionBanner}: [$_activeSessionCode] - ${_activeSessionTitle ?? ""}',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.brown.shade900),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : Colors.brown.shade900),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               l.activeEditSessionHint,
-                              style: TextStyle(fontSize: 11, color: Colors.brown.shade800),
+                              style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.brown.shade800),
                             ),
                           ],
                         ),
@@ -361,7 +363,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         const SizedBox(width: 8),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.charcoal,
+                            foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           ),
                           icon: const Icon(Icons.add, size: 16),
@@ -415,8 +417,8 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: modeRec.isAirSuggested
-                    ? Colors.purple.shade50
-                    : (modeRec.isLclSuggested ? Colors.amber.shade50 : AppTheme.cobalt.withOpacity(0.08)),
+                    ? (isDark ? Colors.purple.withOpacity(0.15) : Colors.purple.shade50)
+                    : (modeRec.isLclSuggested ? (isDark ? Colors.amber.withOpacity(0.15) : Colors.amber.shade50) : AppTheme.cobalt.withOpacity(isDark ? 0.15 : 0.08)),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: modeRec.isAirSuggested
@@ -438,13 +440,13 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         children: [
                           const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 22),
                           const SizedBox(width: 8),
-                          Text(l.cargoStackingInstructions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                          Text(l.cargoStackingInstructions, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                           const SizedBox(width: 6),
                           ChoiceChip(
                             label: Text(l.stackableOption),
                             selected: _isStackable,
                             selectedColor: AppTheme.cobalt,
-                            labelStyle: TextStyle(color: _isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                            labelStyle: TextStyle(color: _isStackable ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal), fontWeight: FontWeight.bold, fontSize: 11),
                             onSelected: (val) => setState(() => _isStackable = true),
                           ),
                           const SizedBox(width: 6),
@@ -452,7 +454,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             label: Text(l.nonStackableOption),
                             selected: !_isStackable,
                             selectedColor: Colors.orange.shade800,
-                            labelStyle: TextStyle(color: !_isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                            labelStyle: TextStyle(color: !_isStackable ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal), fontWeight: FontWeight.bold, fontSize: 11),
                             onSelected: (val) => setState(() => _isStackable = false),
                           ),
                         ],
@@ -487,10 +489,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-
+                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                     ),
                     child: Row(
                       children: [
@@ -522,6 +523,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
             // Items Table Header & Add Row Action Card (Responsive Overflow-Free Layout)
             Card(
               elevation: 2,
+              color: isDark ? AppTheme.darkCardBackground : Colors.white,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Wrap(
@@ -537,7 +539,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         const SizedBox(width: 8),
                         Text(
                           l.packageMeasurementsTitle,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                         ),
                       ],
                     ),
@@ -548,7 +550,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         // Shipment Mode Selector (Air vs Sea)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -556,7 +561,11 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 label: Text(l.airFreightMode),
                                 selected: _quickShipmentMode == 'air',
                                 selectedColor: AppTheme.cobalt,
-                                labelStyle: TextStyle(color: _quickShipmentMode == 'air' ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+                                labelStyle: TextStyle(
+                                  color: _quickShipmentMode == 'air' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
                                 onSelected: (_) => setState(() => _quickShipmentMode = 'air'),
                               ),
                               const SizedBox(width: 4),
@@ -564,7 +573,11 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 label: Text(l.seaFreightMode),
                                 selected: _quickShipmentMode == 'sea',
                                 selectedColor: AppTheme.emerald,
-                                labelStyle: TextStyle(color: _quickShipmentMode == 'sea' ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+                                labelStyle: TextStyle(
+                                  color: _quickShipmentMode == 'sea' ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
                                 onSelected: (_) => setState(() => _quickShipmentMode = 'sea'),
                               ),
                             ],
@@ -610,6 +623,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
             // Dynamic Line Items List (Horizontally & Vertically Scrollable with Explicit Scrollbar)
             Card(
               elevation: 1,
+              color: isDark ? AppTheme.darkCardBackground : Colors.white,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: ConstrainedBox(
@@ -626,31 +640,31 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       children: [
                         // Table Header Bar
                         Container(
-                          color: Colors.grey.shade200,
+                          color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade200,
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           child: Row(
                             children: [
-                              const SizedBox(width: 32, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              SizedBox(width: 32, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                               const SizedBox(width: 8),
-                              SizedBox(width: 160, child: Text(l.packageTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              SizedBox(width: 160, child: Text(l.packageTypeCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                               const SizedBox(width: 8),
-                              SizedBox(width: 95, child: Text(l.unitCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              SizedBox(width: 95, child: Text(l.unitCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                               const SizedBox(width: 8),
-                              SizedBox(width: 80, child: Text(l.qtyCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              SizedBox(width: 80, child: Text(l.qtyCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                               const SizedBox(width: 8),
-                              SizedBox(width: 100, child: Text(l.lengthCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              SizedBox(width: 100, child: Text(l.lengthCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                               const SizedBox(width: 8),
-                              SizedBox(width: 100, child: Text(l.widthCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              SizedBox(width: 100, child: Text(l.widthCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                               const SizedBox(width: 8),
-                              SizedBox(width: 100, child: Text(l.heightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              SizedBox(width: 100, child: Text(l.heightCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                               const SizedBox(width: 8),
-                              SizedBox(width: 145, child: Text(l.stackingCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              SizedBox(width: 145, child: Text(l.stackingCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                               if (_quickShipmentMode == 'air') ...[
                                 const SizedBox(width: 8),
-                                SizedBox(width: 120, child: Text(l.grossWtPerUnitCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                                SizedBox(width: 120, child: Text(l.grossWtPerUnitCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                               ],
                               const SizedBox(width: 14),
-                              SizedBox(width: 140, child: Text(l.calculatedOutputsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              SizedBox(width: 140, child: Text(l.calculatedOutputsCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                               const SizedBox(width: 48),
                             ],
                           ),
@@ -959,8 +973,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   }
 
   Widget _buildResultCardItem(String title, String value, IconData icon, Color color, {String? subtitle}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       elevation: 2,
+      color: isDark ? AppTheme.darkCardBackground : Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
@@ -975,7 +991,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                  Text(title, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   CopyableText(
                     value,
@@ -986,7 +1002,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     const SizedBox(height: 2),
                     CopyableText(
                       subtitle,
-                      style: const TextStyle(fontSize: 10, color: Colors.black87),
+                      style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.black87),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -1005,6 +1021,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
   void _showSaveCalcDialog(BuildContext context, List<CBMItemModel> items) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final formKey = GlobalKey<FormState>();
     final isEditing = _activeSessionId != null;
     final titleCtrl = TextEditingController(text: isEditing ? (_activeSessionTitle ?? l.calculationSessionTitle) : l.calculationSessionTitle);
@@ -1016,11 +1033,15 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
           title: Row(
             children: [
-              Icon(isEditing ? Icons.edit_document : Icons.save_outlined, color: isEditing ? Colors.amber.shade900 : AppTheme.emerald),
+              Icon(isEditing ? Icons.edit_document : Icons.save_outlined, color: isEditing ? Colors.amber.shade700 : AppTheme.emerald),
               const SizedBox(width: 8),
-              Text(isEditing ? '${l.saveChangesInSession} [$_activeSessionCode]' : l.saveCalculationSession),
+              Text(
+                isEditing ? '${l.saveChangesInSession} [$_activeSessionCode]' : l.saveCalculationSession,
+                style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+              ),
             ],
           ),
           content: SizedBox(
@@ -1036,13 +1057,13 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.amber.shade50,
+                        color: isDark ? Colors.amber.shade900.withOpacity(0.2) : Colors.amber.shade50,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.amber.shade400),
+                        border: Border.all(color: Colors.amber.shade700),
                       ),
                       child: Text(
                         l.activeEditSessionHint,
-                        style: TextStyle(fontSize: 12, color: Colors.brown.shade900),
+                        style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : Colors.brown.shade900),
                       ),
                     ),
                   SearchableDropdownField<int?>(
@@ -1197,12 +1218,14 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
   void _showContainerComparisonDialog(BuildContext context, ContainerDualRecommendationResult dualRec, double totalCbm, double totalWeightKg) {
     final l = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (context) {
         return DefaultTabController(
           length: 2,
           child: AlertDialog(
+            backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
             title: Row(
               children: [
                 const Icon(Icons.inventory_2, color: AppTheme.cobalt),
@@ -1211,7 +1234,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(l.containerOptionsAnalysis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(l.containerOptionsAnalysis, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                       Text('${l.totalShipmentSummary}: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
                     ],
                   ),
@@ -1224,7 +1247,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
               child: Column(
                 children: [
                   Container(
-                    color: AppTheme.charcoal,
+                    color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
                     child: TabBar(
                       indicatorColor: AppTheme.cobalt,
                       labelColor: Colors.white,
@@ -1258,6 +1281,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   Widget _buildComparisonTable(BuildContext context, ContainerRecommendationResult rec) {
     final l = context.l10n;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -1270,11 +1294,14 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade800),
             ),
-            child: Text('${l.approvedRecommendation}: ${isArabic ? rec.recommendationSummary : rec.recommendationSummaryEn}', style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade900)),
+            child: Text(
+              '${l.approvedRecommendation}: ${isArabic ? rec.recommendationSummary : rec.recommendationSummaryEn}',
+              style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : (isDark ? Colors.orange.shade300 : Colors.orange.shade900)),
+            ),
           ),
           const SizedBox(height: 12),
           Table(
-            border: TableBorder.all(color: Colors.grey.shade300),
+            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
             columnWidths: const {
               0: FlexColumnWidth(2.0),
               1: FlexColumnWidth(1.2),
@@ -1284,13 +1311,13 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
             },
             children: [
               TableRow(
-                decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.08)),
                 children: [
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.containerSpecCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.requiredCountCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.spaceUtilizationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.weightUtilizationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.recommendationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.containerSpecCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.requiredCountCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.spaceUtilizationCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.weightUtilizationCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.recommendationCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                 ],
               ),
               ...rec.comparisonDetails.map((detail) {
@@ -1302,7 +1329,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 final rowSummary = '${spec.name} | $count x ${spec.code} | Vol: ${volUtil.toStringAsFixed(1)}% | Wt: ${weightUtil.toStringAsFixed(1)}%';
 
                 return TableRow(
-                  decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withOpacity(0.12)) : null,
+                  decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withOpacity(isDark ? 0.2 : 0.12)) : null,
                   children: [
                     CopyableTableCell(
                       value: '${spec.name} (${spec.internalVolumeCbm} CBM | ${spec.maxPayloadKg} kg)',
@@ -1312,8 +1339,8 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
-                            Text('${l.totalCbmVolumeMetric}: ${spec.internalVolumeCbm} CBM | Max: ${spec.maxPayloadKg} kg', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                            Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                            Text('${l.totalCbmVolumeMetric}: ${spec.internalVolumeCbm} CBM | Max: ${spec.maxPayloadKg} kg', style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
                           ],
                         ),
                       ),
@@ -1323,7 +1350,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       rowSummary: rowSummary,
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
-                        child: Text('$count x ${spec.code}', style: TextStyle(fontWeight: FontWeight.bold, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
+                        child: Text('$count x ${spec.code}', style: TextStyle(fontWeight: FontWeight.bold, color: isBest ? AppTheme.emerald : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                       ),
                     ),
                     CopyableTableCell(
@@ -1455,7 +1482,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
             }
             final fleetSummaryText = containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
 
+            final isDark = Theme.of(context).brightness == Brightness.dark;
             return AlertDialog(
+              backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
               title: Row(
                 children: [
                   const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
@@ -1463,7 +1492,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                   Expanded(
                     child: Text(
                       l.visualLoadPlanSimulator,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                     ),
                   ),
                   Container(
@@ -1489,9 +1518,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                       ),
                       child: Wrap(
                         alignment: WrapAlignment.spaceBetween,
@@ -1501,7 +1530,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         children: [
                           Text(
                             l.chooseStackingScenario,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                           ),
                           Wrap(
                             spacing: 8,
@@ -1512,7 +1541,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 selected: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false,
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
-                                  color: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false ? Colors.white : AppTheme.charcoal,
+                                  color: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1530,7 +1559,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 selected: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false,
                                 selectedColor: Colors.blue.shade700,
                                 labelStyle: TextStyle(
-                                  color: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false ? Colors.white : AppTheme.charcoal,
+                                  color: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1548,7 +1577,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 selected: activeStackingMode == false,
                                 selectedColor: Colors.orange.shade800,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == false ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == false ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1565,7 +1594,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 selected: activeStackingMode == null,
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
-                                  color: activeStackingMode == null ? Colors.white : AppTheme.charcoal,
+                                  color: activeStackingMode == null ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
@@ -1584,9 +1613,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppTheme.charcoal.withOpacity(0.04),
+                        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.04),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1595,7 +1624,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             children: [
                               _buildMetricPill(l.qtyCol, '$totalPkgs', AppTheme.cobalt),
                               const SizedBox(width: 8),
-                              _buildMetricPill(l.grossWeightMetric, '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
+                              _buildMetricPill(l.grossWeightMetric, '${totalPlanWeight.toStringAsFixed(0)} kg', isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                               const SizedBox(width: 8),
                               _buildMetricPill(l.totalCbmVolumeMetric, '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
                             ],

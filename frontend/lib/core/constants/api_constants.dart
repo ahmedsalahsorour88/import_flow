@@ -58,6 +58,7 @@ class ApiConstants {
   static String get auditLogs => '$baseUrl/audit-logs';
   static String get notifications => '$baseUrl/notifications';
   static String get smartTasks => '$baseUrl/smart-tasks';
+  static String get smartEmail => '$baseUrl/smart-email';
   static String get shipmentUpdates => '$baseUrl/shipment-updates';
   static String get routeIntelligence => '$baseUrl/route-intelligence';
   static String get integrations => '$baseUrl/integrations';

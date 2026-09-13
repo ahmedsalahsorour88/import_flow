@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/app_localizations_ar.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
@@ -13,6 +14,7 @@ import '../models/smart_task_model.dart';
 import '../providers/smart_tasks_provider.dart';
 import '../widgets/smart_task_dialog.dart';
 import '../widgets/smart_email_listener_dialog.dart';
+import '../widgets/email_settings_dialog.dart';
 
 class SmartTasksScreen extends ConsumerStatefulWidget {
   const SmartTasksScreen({super.key});
@@ -533,6 +535,7 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
     final state = ref.watch(smartTasksProvider);
     final l = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isArabic = l is AppLocalizationsAr;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -598,6 +601,17 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
                               onPressed: () => SmartEmailListenerDialog.show(context),
                               icon: const Icon(Icons.mark_email_read_outlined, size: 18),
                               label: Text(l.smartEmailListenerDialogTitle),
+                            ),
+                            const SizedBox(width: 10),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isDark ? const Color(0xFF193247) : Colors.teal.shade800,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              ),
+                              onPressed: () => EmailSettingsDialog.show(context),
+                              icon: const Icon(Icons.settings_suggest_rounded, size: 18),
+                              label: Text(isArabic ? 'إعدادات البريد (IMAP/SMTP)' : 'Email Settings'),
                             ),
                             const SizedBox(width: 10),
                             OutlinedButton.icon(

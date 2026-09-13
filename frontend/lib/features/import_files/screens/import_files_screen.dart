@@ -1,6 +1,7 @@
 import '../widgets/import_file_details_dialog.dart';
 import '../widgets/import_file_form_dialog.dart';
 import '../widgets/freight_rfq_dialog.dart';
+import '../../smart_checklists/widgets/smart_checklist_dialog.dart';
 import '../../import_documentation/widgets/smart_invoice_bl_extractor_dialog.dart';
 import '../../simulation/widgets/what_if_simulator_dialog.dart';
 import '../../lifecycle_board/widgets/skip_step_dialog_helper.dart';
@@ -1707,8 +1708,17 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                           );
                                         },
                                       ),
-                                      const SizedBox(width: 4),
-                                      RowActionsPill(
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          icon: const Icon(Icons.playlist_add_check_circle, color: AppTheme.cobalt, size: 20),
+                                          tooltip: 'قائمة التحقق الذكية للشحنة',
+                                          splashRadius: 18,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                          onPressed: () => SmartChecklistDialog.show(context, file),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        RowActionsPill(
                                         onView: () => _showImportFileDetailsDialog(context, file),
                                         onEdit: () => _showAddEditFileDialog(file),
                                         onPrint: () {

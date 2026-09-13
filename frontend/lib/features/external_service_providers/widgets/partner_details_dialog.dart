@@ -78,6 +78,7 @@ class PartnerDetailsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isActive = partner.isActive;
     final categories = partner.categoriesList;
 
@@ -90,8 +91,9 @@ class PartnerDetailsDialog extends StatelessWidget {
           width: 780,
         constraints: const BoxConstraints(maxHeight: 800),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? AppTheme.darkCardBackground : Colors.white,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.transparent),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.15),
@@ -107,9 +109,9 @@ class PartnerDetailsDialog extends StatelessWidget {
             // ── Top Header Banner ──────────────────────────────────────────
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: const BoxDecoration(
-                color: AppTheme.charcoal,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               ),
               child: Row(
                 children: [
@@ -237,14 +239,14 @@ class PartnerDetailsDialog extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Section 1: Professional Identifiers & Licenses
-                    _buildSectionHeader(Icons.verified_outlined, l10n.professionalLicensesSection),
+                    _buildSectionHeader(context, Icons.verified_outlined, l10n.professionalLicensesSection),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: isDark ? AppTheme.darkElevatedSurface : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade200),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
                       ),
                       child: Column(
                         children: [
@@ -314,14 +316,14 @@ class PartnerDetailsDialog extends StatelessWidget {
                     const SizedBox(height: 18),
 
                     // Section 2: Credit Terms & Financial Conditions
-                    _buildSectionHeader(Icons.payments_outlined, l10n.creditTermsSection),
+                    _buildSectionHeader(context, Icons.payments_outlined, l10n.creditTermsSection),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF0FDF4),
+                        color: isDark ? AppTheme.emerald.withOpacity(0.1) : const Color(0xFFF0FDF4),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                        border: Border.all(color: isDark ? AppTheme.emerald.withOpacity(0.3) : const Color(0xFFBBF7D0)),
                       ),
                       child: Column(
                         children: [
@@ -329,6 +331,7 @@ class PartnerDetailsDialog extends StatelessWidget {
                             children: [
                               Expanded(
                                 child: _buildSimpleInfoField(
+                                  context: context,
                                   label: l10n.paymentTermsDetailLabel,
                                   value: partner.paymentType,
                                   icon: Icons.credit_score_rounded,
@@ -337,6 +340,7 @@ class PartnerDetailsDialog extends StatelessWidget {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildSimpleInfoField(
+                                  context: context,
                                   label: l10n.creditLimitDetailLabel,
                                   value: '${partner.creditLimit.toStringAsFixed(2)} ${l10n.soaCurrencyEgp}',
                                   icon: Icons.monetization_on_outlined,
@@ -345,6 +349,7 @@ class PartnerDetailsDialog extends StatelessWidget {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildSimpleInfoField(
+                                  context: context,
                                   label: l10n.ratingDetailLabel,
                                   value: '⭐ ${partner.rating.toStringAsFixed(1)} / 5.0',
                                   icon: Icons.star_rate_rounded,
@@ -358,6 +363,7 @@ class PartnerDetailsDialog extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: _buildSimpleInfoField(
+                                    context: context,
                                     label: l10n.bankCodeDetailLabel,
                                     value: partner.bankCode ?? '-',
                                     icon: Icons.account_balance,
@@ -366,6 +372,7 @@ class PartnerDetailsDialog extends StatelessWidget {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: _buildSimpleInfoField(
+                                    context: context,
                                     label: l10n.branchNameDetailLabel,
                                     value: partner.branchName ?? '-',
                                     icon: Icons.storefront_outlined,
@@ -380,14 +387,14 @@ class PartnerDetailsDialog extends StatelessWidget {
                     const SizedBox(height: 18),
 
                     // Section 3: Contact & Address
-                    _buildSectionHeader(Icons.contact_phone_outlined, l10n.contactAndAddressSection),
+                    _buildSectionHeader(context, Icons.contact_phone_outlined, l10n.contactAndAddressSection),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: isDark ? AppTheme.darkElevatedSurface : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade200),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
                       ),
                       child: Column(
                         children: [
@@ -458,19 +465,19 @@ class PartnerDetailsDialog extends StatelessWidget {
 
                     if (partner.notes != null && partner.notes!.isNotEmpty) ...[
                       const SizedBox(height: 18),
-                      _buildSectionHeader(Icons.notes_rounded, l10n.additionalNotesSection),
+                      _buildSectionHeader(context, Icons.notes_rounded, l10n.additionalNotesSection),
                       const SizedBox(height: 10),
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFFBEB),
+                          color: isDark ? AppTheme.orange.withOpacity(0.12) : const Color(0xFFFFFBEB),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFFDE68A)),
+                          border: Border.all(color: isDark ? AppTheme.orange.withOpacity(0.3) : const Color(0xFFFDE68A)),
                         ),
                         child: Text(
                           partner.notes!,
-                          style: const TextStyle(fontSize: 13, color: Color(0xFF92400E)),
+                          style: TextStyle(fontSize: 13, color: isDark ? AppTheme.orange : const Color(0xFF92400E)),
                         ),
                       ),
                     ],
@@ -483,9 +490,9 @@ class PartnerDetailsDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: isDark ? AppTheme.darkElevatedSurface : const Color(0xFFF1F5F9),
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                border: Border(top: BorderSide(color: Colors.grey.shade300)),
+                border: Border(top: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
               ),
               child: Wrap(
                 alignment: WrapAlignment.spaceBetween,
@@ -609,17 +616,18 @@ class PartnerDetailsDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(IconData icon, String title) {
+  Widget _buildSectionHeader(BuildContext context, IconData icon, String title) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         Icon(icon, size: 18, color: AppTheme.cobalt),
         const SizedBox(width: 8),
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
-            color: AppTheme.charcoal,
+            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
           ),
         ),
       ],
@@ -649,6 +657,7 @@ class PartnerDetailsDialog extends StatelessWidget {
     Color? highlightColor,
   }) {
     final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -658,7 +667,7 @@ class PartnerDetailsDialog extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              Text(label, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
               const SizedBox(height: 2),
               Row(
                 children: [
@@ -668,7 +677,7 @@ class PartnerDetailsDialog extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: highlightColor ?? AppTheme.charcoal,
+                        color: highlightColor ?? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                       ),
                     ),
                   ),
@@ -697,10 +706,12 @@ class PartnerDetailsDialog extends StatelessWidget {
   }
 
   Widget _buildSimpleInfoField({
+    required BuildContext context,
     required String label,
     required String value,
     required IconData icon,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         Icon(icon, size: 18, color: Colors.blueGrey),
@@ -709,11 +720,11 @@ class PartnerDetailsDialog extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              Text(label, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
               const SizedBox(height: 2),
               SelectableText(
                 value,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
               ),
             ],
           ),

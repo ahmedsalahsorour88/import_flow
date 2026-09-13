@@ -5,6 +5,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../providers/smart_tasks_provider.dart';
+import '../providers/email_settings_provider.dart';
+import 'email_settings_dialog.dart';
 
 class SmartEmailListenerDialog extends ConsumerStatefulWidget {
   const SmartEmailListenerDialog({super.key});
@@ -181,6 +183,23 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
     }
   }
 
+  Future<void> _fetchInboxLive() async {
+    setState(() => _isProcessing = true);
+    final res = await ref.read(emailSettingsProvider.notifier).fetchInboxNow();
+    if (mounted) {
+      setState(() => _isProcessing = false);
+      if (res != null) {
+        _fetchLogs();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res.message),
+            backgroundColor: res.matchedFilesCount > 0 ? AppTheme.emerald : AppTheme.cobalt,
+          ),
+        );
+      }
+    }
+  }
+
   void _exportLogsTsv() {
     final l = context.l10n;
     final buffer = StringBuffer();
@@ -287,6 +306,28 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
                     ],
                   ),
                 ),
+                OutlinedButton.icon(
+                  onPressed: _isProcessing ? null : _fetchInboxLive,
+                  icon: const Icon(Icons.sync_rounded, size: 16),
+                  label: const Text('فحص الصندوق الآن', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.emerald,
+                    side: const BorderSide(color: AppTheme.emerald),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => EmailSettingsDialog.show(context),
+                  icon: const Icon(Icons.settings_suggest_rounded, size: 16),
+                  label: const Text('إعدادات البريد', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.cobalt,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.of(context).pop(),

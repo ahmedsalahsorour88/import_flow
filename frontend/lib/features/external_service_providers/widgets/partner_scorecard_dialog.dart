@@ -89,7 +89,9 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Dialog(
+      backgroundColor: isDark ? AppTheme.darkCardBackground : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: SelectionArea(
         child: Container(
@@ -121,6 +123,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
 
   Widget _buildContent(BuildContext context) {
     final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final compositeScore = (_scorecard?['composite_score'] as num?)?.toDouble() ?? 0.0;
     final tier = _scorecard?['performance_tier'] ?? 'Gold A';
     final stars = (_scorecard?['star_rating'] as num?)?.toDouble() ?? 4.0;
@@ -164,18 +167,21 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                   children: [
                     Text(
                       l10n.scorecardDialogTitle,
-                      style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                      style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       l10n.scorecardPartnerSubtitle(widget.providerName, widget.providerType),
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+              IconButton(
+                icon: Icon(Icons.close, color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
             ],
           ),
           const SizedBox(height: 18),
@@ -184,9 +190,9 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: tierColor.withOpacity(0.06),
+              color: tierColor.withOpacity(isDark ? 0.15 : 0.06),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: tierColor.withOpacity(0.4), width: 1.5),
+              border: Border.all(color: tierColor.withOpacity(isDark ? 0.6 : 0.4), width: 1.5),
             ),
             child: Row(
               children: [
@@ -229,11 +235,14 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                       const SizedBox(height: 6),
                       Text(
                         l10n.scorecardTotalJobs(totalJobs is int ? totalJobs : int.tryParse(totalJobs.toString()) ?? 0),
-                        style: TextStyle(color: Colors.grey.shade700, fontSize: 12.5),
+                        style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700, fontSize: 12.5),
                       ),
                       if (summary.isNotEmpty) ...[
                         const SizedBox(height: 4),
-                        Text(summary, style: TextStyle(color: Colors.grey.shade900, fontSize: 12.5, height: 1.3)),
+                        Text(
+                          summary,
+                          style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : Colors.grey.shade900, fontSize: 12.5, height: 1.3),
+                        ),
                       ],
                     ],
                   ),
@@ -246,7 +255,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
           // Detailed KPI Metrics Tiles
           if (metrics.isNotEmpty) ...[
             Text('📈 ${l10n.scorecardKpiHeader}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 12,
@@ -265,18 +274,18 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                   width: 230,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(label, style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+                      Text(label, style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
                       const SizedBox(height: 4),
                       Text(
                         val is num ? val.toStringAsFixed(1) : val.toString(),
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                       ),
                     ],
                   ),
@@ -304,7 +313,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                           children: [
                             const Icon(Icons.check_circle_outline, size: 15, color: AppTheme.emerald),
                             const SizedBox(width: 6),
-                            Expanded(child: Text(s.toString(), style: const TextStyle(fontSize: 12))),
+                            Expanded(child: Text(s.toString(), style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : Colors.black87))),
                           ],
                         ),
                       )),
@@ -325,7 +334,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                           children: [
                             const Icon(Icons.info_outline, size: 15, color: AppTheme.orange),
                             const SizedBox(width: 6),
-                            Expanded(child: Text(im.toString(), style: const TextStyle(fontSize: 12))),
+                            Expanded(child: Text(im.toString(), style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : Colors.black87))),
                           ],
                         ),
                       )),

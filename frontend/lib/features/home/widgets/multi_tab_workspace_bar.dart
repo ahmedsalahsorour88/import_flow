@@ -7,6 +7,8 @@ import '../../../core/providers/ai_assistant_provider.dart';
 import '../../../core/providers/navigation_provider.dart';
 import '../../../core/providers/workspace_tabs_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../smart_tasks/widgets/smart_email_listener_dialog.dart';
+import '../../smart_tasks/widgets/email_settings_dialog.dart';
 
 String _getLocalizedTabTitle(BuildContext context, int routeIndex, String fallbackTitle) {
   final l10n = AppLocalizations.of(context);
@@ -94,6 +96,7 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
     final tabsState = ref.watch(workspaceTabsProvider);
     final tabsNotifier = ref.read(workspaceTabsProvider.notifier);
     final isDark = AppTheme.isDark(context);
+    final isArabic = l10n is AppLocalizationsAr;
 
     return Container(
       height: 42,
@@ -191,6 +194,32 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
               },
             ),
           ),
+          // Quick Mail Actions
+          IconButton(
+            tooltip: isArabic ? 'المستمع الذكي للبريد وإشعارات الوصول' : 'Smart Email & Arrival Notice Listener',
+            icon: Icon(
+              Icons.mark_email_read_outlined,
+              size: 18,
+              color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            splashRadius: 16,
+            onPressed: () => SmartEmailListenerDialog.show(context),
+          ),
+          IconButton(
+            tooltip: isArabic ? 'إعدادات ربط البريد (IMAP/SMTP)' : 'Email Server Settings (IMAP/SMTP)',
+            icon: Icon(
+              Icons.settings_suggest_rounded,
+              size: 18,
+              color: isDark ? Colors.cyanAccent.shade200 : Colors.teal.shade700,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            splashRadius: 16,
+            onPressed: () => EmailSettingsDialog.show(context),
+          ),
+          const SizedBox(width: 4),
           // Tab bar actions menu
           PopupMenuButton<String>(
             tooltip: l10n.tabOptionsTooltip,

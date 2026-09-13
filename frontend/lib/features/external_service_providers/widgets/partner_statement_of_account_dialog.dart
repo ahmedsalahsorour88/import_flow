@@ -60,6 +60,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final soaAsync = ref.watch(partnerStatementOfAccountProvider(partner.providerId ?? 0));
 
     return Dialog(
@@ -70,17 +71,18 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
           width: 1000,
         constraints: const BoxConstraints(maxHeight: 700),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? AppTheme.darkCardBackground : Colors.white,
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.transparent),
         ),
         child: Column(
           children: [
             // Header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: const BoxDecoration(
-                color: AppTheme.charcoal,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               ),
               child: Row(
                 children: [
@@ -167,7 +169,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                     children: [
                       const CircularProgressIndicator(color: AppTheme.cobalt),
                       const SizedBox(height: 16),
-                      Text(l10n.calculatingSoaMsg, style: const TextStyle(color: AppTheme.charcoal)),
+                      Text(l10n.calculatingSoaMsg, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
                     ],
                   ),
                 ),
@@ -197,7 +199,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                         // Currency Balances Cards
                         Text(
                           l10n.multiCurrencyBalancesHeader,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                         ),
                         const SizedBox(height: 10),
                         Wrap(
@@ -209,10 +211,10 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                               width: 250,
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
+                                color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: isPositive ? AppTheme.orange.withOpacity(0.4) : Colors.grey.shade300,
+                                  color: isPositive ? AppTheme.orange.withOpacity(0.4) : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                                 ),
                               ),
                               child: Column(
@@ -242,12 +244,12 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                       Expanded(
                                         child: Text(
                                           l10n.totalInvoicedLabel,
-                                          style: const TextStyle(fontSize: 11, color: Colors.black54),
+                                          style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.black54),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      Text(_formatNumber(cb.totalInvoiced), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      Text(_formatNumber(cb.totalInvoiced), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : Colors.black87)),
                                     ],
                                   ),
                                   const SizedBox(height: 4),
@@ -256,7 +258,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                       Expanded(
                                         child: Text(
                                           l10n.totalPaidLabel,
-                                          style: const TextStyle(fontSize: 11, color: Colors.black54),
+                                          style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.black54),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -270,7 +272,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                       Expanded(
                                         child: Text(
                                           l10n.balanceDueLabel,
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -299,13 +301,13 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                           children: [
                             Text(
                               l10n.transactionsLedgerHeader(soa.ledgerEntries.length),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                             ),
                             Row(
                               children: [
                                 Text(
                                   l10n.invoicesCountLabel(soa.totalInvoicesCount, soa.totalPaymentsCount),
-                                  style: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w600),
+                                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.black54, fontWeight: FontWeight.w600),
                                 ),
                               ],
                             ),
@@ -319,22 +321,25 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                   child: Container(
                                     padding: const EdgeInsets.all(24),
                                     decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
+                                      color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100,
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.receipt_long_outlined, size: 36, color: Colors.grey),
+                                        Icon(Icons.receipt_long_outlined, size: 36, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
                                         const SizedBox(height: 8),
-                                        Text(l10n.noLedgerEntriesFound),
+                                        Text(
+                                          l10n.noLedgerEntriesFound,
+                                          style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                                        ),
                                       ],
                                     ),
                                   ),
                                 )
                               : Container(
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey.shade200),
+                                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: ClipRRect(
@@ -344,25 +349,25 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                       child: SingleChildScrollView(
                                         scrollDirection: Axis.vertical,
                                         child: DataTable(
-                                        headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                                        headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100),
                                         columnSpacing: 18,
                                         horizontalMargin: 12,
                                         columns: [
-                                          DataColumn(label: Text(l10n.ledgerDateCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text(l10n.ledgerTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text(l10n.ledgerRefCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text(l10n.ledgerImportFileCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text(l10n.ledgerDescriptionCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text(l10n.ledgerCurrencyCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text(l10n.ledgerDebitCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text(l10n.ledgerCreditCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text(l10n.ledgerStatusCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                          DataColumn(label: Text(l10n.ledgerDateCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                                          DataColumn(label: Text(l10n.ledgerTypeCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                                          DataColumn(label: Text(l10n.ledgerRefCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                                          DataColumn(label: Text(l10n.ledgerImportFileCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                                          DataColumn(label: Text(l10n.ledgerDescriptionCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                                          DataColumn(label: Text(l10n.ledgerCurrencyCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                                          DataColumn(label: Text(l10n.ledgerDebitCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                                          DataColumn(label: Text(l10n.ledgerCreditCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+                                          DataColumn(label: Text(l10n.ledgerStatusCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                                         ],
                                         rows: soa.ledgerEntries.map((entry) {
                                           final isInvoice = entry.entryType.contains('Invoice');
                                           return DataRow(
                                             cells: [
-                                              DataCell(Text(entry.entryDate, style: const TextStyle(fontSize: 11))),
+                                              DataCell(Text(entry.entryDate, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : Colors.black87))),
                                               DataCell(
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -382,13 +387,13 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                                   ),
                                                 ),
                                               ),
-                                              DataCell(Text(entry.referenceNo, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+                                              DataCell(Text(entry.referenceNo, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : Colors.black87))),
                                               DataCell(Text(entry.importFileCode ?? '—', style: const TextStyle(fontSize: 11, color: AppTheme.cobalt))),
-                                              DataCell(Text(entry.description, style: const TextStyle(fontSize: 11))),
+                                              DataCell(Text(entry.description, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : Colors.black87))),
                                               DataCell(
                                                 Text(
                                                   entry.currency,
-                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : Colors.black87),
                                                 ),
                                               ),
                                               DataCell(
@@ -397,7 +402,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                                   style: TextStyle(
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.bold,
-                                                    color: entry.debitAmount > 0 ? AppTheme.charcoal : Colors.grey,
+                                                    color: entry.debitAmount > 0 ? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal) : (isDark ? AppTheme.darkTextSecondary : Colors.grey),
                                                   ),
                                                 ),
                                               ),
@@ -407,7 +412,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                                   style: TextStyle(
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.bold,
-                                                    color: entry.creditAmount > 0 ? AppTheme.emerald : Colors.grey,
+                                                    color: entry.creditAmount > 0 ? AppTheme.emerald : (isDark ? AppTheme.darkTextSecondary : Colors.grey),
                                                   ),
                                                 ),
                                               ),
@@ -415,12 +420,12 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.grey.shade200,
+                                                    color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade200,
                                                     borderRadius: BorderRadius.circular(4),
                                                   ),
                                                   child: Text(
                                                     entry.status,
-                                                    style: const TextStyle(fontSize: 10, color: Colors.black87),
+                                                    style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.black87),
                                                   ),
                                                 ),
                                               ),
@@ -444,7 +449,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100,
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
               ),
               child: Row(
@@ -453,14 +458,14 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       l10n.soaFooterText,
-                      style: const TextStyle(fontSize: 11, color: Colors.black54),
+                      style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.black54),
                     ),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.charcoal,
+                      backgroundColor: isDark ? AppTheme.darkBorder : AppTheme.charcoal,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     ),

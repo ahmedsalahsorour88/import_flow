@@ -17,10 +17,13 @@ from modules.smart_email_listener.model import InboundEmailLog
 from modules.smart_email_listener.schemas import (
     InboundEmailCreate,
     InboundEmailParsePreviewRequest,
+    TaskRouteApprovalItem,
+    TasksBatchApprovalRequest,
 )
 from modules.smart_email_listener.service import (
     preview_arrival_notice_service,
     process_inbound_email_service,
+    approve_and_route_tasks_service,
 )
 import modules.smart_email_listener.repository as repo
 
@@ -182,3 +185,81 @@ class TestSmartEmailListener:
         logs = repo.get_email_logs(db_session)
         assert len(logs) == 1
         assert logs[0].processing_status == "Unmatched_BL"
+
+    def test_process_inbound_email_with_acid_match(self, db_session):
+        email_body = """
+        Dear Sir,
+        Please note the status update for Egyptian customs declaration.
+        ACID: 1234567890123456789
+        Estimated arrival date is 2026-09-30.
+        """
+        email_create = InboundEmailCreate(
+            sender_email="customs@cargo-egypt.com",
+            subject="ACID Update 1234567890123456789",
+            body_text=email_body,
+        )
+        res = process_inbound_email_service(db_session, email_create, user="TestAgent")
+
+        assert res.is_matched_file is True
+        assert res.import_file_id is not None
+        assert res.import_file_code == "IMP-2026-00088"
+        assert res.payment_task_created is True
+
+    def test_process_inbound_email_with_project_name_match(self, db_session):
+        # Update import file custom name
+        file = db_session.query(ImportFile).filter_by(import_file_code="IMP-2026-00088").first()
+        file.custom_file_number = "Monorail Orascom Project"
+        db_session.commit()
+
+        email_create = InboundEmailCreate(
+            sender_email="shipping@orascom.com",
+            subject="RE: Condenser Fan Failure - Monorail Orascom Project",
+            body_text="Kindly check the attached shipping invoice and ETA.",
+        )
+        res = process_inbound_email_service(db_session, email_create, user="TestAgent")
+
+        assert res.is_matched_file is True
+        assert res.import_file_id == file.import_file_id
+        assert res.payment_task_created is True
+
+    def test_false_positive_words_excluded_from_bl(self):
+        email_body = """
+        BL signed by carrier.
+        BL loading confirmed for tomorrow.
+        BL description attached.
+        BL uemail acknowledged.
+        """
+        req = InboundEmailParsePreviewRequest(
+            subject="Documentation updates",
+            body_text=email_body,
+        )
+        res = preview_arrival_notice_service(req)
+        assert res.extracted_bl_number is None
+
+    def test_batch_approve_and_route_tasks(self, db_session):
+        file = db_session.query(ImportFile).filter_by(import_file_code="IMP-2026-00088").first()
+        req = TasksBatchApprovalRequest(
+            tasks=[
+                TaskRouteApprovalItem(
+                    import_file_id=file.import_file_id,
+                    import_file_code=file.import_file_code,
+                    title="سداد مصاريف إذن تسليم ملاحي معتمد",
+                    description="تم الاعتماد من المستخدم وتوجيهه لفريق التخليص",
+                    assigned_user="Clearance Team",
+                    priority="Critical",
+                    due_date="2026-09-30",
+                    reminder_type="Arrival Notice Payment",
+                )
+            ]
+        )
+        result = approve_and_route_tasks_service(db_session, req, user_name="Ahmed Sorour")
+        assert result.approved_count == 1
+        assert len(result.created_task_ids) == 1
+
+        # Verify task was saved with assigned user and priority
+        task = db_session.query(SmartTask).filter_by(task_id=result.created_task_ids[0]).first()
+        assert task is not None
+        assert task.assigned_user == "Clearance Team"
+        assert task.priority == "Critical"
+        assert task.due_date == "2026-09-30"
+        assert task.created_by == "Ahmed Sorour" or task.updated_by == "Ahmed Sorour"

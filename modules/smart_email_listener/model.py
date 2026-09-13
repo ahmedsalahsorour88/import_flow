@@ -33,3 +33,43 @@ class InboundEmailLog(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     created_by = Column(String(100), default="SmartEmailListener", nullable=False)
+
+
+class EmailSettings(Base):
+    __tablename__ = "email_settings"
+
+    settings_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    provider_type = Column(String(50), default="CUSTOM", nullable=False)  # GMAIL, OUTLOOK, CUSTOM
+    email_address = Column(String(150), nullable=False)
+    username = Column(String(150), nullable=False)
+    password = Column(String(255), nullable=False)  # App Password or account secret
+
+    # Inbound (IMAP)
+    imap_host = Column(String(150), nullable=False, default="imap.gmail.com")
+    imap_port = Column(Integer, nullable=False, default=993)
+    imap_use_ssl = Column(Boolean, nullable=False, default=True)
+
+    # Outbound (SMTP)
+    smtp_host = Column(String(150), nullable=False, default="smtp.gmail.com")
+    smtp_port = Column(Integer, nullable=False, default=587)
+    smtp_use_tls = Column(Boolean, nullable=False, default=True)
+    smtp_use_ssl = Column(Boolean, nullable=False, default=False)
+
+    sender_display_name = Column(String(150), nullable=False, default="Sorour Logistics Operations")
+    auto_fetch_enabled = Column(Boolean, nullable=False, default=False)
+    fetch_interval_minutes = Column(Integer, nullable=False, default=15)
+
+    last_sync_at = Column(DateTime, nullable=True)
+    last_sync_status = Column(String(50), nullable=True)  # SUCCESS, ERROR, IDLE
+    last_sync_message = Column(Text, nullable=True)
+
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_by = Column(String(100), default="Admin", nullable=False)
+    updated_by = Column(String(100), default="Admin", nullable=False)
+
+    @property
+    def has_password(self) -> bool:
+        return bool(self.password and len(self.password.strip()) > 0)
+

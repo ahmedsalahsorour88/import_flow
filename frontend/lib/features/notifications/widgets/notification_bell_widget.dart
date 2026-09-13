@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/locale_provider.dart';
+import '../../../core/providers/navigation_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../operational_dashboard/providers/operational_dashboard_provider.dart';
+import '../models/notification_model.dart';
 import '../providers/notifications_provider.dart';
 
 class NotificationBellWidget extends ConsumerWidget {
@@ -23,10 +27,18 @@ class NotificationBellWidget extends ConsumerWidget {
         final unreadList = notifs.where((n) => !n.isRead).toList();
         final unreadCount = unreadList.length;
 
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final isAr = ref.watch(localeProvider).languageCode == 'ar';
+
         return PopupMenuButton<void>(
-          tooltip: 'إشعارات النظام والتنبيهات',
+          tooltip: isAr ? 'إشعارات النظام والتنبيهات' : 'System Notifications & Alerts',
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
           offset: const Offset(0, 45),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          constraints: const BoxConstraints(minWidth: 360, maxWidth: 440),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+          ),
           icon: Stack(
             clipBehavior: Clip.none,
             children: [
@@ -57,35 +69,61 @@ class NotificationBellWidget extends ConsumerWidget {
                 ),
             ],
           ),
-          itemBuilder: (context) => [
+          itemBuilder: (ctx) => [
             PopupMenuItem<void>(
               enabled: false,
-              child: SizedBox(
-                width: 360,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'التنبيهات والإشعارات ($unreadCount)',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                    Expanded(
+                      child: Text(
+                        isAr ? 'التنبيهات والإشعارات ($unreadCount)' : 'Alerts & Notifications ($unreadCount)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                          fontSize: 13,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         TextButton(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            foregroundColor: isDark ? Colors.lightBlueAccent : AppTheme.cobalt,
+                          ),
                           onPressed: () {
                             ref.read(notificationsProvider.notifier).triggerExpiryCheck();
-                            Navigator.pop(context);
+                            Navigator.pop(ctx);
                           },
-                          child: const Text('فحص الصلاحيات', style: TextStyle(fontSize: 11)),
+                          child: Text(isAr ? 'فحص الصلاحيات' : 'Check Expiry', style: const TextStyle(fontSize: 11)),
                         ),
-                        if (unreadCount > 0)
+                        if (unreadCount > 0) ...[
+                          const SizedBox(width: 4),
                           TextButton(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              foregroundColor: isDark ? Colors.tealAccent : AppTheme.cobalt,
+                            ),
                             onPressed: () {
                               ref.read(notificationsProvider.notifier).markAllAsRead();
-                              Navigator.pop(context);
+                              Navigator.pop(ctx);
                             },
-                            child: const Text('قراءة الكل', style: TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+                            child: Text(
+                              isAr ? 'قراءة الكل' : 'Mark All Read',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
                           ),
+                        ],
                       ],
                     ),
                   ],
@@ -94,69 +132,297 @@ class NotificationBellWidget extends ConsumerWidget {
             ),
             const PopupMenuDivider(),
             if (notifs.isEmpty)
-              const PopupMenuItem<void>(
+              PopupMenuItem<void>(
                 enabled: false,
-                child: SizedBox(
-                  width: 360,
-                  height: 60,
-                  child: Center(
-                    child: Text('لا توجد تنبيهات جديدة حالياً.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Container(
+                    height: 60,
+                    alignment: Alignment.center,
+                    child: Text(
+                      isAr ? 'لا توجد تنبيهات جديدة حالياً.' : 'No new notifications currently.',
+                      style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey, fontSize: 12),
+                    ),
                   ),
                 ),
               )
             else
-              ...notifs.take(8).map((n) => PopupMenuItem<void>(
-                    onTap: () {
-                      if (!n.isRead) {
-                        ref.read(notificationsProvider.notifier).markAsRead(n.notificationId);
-                      }
-                    },
-                    child: SizedBox(
-                      width: 360,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: n.isRead ? Colors.transparent : _getSeverityBgColor(n.severity).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border(right: BorderSide(color: _getSeverityBgColor(n.severity), width: 3)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+              ...notifs.take(8).map((n) {
+                    final targetName = _getTargetScreenName(n.category, n.entityType, isAr);
+                    final targetIcon = _getTargetScreenIcon(n.category, n.entityType);
+                    final sevColor = _getSeverityBgColor(n.severity);
+
+                    return PopupMenuItem<void>(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      onTap: () => _handleNotificationClick(ref, n),
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 400),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: n.isRead
+                                  ? (isDark ? AppTheme.darkElevatedSurface.withOpacity(0.5) : Colors.transparent)
+                                  : (isDark ? sevColor.withOpacity(0.2) : sevColor.withOpacity(0.08)),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border(
+                                right: isAr ? BorderSide(color: sevColor, width: 3.5) : BorderSide.none,
+                                left: !isAr ? BorderSide(color: sevColor, width: 3.5) : BorderSide.none,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(_getCategoryIcon(n.category, n.severity), size: 16, color: _getSeverityBgColor(n.severity)),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    n.title,
-                                    style: TextStyle(
-                                      fontWeight: n.isRead ? FontWeight.normal : FontWeight.bold,
-                                      fontSize: 12,
-                                      color: AppTheme.charcoal,
+                                Row(
+                                  children: [
+                                    Icon(
+                                      _getCategoryIcon(n.category, n.severity),
+                                      size: 16,
+                                      color: isDark
+                                          ? (n.severity == 'CRITICAL'
+                                              ? Colors.redAccent
+                                              : (n.severity == 'WARNING' ? Colors.orangeAccent : Colors.lightBlueAccent))
+                                          : sevColor,
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        n.title,
+                                        style: TextStyle(
+                                          fontWeight: n.isRead ? FontWeight.normal : FontWeight.bold,
+                                          fontSize: 12,
+                                          color: isDark
+                                              ? (n.isRead ? AppTheme.darkTextSecondary : AppTheme.darkTextPrimary)
+                                              : (n.isRead ? Colors.grey.shade700 : AppTheme.charcoal),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  n.message,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800,
                                   ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Flexible(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: isDark ? Colors.white.withOpacity(0.06) : Colors.grey.shade100,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(targetIcon, size: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                                            const SizedBox(width: 4),
+                                            Flexible(
+                                              child: Text(
+                                                targetName,
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? AppTheme.cobalt.withOpacity(0.28)
+                                            : AppTheme.cobalt.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: isDark ? AppTheme.cobalt.withOpacity(0.6) : AppTheme.cobalt.withOpacity(0.35),
+                                          width: 0.8,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            isAr ? 'تنفيذ المهمة' : 'Execute Task',
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            Icons.open_in_new_rounded,
+                                            size: 11,
+                                            color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              n.message,
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade800),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  )),
+                    );
+                  }),
           ],
         );
       },
     );
+  }
+
+  void _handleNotificationClick(WidgetRef ref, NotificationModel n) {
+    if (!n.isRead) {
+      ref.read(notificationsProvider.notifier).markAsRead(n.notificationId);
+    }
+
+    // Extract shipment code if present (e.g. IMP-2026-0004)
+    final codeRegex = RegExp(r'IMP-\d{4}-\d{4}');
+    final match = codeRegex.firstMatch('${n.title} ${n.message}')?.group(0);
+    if (match != null) {
+      try {
+        ref.read(operationalDashboardProvider.notifier).setSearchQuery(match);
+      } catch (_) {}
+    }
+
+    final targetIndex = _getTargetScreenIndex(n.category, n.entityType);
+    selectNavigationIndex(ref, targetIndex);
+  }
+
+  int _getTargetScreenIndex(String category, String? entityType) {
+    final cat = category.toUpperCase();
+    final ent = (entityType ?? '').toUpperCase();
+
+    if (cat.contains('INCOMPLETE_DOCS') || cat.contains('DOC') || cat.contains('COURIER')) {
+      return 51; // CentralDocsArchiveScreen
+    }
+    if (cat.contains('REGULATORY') || cat.contains('INSPECTION') || ent.contains('REQUIREMENT')) {
+      return 43; // ImportRequirementsScreen
+    }
+    if (cat.contains('COMPANY') || ent.contains('COMPANY')) {
+      return 32; // ImportCompaniesScreen
+    }
+    if (cat.contains('ACID') || ent.contains('ACID')) {
+      return 11; // NafezaAcidScreen
+    }
+    if (cat.contains('CARGOX')) {
+      return 54; // OriginalDocsAndCargoXScreen
+    }
+    if (cat.contains('FORM4') || cat.contains('BANK')) {
+      return 16; // BankForm4Screen
+    }
+    if (cat.contains('DEMURRAGE') || cat.contains('DETENTION') || cat.contains('CONTAINER') || ent.contains('DEMURRAGE')) {
+      return 44; // DemurrageDetentionScreen
+    }
+    if (cat.contains('TASK') || ent.contains('TASK')) {
+      return 40; // SmartTasksScreen
+    }
+    if (cat.contains('CURRENCY') || cat.contains('EXCHANGE')) {
+      return 38; // CurrenciesScreen
+    }
+    if (cat.contains('BUDGET') || cat.contains('VARIANCE')) {
+      return 8; // FinancialApprovalScreen
+    }
+    if (ent.contains('IMPORTFILE')) {
+      return 0; // OperationalDashboardScreen (focused on the shipment)
+    }
+    return 40; // Default: SmartTasksScreen
+  }
+
+  String _getTargetScreenName(String category, String? entityType, bool isAr) {
+    final cat = category.toUpperCase();
+    final ent = (entityType ?? '').toUpperCase();
+
+    if (cat.contains('INCOMPLETE_DOCS') || cat.contains('DOC') || cat.contains('COURIER')) {
+      return isAr ? 'الأرشيف المركزي للمستندات' : 'Central Docs Archive';
+    }
+    if (cat.contains('REGULATORY') || cat.contains('INSPECTION') || ent.contains('REQUIREMENT')) {
+      return isAr ? 'اشتراطات وموافقات الاستيراد' : 'Import Requirements';
+    }
+    if (cat.contains('COMPANY') || ent.contains('COMPANY')) {
+      return isAr ? 'الشركات المستوردة' : 'Import Companies';
+    }
+    if (cat.contains('ACID') || ent.contains('ACID')) {
+      return isAr ? 'منظومة نافذة ACID' : 'Nafeza ACID Engine';
+    }
+    if (cat.contains('CARGOX')) {
+      return isAr ? 'منظومة CargoX للمستندات' : 'CargoX Documents Engine';
+    }
+    if (cat.contains('FORM4') || cat.contains('BANK')) {
+      return isAr ? 'نموذج 4 البنكي' : 'Bank Form 4';
+    }
+    if (cat.contains('DEMURRAGE') || cat.contains('DETENTION') || cat.contains('CONTAINER') || ent.contains('DEMURRAGE')) {
+      return isAr ? 'رادار الغرامات والأرضيات' : 'Demurrage & Detention Radar';
+    }
+    if (cat.contains('TASK') || ent.contains('TASK')) {
+      return isAr ? 'المهام الذكية' : 'Smart Tasks';
+    }
+    if (cat.contains('CURRENCY') || cat.contains('EXCHANGE')) {
+      return isAr ? 'العملات وأسعار الصرف' : 'Currencies & Rates';
+    }
+    if (cat.contains('BUDGET') || cat.contains('VARIANCE')) {
+      return isAr ? 'الموافقات المالية' : 'Financial Approvals';
+    }
+    if (ent.contains('IMPORTFILE')) {
+      return isAr ? 'لوحة تحكم الشحنات' : 'Operational Dashboard';
+    }
+    return isAr ? 'المهام الذكية' : 'Smart Tasks';
+  }
+
+  IconData _getTargetScreenIcon(String category, String? entityType) {
+    final cat = category.toUpperCase();
+    final ent = (entityType ?? '').toUpperCase();
+
+    if (cat.contains('INCOMPLETE_DOCS') || cat.contains('DOC') || cat.contains('COURIER')) {
+      return Icons.inventory_2_outlined;
+    }
+    if (cat.contains('REGULATORY') || cat.contains('INSPECTION') || ent.contains('REQUIREMENT')) {
+      return Icons.verified_outlined;
+    }
+    if (cat.contains('COMPANY') || ent.contains('COMPANY')) {
+      return Icons.domain_outlined;
+    }
+    if (cat.contains('ACID') || ent.contains('ACID')) {
+      return Icons.cloud_done_outlined;
+    }
+    if (cat.contains('CARGOX')) {
+      return Icons.cloud_upload_outlined;
+    }
+    if (cat.contains('FORM4') || cat.contains('BANK')) {
+      return Icons.account_balance_outlined;
+    }
+    if (cat.contains('DEMURRAGE') || cat.contains('DETENTION') || cat.contains('CONTAINER') || ent.contains('DEMURRAGE')) {
+      return Icons.timer_outlined;
+    }
+    if (cat.contains('TASK') || ent.contains('TASK')) {
+      return Icons.checklist_outlined;
+    }
+    if (cat.contains('CURRENCY') || cat.contains('EXCHANGE')) {
+      return Icons.currency_exchange_outlined;
+    }
+    if (cat.contains('BUDGET') || cat.contains('VARIANCE')) {
+      return Icons.monetization_on_outlined;
+    }
+    return Icons.open_in_new_rounded;
   }
 
   Color _getSeverityBgColor(String severity) {

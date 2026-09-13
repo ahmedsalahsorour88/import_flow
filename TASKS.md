@@ -88,3 +88,13 @@
 - [x] **LOG-KPIS-005:** `Logistics KPI Scorecard` — بطاقة تقييم ومؤشرات أداء الشركاء اللوجستيين والموردين (الالتزام الزمني، دقة المستندات، الجاهزية CRD) (done)
 - [x] **INT-DATA-015:** `Free Freight & Demurrage Data Connector` — ربط مصادر بيانات الشحن البحري المجانية (shaq-freight + ShippingRates.org) وجداول غرامات التوكيل الملاحي والمؤشر الأسبوعي SFX (done)
 
+---
+
+## 🧪 مسار قائمة التحقق واختبارات التشغيل (Operational User Testing Checklist)
+
+- [x] **MD-01:** `Import Companies Registration` — تكويد شركة مستوردة جديدة والتحقق من السجل والبطاقة الضريبية والقيد الاستيرادي وقوائم الاختيار (done)
+- [x] **MD-02:** `Foreign Suppliers Registration` — تكويد مورد أجنبي وبيانات الاتصال ورقم CargoX والعملة المعتمدة (done)
+
+
+
+

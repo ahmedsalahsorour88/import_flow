@@ -1,17 +1,17 @@
 {
   "major": 1,
   "minor": 0,
-  "patch": 161,
-  "version": "1.0.161",
-  "build_number": 162,
-  "updated_at": "2026-09-13 13:33:28",
+  "patch": 162,
+  "version": "1.0.162",
+  "build_number": 163,
+  "updated_at": "2026-09-13 23:37:19",
   "installer_url": "https://github.com/ahmedsalahsorour88/import_flow/releases/download/v1.0.151/Sorour_Logistics_Setup_v1.0.151.exe",
   "installer_filename": "Sorour_Logistics_Setup_v1.0.151.exe",
   "installer_size_mb": 198.02,
   "release_notes": [
-    "استبدال الألوان الثابتة والفاتحة في شريط الخطوات التشغيلية وشارات الحالات وصفوف التتبع بالألوان الليلية المتناسقة (darkSurface و darkCardBackground).",
-    "تكييف نافذة إنشاء وتعديل ملف الاستيراد (ImportFileFormDialog) مع الوضع الداكن للقضاء التام على النصوص الداكنة غير المقروءة.",
-    "معالجة شريط التصفية والبحث وعرض الكانبان للمراحل الـ 21 وجدول الرادار اللوجستي للعمل في الثيم الداكن بدون أي تباين شاذ.",
-    "تكييف نافذة تنفيذ إجراءات المرحلة (StepActionDialog) مع الوضع الداكن."
+    "Supplier Auto-Coding & Integrity: ضمان تسلسل وترقيم الأكواد الفريدة ومنع تكرار معرف المصدر الأجنبي.",
+    "Bi-directional Localization: تعريب كامل للشاشات والنماذج ورسائل التحقق باللغتين العربية والإنجليزية.",
+    "انتظار تأكيد المستخدم للانتقال إلى المهمة التالية: MD-03: تكويد بنك محلي / أجنبي.",
+    "Master Data Integrity: مطابقة تامة مع القواعد الذهبية GP-003 و GP-004 ومحرك البحث والتصفية."
   ]
 }

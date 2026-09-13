@@ -389,9 +389,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Logo & Header
+        // Logo & Header (Row 1: logo + title + collapse)
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.fromLTRB(8, 8, 4, 2),
           child: Row(
             children: [
               Container(
@@ -426,43 +426,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
-              // 🌙 Theme Toggle Button
+              // Collapse button only in this row
               IconButton(
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-                icon: Icon(
-                  AppTheme.isDark(context) ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                  color: Colors.white70,
-                  size: 15,
-                ),
-                tooltip: l.themeToggleTooltip,
-                onPressed: () =>
-                    ref.read(themeModeProvider.notifier).toggleTheme(),
-              ),
-              const SizedBox(width: 2),
-              // 🌐 Language Toggle Button
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-                icon: const Icon(Icons.language, color: Colors.white70, size: 15),
-                tooltip: l.languageToggleTooltip,
-                onPressed: () =>
-                    ref.read(localeProvider.notifier).toggleLocale(),
-              ),
-              const SizedBox(width: 2),
-              const NotificationBellWidget(),
-              const SizedBox(width: 2),
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-                icon: const Icon(Icons.mail_outline_rounded, color: Colors.white70, size: 15),
-                tooltip: isArabic ? 'إعدادات ومزامنة البريد الإلكتروني' : 'Email Integration & Settings',
-                onPressed: () => EmailSettingsDialog.show(context),
-              ),
-              const SizedBox(width: 2),
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                 icon: const Icon(Icons.keyboard_double_arrow_left,
                     color: Colors.white70, size: 17),
                 tooltip: l.collapseSidebar,
@@ -471,6 +438,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         ),
+        // Action Buttons Row (Row 2: theme + lang + notifications + email)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 0, 4, 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                icon: Icon(
+                  AppTheme.isDark(context) ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                  color: Colors.white60,
+                  size: 14,
+                ),
+                tooltip: l.themeToggleTooltip,
+                onPressed: () => ref.read(themeModeProvider.notifier).toggleTheme(),
+              ),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                icon: const Icon(Icons.language, color: Colors.white60, size: 14),
+                tooltip: l.languageToggleTooltip,
+                onPressed: () => ref.read(localeProvider.notifier).toggleLocale(),
+              ),
+              const NotificationBellWidget(),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                icon: const Icon(Icons.mail_outline_rounded, color: Colors.white60, size: 14),
+                tooltip: isArabic ? 'إعدادات ومزامنة البريد الإلكتروني' : 'Email Integration & Settings',
+                onPressed: () => EmailSettingsDialog.show(context),
+              ),
+            ],
+          ),
+        ),
+
 
         // Quick Search Bar
         Padding(
@@ -781,7 +784,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final versionText = versionAsync.when(
                   data: (info) => 'v${info.version} (Build ${info.buildNumber})',
                   loading: () => 'v... (Loading)',
-                  error: (_, __) => 'v1.0.161 (Build 162)',
+                  error: (_, __) => 'v1.0.162 (Build 163)',
                 );
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

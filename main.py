@@ -145,7 +145,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="Sorour Logistics ERP API",
-    version="1.0.161",
+    version="1.0.162",
 )
 
 # ==================================================
@@ -279,7 +279,7 @@ SchemaUpgradeService.execute_safe_startup_upgrade(
 def dashboard():
     return {
         "system": "Sorour Logistics ERP",
-        "version": "1.0.161",
+        "version": "1.0.162",
         "status": "running",
     }
 
@@ -310,7 +310,7 @@ def health_check():
     return {
         "status": "OK",
         "system": "Sorour Logistics ERP",
-        "version": "1.0.161",
+        "version": "1.0.162",
         "database": {
             "connected": db_exists,
             "path": db_path,

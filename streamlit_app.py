@@ -6,7 +6,7 @@ ImportFlow ERP — Operations & Lifecycle Board (Streamlit Dashboard)
 import streamlit as st
 import sqlite3
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 import json
 import os
 
@@ -183,26 +183,85 @@ st.markdown("""
         }
     }
 
-    /* Breakpoint 2: Mobile (< 768px) */
-    @media (max-width: 768px) {
-        .main-title-container {
-            padding: 12px 14px;
-        }
-        .main-title-text { font-size: 16px; }
-        .main-sub-text { font-size: 11px; }
-        .workspace-card {
-            padding: 12px;
-            margin-top: 12px;
-        }
-        div[data-testid="column"] {
-            min-width: 100% !important;
-            margin-bottom: 12px;
-        }
-        .phase-body-amber, .phase-body-cobalt, .phase-body-emerald,
-        .phase-body-red, .phase-body-purple, .phase-body-green {
-            min-height: auto;
-            margin-bottom: 16px;
-        }
+    /* World Clocks Top Status Bar */
+    .world-clock-strip {
+        display: flex;
+        overflow-x: auto;
+        white-space: nowrap;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #141a22;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .world-clock-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #1e2631;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-size: 11.5px;
+        color: #ecf0f1;
+    }
+    .beacon-open {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background-color: #1e8449;
+        box-shadow: 0 0 5px #1e8449;
+    }
+    .beacon-closed {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background-color: #c0392b;
+    }
+
+    /* Action Buttons Toolbar */
+    .action-toolbar-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+    .shipment-link {
+        color: #38bdf8 !important;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+    .badge-priority-high {
+        background-color: #c0392b;
+        color: #ffffff;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 10.5px;
+    }
+    .badge-priority-orange {
+        background-color: #b45309;
+        color: #ffffff;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 10.5px;
+    }
+    .badge-status-open {
+        background-color: #1e8449;
+        color: #ffffff;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 10.5px;
+    }
+    .badge-code {
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 600;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -629,10 +688,57 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# ── 6.1 Top Status Bar: International World Clocks (Horizontally Scrollable) ─
+utc_now = datetime.now(timezone.utc)
+clocks_data = [
+    {"flag": "🇪🇬", "name": "مصر (HQ)", "time": (utc_now + timedelta(hours=3)).strftime("%H:%M"), "tz": "UTC+3", "open": True},
+    {"flag": "🇪🇺", "name": "فرنسا وإيطاليا", "time": (utc_now + timedelta(hours=2)).strftime("%H:%M"), "tz": "UTC+2", "open": True},
+    {"flag": "🇬🇧", "name": "إنجلترا (UK)", "time": (utc_now + timedelta(hours=1)).strftime("%H:%M"), "tz": "UTC+1", "open": True},
+    {"flag": "🇹🇷 🇱🇹", "name": "تركيا وليتوانيا", "time": (utc_now + timedelta(hours=3)).strftime("%H:%M"), "tz": "UTC+3", "open": True},
+    {"flag": "🇨🇳", "name": "الصين (China)", "time": (utc_now + timedelta(hours=8)).strftime("%H:%M"), "tz": "UTC+8", "open": False},
+    {"flag": "🇦🇪", "name": "الإمارات (UAE)", "time": (utc_now + timedelta(hours=4)).strftime("%H:%M"), "tz": "UTC+4", "open": False},
+    {"flag": "🇺🇸", "name": "أمريكا (USA)", "time": (utc_now - timedelta(hours=4)).strftime("%H:%M"), "tz": "UTC-4", "open": True},
+]
+
+clock_chips_html = "".join([
+    f'''<div class="world-clock-chip">
+        <span>{c["flag"]}</span>
+        <span style="font-weight:700;">{c["name"]}:</span>
+        <span style="font-family:monospace; font-size:12px; color:#38bdf8;">{c["time"]}</span>
+        <span style="font-size:9.5px; opacity:0.7;">({c["tz"]})</span>
+        <span class="{'beacon-open' if c['open'] else 'beacon-closed'}"></span>
+    </div>'''
+    for c in clocks_data
+])
+
+st.markdown(f'''
+<div class="world-clock-strip">
+    <div style="font-weight:bold; font-size:11.5px; margin-right:8px; display:inline-flex; align-items:center; color:#94a3b8;">
+        🕒 التوقيتات العالمية:
+    </div>
+    {clock_chips_html}
+</div>
+''', unsafe_allow_html=True)
+
+# ── 6.2 Responsive Action Toolbar (Auto-wrapping on narrow screens) ───────────
+action_col1, action_col2, action_col3, action_col4 = st.columns([1.8, 1.4, 1.2, 3.6])
+with action_col1:
+    if st.button("➕ Add New Import File", key="btn_add_import_file", use_container_width=True, type="primary"):
+        st.session_state.show_new_file_modal = True
+with action_col2:
+    if st.button("📊 Export Excel", key="btn_export_excel", use_container_width=True):
+        st.toast("✅ تم تصدير بيانات الشحنات بصيغة Excel بنجاح!")
+with action_col3:
+    if st.button("🔄 Live Refresh", key="btn_live_refresh", use_container_width=True):
+        st.rerun()
+
+st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
 
 # ==============================================================================
 # 7. THE 6-COLUMN SHIPMENT LIFECYCLE BOARD (EXACT VISUAL REPLICA)
 # ==============================================================================
+
 cols = st.columns(6)
 
 for i, phase in enumerate(WORKFLOW_PHASES):

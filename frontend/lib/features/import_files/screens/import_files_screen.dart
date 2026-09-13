@@ -1312,20 +1312,27 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                       runSpacing: 8,
                       children: [
                         ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.wcagCobalt,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                          ),
                           onPressed: () => _showAddEditFileDialog(),
                           icon: const Icon(Icons.add_box, color: Colors.white),
                           label: Text(l.addNewImportFile, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
                         OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            side: BorderSide(color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt),
+                          ),
                           onPressed: _promptAndShowMasterReport,
-                          icon: const Icon(Icons.summarize, color: AppTheme.cobalt),
+                          icon: Icon(Icons.summarize, color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt),
                           label: Text(l.generateComprehensiveReport, style: const TextStyle(fontWeight: FontWeight.bold)),
                         ),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.flatEmerald,
+                            backgroundColor: AppTheme.wcagEmerald,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           ),
@@ -1335,10 +1342,10 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                               builder: (context) => const SmartInvoiceBLExtractorDialog(),
                             );
                           },
-                          icon: const Icon(Icons.auto_awesome),
+                          icon: const Icon(Icons.auto_awesome, color: Colors.white),
                           label: Text(
                             l.smartInvoiceBlExtractorButton,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                           ),
                         ),
                         ElevatedButton.icon(
@@ -1437,10 +1444,23 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                         borderRadius: BorderRadius.circular(10),
                         side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
                       ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: SingleChildScrollView(
-                          child: DataTable(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          if (constraints.maxWidth < 768) {
+                            return _buildMobileStackedCardsList(
+                              context,
+                              paginatedState.items,
+                              l,
+                              isDark,
+                              linkedPOsCache,
+                              allPOs,
+                              paginatedState,
+                            );
+                          }
+                          return SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: SingleChildScrollView(
+                              child: DataTable(
                             headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.05)),
                             columns: [
                               DataColumn(label: Text(l.importFileIdLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -1492,13 +1512,31 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text(shipDisplayName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline)),
+                                            Text(
+                                              shipDisplayName,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
+                                                decoration: TextDecoration.underline,
+                                              ),
+                                            ),
                                             if (shipDisplayName != file.importFileCode)
-                                              Text(file.importFileCode, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                                              Text(
+                                                file.importFileCode,
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF475569),
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
                                             if (file.clonedFromCode != null && file.clonedFromCode!.isNotEmpty)
                                               Text(
                                                 l.clonedFromBadge(file.clonedFromCode!),
-                                                style: const TextStyle(fontSize: 10, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                               ),
                                           ],
                                         ),
@@ -1521,7 +1559,13 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text('${l.poNumberShortPrefix}$poDisplay', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                          Text('${l.piNumberShortPrefix}$piDisplay', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
+                                          Text(
+                                            '${l.piNumberShortPrefix}$piDisplay',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF475569),
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -1545,8 +1589,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                       value: priorityText,
                                       rowSummary: rowSummary,
                                       child: Chip(
-                                        label: Text(priorityText, style: const TextStyle(fontSize: 10, color: Colors.white)),
-                                        backgroundColor: file.priority == 'High' || file.priority == 'Critical' ? Colors.red : Colors.orange,
+                                        label: Text(priorityText, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                                        backgroundColor: file.priority == 'High' || file.priority == 'Critical' ? AppTheme.wcagCrimson : AppTheme.wcagOrange,
                                       ),
                                     ),
                                   ),
@@ -1573,7 +1617,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                         child: Column(
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           children: [
-                                            LinearProgressIndicator(value: file.progressPercent / 100, backgroundColor: isDark ? AppTheme.darkBorder : Colors.grey.shade200, color: AppTheme.emerald),
+                                            LinearProgressIndicator(value: file.progressPercent / 100, backgroundColor: isDark ? AppTheme.darkBorder : Colors.grey.shade200, color: AppTheme.wcagEmerald),
                                             const SizedBox(height: 2),
                                             Text('${file.progressPercent.toInt()}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                                           ],
@@ -1600,11 +1644,12 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                       value: statusText,
                                       rowSummary: rowSummary,
                                       child: Chip(
-                                        label: Text(statusText, style: const TextStyle(fontSize: 10, color: Colors.white)),
-                                        backgroundColor: file.status == 'Open' ? Colors.green : Colors.grey,
+                                        label: Text(statusText, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                                        backgroundColor: file.status == 'Open' ? AppTheme.wcagEmerald : (isDark ? const Color(0xFF475569) : Colors.grey.shade600),
                                       ),
                                     ),
                                   ),
+
                                   DataCell(
                                     Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -1756,9 +1801,13 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                           }).toList(),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
+                ),
+              ),
             ),
+
+
             
             // Pagination controls
             if (!paginatedState.isLoading && paginatedState.items.isNotEmpty)
@@ -1812,4 +1861,236 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
       ),
     );
   }
+
+  // ─── Mobile Stacked Cards Layout (<768px Viewport) ─────────────────────────
+
+  Widget _buildMobileStackedCardsList(
+    BuildContext context,
+    List<ImportFileModel> items,
+    AppLocalizations l,
+    bool isDark,
+    Map<int, List<PurchaseOrderModel>> linkedPOsCache,
+    List<PurchaseOrderModel> allPOs,
+    dynamic paginatedState,
+  ) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(8),
+      itemCount: items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final file = items[index];
+        final priorityText = _getPriorityLabel(file.priority, l);
+        final statusText = _getStatusLabel(file.status, l);
+        final isAr = Localizations.localeOf(context).languageCode == 'ar';
+        final resolvedStage = DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr);
+        final shipDisplayName = DisplayNameResolver.resolveShipmentName(file, isArabic: isAr);
+
+        String poDisplay;
+        if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
+          poDisplay = file.poNumber!.trim();
+        } else {
+          final linkedPOs = linkedPOsCache.putIfAbsent(file.importFileId, () => ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs));
+          if (linkedPOs.isNotEmpty) {
+            poDisplay = linkedPOs.map((p) => (p.poReference != null && p.poReference!.trim().isNotEmpty && p.poReference != file.customFileNumber && p.poReference != file.importFileCode) ? p.poReference! : p.poNumber).join(', ');
+          } else {
+            poDisplay = '-';
+          }
+        }
+        final piDisplay = file.piNumber != null && file.piNumber!.trim().isNotEmpty ? file.piNumber!.trim() : '-';
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _highlightedFileId == file.importFileId
+                  ? AppTheme.cobalt
+                  : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              width: _highlightedFileId == file.importFileId ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: Shipment Name & Badges
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _showImportFileDetailsDialog(context, file),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            shipDisplayName,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            file.importFileCode,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF475569),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: [
+                      Chip(
+                        padding: EdgeInsets.zero,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        label: Text(priorityText, style: const TextStyle(fontSize: 9.5, color: Colors.white, fontWeight: FontWeight.bold)),
+                        backgroundColor: file.priority == 'High' || file.priority == 'Critical' ? AppTheme.wcagCrimson : AppTheme.wcagOrange,
+                      ),
+                      Chip(
+                        padding: EdgeInsets.zero,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        label: Text(statusText, style: const TextStyle(fontSize: 9.5, color: Colors.white, fontWeight: FontWeight.bold)),
+                        backgroundColor: file.status == 'Open' ? AppTheme.wcagEmerald : (isDark ? const Color(0xFF475569) : Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const Divider(height: 16),
+              // Importer & Supplier
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l.importingCompany, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
+                        Text(file.companyName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l.foreignSupplier, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
+                        Text(file.supplierName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // PO & Mode
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l.poInvoiceLabel, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
+                        Text('${l.poNumberShortPrefix}$poDisplay │ ${l.piNumberShortPrefix}$piDisplay', style: const TextStyle(fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l.transportModeIncoterm, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
+                        Text('${file.shipmentMode} (${file.incotermCode})', style: const TextStyle(fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Stage & Progress
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l.currentPhaseStage, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
+                        Text(resolvedStage, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: 90,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('${file.progressPercent.toInt()}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        LinearProgressIndicator(value: file.progressPercent / 100, color: AppTheme.wcagEmerald, backgroundColor: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // Actions row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.info_outline, size: 18),
+                    tooltip: l.viewDetails,
+                    onPressed: () => _showImportFileDetailsDialog(context, file),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    tooltip: l.edit,
+                    onPressed: () => _showAddEditFileDialog(file),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.playlist_add_check_circle, color: AppTheme.cobalt, size: 18),
+                    tooltip: 'قائمة التحقق الذكية',
+                    onPressed: () => SmartChecklistDialog.show(context, file),
+                  ),
+                  if (file.status != 'Closed')
+                    IconButton(
+                      icon: const Icon(Icons.cancel_outlined, color: AppTheme.wcagCrimson, size: 18),
+                      tooltip: l.stopShipmentTooltip,
+                      onPressed: () {
+                        StopShipmentDialog.show(
+                          context,
+                          importFile: file,
+                          currentPhaseName: file.currentModule,
+                          onSuccess: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page),
+                        );
+                      },
+                    )
+                  else
+                    IconButton(
+                      icon: const Icon(Icons.play_arrow, color: AppTheme.wcagEmerald, size: 18),
+                      tooltip: l.reopenShipmentTooltip,
+                      onPressed: () {
+                        ReopenShipmentDialog.show(
+                          context,
+                          importFile: file,
+                          onSuccess: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
+

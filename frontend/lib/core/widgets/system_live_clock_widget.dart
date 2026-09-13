@@ -821,17 +821,23 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Row 1: Standalone Date + Week Number
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  SystemDateWeekBadge(
-                    currentTime: _localNow,
-                    isDark: effectiveIsDark,
-                    isArabic: isAr,
-                  ),
-                  Tooltip(
-                    message: legendTooltip,
+              // Row 1: Standalone Date + Week Number (Horizontally scrollable on small viewports)
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth > 0 ? constraints.maxWidth : 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      SystemDateWeekBadge(
+                        currentTime: _localNow,
+                        isDark: effectiveIsDark,
+                        isArabic: isAr,
+                      ),
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: legendTooltip,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -884,7 +890,9 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
                   ),
                 ],
               ),
-              const SizedBox(height: 3),
+            ),
+          ),
+          const SizedBox(height: 3),
               // Row 2: Synchronized Clocks
               SystemWorldClocksBar(
                 currentTimeUtc: _nowUtc,

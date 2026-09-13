@@ -220,62 +220,153 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final authState = ref.watch(authProvider);
     final user = authState.user;
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        final isDesktop = screenWidth >= 1200;
+        final isTablet = screenWidth >= 768 && screenWidth < 1200;
+        final isMobile = screenWidth < 768;
+
+        // Auto-adapt sidebar based on responsive breakpoints:
+        // - Mobile: 0 width inline, accessible via Drawer
+        // - Tablet: mini icon rail (52px)
+        // - Desktop: full sidebar (255px) or manually collapsed (52px)
+        final bool isCollapsed = isTablet ? true : (isDesktop ? _isSidebarCollapsed : true);
+        final double sidebarWidth = isMobile ? 0 : (isCollapsed ? 52 : 255);
+
+        return Scaffold(
+          drawer: isMobile
+              ? Drawer(
+                  backgroundColor: AppTheme.isDark(context)
+                      ? const Color(0xFF141A22)
+                      : AppTheme.charcoal,
+                  child: SafeArea(
+                    child: _buildFullSidebar(currentRouteIndex, user),
+                  ),
+                )
+              : null,
+          body: Stack(
             children: [
-              // Animated Collapsible Professional Sidebar (52px <-> 255px)
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                width: _isSidebarCollapsed ? 52 : 255,
-                color: AppTheme.isDark(context)
-                    ? const Color(0xFF141A22)
-                    : AppTheme.charcoal,
-                child: _isSidebarCollapsed
-                    ? _buildCollapsedRail(currentRouteIndex, user)
-                    : _buildFullSidebar(currentRouteIndex, user),
+              Row(
+                children: [
+                  if (!isMobile)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      width: sidebarWidth,
+                      color: AppTheme.isDark(context)
+                          ? const Color(0xFF141A22)
+                          : AppTheme.charcoal,
+                      child: isCollapsed
+                          ? _buildCollapsedRail(currentRouteIndex, user)
+                          : _buildFullSidebar(currentRouteIndex, user),
+                    ),
+
+                  // Main Content View with Multi-Tab Workspace Bar
+                  Expanded(
+                    child: Column(
+                      children: [
+                        if (isMobile) _buildMobileTopNav(context),
+                        const SystemWorldClocksHeader(),
+                        const MultiTabWorkspaceBar(),
+                        Expanded(
+                          child: tabsState.tabs.isEmpty
+                              ? _screens[0]
+                              : IndexedStack(
+                                  index: safeActiveTabIndex < tabsState.tabs.length
+                                      ? safeActiveTabIndex
+                                      : 0,
+                                  children: [
+                                    for (final tab in tabsState.tabs)
+                                      KeyedSubtree(
+                                        key: ValueKey(tab.id),
+                                        child: _screens[tab.routeIndex < _screens.length
+                                            ? tab.routeIndex
+                                            : 0],
+                                      ),
+                                  ],
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
 
-              // Main Content View with Multi-Tab Workspace Bar
-              Expanded(
-                child: Column(
-                  children: [
-                    const SystemWorldClocksHeader(),
-                    const MultiTabWorkspaceBar(),
-                    Expanded(
-                      child: tabsState.tabs.isEmpty
-                          ? _screens[0]
-                          : IndexedStack(
-                              index: safeActiveTabIndex < tabsState.tabs.length
-                                  ? safeActiveTabIndex
-                                  : 0,
-                              children: [
-                                for (final tab in tabsState.tabs)
-                                  KeyedSubtree(
-                                    key: ValueKey(tab.id),
-                                    child: _screens[tab.routeIndex < _screens.length
-                                        ? tab.routeIndex
-                                        : 0],
-                                  ),
-                              ],
-                            ),
-                    ),
-                  ],
-                ),
-              ),
+              // Floating Persistent AI Assistant Overlay (Always on top across all screens)
+              const AiAssistantOverlay(),
             ],
           ),
+        );
+      },
+    );
 
-          // Floating Persistent AI Assistant Overlay (Always on top across all screens)
-          const AiAssistantOverlay(),
+  }
+
+
+
+  // ─── Mobile Top Nav with Hamburger Button (<768px width) ─────────────────
+
+  Widget _buildMobileTopNav(BuildContext context) {
+    final l = context.l10n;
+    final isDark = AppTheme.isDark(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF141A22) : AppTheme.charcoal,
+        border: Border(
+          bottom: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.black12, width: 0.8),
+        ),
+      ),
+      child: Row(
+        children: [
+          Builder(
+            builder: (ctx) => IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white, size: 22),
+              tooltip: l.expandSidebar,
+              onPressed: () => Scaffold.of(ctx).openDrawer(),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: AppTheme.cobalt,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 15),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              l.appTitle,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+            icon: Icon(
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              color: Colors.white70,
+              size: 15,
+            ),
+            tooltip: l.themeToggleTooltip,
+            onPressed: () => ref.read(themeModeProvider.notifier).toggleTheme(),
+          ),
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+            icon: const Icon(Icons.language, color: Colors.white70, size: 15),
+            tooltip: l.languageToggleTooltip,
+            onPressed: () => ref.read(localeProvider.notifier).toggleLocale(),
+          ),
         ],
       ),
     );
   }
-
-
 
   // ─── Mini Icon Rail (52px width) ───────────────────────────────────────────
 

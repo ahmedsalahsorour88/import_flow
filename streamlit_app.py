@@ -143,19 +143,66 @@ st.markdown("""
         margin-right: 6px;
     }
     
+    /* ─── Responsive Breakpoints & Adaptive Layout (WCAG AA Dark Mode) ─── */
     .workspace-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
+        background: #1e2631;
+        border: 1px solid #334155;
         border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        padding: clamp(12px, 2vw, 20px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         margin-top: 20px;
+        color: #ecf0f1;
     }
     
     .step-title-active {
-        font-size: 18px;
+        font-size: clamp(15px, 2vw, 18px);
         font-weight: 700;
-        color: #1e293b;
+        color: #38bdf8;
+    }
+
+    /* Table responsive horizontal scroll */
+    .stDataFrame, .element-container div[data-testid="stTable"] {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Breakpoint 1: Tablet (768px - 1199px) */
+    @media (max-width: 1199px) {
+        .main-title-container {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 18px;
+        }
+        .main-title-text { font-size: 19px; }
+        .main-sub-text { font-size: 12px; }
+        .col-header-amber, .col-header-cobalt, .col-header-emerald,
+        .col-header-red, .col-header-purple, .col-header-green {
+            font-size: 12px;
+            padding: 8px 6px;
+        }
+    }
+
+    /* Breakpoint 2: Mobile (< 768px) */
+    @media (max-width: 768px) {
+        .main-title-container {
+            padding: 12px 14px;
+        }
+        .main-title-text { font-size: 16px; }
+        .main-sub-text { font-size: 11px; }
+        .workspace-card {
+            padding: 12px;
+            margin-top: 12px;
+        }
+        div[data-testid="column"] {
+            min-width: 100% !important;
+            margin-bottom: 12px;
+        }
+        .phase-body-amber, .phase-body-cobalt, .phase-body-emerald,
+        .phase-body-red, .phase-body-purple, .phase-body-green {
+            min-height: auto;
+            margin-bottom: 16px;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
